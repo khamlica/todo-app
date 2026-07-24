@@ -80,6 +80,12 @@
       paletteAurora: "Aurore",
       paletteMeadow: "Prairie",
       paletteSunset: "Coucher",
+      editAria: "Modifier",
+      editTitle: "Modifier",
+      editNameLabel: "Nom",
+      editIconLabel: "Icône",
+      editDateNone: "Aucune date",
+      pinLabel: "Épingler",
       focusPhrases: [
         "Hedy est le meilleur",
         "Hedy est meilleur que bary",
@@ -135,6 +141,12 @@
       paletteAurora: "Aurora",
       paletteMeadow: "Meadow",
       paletteSunset: "Sunset",
+      editAria: "Edit",
+      editTitle: "Edit",
+      editNameLabel: "Name",
+      editIconLabel: "Icon",
+      editDateNone: "No date",
+      pinLabel: "Pin",
       focusPhrases: [
         "Breathe.",
         "One thing at a time.",
@@ -348,20 +360,24 @@
     label.textContent = item.text;
     label.addEventListener("click", function () { toggleItem(listName, item.id); });
 
-    const deleteButton = document.createElement("button");
-    deleteButton.className = "item__del";
-    deleteButton.setAttribute("aria-label", translate("deleteAria"));
-    deleteButton.textContent = "×";
-    deleteButton.addEventListener("click", function () { removeItem(listName, item.id); });
-
     row.append(checkbox, label);
+    if (item.pinned) row.appendChild(createPinMarker());
     if (item.dueDate) {
       row.appendChild(createDueBadge(item));
     }
     if (listName === "projects") {
       row.appendChild(createImportanceBars(item.importance || 0));
     }
-    row.appendChild(deleteButton);
+    if (editing[listName]) {   // edit & delete only in edit mode
+      row.appendChild(createEditButton(listName, item.id, "item__edit"));
+
+      const deleteButton = document.createElement("button");
+      deleteButton.className = "item__del";
+      deleteButton.setAttribute("aria-label", translate("deleteAria"));
+      deleteButton.textContent = "×";
+      deleteButton.addEventListener("click", function () { removeItem(listName, item.id); });
+      row.appendChild(deleteButton);
+    }
     return row;
   }
 
@@ -487,18 +503,22 @@
       icon.innerHTML = habitSvg(habit.icon);
     }
 
-    const del = document.createElement("button");
-    del.type = "button";
-    del.className = "habit__del";
-    del.setAttribute("aria-label", translate("habitDeleteAria"));
-    del.textContent = "×";
-    del.addEventListener("click", function (event) {
-      event.stopPropagation(); // don't also toggle the habit
-      removeHabit(habit.id);
-    });
-
     tile.addEventListener("click", function () { toggleHabit(habit.id, tile); });
-    tile.append(water, icon, del);
+    tile.append(water, icon);
+    if (editing.habits) {   // edit & delete only in edit mode
+      tile.appendChild(createEditButton("habits", habit.id, "habit__edit"));
+
+      const del = document.createElement("button");
+      del.type = "button";
+      del.className = "habit__del";
+      del.setAttribute("aria-label", translate("habitDeleteAria"));
+      del.textContent = "×";
+      del.addEventListener("click", function (event) {
+        event.stopPropagation(); // don't also toggle the habit
+        removeHabit(habit.id);
+      });
+      tile.appendChild(del);
+    }
     return tile;
   }
 
@@ -554,29 +574,46 @@
       choice.type = "button";
       choice.className = "icon-choice";
       choice.innerHTML = habitSvg(key);
-      choice.addEventListener("click", function () { addHabit(key); });
+      choice.addEventListener("click", function () { chooseIcon(key); });
       grid.appendChild(choice);
     }
   }
 
-  function addHabit(iconKey) {
-    const nameInput = document.getElementById("habitNameInput");
-    // name is stored but not shown; a future history graph will use it
-    state.habits.push({
-      id: Date.now().toString(),
-      name: nameInput.value.trim(),
-      icon: iconKey,
-      completedOn: null
-    });
+  let iconPickerMode = "new";   // "new" (create) or a habit id (change its icon)
+
+  /* Apply a picked icon: create a new habit, or update the edited one. */
+  function chooseIcon(iconKey) {
+    if (iconPickerMode === "new") {
+      const nameInput = document.getElementById("habitNameInput");
+      // name is stored but not shown; a future history graph will use it
+      state.habits.push({
+        id: Date.now().toString(),
+        name: nameInput.value.trim(),
+        icon: iconKey,
+        completedOn: null
+      });
+      nameInput.value = "";
+    } else {
+      const habit = findItem("habits", iconPickerMode);
+      if (habit) habit.icon = iconKey;
+    }
     saveState();
-    nameInput.value = "";
     iconPicker.hidden = true;
     renderHabits();
   }
 
-  /* open the picker with a fresh (empty) name field */
+  /* open to create a new habit (name field shown) */
   function openIconPicker() {
+    iconPickerMode = "new";
+    document.getElementById("habitNameField").hidden = false;
     document.getElementById("habitNameInput").value = "";
+    iconPicker.hidden = false;
+  }
+
+  /* open to change an existing habit's icon (name field hidden) */
+  function openIconPickerForEdit(habitId) {
+    iconPickerMode = habitId;
+    document.getElementById("habitNameField").hidden = true;
     iconPicker.hidden = false;
   }
 
@@ -645,16 +682,18 @@
     return year + "-" + String(month + 1).padStart(2, "0") + "-" + String(day).padStart(2, "0");
   }
 
-  /* Undated tasks stay first (in order); dated ones follow, soonest first. */
+  /* Pinned first, then undated (in order), then dated soonest-first. */
   function sortedByDue(items) {
+    const pinned = [];
     const undated = [];
     const dated = [];
     for (let i = 0; i < items.length; i++) {
-      if (items[i].dueDate) dated.push(items[i]);
+      if (items[i].pinned) pinned.push(items[i]);
+      else if (items[i].dueDate) dated.push(items[i]);
       else undated.push(items[i]);
     }
     dated.sort(function (a, b) { return dueSortKey(a) - dueSortKey(b); });
-    return undated.concat(dated);
+    return pinned.concat(undated, dated);
   }
 
   /* date-only tasks sort at the end of their day */
@@ -662,18 +701,22 @@
     return new Date(task.dueDate + "T" + (task.dueTime || "23:59")).getTime();
   }
 
-  /* Small localized badge like "24 juil. · 14:00", clickable to edit the date. */
-  function createDueBadge(task) {
+  /* "24 juil. · 14:00" — localized short due label. */
+  function dueLabel(task) {
     const locale = state.settings.language === "fr" ? "fr-FR" : "en-US";
     const when = new Date(task.dueDate + "T" + (task.dueTime || "00:00"));
     let text = when.toLocaleDateString(locale, { day: "numeric", month: "short" });
     if (task.dueTime) text += " · " + task.dueTime;
+    return text;
+  }
 
+  /* Small badge, clickable to edit the date. */
+  function createDueBadge(task) {
     const badge = document.createElement("button");
     badge.type = "button";
     badge.className = "item__due";
     if (!task.done && dueSortKey(task) < Date.now()) badge.classList.add("is-overdue");
-    badge.textContent = text;
+    badge.textContent = dueLabel(task);
     badge.addEventListener("click", function (event) {
       event.stopPropagation(); // don't toggle the task
       openCalendar(task.id);
@@ -835,6 +878,149 @@
       }
     }
     if (changed) saveState();
+  }
+
+  /* EDIT — rename items and tweak their properties (date / importance / icon), plus pin */
+  const editModal = document.getElementById("editModal");
+  const editName = document.getElementById("editName");
+  const editing = { tasks: false, projects: false, habits: false };
+  let editTarget = { list: null, id: null };
+
+  const ICON_PENCIL = '<path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>';
+  const ICON_FLOWER = '<circle cx="12" cy="6" r="3"/><circle cx="17.7" cy="10.15" r="3"/><circle cx="15.5" cy="16.85" r="3"/><circle cx="8.47" cy="16.85" r="3"/><circle cx="6.3" cy="10.15" r="3"/><circle cx="12" cy="12" r="2.2"/>';
+
+  function iconSvg(inner) {
+    return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" '
+         + 'stroke-linecap="round" stroke-linejoin="round">' + inner + '</svg>';
+  }
+
+  function findItem(list, id) {
+    const items = state[list];
+    for (let i = 0; i < items.length; i++) {
+      if (items[i].id === id) return items[i];
+    }
+    return null;
+  }
+
+  /* floral marker on a pinned task/project */
+  function createPinMarker() {
+    const pin = document.createElement("span");
+    pin.className = "item__pin";
+    pin.innerHTML = iconSvg(ICON_FLOWER);
+    return pin;
+  }
+
+  /* per-item pencil shown while a panel is in edit mode */
+  function createEditButton(list, id, className) {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = className;
+    btn.setAttribute("aria-label", translate("editAria"));
+    btn.innerHTML = iconSvg(ICON_PENCIL);
+    btn.addEventListener("click", function (event) {
+      event.stopPropagation();
+      openEdit(list, id);
+    });
+    return btn;
+  }
+
+  /* toggle a panel's edit mode, then redraw it */
+  function toggleEditing(list) {
+    editing[list] = !editing[list];
+    document.querySelector('[data-edit="' + list + '"]').classList.toggle("is-active", editing[list]);
+    if (list === "habits") renderHabits();
+    else renderList(list);
+  }
+
+  /* open the edit dialog for an item, showing the fields it supports */
+  function openEdit(list, id) {
+    editTarget = { list: list, id: id };
+    const item = findItem(list, id);
+    if (!item) return;
+
+    editName.value = list === "habits" ? (item.name || "") : item.text;
+
+    const isTask = list === "tasks";
+    const isProject = list === "projects";
+    const isHabit = list === "habits";
+    document.getElementById("editDateField").hidden = !isTask;
+    document.getElementById("editImpField").hidden = !isProject;
+    document.getElementById("editIconField").hidden = !isHabit;
+    document.getElementById("editPinBtn").hidden = isHabit;
+
+    if (isTask) refreshEditDate(item);
+    if (isProject) renderEditImportance(item);
+    if (isHabit) refreshEditIcon(item);
+    if (!isHabit) refreshEditPin(item);
+
+    editModal.hidden = false;
+  }
+
+  function refreshEditDate(task) {
+    document.getElementById("editDateBtn").textContent = task.dueDate ? dueLabel(task) : translate("editDateNone");
+  }
+  function refreshEditIcon(habit) {
+    document.getElementById("editIconBtn").innerHTML = HABIT_ICONS[habit.icon] ? habitSvg(habit.icon) : "";
+  }
+  function refreshEditPin(item) {
+    document.getElementById("editPinBtn").classList.toggle("is-on", !!item.pinned);
+  }
+  function renderEditImportance(project) {
+    const box = document.getElementById("editImp");
+    box.innerHTML = "";
+    box.appendChild(createImportanceBars(project.importance || 0, function (level) {
+      project.importance = project.importance === level ? 0 : level;
+      saveState();
+      renderList("projects");
+      renderEditImportance(project);
+    }));
+  }
+
+  /* name: live rename */
+  editName.addEventListener("input", function () {
+    const item = findItem(editTarget.list, editTarget.id);
+    if (!item) return;
+    const value = editName.value.trim();
+    if (editTarget.list === "habits") item.name = value;
+    else item.text = value;
+    saveState();
+    if (editTarget.list === "habits") renderHabits();
+    else renderList(editTarget.list);
+  });
+
+  /* date and icon hand off to their existing pickers */
+  document.getElementById("editDateBtn").addEventListener("click", function () {
+    editModal.hidden = true;
+    openCalendar(editTarget.id);
+  });
+  document.getElementById("editIconBtn").addEventListener("click", function () {
+    editModal.hidden = true;
+    openIconPickerForEdit(editTarget.id);
+  });
+
+  document.getElementById("editPinBtn").addEventListener("click", function () {
+    const item = findItem(editTarget.list, editTarget.id);
+    if (!item) return;
+    item.pinned = !item.pinned;
+    saveState();
+    renderList(editTarget.list);
+    refreshEditPin(item);
+  });
+
+  document.getElementById("editDelete").addEventListener("click", function () {
+    if (editTarget.list === "habits") removeHabit(editTarget.id);
+    else removeItem(editTarget.list, editTarget.id);
+    editModal.hidden = true;
+  });
+
+  const editCloseButtons = editModal.querySelectorAll("[data-close]");
+  for (let i = 0; i < editCloseButtons.length; i++) {
+    editCloseButtons[i].addEventListener("click", function () { editModal.hidden = true; });
+  }
+
+  const editButtons = document.querySelectorAll("[data-edit]");
+  for (let i = 0; i < editButtons.length; i++) {
+    editButtons[i].addEventListener("click", function () { toggleEditing(this.dataset.edit); });
   }
 
   applyTheme(state.settings.theme);
