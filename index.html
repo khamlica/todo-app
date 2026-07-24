@@ -39,14 +39,11 @@
   <!-- app -->
   <main id="app" class="app" hidden>
 
+    <p class="clock" id="clock"></p>
+
     <!-- daily tasks -->
     <section class="panel">
-      <div class="panel__head">
-        <h2 class="panel__title" data-i18n="tasksTitle">Vos tâches du jour</h2>
-        <button class="panel__action" type="button" data-edit="tasks" data-i18n-aria="editAria" aria-label="Modifier">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
-        </button>
-      </div>
+      <h2 class="panel__title" data-i18n="tasksTitle">Vos tâches du jour</h2>
       <form class="add" data-list="tasks">
         <input class="add__input" type="text" data-i18n-placeholder="addTaskPlaceholder" data-i18n-aria="taskInputAria"
                placeholder="Ajouter une tâche…" aria-label="Nouvelle tâche" required>
@@ -62,12 +59,7 @@
 
     <!-- projects -->
     <section class="panel">
-      <div class="panel__head">
-        <h2 class="panel__title" data-i18n="projectsTitle">Vos projets</h2>
-        <button class="panel__action" type="button" data-edit="projects" data-i18n-aria="editAria" aria-label="Modifier">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
-        </button>
-      </div>
+      <h2 class="panel__title" data-i18n="projectsTitle">Vos projets</h2>
       <form class="add" data-list="projects">
         <input class="add__input" type="text" data-i18n-placeholder="addProjectPlaceholder" data-i18n-aria="projectInputAria"
                placeholder="Ajouter un projet…" aria-label="Nouveau projet" required>
@@ -81,8 +73,8 @@
     <section class="panel">
       <div class="panel__head">
         <h2 class="panel__title" data-i18n="habitsTitle">Vos habitudes</h2>
-        <button class="panel__action" type="button" data-edit="habits" data-i18n-aria="editAria" aria-label="Modifier">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/></svg>
+        <button class="panel__action" id="habitsViewBtn" type="button" data-i18n-aria="habitsHistoryAria" aria-label="Suivi des habitudes">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/></svg>
         </button>
       </div>
       <div class="habits" id="habitsGrid"></div>
@@ -104,6 +96,38 @@
     </section>
 
   </main>
+
+  <!-- task/project detail view -->
+  <div id="detail" class="detail" hidden>
+    <div class="detail__bar">
+      <button id="detailBack" class="detail__back" type="button" data-i18n-aria="backAria" aria-label="Retour">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6"/></svg>
+      </button>
+      <button id="detailPin" class="detail__pin" type="button" data-i18n-aria="pinLabel" aria-label="Épingler">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="6" r="3"/><circle cx="17.7" cy="10.15" r="3"/><circle cx="15.5" cy="16.85" r="3"/><circle cx="8.47" cy="16.85" r="3"/><circle cx="6.3" cy="10.15" r="3"/><circle cx="12" cy="12" r="2.2"/></svg>
+      </button>
+    </div>
+    <div class="detail__body">
+      <input id="detailName" class="detail__name" type="text" maxlength="120">
+      <div id="detailProps" class="detail__props"></div>
+
+      <div class="detail__section">
+        <span class="detail__label" data-i18n="notesLabel">Notes</span>
+        <textarea id="detailNotes" class="detail__notes" rows="4" data-i18n-placeholder="notesPlaceholder" placeholder="Ajouter des notes…"></textarea>
+      </div>
+
+      <div class="detail__section">
+        <span class="detail__label" data-i18n="subtasksLabel">Sous-tâches</span>
+        <form id="subtaskForm" class="sub-add">
+          <input id="subtaskInput" class="add__input" type="text" data-i18n-placeholder="addSubtaskPlaceholder" placeholder="Ajouter une sous-tâche…" required>
+          <button class="add__btn" type="submit" data-i18n-aria="addAria" aria-label="Ajouter">+</button>
+        </form>
+        <ul id="subtaskList" class="list"></ul>
+      </div>
+
+      <button id="detailDelete" class="detail__delete" type="button" data-i18n="deleteAria">Supprimer</button>
+    </div>
+  </div>
 
   <!-- focus overlay -->
   <div id="focus" class="focus" hidden>
@@ -179,43 +203,16 @@
     </div>
   </div>
 
-  <!-- edit item -->
-  <div id="editModal" class="modal" hidden>
-    <div class="modal__backdrop" data-close></div>
-    <div class="modal__card">
-      <div class="modal__head">
-        <h2 class="modal__title" data-i18n="editTitle">Modifier</h2>
-        <button class="modal__close" data-close data-i18n-aria="closeAria" aria-label="Fermer">×</button>
-      </div>
-
-      <label class="field">
-        <span class="field__label" data-i18n="editNameLabel">Nom</span>
-        <input id="editName" class="field__input" type="text" maxlength="80">
-      </label>
-
-      <div class="field" id="editDateField">
-        <span class="field__label" data-i18n="calendarTitle">Échéance</span>
-        <button type="button" id="editDateBtn" class="edit-prop"></button>
-      </div>
-
-      <div class="field" id="editImpField">
-        <span class="field__label" data-i18n="importanceAria">Importance</span>
-        <div id="editImp"></div>
-      </div>
-
-      <div class="field" id="editIconField">
-        <span class="field__label" data-i18n="editIconLabel">Icône</span>
-        <button type="button" id="editIconBtn" class="edit-prop edit-prop--icon"></button>
-      </div>
-
-      <button type="button" id="editPinBtn" class="edit-pin">
-        <span class="edit-pin__flower"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="6" r="3"/><circle cx="17.7" cy="10.15" r="3"/><circle cx="15.5" cy="16.85" r="3"/><circle cx="8.47" cy="16.85" r="3"/><circle cx="6.3" cy="10.15" r="3"/><circle cx="12" cy="12" r="2.2"/></svg></span>
-        <span data-i18n="pinLabel">Épingler</span>
+  <!-- habits management + history -->
+  <div id="habitsView" class="detail" hidden>
+    <div class="detail__bar">
+      <button id="habitsBack" class="detail__back" type="button" data-i18n-aria="backAria" aria-label="Retour">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6"/></svg>
       </button>
-
-      <div class="cal__actions">
-        <button type="button" id="editDelete" class="cal__clear" data-i18n="deleteAria">Supprimer</button>
-      </div>
+    </div>
+    <div class="detail__body">
+      <h2 class="detail__viewtitle" data-i18n="habitsTitle">Vos habitudes</h2>
+      <div id="habitsViewBody"></div>
     </div>
   </div>
 

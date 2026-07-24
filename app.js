@@ -9,10 +9,17 @@
   function loadState() {
     try {
       const saved = JSON.parse(localStorage.getItem(STORAGE_KEY)) || {};
+      const habits = saved.habits || [];
+      for (let i = 0; i < habits.length; i++) {   // migrate old single completedOn -> completedDates
+        if (!habits[i].completedDates) {
+          habits[i].completedDates = habits[i].completedOn ? [habits[i].completedOn] : [];
+        }
+        delete habits[i].completedOn;
+      }
       return {
         tasks: saved.tasks || [],
         projects: saved.projects || [],
-        habits: saved.habits || [],
+        habits: habits,
         settings: {
           name: (saved.settings && saved.settings.name) || "",
           theme: (saved.settings && saved.settings.theme) || "light",
@@ -86,6 +93,14 @@
       editIconLabel: "Icône",
       editDateNone: "Aucune date",
       pinLabel: "Épingler",
+      backAria: "Retour",
+      notesLabel: "Notes",
+      notesPlaceholder: "Ajouter des notes…",
+      subtasksLabel: "Sous-tâches",
+      addSubtaskPlaceholder: "Ajouter une sous-tâche…",
+      habitsHistoryAria: "Suivi des habitudes",
+      historyLabel: "Historique",
+      streakLabel: "Série",
       focusPhrases: [
         "Hedy est le meilleur",
         "Hedy est meilleur que bary",
@@ -147,6 +162,14 @@
       editIconLabel: "Icon",
       editDateNone: "No date",
       pinLabel: "Pin",
+      backAria: "Back",
+      notesLabel: "Notes",
+      notesPlaceholder: "Add notes…",
+      subtasksLabel: "Subtasks",
+      addSubtaskPlaceholder: "Add a subtask…",
+      habitsHistoryAria: "Habit tracking",
+      historyLabel: "History",
+      streakLabel: "Streak",
       focusPhrases: [
         "Breathe.",
         "One thing at a time.",
@@ -225,10 +248,18 @@
   const welcomeScreen = document.getElementById("welcome");
   const appScreen = document.getElementById("app");
 
+  /* circular "iris" opening from the bubble to reveal the app behind */
   document.getElementById("enterBtn").addEventListener("click", function () {
-    welcomeScreen.classList.add("is-hidden");
-    appScreen.hidden = false;
-    setTimeout(function () { welcomeScreen.style.display = "none"; }, 600); // remove after fade
+    const rect = this.getBoundingClientRect();
+    const cx = rect.left + rect.width / 2;
+    const cy = rect.top + rect.height / 2;
+    const maxR = Math.hypot(Math.max(cx, window.innerWidth - cx), Math.max(cy, window.innerHeight - cy));
+
+    appScreen.hidden = false;   // app waits behind the welcome
+    welcomeScreen.style.setProperty("--rx", cx + "px");
+    welcomeScreen.style.setProperty("--ry", cy + "px");
+    welcomeScreen.style.setProperty("--reveal", maxR + "px");   // grows the transparent hole
+    setTimeout(function () { welcomeScreen.style.display = "none"; }, 800);
   });
 
   const settingsModal = document.getElementById("settings");
@@ -279,6 +310,7 @@
       renderList("tasks");     // refresh empty text and delete labels
       renderList("projects");
       renderHabits();
+      renderClock();
       saveState();
     });
   }
@@ -348,35 +380,30 @@
   /* Build one row: checkbox, label, delete button. */
   function createItemRow(listName, item) {
     const row = document.createElement("li");
-    row.className = item.done ? "item done" : "item";
+    row.className = item.done ? "item item--open done" : "item item--open";
+    row.addEventListener("click", function () { openDetail(listName, item.id); });
 
     const checkbox = document.createElement("span");
     checkbox.className = "item__check";
     checkbox.textContent = item.done ? "✓" : "";
-    checkbox.addEventListener("click", function () { toggleItem(listName, item.id); });
+    checkbox.addEventListener("click", function (event) {
+      event.stopPropagation();   // the box toggles; the rest of the row opens the detail
+      toggleItem(listName, item.id);
+    });
 
     const label = document.createElement("span");
     label.className = "item__text";
     label.textContent = item.text;
-    label.addEventListener("click", function () { toggleItem(listName, item.id); });
 
     row.append(checkbox, label);
+    if (item.notes && item.notes.trim()) row.appendChild(createNoteMark());
+    if (item.subtasks && item.subtasks.length) row.appendChild(createSubBadge(item));
     if (item.pinned) row.appendChild(createPinMarker());
     if (item.dueDate) {
       row.appendChild(createDueBadge(item));
     }
     if (listName === "projects") {
       row.appendChild(createImportanceBars(item.importance || 0));
-    }
-    if (editing[listName]) {   // edit & delete only in edit mode
-      row.appendChild(createEditButton(listName, item.id, "item__edit"));
-
-      const deleteButton = document.createElement("button");
-      deleteButton.className = "item__del";
-      deleteButton.setAttribute("aria-label", translate("deleteAria"));
-      deleteButton.textContent = "×";
-      deleteButton.addEventListener("click", function () { removeItem(listName, item.id); });
-      row.appendChild(deleteButton);
     }
     return row;
   }
@@ -490,8 +517,9 @@
 
   /* A filled habit: icon, rising water, delete button. */
   function createHabitTile(habit, today) {
+    const done = !!(habit.completedDates && habit.completedDates.indexOf(today) !== -1);
     const tile = document.createElement("div");
-    tile.className = habit.completedOn === today ? "habit done" : "habit";
+    tile.className = done ? "habit done" : "habit";
     tile.setAttribute("aria-label", translate("habitToggleAria"));
 
     const water = document.createElement("div");
@@ -505,20 +533,6 @@
 
     tile.addEventListener("click", function () { toggleHabit(habit.id, tile); });
     tile.append(water, icon);
-    if (editing.habits) {   // edit & delete only in edit mode
-      tile.appendChild(createEditButton("habits", habit.id, "habit__edit"));
-
-      const del = document.createElement("button");
-      del.type = "button";
-      del.className = "habit__del";
-      del.setAttribute("aria-label", translate("habitDeleteAria"));
-      del.textContent = "×";
-      del.addEventListener("click", function (event) {
-        event.stopPropagation(); // don't also toggle the habit
-        removeHabit(habit.id);
-      });
-      tile.appendChild(del);
-    }
     return tile;
   }
 
@@ -541,14 +555,14 @@
   /* Complete or un-complete for today. Toggling the class drives the water. */
   function toggleHabit(id, tile) {
     const today = todayKey();
-    for (let i = 0; i < state.habits.length; i++) {
-      if (state.habits[i].id === id) {
-        const nowDone = state.habits[i].completedOn !== today;
-        state.habits[i].completedOn = nowDone ? today : null;
-        tile.classList.toggle("done", nowDone);
-        break;
-      }
-    }
+    const habit = findItem("habits", id);
+    if (!habit) return;
+    if (!habit.completedDates) habit.completedDates = [];
+    const at = habit.completedDates.indexOf(today);
+    const nowDone = at === -1;
+    if (nowDone) habit.completedDates.push(today);
+    else habit.completedDates.splice(at, 1);
+    tile.classList.toggle("done", nowDone);
     saveState();
   }
 
@@ -590,7 +604,7 @@
         id: Date.now().toString(),
         name: nameInput.value.trim(),
         icon: iconKey,
-        completedOn: null
+        completedDates: []
       });
       nameInput.value = "";
     } else {
@@ -600,6 +614,7 @@
     saveState();
     iconPicker.hidden = true;
     renderHabits();
+    if (!habitsView.hidden) renderHabitsView();   // reflect an icon change in the view
   }
 
   /* open to create a new habit (name field shown) */
@@ -803,6 +818,7 @@
         task.notified = false;   // re-arm the reminder
         saveState();
         renderList("tasks");
+        refreshDetailIfOpen();
       }
     }
     if (date && time) ensureNotifyPermission();
@@ -880,13 +896,7 @@
     if (changed) saveState();
   }
 
-  /* EDIT — rename items and tweak their properties (date / importance / icon), plus pin */
-  const editModal = document.getElementById("editModal");
-  const editName = document.getElementById("editName");
-  const editing = { tasks: false, projects: false, habits: false };
-  let editTarget = { list: null, id: null };
-
-  const ICON_PENCIL = '<path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4L16.5 3.5z"/>';
+  /* SHARED — small helpers used across the views */
   const ICON_FLOWER = '<circle cx="12" cy="6" r="3"/><circle cx="17.7" cy="10.15" r="3"/><circle cx="15.5" cy="16.85" r="3"/><circle cx="8.47" cy="16.85" r="3"/><circle cx="6.3" cy="10.15" r="3"/><circle cx="12" cy="12" r="2.2"/>';
 
   function iconSvg(inner) {
@@ -910,118 +920,352 @@
     return pin;
   }
 
-  /* per-item pencil shown while a panel is in edit mode */
-  function createEditButton(list, id, className) {
-    const btn = document.createElement("button");
-    btn.type = "button";
-    btn.className = className;
-    btn.setAttribute("aria-label", translate("editAria"));
-    btn.innerHTML = iconSvg(ICON_PENCIL);
-    btn.addEventListener("click", function (event) {
-      event.stopPropagation();
-      openEdit(list, id);
+  /* HABITS VIEW — manage all habits (rename / icon / delete) + completion history */
+  const habitsView = document.getElementById("habitsView");
+  const habitsViewBody = document.getElementById("habitsViewBody");
+
+  function openHabitsView() {
+    renderHabitsView();
+    habitsView.hidden = false;
+    requestAnimationFrame(function () { habitsView.classList.add("is-open"); });   // slide in
+  }
+  function closeHabitsView() {
+    habitsView.classList.remove("is-open");
+    setTimeout(function () { habitsView.hidden = true; }, 300);
+  }
+
+  function renderHabitsView() {
+    habitsViewBody.innerHTML = "";
+    if (state.habits.length === 0) {
+      const empty = document.createElement("p");
+      empty.className = "detail__empty";
+      empty.textContent = translate("emptyList");
+      habitsViewBody.appendChild(empty);
+      return;
+    }
+    for (let i = 0; i < state.habits.length; i++) {
+      habitsViewBody.appendChild(createHabitCard(state.habits[i]));
+    }
+  }
+
+  /* one habit: icon (tap to change), name, delete, streak, history heatmap */
+  function createHabitCard(habit) {
+    const card = document.createElement("div");
+    card.className = "hcard";
+
+    const iconBtn = document.createElement("button");
+    iconBtn.type = "button";
+    iconBtn.className = "hcard__icon";
+    iconBtn.setAttribute("aria-label", translate("editIconLabel"));
+    iconBtn.innerHTML = HABIT_ICONS[habit.icon] ? habitSvg(habit.icon) : "";
+    iconBtn.addEventListener("click", function () { openIconPickerForEdit(habit.id); });
+
+    const nameInput = document.createElement("input");
+    nameInput.type = "text";
+    nameInput.className = "hcard__name";
+    nameInput.maxLength = 40;
+    nameInput.value = habit.name || "";
+    nameInput.addEventListener("input", function () {
+      habit.name = nameInput.value;
+      saveState();
     });
-    return btn;
+
+    const del = document.createElement("button");
+    del.type = "button";
+    del.className = "hcard__del";
+    del.setAttribute("aria-label", translate("habitDeleteAria"));
+    del.textContent = "×";
+    del.addEventListener("click", function () {
+      removeHabit(habit.id);
+      renderHabitsView();
+    });
+
+    const head = document.createElement("div");
+    head.className = "hcard__head";
+    head.append(iconBtn, nameInput, del);
+
+    const stats = document.createElement("div");
+    stats.className = "hcard__stats";
+    const histLabel = document.createElement("span");
+    histLabel.textContent = translate("historyLabel");
+    const streak = document.createElement("span");
+    streak.className = "hcard__streak";
+    streak.textContent = translate("streakLabel") + " " + habitStreak(habit);
+    stats.append(histLabel, streak);
+
+    card.append(head, stats, createHeatmap(habit));
+    return card;
   }
 
-  /* toggle a panel's edit mode, then redraw it */
-  function toggleEditing(list) {
-    editing[list] = !editing[list];
-    document.querySelector('[data-edit="' + list + '"]').classList.toggle("is-active", editing[list]);
-    if (list === "habits") renderHabits();
-    else renderList(list);
+  /* completed dates as a lookup object */
+  function completedSet(habit) {
+    const set = {};
+    const dates = habit.completedDates || [];
+    for (let i = 0; i < dates.length; i++) set[dates[i]] = true;
+    return set;
   }
 
-  /* open the edit dialog for an item, showing the fields it supports */
-  function openEdit(list, id) {
-    editTarget = { list: list, id: id };
+  /* consecutive completed days ending today (or yesterday if today isn't done yet) */
+  function habitStreak(habit) {
+    const set = completedSet(habit);
+    const day = new Date();
+    if (!set[todayKey()]) day.setDate(day.getDate() - 1);
+    let streak = 0;
+    while (set[dateKey(day.getFullYear(), day.getMonth(), day.getDate())]) {
+      streak++;
+      day.setDate(day.getDate() - 1);
+    }
+    return streak;
+  }
+
+  /* contribution grid: 13 weeks x 7 days, filled on completed days */
+  function createHeatmap(habit) {
+    const set = completedSet(habit);
+    const today = new Date();
+    const todayK = todayKey();
+    const grid = document.createElement("div");
+    grid.className = "heat";
+
+    const weeks = 13;
+    const start = new Date(today);
+    start.setDate(today.getDate() - (weeks - 1) * 7 - ((today.getDay() + 6) % 7));   // back to a Monday
+    for (let w = 0; w < weeks; w++) {
+      const col = document.createElement("div");
+      col.className = "heat__col";
+      for (let d = 0; d < 7; d++) {
+        const day = new Date(start);
+        day.setDate(start.getDate() + w * 7 + d);
+        const key = dateKey(day.getFullYear(), day.getMonth(), day.getDate());
+        const cell = document.createElement("span");
+        cell.className = "heat__cell";
+        if (day > today) cell.classList.add("is-future");
+        else if (set[key]) cell.classList.add("is-on");
+        if (key === todayK) cell.classList.add("is-today");
+        col.appendChild(cell);
+      }
+      grid.appendChild(col);
+    }
+    return grid;
+  }
+
+  document.getElementById("habitsViewBtn").addEventListener("click", openHabitsView);
+  document.getElementById("habitsBack").addEventListener("click", closeHabitsView);
+  document.addEventListener("keydown", function (event) {
+    if (event.key === "Escape" && !habitsView.hidden) closeHabitsView();
+  });
+
+  /* CLOCK — big localized "il est 15 heures 26" / "it is 3:26 PM" */
+  const clock = document.getElementById("clock");
+  function renderClock() {
+    const now = new Date();
+    const h = now.getHours();
+    const m = String(now.getMinutes()).padStart(2, "0");
+    if (state.settings.language === "fr") {
+      clock.textContent = "il est " + h + " " + (h <= 1 ? "heure" : "heures") + " " + m;
+    } else {
+      const suffix = h < 12 ? "AM" : "PM";
+      const h12 = (h % 12) === 0 ? 12 : (h % 12);
+      clock.textContent = "it is " + h12 + ":" + m + " " + suffix;
+    }
+  }
+
+  /* DETAIL — full-screen view of a task/project: rename, props, notes, subtasks */
+  const detail = document.getElementById("detail");
+  const detailName = document.getElementById("detailName");
+  const detailProps = document.getElementById("detailProps");
+  const detailPin = document.getElementById("detailPin");
+  const detailNotes = document.getElementById("detailNotes");
+  const subtaskList = document.getElementById("subtaskList");
+  let detailTarget = { list: null, id: null };
+
+  const ICON_NOTE = '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="13" y2="17"/>';
+
+  /* small "has notes" mark on a row */
+  function createNoteMark() {
+    const mark = document.createElement("span");
+    mark.className = "item__note";
+    mark.innerHTML = iconSvg(ICON_NOTE);
+    return mark;
+  }
+
+  /* "2/5" subtask progress badge on a row */
+  function createSubBadge(item) {
+    let done = 0;
+    for (let i = 0; i < item.subtasks.length; i++) {
+      if (item.subtasks[i].done) done++;
+    }
+    const badge = document.createElement("span");
+    badge.className = "item__sub";
+    badge.textContent = done + "/" + item.subtasks.length;
+    return badge;
+  }
+
+  /* label + control wrapper (reuses the .field look) */
+  function detailField(labelText, control) {
+    const field = document.createElement("div");
+    field.className = "field";
+    const label = document.createElement("span");
+    label.className = "field__label";
+    label.textContent = labelText;
+    field.append(label, control);
+    return field;
+  }
+
+  /* type-specific controls — add per-type fields here (modular) */
+  function renderDetailProps(item, list) {
+    detailProps.innerHTML = "";
+    if (list === "tasks") {
+      const dateBtn = document.createElement("button");
+      dateBtn.type = "button";
+      dateBtn.className = "edit-prop";
+      dateBtn.textContent = item.dueDate ? dueLabel(item) : translate("editDateNone");
+      dateBtn.addEventListener("click", function () { openCalendar(item.id); });
+      detailProps.appendChild(detailField(translate("calendarTitle"), dateBtn));
+    } else if (list === "projects") {
+      const bars = createImportanceBars(item.importance || 0, function (level) {
+        item.importance = item.importance === level ? 0 : level;
+        saveState();
+        renderList("projects");
+        renderDetailProps(item, "projects");
+      });
+      detailProps.appendChild(detailField(translate("importanceAria"), bars));
+    }
+  }
+
+  function openDetail(list, id) {
+    detailTarget = { list: list, id: id };
     const item = findItem(list, id);
     if (!item) return;
-
-    editName.value = list === "habits" ? (item.name || "") : item.text;
-
-    const isTask = list === "tasks";
-    const isProject = list === "projects";
-    const isHabit = list === "habits";
-    document.getElementById("editDateField").hidden = !isTask;
-    document.getElementById("editImpField").hidden = !isProject;
-    document.getElementById("editIconField").hidden = !isHabit;
-    document.getElementById("editPinBtn").hidden = isHabit;
-
-    if (isTask) refreshEditDate(item);
-    if (isProject) renderEditImportance(item);
-    if (isHabit) refreshEditIcon(item);
-    if (!isHabit) refreshEditPin(item);
-
-    editModal.hidden = false;
+    detailName.value = item.text;
+    renderDetailProps(item, list);
+    detailPin.classList.toggle("is-on", !!item.pinned);
+    detailNotes.value = item.notes || "";
+    renderSubtasks(item);
+    detail.hidden = false;
+    requestAnimationFrame(function () { detail.classList.add("is-open"); });   // slide in
   }
 
-  function refreshEditDate(task) {
-    document.getElementById("editDateBtn").textContent = task.dueDate ? dueLabel(task) : translate("editDateNone");
-  }
-  function refreshEditIcon(habit) {
-    document.getElementById("editIconBtn").innerHTML = HABIT_ICONS[habit.icon] ? habitSvg(habit.icon) : "";
-  }
-  function refreshEditPin(item) {
-    document.getElementById("editPinBtn").classList.toggle("is-on", !!item.pinned);
-  }
-  function renderEditImportance(project) {
-    const box = document.getElementById("editImp");
-    box.innerHTML = "";
-    box.appendChild(createImportanceBars(project.importance || 0, function (level) {
-      project.importance = project.importance === level ? 0 : level;
-      saveState();
-      renderList("projects");
-      renderEditImportance(project);
-    }));
+  function closeDetail() {
+    detail.classList.remove("is-open");
+    setTimeout(function () { detail.hidden = true; }, 300);   // after the slide out
   }
 
-  /* name: live rename */
-  editName.addEventListener("input", function () {
-    const item = findItem(editTarget.list, editTarget.id);
-    if (!item) return;
-    const value = editName.value.trim();
-    if (editTarget.list === "habits") item.name = value;
-    else item.text = value;
+  /* refresh the type-specific controls after the calendar edits a date */
+  function refreshDetailIfOpen() {
+    if (detail.hidden) return;
+    const item = findItem(detailTarget.list, detailTarget.id);
+    if (item) renderDetailProps(item, detailTarget.list);
+  }
+
+  /* SUBTASKS */
+  function renderSubtasks(item) {
+    subtaskList.innerHTML = "";
+    const subs = item.subtasks || [];
+    for (let i = 0; i < subs.length; i++) {
+      subtaskList.appendChild(createSubtaskRow(item, subs[i]));
+    }
+  }
+
+  function createSubtaskRow(item, sub) {
+    const row = document.createElement("li");
+    row.className = sub.done ? "item done" : "item";
+
+    const checkbox = document.createElement("span");
+    checkbox.className = "item__check";
+    checkbox.textContent = sub.done ? "✓" : "";
+    checkbox.addEventListener("click", function () { toggleSubtask(item, sub.id); });
+
+    const label = document.createElement("span");
+    label.className = "item__text";
+    label.textContent = sub.text;
+    label.addEventListener("click", function () { toggleSubtask(item, sub.id); });
+
+    const del = document.createElement("button");
+    del.type = "button";
+    del.className = "item__del";
+    del.setAttribute("aria-label", translate("deleteAria"));
+    del.textContent = "×";
+    del.addEventListener("click", function () { removeSubtask(item, sub.id); });
+
+    row.append(checkbox, label, del);
+    return row;
+  }
+
+  function toggleSubtask(item, subId) {
+    for (let i = 0; i < item.subtasks.length; i++) {
+      if (item.subtasks[i].id === subId) {
+        item.subtasks[i].done = !item.subtasks[i].done;
+        break;
+      }
+    }
     saveState();
-    if (editTarget.list === "habits") renderHabits();
-    else renderList(editTarget.list);
+    renderSubtasks(item);
+    renderList(detailTarget.list);   // refresh the row badge
+  }
+
+  function removeSubtask(item, subId) {
+    for (let i = 0; i < item.subtasks.length; i++) {
+      if (item.subtasks[i].id === subId) {
+        item.subtasks.splice(i, 1);
+        break;
+      }
+    }
+    saveState();
+    renderSubtasks(item);
+    renderList(detailTarget.list);
+  }
+
+  /* live rename */
+  detailName.addEventListener("input", function () {
+    const item = findItem(detailTarget.list, detailTarget.id);
+    if (!item) return;
+    item.text = detailName.value;
+    saveState();
+    renderList(detailTarget.list);
   });
 
-  /* date and icon hand off to their existing pickers */
-  document.getElementById("editDateBtn").addEventListener("click", function () {
-    editModal.hidden = true;
-    openCalendar(editTarget.id);
-  });
-  document.getElementById("editIconBtn").addEventListener("click", function () {
-    editModal.hidden = true;
-    openIconPickerForEdit(editTarget.id);
+  /* auto-saved notes */
+  detailNotes.addEventListener("input", function () {
+    const item = findItem(detailTarget.list, detailTarget.id);
+    if (!item) return;
+    item.notes = detailNotes.value;
+    saveState();
+    renderList(detailTarget.list);   // refresh the note mark
   });
 
-  document.getElementById("editPinBtn").addEventListener("click", function () {
-    const item = findItem(editTarget.list, editTarget.id);
+  detailPin.addEventListener("click", function () {
+    const item = findItem(detailTarget.list, detailTarget.id);
     if (!item) return;
     item.pinned = !item.pinned;
     saveState();
-    renderList(editTarget.list);
-    refreshEditPin(item);
+    renderList(detailTarget.list);
+    detailPin.classList.toggle("is-on", !!item.pinned);
   });
 
-  document.getElementById("editDelete").addEventListener("click", function () {
-    if (editTarget.list === "habits") removeHabit(editTarget.id);
-    else removeItem(editTarget.list, editTarget.id);
-    editModal.hidden = true;
+  document.getElementById("subtaskForm").addEventListener("submit", function (event) {
+    event.preventDefault();
+    const input = document.getElementById("subtaskInput");
+    const text = input.value.trim();
+    if (!text) return;
+    const item = findItem(detailTarget.list, detailTarget.id);
+    if (!item) return;
+    if (!item.subtasks) item.subtasks = [];
+    item.subtasks.push({ id: Date.now().toString(), text: text, done: false });
+    saveState();
+    input.value = "";
+    input.focus();
+    renderSubtasks(item);
+    renderList(detailTarget.list);
   });
 
-  const editCloseButtons = editModal.querySelectorAll("[data-close]");
-  for (let i = 0; i < editCloseButtons.length; i++) {
-    editCloseButtons[i].addEventListener("click", function () { editModal.hidden = true; });
-  }
-
-  const editButtons = document.querySelectorAll("[data-edit]");
-  for (let i = 0; i < editButtons.length; i++) {
-    editButtons[i].addEventListener("click", function () { toggleEditing(this.dataset.edit); });
-  }
+  document.getElementById("detailBack").addEventListener("click", closeDetail);
+  document.getElementById("detailDelete").addEventListener("click", function () {
+    removeItem(detailTarget.list, detailTarget.id);
+    closeDetail();
+  });
+  document.addEventListener("keydown", function (event) {
+    if (event.key === "Escape" && !detail.hidden) closeDetail();
+  });
 
   applyTheme(state.settings.theme);
   applyPalette(state.settings.palette);
@@ -1034,6 +1278,8 @@
   renderImportanceInput();
   checkReminders();
   setInterval(checkReminders, 30000);
+  renderClock();
+  setInterval(renderClock, 30000);
 
   /* register the service worker for offline use */
   if ("serviceWorker" in navigator) {
