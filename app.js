@@ -80,11 +80,6 @@
       paletteAurora: "Aurore",
       paletteMeadow: "Prairie",
       paletteSunset: "Coucher",
-      agendaAria: "Ouvrir l'agenda",
-      agendaTitle: "Agenda",
-      agendaToday: "Aujourd'hui",
-      agendaTomorrow: "Demain",
-      agendaNoDate: "Sans date",
       focusPhrases: [
         "Hedy est le meilleur",
         "Hedy est meilleur que bary",
@@ -140,11 +135,6 @@
       paletteAurora: "Aurora",
       paletteMeadow: "Meadow",
       paletteSunset: "Sunset",
-      agendaAria: "Open agenda",
-      agendaTitle: "Agenda",
-      agendaToday: "Today",
-      agendaTomorrow: "Tomorrow",
-      agendaNoDate: "No date",
       focusPhrases: [
         "Breathe.",
         "One thing at a time.",
@@ -277,7 +267,6 @@
       renderList("tasks");     // refresh empty text and delete labels
       renderList("projects");
       renderHabits();
-      renderAgenda();
       saveState();
     });
   }
@@ -387,7 +376,6 @@
     state[listName].push(item);
     saveState();
     renderList(listName);
-    renderAgenda();
   }
 
   /* Find the item by id, drop it, redraw. */
@@ -401,7 +389,6 @@
     }
     saveState();
     renderList(listName);
-    renderAgenda();
   }
 
   function toggleItem(listName, id) {
@@ -414,7 +401,6 @@
     }
     saveState();
     renderList(listName);
-    renderAgenda();
   }
 
   const addForms = document.querySelectorAll(".add");
@@ -640,6 +626,7 @@
 
   /* AGENDA — optional due date/time on tasks */
   const calendarModal = document.getElementById("calendar");
+  const taskDateBtn = document.getElementById("taskDateBtn");
   const pendingDue = { date: null, time: "" };   // due for the task being typed
   let pickerContext = "new";                      // "new" or an existing task id
   let pickerSelected = null;                      // "YYYY-MM-DD" chosen in the grid
@@ -764,7 +751,7 @@
     if (pickerContext === "new") {
       pendingDue.date = date;
       pendingDue.time = date ? time : "";
-      setDateButtonsState(!!date);
+      taskDateBtn.classList.toggle("is-set", !!date);
     } else {
       const task = findTask(pickerContext);
       if (task) {
@@ -773,7 +760,6 @@
         task.notified = false;   // re-arm the reminder
         saveState();
         renderList("tasks");
-        renderAgenda();
       }
     }
     if (date && time) ensureNotifyPermission();
@@ -783,21 +769,10 @@
   function resetPendingDue() {
     pendingDue.date = null;
     pendingDue.time = "";
-    setDateButtonsState(false);
+    taskDateBtn.classList.remove("is-set");
   }
 
-  /* reflect the pending due on every date button (main + agenda forms) */
-  function setDateButtonsState(on) {
-    const buttons = document.querySelectorAll(".add__date");
-    for (let i = 0; i < buttons.length; i++) {
-      buttons[i].classList.toggle("is-set", on);
-    }
-  }
-
-  const dateButtons = document.querySelectorAll(".add__date");
-  for (let i = 0; i < dateButtons.length; i++) {
-    dateButtons[i].addEventListener("click", function () { openCalendar("new"); });
-  }
+  taskDateBtn.addEventListener("click", function () { openCalendar("new"); });
   document.getElementById("calPrev").addEventListener("click", function () {
     pickerMonth--;
     if (pickerMonth < 0) { pickerMonth = 11; pickerYear--; }
@@ -861,192 +836,6 @@
     }
     if (changed) saveState();
   }
-
-  /* AGENDA VIEW — full-screen month calendar; days holding tasks are marked */
-  const agendaOverlay = document.getElementById("agenda");
-  const agendaGrid = document.getElementById("agendaGrid");
-  const agendaDayPanel = document.getElementById("agendaDay");
-  const dayList = document.getElementById("dayList");
-  let agendaYear = new Date().getFullYear();
-  let agendaMonth = new Date().getMonth();
-  let agendaDay = null;   // day open in the day panel (YYYY-MM-DD)
-
-  function openAgenda() {
-    const now = new Date();
-    agendaYear = now.getFullYear();
-    agendaMonth = now.getMonth();
-    renderAgendaCalendar();
-    agendaOverlay.hidden = false;
-  }
-
-  /* "Aujourd'hui" / "Demain" / a full localized date. */
-  function agendaDateLabel(dateStr) {
-    if (dateStr === todayKey()) return translate("agendaToday");
-    const t = new Date();
-    t.setDate(t.getDate() + 1);
-    if (dateStr === dateKey(t.getFullYear(), t.getMonth(), t.getDate())) return translate("agendaTomorrow");
-    const locale = state.settings.language === "fr" ? "fr-FR" : "en-US";
-    return new Date(dateStr + "T00:00").toLocaleDateString(locale, { weekday: "long", day: "numeric", month: "long" });
-  }
-
-  /* Dates (YYYY-MM-DD) that hold at least one task. */
-  function taskDates() {
-    const set = {};
-    for (let i = 0; i < state.tasks.length; i++) {
-      if (state.tasks[i].dueDate) set[state.tasks[i].dueDate] = true;
-    }
-    return set;
-  }
-
-  /* Draw the month grid: weekday row, blanks, then days (marked when they hold tasks). */
-  function renderAgendaCalendar() {
-    const locale = state.settings.language === "fr" ? "fr-FR" : "en-US";
-    const firstOfMonth = new Date(agendaYear, agendaMonth, 1);
-    document.getElementById("agendaMonth").textContent =
-      firstOfMonth.toLocaleDateString(locale, { month: "long", year: "numeric" });
-
-    agendaGrid.innerHTML = "";
-    for (let i = 0; i < 7; i++) {
-      const head = document.createElement("div");
-      head.className = "cal__wd";
-      head.textContent = new Date(2024, 0, 1 + i).toLocaleDateString(locale, { weekday: "short" });
-      agendaGrid.appendChild(head);
-    }
-
-    const lead = (firstOfMonth.getDay() + 6) % 7;
-    for (let i = 0; i < lead; i++) {
-      const blank = document.createElement("div");
-      blank.className = "agenda__cell is-blank";
-      agendaGrid.appendChild(blank);
-    }
-
-    const daysInMonth = new Date(agendaYear, agendaMonth + 1, 0).getDate();
-    const today = todayKey();
-    const withTasks = taskDates();
-    for (let d = 1; d <= daysInMonth; d++) {
-      const key = dateKey(agendaYear, agendaMonth, d);
-      const cell = document.createElement("button");
-      cell.type = "button";
-      cell.className = "agenda__cell";
-      if (key === today) cell.classList.add("is-today");
-      if (withTasks[key]) cell.classList.add("has-tasks");
-      const num = document.createElement("span");
-      num.className = "agenda__num";
-      num.textContent = String(d);
-      cell.appendChild(num);
-      cell.addEventListener("click", function () { openDay(key); });
-      agendaGrid.appendChild(cell);
-    }
-  }
-
-  /* Open the day panel for a date: its tasks + a quick add. */
-  function openDay(dateStr) {
-    agendaDay = dateStr;
-    document.getElementById("dayTitle").textContent = agendaDateLabel(dateStr);
-    document.getElementById("dayAddInput").value = "";
-    document.getElementById("dayAddTime").value = "";
-    renderDayPanel();
-    agendaDayPanel.hidden = false;
-  }
-
-  /* List the tasks of the open day, sorted by time. */
-  function renderDayPanel() {
-    dayList.innerHTML = "";
-    const dayTasks = [];
-    for (let i = 0; i < state.tasks.length; i++) {
-      if (state.tasks[i].dueDate === agendaDay) dayTasks.push(state.tasks[i]);
-    }
-    dayTasks.sort(function (a, b) {
-      return (a.dueTime || "23:59").localeCompare(b.dueTime || "23:59");
-    });
-
-    if (dayTasks.length === 0) {
-      const empty = document.createElement("li");
-      empty.className = "empty";
-      empty.textContent = translate("emptyList");
-      dayList.appendChild(empty);
-      return;
-    }
-    for (let i = 0; i < dayTasks.length; i++) {
-      dayList.appendChild(createDayRow(dayTasks[i]));
-    }
-  }
-
-  /* A task row inside the day panel: checkbox, text, time, delete. */
-  function createDayRow(task) {
-    const row = document.createElement("li");
-    row.className = task.done ? "item done" : "item";
-
-    const checkbox = document.createElement("span");
-    checkbox.className = "item__check";
-    checkbox.textContent = task.done ? "✓" : "";
-    checkbox.addEventListener("click", function () { toggleItem("tasks", task.id); });
-
-    const label = document.createElement("span");
-    label.className = "item__text";
-    label.textContent = task.text;
-    label.addEventListener("click", function () { toggleItem("tasks", task.id); });
-
-    const del = document.createElement("button");
-    del.type = "button";
-    del.className = "item__del";
-    del.setAttribute("aria-label", translate("deleteAria"));
-    del.textContent = "×";
-    del.addEventListener("click", function () { removeItem("tasks", task.id); });
-
-    row.append(checkbox, label);
-    if (task.dueTime) {
-      const time = document.createElement("span");
-      time.className = "agenda__time";
-      time.textContent = task.dueTime;
-      row.appendChild(time);
-    }
-    row.appendChild(del);
-    return row;
-  }
-
-  /* Refresh whichever agenda surface is visible (marks + open day). */
-  function renderAgenda() {
-    renderAgendaCalendar();
-    if (agendaDay) renderDayPanel();
-  }
-
-  document.getElementById("agendaBtn").addEventListener("click", openAgenda);
-  document.getElementById("agendaClose").addEventListener("click", function () { agendaOverlay.hidden = true; });
-  document.getElementById("agendaPrev").addEventListener("click", function () {
-    agendaMonth--;
-    if (agendaMonth < 0) { agendaMonth = 11; agendaYear--; }
-    renderAgendaCalendar();
-  });
-  document.getElementById("agendaNext").addEventListener("click", function () {
-    agendaMonth++;
-    if (agendaMonth > 11) { agendaMonth = 0; agendaYear++; }
-    renderAgendaCalendar();
-  });
-
-  const dayCloseButtons = agendaDayPanel.querySelectorAll("[data-close]");
-  for (let i = 0; i < dayCloseButtons.length; i++) {
-    dayCloseButtons[i].addEventListener("click", function () { agendaDayPanel.hidden = true; });
-  }
-
-  document.getElementById("dayAddForm").addEventListener("submit", function (event) {
-    event.preventDefault();
-    const input = document.getElementById("dayAddInput");
-    const text = input.value.trim();
-    if (text) {
-      addItem("tasks", text, { date: agendaDay, time: document.getElementById("dayAddTime").value }, 0);
-      input.value = "";
-      document.getElementById("dayAddTime").value = "";
-      input.focus();
-    }
-  });
-
-  /* Esc closes the day panel first, then the calendar. */
-  document.addEventListener("keydown", function (event) {
-    if (event.key !== "Escape") return;
-    if (!agendaDayPanel.hidden) agendaDayPanel.hidden = true;
-    else if (!agendaOverlay.hidden) agendaOverlay.hidden = true;
-  });
 
   applyTheme(state.settings.theme);
   applyPalette(state.settings.palette);
