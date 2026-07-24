@@ -13,7 +13,12 @@
     try {
       var saved = JSON.parse(localStorage.getItem("todoAppData"));
       if (saved && saved.settings && saved.settings.theme) {
-        document.documentElement.setAttribute("data-theme", saved.settings.theme);
+        var t = saved.settings.theme;
+        if (t === "auto") {
+          var h = new Date().getHours();
+          t = h >= 5 && h < 8 ? "dawn" : h >= 8 && h < 18 ? "day" : h >= 18 && h < 21 ? "dusk" : "night";
+        }
+        document.documentElement.setAttribute("data-theme", t);
       }
       if (saved && saved.settings && saved.settings.palette) {
         document.documentElement.setAttribute("data-palette", saved.settings.palette);
@@ -23,13 +28,21 @@
 </head>
 <body>
 
+  <!-- time-of-day background gradient / stars -->
+  <div id="sky"></div>
+  <!-- activatable decorations (particles / petals / cats / …) -->
+  <div id="decor"></div>
+
   <!-- settings button, always visible top-right -->
+  <button id="notesBtn" class="notes-btn" type="button" data-i18n-aria="notesToolAria" aria-label="Prise de notes">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="16" y1="13" x2="8" y2="13"/><line x1="16" y1="17" x2="8" y2="17"/><line x1="10" y1="9" x2="8" y2="9"/></svg>
+  </button>
   <button id="settingsBtn" class="settings-btn" data-i18n-aria="settingsAria" aria-label="Paramètres">⚙</button>
 
   <!-- welcome screen -->
   <section id="welcome" class="welcome">
     <div class="welcome__inner">
-      <h1 class="welcome__title"><span data-i18n="greetingPrefix">Bonjour</span><span id="greetName"></span><span data-i18n="greetingSuffix"> !</span><br><span data-i18n="welcomeQuestion">Prêt à travailler sur l'essentiel ?</span></h1>
+      <h1 class="welcome__title"><span id="welcomeGreeting"></span><br><span id="welcomeTime" class="welcome__time"></span></h1>
       <button id="enterBtn" class="enter" data-i18n-aria="enterAria" aria-label="Entrer dans l'application">
         <span class="enter__arrow">→</span>
       </button>
@@ -152,6 +165,11 @@
           <button class="theme" data-theme="light" data-i18n="themeLight" type="button">Clair</button>
           <button class="theme" data-theme="dark" data-i18n="themeDark" type="button">Sombre</button>
           <button class="theme" data-theme="rose" data-i18n="themeRose" type="button">Rose</button>
+          <button class="theme" data-theme="auto" data-i18n="themeAuto" type="button">Adaptatif</button>
+          <button class="theme" data-theme="dawn" data-i18n="themeDawn" type="button">Aube</button>
+          <button class="theme" data-theme="day" data-i18n="themeDay" type="button">Jour</button>
+          <button class="theme" data-theme="dusk" data-i18n="themeDusk" type="button">Crépuscule</button>
+          <button class="theme" data-theme="night" data-i18n="themeNight" type="button">Nuit</button>
         </div>
       </div>
 
@@ -175,6 +193,17 @@
         <div class="langs" id="langs">
           <button class="lang" data-lang="fr" data-i18n="langFr" type="button">Français</button>
           <button class="lang" data-lang="en" data-i18n="langEn" type="button">English</button>
+        </div>
+      </div>
+
+      <div class="field">
+        <span class="field__label" data-i18n="decorLabel">Décorations</span>
+        <div class="decors" id="decors">
+          <button class="decor-opt" data-decor="particles" data-i18n="decorParticles" type="button">Particules</button>
+          <button class="decor-opt" data-decor="petals" data-i18n="decorPetals" type="button">Pétales</button>
+          <button class="decor-opt" data-decor="cats" data-i18n="decorCats" type="button">Chats</button>
+          <button class="decor-opt" data-decor="bubbles" data-i18n="decorBubbles" type="button">Bulles</button>
+          <button class="decor-opt" data-decor="fireflies" data-i18n="decorFireflies" type="button">Lucioles</button>
         </div>
       </div>
     </div>
@@ -207,6 +236,46 @@
     <div class="detail__body">
       <h2 class="detail__viewtitle" data-i18n="habitsTitle">Vos habitudes</h2>
       <div id="habitsViewBody"></div>
+    </div>
+  </div>
+
+  <!-- notes: list of titles -->
+  <div id="notes" class="detail" hidden>
+    <div class="detail__bar">
+      <button id="notesBack" class="detail__back" type="button" data-i18n-aria="backAria" aria-label="Retour">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6"/></svg>
+      </button>
+      <button id="addNoteBtn" class="notes__add" type="button" data-i18n-aria="addNoteAria" aria-label="Nouvelle note">+</button>
+    </div>
+    <div class="detail__body">
+      <h2 class="detail__viewtitle" data-i18n="notesTitle">Notes</h2>
+      <input id="noteSearch" class="note-search" type="text" data-i18n-placeholder="searchPlaceholder" placeholder="Rechercher…" aria-label="Rechercher">
+      <div id="notesList" class="notes-list"></div>
+    </div>
+  </div>
+
+  <!-- notes: single-note editor -->
+  <div id="noteEditor" class="detail" hidden>
+    <div class="notes__top">
+      <div class="detail__bar">
+        <button id="noteEditorBack" class="detail__back" type="button" data-i18n-aria="backAria" aria-label="Retour">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6"/></svg>
+        </button>
+      </div>
+      <div class="notes__toolbar">
+        <button class="ntool" data-cmd="bold" data-i18n-aria="boldAria" aria-label="Gras">B</button>
+        <button class="ntool" data-cmd="italic" data-i18n-aria="italicAria" aria-label="Italique">I</button>
+        <button class="ntool" data-cmd="underline" data-i18n-aria="underlineAria" aria-label="Souligner">U</button>
+        <button class="ntool" data-cmd="hilite" data-i18n-aria="highlightAria" aria-label="Surligner">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="6" width="16" height="12" rx="2" fill="#ffe08a" stroke="none"/></svg>
+        </button>
+        <span class="ntool__sep"></span>
+        <div class="ntool__emojis" id="noteEmojis"></div>
+      </div>
+    </div>
+    <div class="detail__body">
+      <input id="noteTitleInput" class="note-title" type="text" data-i18n-placeholder="noteTitlePlaceholder" placeholder="Titre" maxlength="120">
+      <div id="noteEditorBody" class="note-body" contenteditable="true"></div>
     </div>
   </div>
 

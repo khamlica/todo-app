@@ -20,15 +20,17 @@
         tasks: saved.tasks || [],
         projects: saved.projects || [],
         habits: habits,
+        notes: saved.notes || [],
         settings: {
           name: (saved.settings && saved.settings.name) || "",
           theme: (saved.settings && saved.settings.theme) || "light",
           language: (saved.settings && saved.settings.language) || "fr",
-          palette: (saved.settings && saved.settings.palette) || "aurora"
+          palette: (saved.settings && saved.settings.palette) || "aurora",
+          decorations: (saved.settings && saved.settings.decorations) || []
         }
       };
     } catch (err) {
-      return { tasks: [], projects: [], habits: [], settings: { name: "", theme: "light", language: "fr", palette: "aurora" } };
+      return { tasks: [], projects: [], habits: [], notes: [], settings: { name: "", theme: "light", language: "fr", palette: "aurora", decorations: [] } };
     }
   }
 
@@ -61,9 +63,20 @@
       themeLight: "Clair",
       themeDark: "Sombre",
       themeRose: "Rose",
+      themeAuto: "Adaptatif",
+      themeDawn: "Aube",
+      themeDay: "Jour",
+      themeDusk: "Crépuscule",
+      themeNight: "Nuit",
       languageLabel: "Langue",
       langFr: "Français",
       langEn: "English",
+      decorLabel: "Décorations",
+      decorParticles: "Particules",
+      decorPetals: "Pétales",
+      decorCats: "Chats",
+      decorBubbles: "Bulles",
+      decorFireflies: "Lucioles",
       focusLabel: "Mode focus",
       focusAria: "Passer en mode focus",
       focusExitAria: "Quitter le mode focus",
@@ -101,6 +114,17 @@
       habitsHistoryAria: "Suivi des habitudes",
       historyLabel: "Historique",
       streakLabel: "Série",
+      notesToolAria: "Prise de notes",
+      addNoteAria: "Nouvelle note",
+      boldAria: "Gras",
+      italicAria: "Italique",
+      underlineAria: "Souligner",
+      highlightAria: "Surligner",
+      notePlaceholder: "Votre note…",
+      notesTitle: "Notes",
+      untitledNote: "Note vide",
+      noteTitlePlaceholder: "Titre",
+      searchPlaceholder: "Rechercher…",
       focusPhrases: [
         "Hedy est le meilleur",
         "Hedy est meilleur que bary",
@@ -130,9 +154,20 @@
       themeLight: "Light",
       themeDark: "Dark",
       themeRose: "Rose",
+      themeAuto: "Adaptive",
+      themeDawn: "Dawn",
+      themeDay: "Day",
+      themeDusk: "Dusk",
+      themeNight: "Night",
       languageLabel: "Language",
       langFr: "Français",
       langEn: "English",
+      decorLabel: "Decorations",
+      decorParticles: "Particles",
+      decorPetals: "Petals",
+      decorCats: "Cats",
+      decorBubbles: "Bubbles",
+      decorFireflies: "Fireflies",
       focusLabel: "Focus mode",
       focusAria: "Enter focus mode",
       focusExitAria: "Exit focus mode",
@@ -170,6 +205,17 @@
       habitsHistoryAria: "Habit tracking",
       historyLabel: "History",
       streakLabel: "Streak",
+      notesToolAria: "Notes",
+      addNoteAria: "New note",
+      boldAria: "Bold",
+      italicAria: "Italic",
+      underlineAria: "Underline",
+      highlightAria: "Highlight",
+      notePlaceholder: "Your note…",
+      notesTitle: "Notes",
+      untitledNote: "Empty note",
+      noteTitlePlaceholder: "Title",
+      searchPlaceholder: "Search…",
       focusPhrases: [
         "Breathe.",
         "One thing at a time.",
@@ -214,15 +260,28 @@
     }
   }
 
-  const themeBarColors = { light: "#f6ecf7", dark: "#1e1c26", rose: "#fdeef2" };
+  const themeBarColors = {
+    light: "#f6ecf7", dark: "#1e1c26", rose: "#fdeef2",
+    dawn: "#ffc9d8", day: "#d0e6ff", dusk: "#e97ba0", night: "#0c0f1a"
+  };
 
-  /* Apply a theme: html attribute, browser bar color, active button. */
+  /* dawn / day / dusk / night by the current hour */
+  function timeTheme() {
+    const h = new Date().getHours();
+    if (h >= 5 && h < 8) return "dawn";
+    if (h >= 8 && h < 18) return "day";
+    if (h >= 18 && h < 21) return "dusk";
+    return "night";
+  }
+
+  /* Apply a theme. "auto" resolves to the current time-of-day theme. */
   function applyTheme(themeName) {
-    document.documentElement.setAttribute("data-theme", themeName);
+    const effective = themeName === "auto" ? timeTheme() : themeName;
+    document.documentElement.setAttribute("data-theme", effective);
 
     const themeColorMeta = document.querySelector('meta[name="theme-color"]');
     if (themeColorMeta) {
-      themeColorMeta.setAttribute("content", themeBarColors[themeName] || themeBarColors.light);
+      themeColorMeta.setAttribute("content", themeBarColors[effective] || themeBarColors.light);
     }
 
     const themeButtons = document.querySelectorAll(".theme");
@@ -240,9 +299,50 @@
     }
   }
 
-  /* Set the middle of the greeting to "" or " <name>". */
-  function applyGreetingName(name) {
-    document.getElementById("greetName").textContent = name ? " " + name : "";
+  /* localized current time: "il est 15 heures 26" / "it is 3:26 PM" */
+  function clockText() {
+    const now = new Date();
+    const h = now.getHours();
+    const m = String(now.getMinutes()).padStart(2, "0");
+    if (state.settings.language === "fr") {
+      return "il est " + h + " " + (h <= 1 ? "heure" : "heures") + " " + m;
+    }
+    const suffix = h < 12 ? "AM" : "PM";
+    const h12 = (h % 12) === 0 ? 12 : (h % 12);
+    return "it is " + h12 + ":" + m + " " + suffix;
+  }
+
+  /* time-aware greeting word */
+  function greetingWord() {
+    const h = new Date().getHours();
+    if (state.settings.language === "fr") return h < 18 ? "Bonjour" : "Bonsoir";
+    if (h < 12) return "Good morning";
+    if (h < 18) return "Good afternoon";
+    return "Good evening";
+  }
+
+  /* welcome phrase: "Bonsoir <name>," then "il est ..." */
+  function renderGreeting() {
+    const name = state.settings.name;
+    document.getElementById("welcomeGreeting").textContent = greetingWord() + (name ? " " + name : "") + ",";
+    document.getElementById("welcomeTime").textContent = clockText();
+  }
+
+  /* generate the night stars once (shown only under the night theme) */
+  function initSky() {
+    const sky = document.getElementById("sky");
+    for (let i = 0; i < 44; i++) {
+      const star = document.createElement("span");
+      star.className = "star";
+      const size = 1 + Math.random() * 1.6;
+      star.style.width = size + "px";
+      star.style.height = size + "px";
+      star.style.left = Math.random() * 100 + "%";
+      star.style.top = Math.random() * 72 + "%";
+      star.style.animationDuration = (2 + Math.random() * 3) + "s";
+      star.style.animationDelay = -Math.random() * 4 + "s";
+      sky.appendChild(star);
+    }
   }
 
   const welcomeScreen = document.getElementById("welcome");
@@ -280,7 +380,7 @@
   nameInput.value = state.settings.name;
   nameInput.addEventListener("input", function () {
     state.settings.name = nameInput.value.trim();
-    applyGreetingName(state.settings.name);
+    renderGreeting();
     saveState();
   });
 
@@ -311,7 +411,112 @@
       renderList("projects");
       renderHabits();
       renderClock();
+      renderGreeting();
       saveState();
+    });
+  }
+
+  /* DECORATIONS — activatable ambient effects (particles / petals / cats / bubbles / fireflies).
+     The cat glyphs are feature data requested by the user (not decorative code). */
+  const decor = document.getElementById("decor");
+
+  function rand(min, max) { return min + Math.random() * (max - min); }
+  function decorEl(cls) {
+    const el = document.createElement("span");
+    el.className = cls;
+    return el;
+  }
+
+  function spawnParticles() {
+    for (let i = 0; i < 14; i++) {
+      const p = decorEl("dp");
+      const size = rand(4, 9);
+      p.style.width = size + "px";
+      p.style.height = size + "px";
+      p.style.left = rand(0, 100) + "%";
+      p.style.top = rand(0, 100) + "%";
+      p.style.animationDuration = rand(9, 18) + "s";
+      p.style.animationDelay = -rand(0, 12) + "s";
+      decor.appendChild(p);
+    }
+  }
+  function spawnPetals() {
+    for (let i = 0; i < 16; i++) {
+      const p = decorEl("petal");
+      const size = rand(9, 16);
+      p.style.width = size + "px";
+      p.style.height = size + "px";
+      p.style.left = rand(0, 100) + "%";
+      p.style.setProperty("--sway", rand(-70, 70) + "px");
+      p.style.setProperty("--spin", rand(180, 560) + "deg");
+      p.style.animationDuration = rand(6, 12) + "s";
+      p.style.animationDelay = -rand(0, 12) + "s";
+      decor.appendChild(p);
+    }
+  }
+  function spawnCats() {
+    const kinds = ["🐈", "🐱", "🐈‍⬛"];
+    for (let i = 0; i < 4; i++) {
+      const c = decorEl("cat");
+      c.textContent = kinds[i % kinds.length];
+      c.style.left = rand(4, 88) + "%";
+      c.style.fontSize = rand(1.6, 2.4) + "rem";
+      c.style.animationDuration = rand(2.5, 4.5) + "s";
+      c.style.animationDelay = -rand(0, 3) + "s";
+      decor.appendChild(c);
+    }
+  }
+  function spawnBubbles() {
+    for (let i = 0; i < 12; i++) {
+      const b = decorEl("bubble2");
+      const size = rand(8, 22);
+      b.style.width = size + "px";
+      b.style.height = size + "px";
+      b.style.left = rand(0, 100) + "%";
+      b.style.setProperty("--sway", rand(-30, 30) + "px");
+      b.style.animationDuration = rand(7, 14) + "s";
+      b.style.animationDelay = -rand(0, 12) + "s";
+      decor.appendChild(b);
+    }
+  }
+  function spawnFireflies() {
+    for (let i = 0; i < 16; i++) {
+      const f = decorEl("firefly");
+      f.style.left = rand(0, 100) + "%";
+      f.style.top = rand(10, 90) + "%";
+      f.style.animationDuration = rand(4, 8) + "s, " + rand(2, 5) + "s";
+      f.style.animationDelay = -rand(0, 6) + "s, " + -rand(0, 4) + "s";
+      decor.appendChild(f);
+    }
+  }
+
+  /* rebuild the decor layer from the active set */
+  function applyDecorations() {
+    decor.innerHTML = "";
+    const active = state.settings.decorations;
+    for (let i = 0; i < active.length; i++) {
+      if (active[i] === "particles") spawnParticles();
+      else if (active[i] === "petals") spawnPetals();
+      else if (active[i] === "cats") spawnCats();
+      else if (active[i] === "bubbles") spawnBubbles();
+      else if (active[i] === "fireflies") spawnFireflies();
+    }
+    const buttons = document.querySelectorAll(".decor-opt");
+    for (let i = 0; i < buttons.length; i++) {
+      buttons[i].classList.toggle("is-active", active.indexOf(buttons[i].dataset.decor) !== -1);
+    }
+  }
+
+  const decorButtons = document.querySelectorAll(".decor-opt");
+  for (let i = 0; i < decorButtons.length; i++) {
+    decorButtons[i].addEventListener("click", function () {
+      const name = this.dataset.decor;
+      const active = state.settings.decorations;
+      const at = active.indexOf(name);
+      if (at === -1) active.push(name);
+      else active.splice(at, 1);
+      saveState();
+      applyDecorations();
     });
   }
 
@@ -1013,19 +1218,10 @@
     if (event.key === "Escape" && !habitsView.hidden) closeHabitsView();
   });
 
-  /* CLOCK — big localized "il est 15 heures 26" / "it is 3:26 PM" */
+  /* CLOCK — the big localized time shown in the app header */
   const clock = document.getElementById("clock");
   function renderClock() {
-    const now = new Date();
-    const h = now.getHours();
-    const m = String(now.getMinutes()).padStart(2, "0");
-    if (state.settings.language === "fr") {
-      clock.textContent = "il est " + h + " " + (h <= 1 ? "heure" : "heures") + " " + m;
-    } else {
-      const suffix = h < 12 ? "AM" : "PM";
-      const h12 = (h % 12) === 0 ? 12 : (h % 12);
-      clock.textContent = "it is " + h12 + ":" + m + " " + suffix;
-    }
+    clock.textContent = clockText();
   }
 
   /* DETAIL — full-screen view of a task/project: rename, props, notes, subtasks */
@@ -1226,10 +1422,216 @@
     if (event.key === "Escape" && !detail.hidden) closeDetail();
   });
 
+  /* NOTES — a list of note titles; clicking one opens a rich-text editor.
+     The emoji list is feature data requested by the user (not decorative code). */
+  const NOTE_EMOJIS = ["😀", "👍", "❤️", "🔥", "⭐", "✅", "📌", "💡", "🎉", "⚠️"];
+  const notesView = document.getElementById("notes");
+  const notesList = document.getElementById("notesList");
+  const noteEditor = document.getElementById("noteEditor");
+  const noteEditorBody = document.getElementById("noteEditorBody");
+  const noteTitleInput = document.getElementById("noteTitleInput");
+  const noteSearch = document.getElementById("noteSearch");
+  let editorNoteId = null;
+
+  function findNote(id) {
+    for (let i = 0; i < state.notes.length; i++) {
+      if (state.notes[i].id === id) return state.notes[i];
+    }
+    return null;
+  }
+
+  /* plain text of a note's body */
+  function noteText(note) {
+    const tmp = document.createElement("div");
+    tmp.innerHTML = note.html || "";
+    return tmp.textContent.trim();
+  }
+
+  /* explicit title, or the body's first line as a fallback */
+  function noteDisplayTitle(note) {
+    const title = (note.title || "").trim();
+    if (title) return title;
+    return noteText(note).split("\n")[0];
+  }
+
+  function noteStamp(note) {
+    return note.updatedAt || Number(note.id) || 0;
+  }
+
+  /* localized "il y a 2 h" for recent notes, a short date for older ones */
+  function relativeTime(ts) {
+    const locale = state.settings.language === "fr" ? "fr-FR" : "en-US";
+    const rtf = new Intl.RelativeTimeFormat(locale, { numeric: "auto" });
+    const sec = Math.round((Date.now() - ts) / 1000);
+    if (sec < 60) return rtf.format(-sec, "second");
+    const min = Math.round(sec / 60);
+    if (min < 60) return rtf.format(-min, "minute");
+    const hr = Math.round(min / 60);
+    if (hr < 24) return rtf.format(-hr, "hour");
+    const day = Math.round(hr / 24);
+    if (day < 7) return rtf.format(-day, "day");
+    return new Date(ts).toLocaleDateString(locale, { day: "numeric", month: "short" });
+  }
+
+  /* LIST */
+  function openNotes() {
+    renderNotesList();
+    notesView.hidden = false;
+    requestAnimationFrame(function () { notesView.classList.add("is-open"); });
+  }
+  function closeNotes() {
+    notesView.classList.remove("is-open");
+    setTimeout(function () { notesView.hidden = true; }, 300);
+  }
+
+  function renderNotesList() {
+    notesList.innerHTML = "";
+    const query = noteSearch.value.trim().toLowerCase();
+    const sorted = state.notes.slice().sort(function (a, b) { return noteStamp(b) - noteStamp(a); });
+    const shown = [];
+    for (let i = 0; i < sorted.length; i++) {
+      const haystack = (noteDisplayTitle(sorted[i]) + " " + noteText(sorted[i])).toLowerCase();
+      if (!query || haystack.indexOf(query) !== -1) shown.push(sorted[i]);
+    }
+    if (shown.length === 0) {
+      const empty = document.createElement("p");
+      empty.className = "detail__empty";
+      empty.textContent = translate("emptyList");
+      notesList.appendChild(empty);
+      return;
+    }
+    for (let i = 0; i < shown.length; i++) {
+      notesList.appendChild(createNoteCard(shown[i]));
+    }
+  }
+
+  /* a card: title + preview + relative date; click to edit, × to delete */
+  function createNoteCard(note) {
+    const card = document.createElement("div");
+    card.className = "note-card";
+    card.addEventListener("click", function () { openNoteEditor(note.id); });
+
+    const del = document.createElement("button");
+    del.type = "button";
+    del.className = "note-card__del";
+    del.setAttribute("aria-label", translate("deleteAria"));
+    del.textContent = "×";
+    del.addEventListener("click", function (event) {
+      event.stopPropagation();
+      removeNote(note.id);
+    });
+
+    const title = document.createElement("div");
+    title.className = "note-card__title";
+    const displayed = noteDisplayTitle(note);
+    if (displayed) {
+      title.textContent = displayed;
+    } else {
+      title.textContent = translate("untitledNote");
+      title.classList.add("is-empty");
+    }
+
+    const preview = document.createElement("div");
+    preview.className = "note-card__preview";
+    preview.textContent = noteText(note);
+
+    const date = document.createElement("div");
+    date.className = "note-card__date";
+    date.textContent = relativeTime(noteStamp(note));
+
+    card.append(del, title, preview, date);
+    return card;
+  }
+
+  function addNote() {
+    const note = { id: Date.now().toString(), title: "", html: "", updatedAt: Date.now() };
+    state.notes.unshift(note);
+    saveState();
+    openNoteEditor(note.id);   // jump straight into editing
+  }
+
+  function removeNote(id) {
+    for (let i = 0; i < state.notes.length; i++) {
+      if (state.notes[i].id === id) { state.notes.splice(i, 1); break; }
+    }
+    saveState();
+    renderNotesList();
+  }
+
+  /* EDITOR */
+  function openNoteEditor(id) {
+    editorNoteId = id;
+    const note = findNote(id);
+    noteTitleInput.value = note ? (note.title || "") : "";
+    noteEditorBody.setAttribute("data-placeholder", translate("notePlaceholder"));
+    noteEditorBody.innerHTML = note ? (note.html || "") : "";
+    noteEditor.hidden = false;
+    requestAnimationFrame(function () {
+      noteEditor.classList.add("is-open");
+      noteTitleInput.focus();
+    });
+  }
+  function closeNoteEditor() {
+    noteEditor.classList.remove("is-open");
+    setTimeout(function () { noteEditor.hidden = true; }, 300);
+    renderNotesList();   // refresh the list (title / order / date)
+  }
+
+  /* save title + body together and bump the timestamp */
+  function touchNote() {
+    const note = findNote(editorNoteId);
+    if (!note) return;
+    note.title = noteTitleInput.value;
+    note.html = noteEditorBody.innerHTML;
+    note.updatedAt = Date.now();
+    saveState();
+  }
+  noteTitleInput.addEventListener("input", touchNote);
+  noteEditorBody.addEventListener("input", touchNote);
+  noteSearch.addEventListener("input", renderNotesList);
+
+  /* toolbar — applies to the editor body's selection */
+  function applyNoteFormat(cmd) {
+    if (cmd === "hilite") {
+      document.execCommand("styleWithCSS", false, true);
+      document.execCommand("hiliteColor", false, "#ffe08a");
+    } else {
+      document.execCommand(cmd, false, null);
+    }
+  }
+
+  /* toolbar buttons keep the selection (mousedown preventDefault), then run the command */
+  const noteTools = document.querySelectorAll(".ntool[data-cmd]");
+  for (let i = 0; i < noteTools.length; i++) {
+    noteTools[i].addEventListener("mousedown", function (event) { event.preventDefault(); });
+    noteTools[i].addEventListener("click", function () { applyNoteFormat(this.dataset.cmd); });
+  }
+
+  const emojiBox = document.getElementById("noteEmojis");
+  for (let i = 0; i < NOTE_EMOJIS.length; i++) {
+    const emoji = NOTE_EMOJIS[i];
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "ntool ntool--emoji";
+    btn.textContent = emoji;
+    btn.addEventListener("mousedown", function (event) { event.preventDefault(); });
+    btn.addEventListener("click", function () { document.execCommand("insertText", false, emoji); });
+    emojiBox.appendChild(btn);
+  }
+
+  document.getElementById("notesBtn").addEventListener("click", openNotes);
+  document.getElementById("notesBack").addEventListener("click", closeNotes);
+  document.getElementById("addNoteBtn").addEventListener("click", addNote);
+  document.getElementById("noteEditorBack").addEventListener("click", closeNoteEditor);
+  document.addEventListener("keydown", function (event) {
+    if (event.key !== "Escape") return;
+    if (!noteEditor.hidden) closeNoteEditor();
+    else if (!notesView.hidden) closeNotes();
+  });
+
   applyTheme(state.settings.theme);
   applyPalette(state.settings.palette);
   applyLanguage(state.settings.language);
-  applyGreetingName(state.settings.name);
   renderList("tasks");
   renderList("projects");
   renderHabits();
@@ -1237,7 +1639,14 @@
   checkReminders();
   setInterval(checkReminders, 30000);
   renderClock();
-  setInterval(renderClock, 30000);
+  renderGreeting();
+  initSky();
+  applyDecorations();
+  setInterval(function () {
+    renderClock();
+    renderGreeting();
+    if (state.settings.theme === "auto") applyTheme("auto");   // follow the hour
+  }, 30000);
 
   /* register the service worker for offline use */
   if ("serviceWorker" in navigator) {
