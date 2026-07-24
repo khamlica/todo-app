@@ -1,0 +1,62 @@
+const CACHE = "todo-app-v2";
+
+/* app shell precached so everything works offline */
+const ASSETS = [
+  "./",
+  "./index.html",
+  "./style.css",
+  "./app.js",
+  "./manifest.webmanifest",
+  "./icons/icon-192.png",
+  "./icons/icon-512.png",
+  "./assets/cat-scuba.gif"
+];
+
+self.addEventListener("install", function (event) {
+  event.waitUntil(caches.open(CACHE).then(function (cache) {
+    return cache.addAll(ASSETS);
+  }));
+  self.skipWaiting();
+});
+
+/* remove old caches when a new version activates */
+self.addEventListener("activate", function (event) {
+  event.waitUntil(caches.keys().then(function (names) {
+    const deletions = [];
+    for (let i = 0; i < names.length; i++) {
+      if (names[i] !== CACHE) {
+        deletions.push(caches.delete(names[i]));
+      }
+    }
+    return Promise.all(deletions);
+  }));
+  self.clients.claim();
+});
+
+/* network-first for the app code (so edits show up online), cache-first for the rest */
+self.addEventListener("fetch", function (event) {
+  const request = event.request;
+  const path = new URL(request.url).pathname;
+  if (request.mode === "navigate" || /\.(html|js|css|webmanifest)$/.test(path)) {
+    event.respondWith(networkFirst(request));
+  } else {
+    event.respondWith(cacheFirst(request));
+  }
+});
+
+/* try the network and refresh the cache, fall back to cache when offline */
+function networkFirst(request) {
+  return fetch(request).then(function (response) {
+    const copy = response.clone();
+    caches.open(CACHE).then(function (cache) { cache.put(request, copy); });
+    return response;
+  }).catch(function () {
+    return caches.match(request);
+  });
+}
+
+function cacheFirst(request) {
+  return caches.match(request).then(function (cached) {
+    return cached || fetch(request);
+  });
+}

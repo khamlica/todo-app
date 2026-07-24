@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#f6ecf7">
+  <title>Mes tâches</title>
+  <link rel="stylesheet" href="./style.css">
+  <link rel="manifest" href="./manifest.webmanifest">
+  <link rel="apple-touch-icon" href="./icons/icon-192.png">
+  <!-- apply saved theme before paint to avoid a color flash -->
+  <script>
+    try {
+      var saved = JSON.parse(localStorage.getItem("todoAppData"));
+      if (saved && saved.settings && saved.settings.theme) {
+        document.documentElement.setAttribute("data-theme", saved.settings.theme);
+      }
+    } catch (err) {}
+  </script>
+</head>
+<body>
+
+  <!-- settings button, always visible top-right -->
+  <button id="settingsBtn" class="settings-btn" data-i18n-aria="settingsAria" aria-label="Paramètres">⚙</button>
+
+  <!-- welcome screen -->
+  <section id="welcome" class="welcome">
+    <div class="welcome__inner">
+      <h1 class="welcome__title"><span data-i18n="greetingPrefix">Bonjour</span><span id="greetName"></span><span data-i18n="greetingSuffix"> !</span><br><span data-i18n="welcomeQuestion">Prêt à travailler sur l'essentiel ?</span></h1>
+      <button id="enterBtn" class="enter" data-i18n-aria="enterAria" aria-label="Entrer dans l'application">
+        <span class="enter__arrow">→</span>
+      </button>
+    </div>
+  </section>
+
+  <!-- app -->
+  <main id="app" class="app" hidden>
+
+    <!-- daily tasks -->
+    <section class="panel">
+      <h2 class="panel__title" data-i18n="tasksTitle">Vos tâches du jour</h2>
+      <form class="add" data-list="tasks">
+        <input class="add__input" type="text" data-i18n-placeholder="addTaskPlaceholder" data-i18n-aria="taskInputAria"
+               placeholder="Ajouter une tâche…" aria-label="Nouvelle tâche" required>
+        <button class="add__btn" type="submit" data-i18n-aria="addAria" aria-label="Ajouter">+</button>
+      </form>
+      <ul class="list" id="tasksList"></ul>
+    </section>
+
+    <!-- projects -->
+    <section class="panel">
+      <h2 class="panel__title" data-i18n="projectsTitle">Vos projets</h2>
+      <form class="add" data-list="projects">
+        <input class="add__input" type="text" data-i18n-placeholder="addProjectPlaceholder" data-i18n-aria="projectInputAria"
+               placeholder="Ajouter un projet…" aria-label="Nouveau projet" required>
+        <button class="add__btn" type="submit" data-i18n-aria="addAria" aria-label="Ajouter">+</button>
+      </form>
+      <ul class="list" id="projectsList"></ul>
+    </section>
+
+    <!-- habits -->
+    <section class="panel">
+      <h2 class="panel__title" data-i18n="habitsTitle">Vos habitudes</h2>
+      <div class="habits" id="habitsGrid"></div>
+    </section>
+
+    <!-- focus mode entry -->
+    <section class="panel focus-card">
+      <button id="focusBtn" class="focus-trigger" type="button" data-i18n-aria="focusAria" aria-label="Passer en mode focus">
+        <svg class="fleur" viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <path d="M32 8 C 27 18, 27 28, 32 36 C 37 28, 37 18, 32 8 Z"/>
+          <path d="M32 36 C 24 33, 16 25, 20 15 C 22 24, 28 31, 33 35"/>
+          <path d="M32 36 C 40 33, 48 25, 44 15 C 42 24, 36 31, 31 35"/>
+          <path d="M24 35 C 28 38, 36 38, 40 35"/>
+          <path d="M32 36 C 29 44, 29 50, 32 56 C 35 50, 35 44, 32 36 Z"/>
+          <path d="M26 54 C 29 51, 35 51, 38 54"/>
+        </svg>
+        <span class="focus-label" data-i18n="focusLabel">Mode focus</span>
+      </button>
+    </section>
+
+  </main>
+
+  <!-- focus overlay -->
+  <div id="focus" class="focus" hidden>
+    <img id="scubaGif" class="scuba-gif" src="./assets/cat-scuba.gif" alt="" hidden>
+    <div class="focus__dot"></div>
+    <p class="focus__phrase" id="focusPhrase"></p>
+    <button id="focusExit" class="focus__exit" type="button" data-i18n-aria="focusExitAria" aria-label="Quitter le mode focus">×</button>
+  </div>
+
+  <!-- settings dialog -->
+  <div id="settings" class="modal" hidden>
+    <div class="modal__backdrop" data-close></div>
+    <div class="modal__card">
+      <div class="modal__head">
+        <h2 class="modal__title" data-i18n="settingsTitle">Paramètres</h2>
+        <button class="modal__close" data-close data-i18n-aria="closeAria" aria-label="Fermer">×</button>
+      </div>
+
+      <label class="field">
+        <span class="field__label" data-i18n="nameLabel">Votre prénom</span>
+        <input id="nameInput" class="field__input" type="text" data-i18n-placeholder="namePlaceholder"
+               placeholder="Ex. Aymane" maxlength="30">
+      </label>
+
+      <div class="field">
+        <span class="field__label" data-i18n="themeLabel">Thème</span>
+        <div class="themes" id="themes">
+          <button class="theme" data-theme="light" data-i18n="themeLight" type="button">Clair</button>
+          <button class="theme" data-theme="dark" data-i18n="themeDark" type="button">Sombre</button>
+          <button class="theme" data-theme="rose" data-i18n="themeRose" type="button">Rose</button>
+        </div>
+      </div>
+
+      <div class="field">
+        <span class="field__label" data-i18n="languageLabel">Langue</span>
+        <div class="langs" id="langs">
+          <button class="lang" data-lang="fr" data-i18n="langFr" type="button">Français</button>
+          <button class="lang" data-lang="en" data-i18n="langEn" type="button">English</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- habit icon picker -->
+  <div id="iconPicker" class="modal" hidden>
+    <div class="modal__backdrop" data-close></div>
+    <div class="modal__card">
+      <div class="modal__head">
+        <h2 class="modal__title" data-i18n="pickIconTitle">Choisir une icône</h2>
+        <button class="modal__close" data-close data-i18n-aria="closeAria" aria-label="Fermer">×</button>
+      </div>
+      <label class="field">
+        <span class="field__label" data-i18n="habitNameLabel">Nom de l'habitude</span>
+        <input id="habitNameInput" class="field__input" type="text" data-i18n-placeholder="habitNamePlaceholder"
+               placeholder="Ex. Boire de l'eau" maxlength="40">
+      </label>
+      <div class="icon-grid" id="iconGrid"></div>
+    </div>
+  </div>
+
+  <script src="./app.js"></script>
+</body>
+</html>
