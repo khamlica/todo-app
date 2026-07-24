@@ -60,3 +60,14 @@ function cacheFirst(request) {
     return cached || fetch(request);
   });
 }
+
+/* focus the app (or open it) when a reminder notification is tapped */
+self.addEventListener("notificationclick", function (event) {
+  event.notification.close();
+  event.waitUntil(clients.matchAll({ type: "window" }).then(function (windows) {
+    for (let i = 0; i < windows.length; i++) {
+      if ("focus" in windows[i]) return windows[i].focus();
+    }
+    if (clients.openWindow) return clients.openWindow("./");
+  }));
+});

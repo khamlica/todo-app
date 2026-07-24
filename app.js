@@ -16,11 +16,12 @@
         settings: {
           name: (saved.settings && saved.settings.name) || "",
           theme: (saved.settings && saved.settings.theme) || "light",
-          language: (saved.settings && saved.settings.language) || "fr"
+          language: (saved.settings && saved.settings.language) || "fr",
+          palette: (saved.settings && saved.settings.palette) || "aurora"
         }
       };
     } catch (err) {
-      return { tasks: [], projects: [], habits: [], settings: { name: "", theme: "light", language: "fr" } };
+      return { tasks: [], projects: [], habits: [], settings: { name: "", theme: "light", language: "fr", palette: "aurora" } };
     }
   }
 
@@ -66,6 +67,24 @@
       habitToggleAria: "Compléter l'habitude",
       habitNameLabel: "Nom de l'habitude",
       habitNamePlaceholder: "Ex. Boire de l'eau",
+      pickDateAria: "Choisir une date",
+      calendarTitle: "Échéance",
+      calTimeLabel: "Heure (optionnel)",
+      calClear: "Effacer",
+      calConfirm: "Valider",
+      prevMonthAria: "Mois précédent",
+      nextMonthAria: "Mois suivant",
+      reminderTitle: "Rappel",
+      importanceAria: "Importance",
+      paletteLabel: "Palette",
+      paletteAurora: "Aurore",
+      paletteMeadow: "Prairie",
+      paletteSunset: "Coucher",
+      agendaAria: "Ouvrir l'agenda",
+      agendaTitle: "Agenda",
+      agendaToday: "Aujourd'hui",
+      agendaTomorrow: "Demain",
+      agendaNoDate: "Sans date",
       focusPhrases: [
         "Hedy est le meilleur",
         "Hedy est meilleur que bary",
@@ -108,6 +127,24 @@
       habitToggleAria: "Complete habit",
       habitNameLabel: "Habit name",
       habitNamePlaceholder: "e.g. Drink water",
+      pickDateAria: "Pick a date",
+      calendarTitle: "Deadline",
+      calTimeLabel: "Time (optional)",
+      calClear: "Clear",
+      calConfirm: "Confirm",
+      prevMonthAria: "Previous month",
+      nextMonthAria: "Next month",
+      reminderTitle: "Reminder",
+      importanceAria: "Importance",
+      paletteLabel: "Palette",
+      paletteAurora: "Aurora",
+      paletteMeadow: "Meadow",
+      paletteSunset: "Sunset",
+      agendaAria: "Open agenda",
+      agendaTitle: "Agenda",
+      agendaToday: "Today",
+      agendaTomorrow: "Tomorrow",
+      agendaNoDate: "No date",
       focusPhrases: [
         "Breathe.",
         "One thing at a time.",
@@ -169,6 +206,15 @@
     }
   }
 
+  /* Apply a color palette (aurora / meadow / sunset) via a root attribute. */
+  function applyPalette(paletteName) {
+    document.documentElement.setAttribute("data-palette", paletteName);
+    const paletteButtons = document.querySelectorAll(".palette");
+    for (let i = 0; i < paletteButtons.length; i++) {
+      paletteButtons[i].classList.toggle("is-active", paletteButtons[i].dataset.palette === paletteName);
+    }
+  }
+
   /* Set the middle of the greeting to "" or " <name>". */
   function applyGreetingName(name) {
     document.getElementById("greetName").textContent = name ? " " + name : "";
@@ -214,6 +260,15 @@
     });
   }
 
+  const paletteButtons = document.querySelectorAll(".palette");
+  for (let i = 0; i < paletteButtons.length; i++) {
+    paletteButtons[i].addEventListener("click", function () {
+      state.settings.palette = paletteButtons[i].dataset.palette;
+      applyPalette(state.settings.palette);
+      saveState();
+    });
+  }
+
   const languageButtons = document.querySelectorAll(".lang");
   for (let i = 0; i < languageButtons.length; i++) {
     languageButtons[i].addEventListener("click", function () {
@@ -222,6 +277,7 @@
       renderList("tasks");     // refresh empty text and delete labels
       renderList("projects");
       renderHabits();
+      renderAgenda();
       saveState();
     });
   }
@@ -272,7 +328,7 @@
   /* Redraw one list (tasks or projects) from state. */
   function renderList(listName) {
     const listElement = document.getElementById(listName + "List");
-    const items = state[listName];
+    const items = sortedByDue(state[listName]);
     listElement.innerHTML = "";
 
     if (items.length === 0) {
@@ -309,14 +365,29 @@
     deleteButton.textContent = "×";
     deleteButton.addEventListener("click", function () { removeItem(listName, item.id); });
 
-    row.append(checkbox, label, deleteButton);
+    row.append(checkbox, label);
+    if (item.dueDate) {
+      row.appendChild(createDueBadge(item));
+    }
+    if (listName === "projects") {
+      row.appendChild(createImportanceBars(item.importance || 0));
+    }
+    row.appendChild(deleteButton);
     return row;
   }
 
-  function addItem(listName, text) {
-    state[listName].push({ id: Date.now().toString(), text: text, done: false }); // timestamp id
+  function addItem(listName, text, due, importance) {
+    const item = { id: Date.now().toString(), text: text, done: false }; // timestamp id
+    if (due && due.date) {
+      item.dueDate = due.date;
+      item.dueTime = due.time || null;
+      item.notified = false;
+    }
+    if (importance) item.importance = importance;
+    state[listName].push(item);
     saveState();
     renderList(listName);
+    renderAgenda();
   }
 
   /* Find the item by id, drop it, redraw. */
@@ -330,6 +401,7 @@
     }
     saveState();
     renderList(listName);
+    renderAgenda();
   }
 
   function toggleItem(listName, id) {
@@ -342,6 +414,7 @@
     }
     saveState();
     renderList(listName);
+    renderAgenda();
   }
 
   const addForms = document.querySelectorAll(".add");
@@ -351,7 +424,12 @@
       const input = this.querySelector(".add__input");
       const text = input.value.trim();
       if (text) {
-        addItem(this.dataset.list, text);
+        const list = this.dataset.list;
+        const due = list === "tasks" ? pendingDue : null;
+        const importance = list === "projects" ? pendingImportance : 0;
+        addItem(list, text, due, importance);
+        if (list === "tasks") resetPendingDue();
+        if (list === "projects") resetPendingImportance();
         input.value = "";
         input.focus();
       }
@@ -524,13 +602,463 @@
     });
   }
 
+  /* IMPORTANCE — a 5-bar level on projects, set when creating one */
+  const projectImp = document.getElementById("projectImp");
+  let pendingImportance = 0;
+
+  /* Build the 5 bars. Read-only divs when no onSelect; clickable buttons in the form. */
+  function createImportanceBars(level, onSelect) {
+    const wrap = document.createElement("div");
+    wrap.className = onSelect ? "imp imp--edit" : "imp";
+    for (let i = 1; i <= 5; i++) {
+      const bar = document.createElement(onSelect ? "button" : "div");
+      bar.className = i <= level ? "imp__bar is-on" : "imp__bar";
+      if (onSelect) {
+        bar.type = "button";
+        bar.setAttribute("aria-label", translate("importanceAria") + " " + i);
+        const barLevel = i;
+        bar.addEventListener("click", function () { onSelect(barLevel); });
+      }
+      wrap.appendChild(bar);
+    }
+    return wrap;
+  }
+
+  /* Redraw the interactive widget in the projects add form. */
+  function renderImportanceInput() {
+    projectImp.innerHTML = "";
+    projectImp.appendChild(createImportanceBars(pendingImportance, function (level) {
+      pendingImportance = (pendingImportance === level) ? 0 : level; // click the top bar again to clear
+      renderImportanceInput();
+    }));
+  }
+
+  function resetPendingImportance() {
+    pendingImportance = 0;
+    renderImportanceInput();
+  }
+
+  /* AGENDA — optional due date/time on tasks */
+  const calendarModal = document.getElementById("calendar");
+  const pendingDue = { date: null, time: "" };   // due for the task being typed
+  let pickerContext = "new";                      // "new" or an existing task id
+  let pickerSelected = null;                      // "YYYY-MM-DD" chosen in the grid
+  let pickerYear = 0;
+  let pickerMonth = 0;
+
+  function findTask(id) {
+    for (let i = 0; i < state.tasks.length; i++) {
+      if (state.tasks[i].id === id) return state.tasks[i];
+    }
+    return null;
+  }
+
+  /* "YYYY-MM-DD" from numeric parts */
+  function dateKey(year, month, day) {
+    return year + "-" + String(month + 1).padStart(2, "0") + "-" + String(day).padStart(2, "0");
+  }
+
+  /* Undated tasks stay first (in order); dated ones follow, soonest first. */
+  function sortedByDue(items) {
+    const undated = [];
+    const dated = [];
+    for (let i = 0; i < items.length; i++) {
+      if (items[i].dueDate) dated.push(items[i]);
+      else undated.push(items[i]);
+    }
+    dated.sort(function (a, b) { return dueSortKey(a) - dueSortKey(b); });
+    return undated.concat(dated);
+  }
+
+  /* date-only tasks sort at the end of their day */
+  function dueSortKey(task) {
+    return new Date(task.dueDate + "T" + (task.dueTime || "23:59")).getTime();
+  }
+
+  /* Small localized badge like "24 juil. · 14:00", clickable to edit the date. */
+  function createDueBadge(task) {
+    const locale = state.settings.language === "fr" ? "fr-FR" : "en-US";
+    const when = new Date(task.dueDate + "T" + (task.dueTime || "00:00"));
+    let text = when.toLocaleDateString(locale, { day: "numeric", month: "short" });
+    if (task.dueTime) text += " · " + task.dueTime;
+
+    const badge = document.createElement("button");
+    badge.type = "button";
+    badge.className = "item__due";
+    if (!task.done && dueSortKey(task) < Date.now()) badge.classList.add("is-overdue");
+    badge.textContent = text;
+    badge.addEventListener("click", function (event) {
+      event.stopPropagation(); // don't toggle the task
+      openCalendar(task.id);
+    });
+    return badge;
+  }
+
+  /* Draw the month grid: weekday row, leading blanks, then the days. */
+  function renderCalendar() {
+    const locale = state.settings.language === "fr" ? "fr-FR" : "en-US";
+    const firstOfMonth = new Date(pickerYear, pickerMonth, 1);
+    document.getElementById("calMonth").textContent =
+      firstOfMonth.toLocaleDateString(locale, { month: "long", year: "numeric" });
+
+    const grid = document.getElementById("calGrid");
+    grid.innerHTML = "";
+
+    // weekday headers, Monday first (Jan 1 2024 was a Monday)
+    for (let i = 0; i < 7; i++) {
+      const head = document.createElement("div");
+      head.className = "cal__wd";
+      head.textContent = new Date(2024, 0, 1 + i).toLocaleDateString(locale, { weekday: "short" });
+      grid.appendChild(head);
+    }
+
+    // blanks so day 1 lands on the right weekday (getDay: 0=Sun -> Monday-first)
+    const lead = (firstOfMonth.getDay() + 6) % 7;
+    for (let i = 0; i < lead; i++) {
+      const blank = document.createElement("div");
+      blank.className = "cal__day is-blank";
+      grid.appendChild(blank);
+    }
+
+    const daysInMonth = new Date(pickerYear, pickerMonth + 1, 0).getDate();
+    const today = todayKey();
+    for (let d = 1; d <= daysInMonth; d++) {
+      const key = dateKey(pickerYear, pickerMonth, d);
+      const cell = document.createElement("button");
+      cell.type = "button";
+      cell.className = "cal__day";
+      if (key === today) cell.classList.add("is-today");
+      if (key === pickerSelected) cell.classList.add("is-selected");
+      cell.textContent = String(d);
+      cell.addEventListener("click", function () {
+        pickerSelected = key;
+        renderCalendar();
+      });
+      grid.appendChild(cell);
+    }
+  }
+
+  /* Open the calendar for a new task ("new") or to edit an existing task id. */
+  function openCalendar(context) {
+    pickerContext = context;
+    let date = null;
+    let time = "";
+    if (context === "new") {
+      date = pendingDue.date;
+      time = pendingDue.time;
+    } else {
+      const task = findTask(context);
+      if (task) { date = task.dueDate || null; time = task.dueTime || ""; }
+    }
+    pickerSelected = date || todayKey();   // today highlighted by default
+    const base = new Date(pickerSelected + "T00:00");
+    pickerYear = base.getFullYear();
+    pickerMonth = base.getMonth();
+    document.getElementById("calTime").value = time;
+    renderCalendar();
+    calendarModal.hidden = false;
+  }
+
+  /* Write the chosen (or cleared) date to the pending task or the edited one. */
+  function applyDue(date, time) {
+    if (pickerContext === "new") {
+      pendingDue.date = date;
+      pendingDue.time = date ? time : "";
+      setDateButtonsState(!!date);
+    } else {
+      const task = findTask(pickerContext);
+      if (task) {
+        task.dueDate = date;
+        task.dueTime = date ? (time || null) : null;
+        task.notified = false;   // re-arm the reminder
+        saveState();
+        renderList("tasks");
+        renderAgenda();
+      }
+    }
+    if (date && time) ensureNotifyPermission();
+    calendarModal.hidden = true;
+  }
+
+  function resetPendingDue() {
+    pendingDue.date = null;
+    pendingDue.time = "";
+    setDateButtonsState(false);
+  }
+
+  /* reflect the pending due on every date button (main + agenda forms) */
+  function setDateButtonsState(on) {
+    const buttons = document.querySelectorAll(".add__date");
+    for (let i = 0; i < buttons.length; i++) {
+      buttons[i].classList.toggle("is-set", on);
+    }
+  }
+
+  const dateButtons = document.querySelectorAll(".add__date");
+  for (let i = 0; i < dateButtons.length; i++) {
+    dateButtons[i].addEventListener("click", function () { openCalendar("new"); });
+  }
+  document.getElementById("calPrev").addEventListener("click", function () {
+    pickerMonth--;
+    if (pickerMonth < 0) { pickerMonth = 11; pickerYear--; }
+    renderCalendar();
+  });
+  document.getElementById("calNext").addEventListener("click", function () {
+    pickerMonth++;
+    if (pickerMonth > 11) { pickerMonth = 0; pickerYear++; }
+    renderCalendar();
+  });
+  document.getElementById("calConfirm").addEventListener("click", function () {
+    applyDue(pickerSelected, document.getElementById("calTime").value);
+  });
+  document.getElementById("calClear").addEventListener("click", function () {
+    applyDue(null, "");
+  });
+  const calCloseButtons = calendarModal.querySelectorAll("[data-close]");
+  for (let i = 0; i < calCloseButtons.length; i++) {
+    calCloseButtons[i].addEventListener("click", function () {
+      calendarModal.hidden = true;
+    });
+  }
+
+  /* REMINDERS — foreground while open, plus catch-up on launch (no server) */
+  function ensureNotifyPermission() {
+    if (window.Notification && Notification.permission === "default") {
+      Notification.requestPermission();
+    }
+  }
+
+  /* only tasks with both a date and a time get a timed reminder */
+  function dueTimestamp(task) {
+    if (!task.dueDate || !task.dueTime) return null;
+    return new Date(task.dueDate + "T" + task.dueTime).getTime();
+  }
+
+  function showReminder(task) {
+    const title = translate("reminderTitle");
+    const options = { body: task.text, icon: "./icons/icon-192.png", tag: "task-" + task.id };
+    if (navigator.serviceWorker && navigator.serviceWorker.ready) {
+      navigator.serviceWorker.ready.then(function (reg) { reg.showNotification(title, options); });
+    } else if (window.Notification) {
+      new Notification(title, options);
+    }
+  }
+
+  /* Notify for any due, not-yet-notified task. Runs on load and on a timer. */
+  function checkReminders() {
+    if (!window.Notification || Notification.permission !== "granted") return;
+    const now = Date.now();
+    let changed = false;
+    for (let i = 0; i < state.tasks.length; i++) {
+      const task = state.tasks[i];
+      if (task.done || task.notified) continue;
+      const ts = dueTimestamp(task);
+      if (ts && ts <= now) {
+        showReminder(task);
+        task.notified = true;
+        changed = true;
+      }
+    }
+    if (changed) saveState();
+  }
+
+  /* AGENDA VIEW — full-screen month calendar; days holding tasks are marked */
+  const agendaOverlay = document.getElementById("agenda");
+  const agendaGrid = document.getElementById("agendaGrid");
+  const agendaDayPanel = document.getElementById("agendaDay");
+  const dayList = document.getElementById("dayList");
+  let agendaYear = new Date().getFullYear();
+  let agendaMonth = new Date().getMonth();
+  let agendaDay = null;   // day open in the day panel (YYYY-MM-DD)
+
+  function openAgenda() {
+    const now = new Date();
+    agendaYear = now.getFullYear();
+    agendaMonth = now.getMonth();
+    renderAgendaCalendar();
+    agendaOverlay.hidden = false;
+  }
+
+  /* "Aujourd'hui" / "Demain" / a full localized date. */
+  function agendaDateLabel(dateStr) {
+    if (dateStr === todayKey()) return translate("agendaToday");
+    const t = new Date();
+    t.setDate(t.getDate() + 1);
+    if (dateStr === dateKey(t.getFullYear(), t.getMonth(), t.getDate())) return translate("agendaTomorrow");
+    const locale = state.settings.language === "fr" ? "fr-FR" : "en-US";
+    return new Date(dateStr + "T00:00").toLocaleDateString(locale, { weekday: "long", day: "numeric", month: "long" });
+  }
+
+  /* Dates (YYYY-MM-DD) that hold at least one task. */
+  function taskDates() {
+    const set = {};
+    for (let i = 0; i < state.tasks.length; i++) {
+      if (state.tasks[i].dueDate) set[state.tasks[i].dueDate] = true;
+    }
+    return set;
+  }
+
+  /* Draw the month grid: weekday row, blanks, then days (marked when they hold tasks). */
+  function renderAgendaCalendar() {
+    const locale = state.settings.language === "fr" ? "fr-FR" : "en-US";
+    const firstOfMonth = new Date(agendaYear, agendaMonth, 1);
+    document.getElementById("agendaMonth").textContent =
+      firstOfMonth.toLocaleDateString(locale, { month: "long", year: "numeric" });
+
+    agendaGrid.innerHTML = "";
+    for (let i = 0; i < 7; i++) {
+      const head = document.createElement("div");
+      head.className = "cal__wd";
+      head.textContent = new Date(2024, 0, 1 + i).toLocaleDateString(locale, { weekday: "short" });
+      agendaGrid.appendChild(head);
+    }
+
+    const lead = (firstOfMonth.getDay() + 6) % 7;
+    for (let i = 0; i < lead; i++) {
+      const blank = document.createElement("div");
+      blank.className = "agenda__cell is-blank";
+      agendaGrid.appendChild(blank);
+    }
+
+    const daysInMonth = new Date(agendaYear, agendaMonth + 1, 0).getDate();
+    const today = todayKey();
+    const withTasks = taskDates();
+    for (let d = 1; d <= daysInMonth; d++) {
+      const key = dateKey(agendaYear, agendaMonth, d);
+      const cell = document.createElement("button");
+      cell.type = "button";
+      cell.className = "agenda__cell";
+      if (key === today) cell.classList.add("is-today");
+      if (withTasks[key]) cell.classList.add("has-tasks");
+      const num = document.createElement("span");
+      num.className = "agenda__num";
+      num.textContent = String(d);
+      cell.appendChild(num);
+      cell.addEventListener("click", function () { openDay(key); });
+      agendaGrid.appendChild(cell);
+    }
+  }
+
+  /* Open the day panel for a date: its tasks + a quick add. */
+  function openDay(dateStr) {
+    agendaDay = dateStr;
+    document.getElementById("dayTitle").textContent = agendaDateLabel(dateStr);
+    document.getElementById("dayAddInput").value = "";
+    document.getElementById("dayAddTime").value = "";
+    renderDayPanel();
+    agendaDayPanel.hidden = false;
+  }
+
+  /* List the tasks of the open day, sorted by time. */
+  function renderDayPanel() {
+    dayList.innerHTML = "";
+    const dayTasks = [];
+    for (let i = 0; i < state.tasks.length; i++) {
+      if (state.tasks[i].dueDate === agendaDay) dayTasks.push(state.tasks[i]);
+    }
+    dayTasks.sort(function (a, b) {
+      return (a.dueTime || "23:59").localeCompare(b.dueTime || "23:59");
+    });
+
+    if (dayTasks.length === 0) {
+      const empty = document.createElement("li");
+      empty.className = "empty";
+      empty.textContent = translate("emptyList");
+      dayList.appendChild(empty);
+      return;
+    }
+    for (let i = 0; i < dayTasks.length; i++) {
+      dayList.appendChild(createDayRow(dayTasks[i]));
+    }
+  }
+
+  /* A task row inside the day panel: checkbox, text, time, delete. */
+  function createDayRow(task) {
+    const row = document.createElement("li");
+    row.className = task.done ? "item done" : "item";
+
+    const checkbox = document.createElement("span");
+    checkbox.className = "item__check";
+    checkbox.textContent = task.done ? "✓" : "";
+    checkbox.addEventListener("click", function () { toggleItem("tasks", task.id); });
+
+    const label = document.createElement("span");
+    label.className = "item__text";
+    label.textContent = task.text;
+    label.addEventListener("click", function () { toggleItem("tasks", task.id); });
+
+    const del = document.createElement("button");
+    del.type = "button";
+    del.className = "item__del";
+    del.setAttribute("aria-label", translate("deleteAria"));
+    del.textContent = "×";
+    del.addEventListener("click", function () { removeItem("tasks", task.id); });
+
+    row.append(checkbox, label);
+    if (task.dueTime) {
+      const time = document.createElement("span");
+      time.className = "agenda__time";
+      time.textContent = task.dueTime;
+      row.appendChild(time);
+    }
+    row.appendChild(del);
+    return row;
+  }
+
+  /* Refresh whichever agenda surface is visible (marks + open day). */
+  function renderAgenda() {
+    renderAgendaCalendar();
+    if (agendaDay) renderDayPanel();
+  }
+
+  document.getElementById("agendaBtn").addEventListener("click", openAgenda);
+  document.getElementById("agendaClose").addEventListener("click", function () { agendaOverlay.hidden = true; });
+  document.getElementById("agendaPrev").addEventListener("click", function () {
+    agendaMonth--;
+    if (agendaMonth < 0) { agendaMonth = 11; agendaYear--; }
+    renderAgendaCalendar();
+  });
+  document.getElementById("agendaNext").addEventListener("click", function () {
+    agendaMonth++;
+    if (agendaMonth > 11) { agendaMonth = 0; agendaYear++; }
+    renderAgendaCalendar();
+  });
+
+  const dayCloseButtons = agendaDayPanel.querySelectorAll("[data-close]");
+  for (let i = 0; i < dayCloseButtons.length; i++) {
+    dayCloseButtons[i].addEventListener("click", function () { agendaDayPanel.hidden = true; });
+  }
+
+  document.getElementById("dayAddForm").addEventListener("submit", function (event) {
+    event.preventDefault();
+    const input = document.getElementById("dayAddInput");
+    const text = input.value.trim();
+    if (text) {
+      addItem("tasks", text, { date: agendaDay, time: document.getElementById("dayAddTime").value }, 0);
+      input.value = "";
+      document.getElementById("dayAddTime").value = "";
+      input.focus();
+    }
+  });
+
+  /* Esc closes the day panel first, then the calendar. */
+  document.addEventListener("keydown", function (event) {
+    if (event.key !== "Escape") return;
+    if (!agendaDayPanel.hidden) agendaDayPanel.hidden = true;
+    else if (!agendaOverlay.hidden) agendaOverlay.hidden = true;
+  });
+
   applyTheme(state.settings.theme);
+  applyPalette(state.settings.palette);
   applyLanguage(state.settings.language);
   applyGreetingName(state.settings.name);
   renderList("tasks");
   renderList("projects");
   renderHabits();
   buildIconPicker();
+  renderImportanceInput();
+  checkReminders();
+  setInterval(checkReminders, 30000);
 
   /* register the service worker for offline use */
   if ("serviceWorker" in navigator) {

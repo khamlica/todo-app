@@ -15,6 +15,9 @@
       if (saved && saved.settings && saved.settings.theme) {
         document.documentElement.setAttribute("data-theme", saved.settings.theme);
       }
+      if (saved && saved.settings && saved.settings.palette) {
+        document.documentElement.setAttribute("data-palette", saved.settings.palette);
+      }
     } catch (err) {}
   </script>
 </head>
@@ -38,10 +41,22 @@
 
     <!-- daily tasks -->
     <section class="panel">
-      <h2 class="panel__title" data-i18n="tasksTitle">Vos tâches du jour</h2>
+      <div class="panel__head">
+        <h2 class="panel__title" data-i18n="tasksTitle">Vos tâches du jour</h2>
+        <button id="agendaBtn" class="panel__action" type="button" data-i18n-aria="agendaAria" aria-label="Ouvrir l'agenda">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/><line x1="8" y1="14" x2="16" y2="14"/><line x1="8" y1="17" x2="13" y2="17"/>
+          </svg>
+        </button>
+      </div>
       <form class="add" data-list="tasks">
         <input class="add__input" type="text" data-i18n-placeholder="addTaskPlaceholder" data-i18n-aria="taskInputAria"
                placeholder="Ajouter une tâche…" aria-label="Nouvelle tâche" required>
+        <button class="add__date" type="button" id="taskDateBtn" data-i18n-aria="pickDateAria" aria-label="Choisir une date">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
+          </svg>
+        </button>
         <button class="add__btn" type="submit" data-i18n-aria="addAria" aria-label="Ajouter">+</button>
       </form>
       <ul class="list" id="tasksList"></ul>
@@ -53,6 +68,7 @@
       <form class="add" data-list="projects">
         <input class="add__input" type="text" data-i18n-placeholder="addProjectPlaceholder" data-i18n-aria="projectInputAria"
                placeholder="Ajouter un projet…" aria-label="Nouveau projet" required>
+        <div id="projectImp"></div>
         <button class="add__btn" type="submit" data-i18n-aria="addAria" aria-label="Ajouter">+</button>
       </form>
       <ul class="list" id="projectsList"></ul>
@@ -114,6 +130,21 @@
       </div>
 
       <div class="field">
+        <span class="field__label" data-i18n="paletteLabel">Palette</span>
+        <div class="palettes" id="palettes">
+          <button class="palette" data-palette="aurora" type="button">
+            <span class="palette__sw"></span><span data-i18n="paletteAurora">Aurore</span>
+          </button>
+          <button class="palette" data-palette="meadow" type="button">
+            <span class="palette__sw"></span><span data-i18n="paletteMeadow">Prairie</span>
+          </button>
+          <button class="palette" data-palette="sunset" type="button">
+            <span class="palette__sw"></span><span data-i18n="paletteSunset">Coucher</span>
+          </button>
+        </div>
+      </div>
+
+      <div class="field">
         <span class="field__label" data-i18n="languageLabel">Langue</span>
         <div class="langs" id="langs">
           <button class="lang" data-lang="fr" data-i18n="langFr" type="button">Français</button>
@@ -137,6 +168,67 @@
                placeholder="Ex. Boire de l'eau" maxlength="40">
       </label>
       <div class="icon-grid" id="iconGrid"></div>
+    </div>
+  </div>
+
+  <!-- agenda: full-screen calendar -->
+  <div id="agenda" class="agenda" hidden>
+    <div class="agenda__bar">
+      <button id="agendaClose" class="agenda__close" data-i18n-aria="closeAria" aria-label="Fermer">×</button>
+      <div class="agenda__nav">
+        <button id="agendaPrev" class="cal__nav" type="button" data-i18n-aria="prevMonthAria" aria-label="Mois précédent">‹</button>
+        <span id="agendaMonth" class="agenda__month"></span>
+        <button id="agendaNext" class="cal__nav" type="button" data-i18n-aria="nextMonthAria" aria-label="Mois suivant">›</button>
+      </div>
+    </div>
+    <div id="agendaGrid" class="agenda__grid"></div>
+  </div>
+
+  <!-- agenda: single-day tasks + quick add -->
+  <div id="agendaDay" class="modal" hidden>
+    <div class="modal__backdrop" data-close></div>
+    <div class="modal__card">
+      <div class="modal__head">
+        <h2 class="modal__title" id="dayTitle"></h2>
+        <button class="modal__close" data-close data-i18n-aria="closeAria" aria-label="Fermer">×</button>
+      </div>
+      <form id="dayAddForm" class="day__add">
+        <input id="dayAddInput" class="add__input" type="text" data-i18n-placeholder="addTaskPlaceholder"
+               placeholder="Ajouter une tâche…" required>
+        <input id="dayAddTime" class="day__time" type="time">
+        <button class="add__btn" type="submit" data-i18n-aria="addAria" aria-label="Ajouter">+</button>
+      </form>
+      <ul class="list" id="dayList"></ul>
+    </div>
+  </div>
+
+  <!-- deadline calendar -->
+  <div id="calendar" class="modal" hidden>
+    <div class="modal__backdrop" data-close></div>
+    <div class="modal__card">
+      <div class="modal__head">
+        <h2 class="modal__title" data-i18n="calendarTitle">Échéance</h2>
+        <button class="modal__close" data-close data-i18n-aria="closeAria" aria-label="Fermer">×</button>
+      </div>
+
+      <div class="cal">
+        <div class="cal__head">
+          <button type="button" class="cal__nav" id="calPrev" data-i18n-aria="prevMonthAria" aria-label="Mois précédent">‹</button>
+          <span class="cal__month" id="calMonth"></span>
+          <button type="button" class="cal__nav" id="calNext" data-i18n-aria="nextMonthAria" aria-label="Mois suivant">›</button>
+        </div>
+        <div class="cal__grid" id="calGrid"></div>
+      </div>
+
+      <label class="field">
+        <span class="field__label" data-i18n="calTimeLabel">Heure (optionnel)</span>
+        <input id="calTime" class="field__input" type="time">
+      </label>
+
+      <div class="cal__actions">
+        <button type="button" class="cal__clear" id="calClear" data-i18n="calClear">Effacer</button>
+        <button type="button" class="cal__confirm" id="calConfirm" data-i18n="calConfirm">Valider</button>
+      </div>
     </div>
   </div>
 
