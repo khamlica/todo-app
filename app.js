@@ -453,12 +453,7 @@
       const input = this.querySelector(".add__input");
       const text = input.value.trim();
       if (text) {
-        const list = this.dataset.list;
-        const due = list === "tasks" ? pendingDue : null;
-        const importance = list === "projects" ? pendingImportance : 0;
-        addItem(list, text, due, importance);
-        if (list === "tasks") resetPendingDue();
-        if (list === "projects") resetPendingImportance();
+        addItem(this.dataset.list, text);   // date/importance are set later in the detail view
         input.value = "";
         input.focus();
       }
@@ -640,11 +635,9 @@
     });
   }
 
-  /* IMPORTANCE — a 5-bar level on projects, set when creating one */
-  const projectImp = document.getElementById("projectImp");
-  let pendingImportance = 0;
+  /* IMPORTANCE — a 5-bar level on projects (shown on rows, edited in the detail view) */
 
-  /* Build the 5 bars. Read-only divs when no onSelect; clickable buttons in the form. */
+  /* Build the 5 bars. Read-only divs when no onSelect; clickable buttons for editing. */
   function createImportanceBars(level, onSelect) {
     const wrap = document.createElement("div");
     wrap.className = onSelect ? "imp imp--edit" : "imp";
@@ -662,24 +655,8 @@
     return wrap;
   }
 
-  /* Redraw the interactive widget in the projects add form. */
-  function renderImportanceInput() {
-    projectImp.innerHTML = "";
-    projectImp.appendChild(createImportanceBars(pendingImportance, function (level) {
-      pendingImportance = (pendingImportance === level) ? 0 : level; // click the top bar again to clear
-      renderImportanceInput();
-    }));
-  }
-
-  function resetPendingImportance() {
-    pendingImportance = 0;
-    renderImportanceInput();
-  }
-
-  /* AGENDA — optional due date/time on tasks */
+  /* AGENDA — due date/time on tasks, edited from the detail view */
   const calendarModal = document.getElementById("calendar");
-  const taskDateBtn = document.getElementById("taskDateBtn");
-  const pendingDue = { date: null, time: "" };   // due for the task being typed
   let pickerContext = "new";                      // "new" or an existing task id
   let pickerSelected = null;                      // "YYYY-MM-DD" chosen in the grid
   let pickerYear = 0;
@@ -783,18 +760,13 @@
     }
   }
 
-  /* Open the calendar for a new task ("new") or to edit an existing task id. */
+  /* Open the calendar to edit a task's date (context = task id). */
   function openCalendar(context) {
     pickerContext = context;
     let date = null;
     let time = "";
-    if (context === "new") {
-      date = pendingDue.date;
-      time = pendingDue.time;
-    } else {
-      const task = findTask(context);
-      if (task) { date = task.dueDate || null; time = task.dueTime || ""; }
-    }
+    const task = findTask(context);
+    if (task) { date = task.dueDate || null; time = task.dueTime || ""; }
     pickerSelected = date || todayKey();   // today highlighted by default
     const base = new Date(pickerSelected + "T00:00");
     pickerYear = base.getFullYear();
@@ -804,34 +776,21 @@
     calendarModal.hidden = false;
   }
 
-  /* Write the chosen (or cleared) date to the pending task or the edited one. */
+  /* Write the chosen (or cleared) date to the edited task. */
   function applyDue(date, time) {
-    if (pickerContext === "new") {
-      pendingDue.date = date;
-      pendingDue.time = date ? time : "";
-      taskDateBtn.classList.toggle("is-set", !!date);
-    } else {
-      const task = findTask(pickerContext);
-      if (task) {
-        task.dueDate = date;
-        task.dueTime = date ? (time || null) : null;
-        task.notified = false;   // re-arm the reminder
-        saveState();
-        renderList("tasks");
-        refreshDetailIfOpen();
-      }
+    const task = findTask(pickerContext);
+    if (task) {
+      task.dueDate = date;
+      task.dueTime = date ? (time || null) : null;
+      task.notified = false;   // re-arm the reminder
+      saveState();
+      renderList("tasks");
+      refreshDetailIfOpen();
     }
     if (date && time) ensureNotifyPermission();
     calendarModal.hidden = true;
   }
 
-  function resetPendingDue() {
-    pendingDue.date = null;
-    pendingDue.time = "";
-    taskDateBtn.classList.remove("is-set");
-  }
-
-  taskDateBtn.addEventListener("click", function () { openCalendar("new"); });
   document.getElementById("calPrev").addEventListener("click", function () {
     pickerMonth--;
     if (pickerMonth < 0) { pickerMonth = 11; pickerYear--; }
@@ -1275,7 +1234,6 @@
   renderList("projects");
   renderHabits();
   buildIconPicker();
-  renderImportanceInput();
   checkReminders();
   setInterval(checkReminders, 30000);
   renderClock();
