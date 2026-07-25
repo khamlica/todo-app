@@ -41,6 +41,7 @@
 
   <!-- welcome screen -->
   <section id="welcome" class="welcome">
+    <div id="rosace" class="rosace" aria-hidden="true"><div class="rosace__spin"></div></div>
     <div class="welcome__inner">
       <h1 class="welcome__title"><span id="welcomeGreeting"></span><br><span id="welcomeTime" class="welcome__time"></span></h1>
       <button id="enterBtn" class="enter" data-i18n-aria="enterAria" aria-label="Entrer dans l'application">
@@ -51,8 +52,6 @@
 
   <!-- app -->
   <main id="app" class="app" hidden>
-
-    <p class="clock" id="clock"></p>
 
     <!-- daily tasks -->
     <section class="panel">
@@ -123,13 +122,18 @@
         <textarea id="detailNotes" class="detail__notes" rows="4" data-i18n-placeholder="notesPlaceholder" placeholder="Ajouter des notes…"></textarea>
       </div>
 
-      <div class="detail__section">
+      <div class="detail__section" id="subtaskSection">
         <span class="detail__label" data-i18n="subtasksLabel">Sous-tâches</span>
         <form id="subtaskForm" class="sub-add">
           <input id="subtaskInput" class="add__input" type="text" data-i18n-placeholder="addSubtaskPlaceholder" placeholder="Ajouter une sous-tâche…" required>
           <button class="add__btn" type="submit" data-i18n-aria="addAria" aria-label="Ajouter">+</button>
         </form>
         <ul id="subtaskList" class="list"></ul>
+      </div>
+
+      <div class="detail__section" id="timelineSection" hidden>
+        <span class="detail__label" data-i18n="milestonesLabel">Jalons</span>
+        <div id="timeline" class="timeline"></div>
       </div>
 
       <button id="detailDelete" class="detail__delete" type="button" data-i18n="deleteAria">Supprimer</button>
@@ -201,7 +205,6 @@
         <div class="decors" id="decors">
           <button class="decor-opt" data-decor="particles" data-i18n="decorParticles" type="button">Particules</button>
           <button class="decor-opt" data-decor="petals" data-i18n="decorPetals" type="button">Pétales</button>
-          <button class="decor-opt" data-decor="cats" data-i18n="decorCats" type="button">Chats</button>
           <button class="decor-opt" data-decor="bubbles" data-i18n="decorBubbles" type="button">Bulles</button>
           <button class="decor-opt" data-decor="fireflies" data-i18n="decorFireflies" type="button">Lucioles</button>
         </div>

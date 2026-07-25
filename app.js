@@ -16,9 +16,13 @@
         }
         delete habits[i].completedOn;
       }
+      const projects = saved.projects || [];
+      for (let i = 0; i < projects.length; i++) {
+        delete projects[i].subtasks;   // projects moved from subtasks to milestones
+      }
       return {
         tasks: saved.tasks || [],
-        projects: saved.projects || [],
+        projects: projects,
         habits: habits,
         notes: saved.notes || [],
         settings: {
@@ -74,7 +78,6 @@
       decorLabel: "Décorations",
       decorParticles: "Particules",
       decorPetals: "Pétales",
-      decorCats: "Chats",
       decorBubbles: "Bulles",
       decorFireflies: "Lucioles",
       focusLabel: "Mode focus",
@@ -111,6 +114,9 @@
       notesPlaceholder: "Ajouter des notes…",
       subtasksLabel: "Sous-tâches",
       addSubtaskPlaceholder: "Ajouter une sous-tâche…",
+      milestonesLabel: "Jalons",
+      milestonePlaceholder: "Jalon",
+      milestoneAdd: "Ajouter un jalon",
       habitsHistoryAria: "Suivi des habitudes",
       historyLabel: "Historique",
       streakLabel: "Série",
@@ -165,7 +171,6 @@
       decorLabel: "Decorations",
       decorParticles: "Particles",
       decorPetals: "Petals",
-      decorCats: "Cats",
       decorBubbles: "Bubbles",
       decorFireflies: "Fireflies",
       focusLabel: "Focus mode",
@@ -202,6 +207,9 @@
       notesPlaceholder: "Add notes…",
       subtasksLabel: "Subtasks",
       addSubtaskPlaceholder: "Add a subtask…",
+      milestonesLabel: "Milestones",
+      milestonePlaceholder: "Milestone",
+      milestoneAdd: "Add a milestone",
       habitsHistoryAria: "Habit tracking",
       historyLabel: "History",
       streakLabel: "Streak",
@@ -348,18 +356,51 @@
   const welcomeScreen = document.getElementById("welcome");
   const appScreen = document.getElementById("app");
 
-  /* circular "iris" opening from the bubble to reveal the app behind */
-  document.getElementById("enterBtn").addEventListener("click", function () {
-    const rect = this.getBoundingClientRect();
-    const cx = rect.left + rect.width / 2;
-    const cy = rect.top + rect.height / 2;
-    const maxR = Math.hypot(Math.max(cx, window.innerWidth - cx), Math.max(cy, window.innerHeight - cy));
+  const rosace = document.getElementById("rosace");
+  const enterBtn = document.getElementById("enterBtn");
 
+  /* Draw a rose from Bezier petals radiating around the center. The mask in CSS
+     hides the busy middle, so only the outer tips show. */
+  function buildRosace() {
+    if (!rosace) return;
+    const ns = "http://www.w3.org/2000/svg";
+    const svg = document.createElementNS(ns, "svg");
+    svg.setAttribute("viewBox", "0 0 300 300");
+
+    const cx = 150, cy = 150;
+    const tipRadius = 128;      // distance from center to petal tip
+    const controlWidth = 44;    // how wide each petal bulges
+    const petalCount = 30;
+    const tipY = cy - tipRadius;
+    // one upward petal, reused and rotated around the center
+    const petal = "M" + cx + " " + cy
+      + " C" + (cx + controlWidth) + " " + (cy - tipRadius * 0.30)
+        + ", " + (cx + controlWidth * 0.5) + " " + (cy - tipRadius * 0.82) + ", " + cx + " " + tipY
+      + " C" + (cx - controlWidth * 0.5) + " " + (cy - tipRadius * 0.82)
+        + ", " + (cx - controlWidth) + " " + (cy - tipRadius * 0.30) + ", " + cx + " " + cy + " Z";
+
+    for (let i = 0; i < petalCount; i++) {
+      const path = document.createElementNS(ns, "path");
+      path.setAttribute("d", petal);
+      path.setAttribute("transform", "rotate(" + (i * 360 / petalCount) + " " + cx + " " + cy + ")");
+      svg.appendChild(path);
+    }
+    const spin = rosace.querySelector(".rosace__spin");
+    (spin || rosace).appendChild(svg);
+  }
+
+  /* the rosace spins on its own; hovering the arrow stops it with a reverse recoil */
+  if (enterBtn && rosace) {
+    enterBtn.addEventListener("mouseenter", function () { rosace.classList.add("is-recoil"); });
+    enterBtn.addEventListener("mouseleave", function () { rosace.classList.remove("is-recoil"); });
+  }
+
+  /* on click the rosace spins outward and vanishes while the app fades in behind */
+  enterBtn.addEventListener("click", function () {
     appScreen.hidden = false;   // app waits behind the welcome
-    welcomeScreen.style.setProperty("--rx", cx + "px");
-    welcomeScreen.style.setProperty("--ry", cy + "px");
-    welcomeScreen.style.setProperty("--reveal", maxR + "px");   // grows the transparent hole
-    setTimeout(function () { welcomeScreen.style.display = "none"; }, 800);
+    if (rosace) rosace.classList.add("is-launching");
+    welcomeScreen.classList.add("is-leaving");
+    setTimeout(function () { welcomeScreen.style.display = "none"; }, 550);
   });
 
   const settingsModal = document.getElementById("settings");
@@ -410,14 +451,12 @@
       renderList("tasks");     // refresh empty text and delete labels
       renderList("projects");
       renderHabits();
-      renderClock();
       renderGreeting();
       saveState();
     });
   }
 
-  /* DECORATIONS — activatable ambient effects (particles / petals / cats / bubbles / fireflies).
-     The cat glyphs are feature data requested by the user (not decorative code). */
+  /* DECORATIONS — activatable ambient effects (particles / petals / bubbles / fireflies) */
   const decor = document.getElementById("decor");
 
   function rand(min, max) { return min + Math.random() * (max - min); }
@@ -454,18 +493,6 @@
       decor.appendChild(p);
     }
   }
-  function spawnCats() {
-    const kinds = ["🐈", "🐱", "🐈‍⬛"];
-    for (let i = 0; i < 4; i++) {
-      const c = decorEl("cat");
-      c.textContent = kinds[i % kinds.length];
-      c.style.left = rand(4, 88) + "%";
-      c.style.fontSize = rand(1.6, 2.4) + "rem";
-      c.style.animationDuration = rand(2.5, 4.5) + "s";
-      c.style.animationDelay = -rand(0, 3) + "s";
-      decor.appendChild(c);
-    }
-  }
   function spawnBubbles() {
     for (let i = 0; i < 12; i++) {
       const b = decorEl("bubble2");
@@ -497,7 +524,6 @@
     for (let i = 0; i < active.length; i++) {
       if (active[i] === "particles") spawnParticles();
       else if (active[i] === "petals") spawnPetals();
-      else if (active[i] === "cats") spawnCats();
       else if (active[i] === "bubbles") spawnBubbles();
       else if (active[i] === "fireflies") spawnFireflies();
     }
@@ -602,7 +628,8 @@
 
     row.append(checkbox, label);
     if (item.notes && item.notes.trim()) row.appendChild(createNoteMark());
-    if (item.subtasks && item.subtasks.length) row.appendChild(createSubBadge(item));
+    if (listName === "tasks" && item.subtasks && item.subtasks.length) row.appendChild(createSubBadge(item));
+    if (listName === "projects" && item.milestones && item.milestones.length) row.appendChild(createMilestoneBadge(item));
     if (item.pinned) row.appendChild(createPinMarker());
     if (item.dueDate) {
       row.appendChild(createDueBadge(item));
@@ -1218,12 +1245,6 @@
     if (event.key === "Escape" && !habitsView.hidden) closeHabitsView();
   });
 
-  /* CLOCK — the big localized time shown in the app header */
-  const clock = document.getElementById("clock");
-  function renderClock() {
-    clock.textContent = clockText();
-  }
-
   /* DETAIL — full-screen view of a task/project: rename, props, notes, subtasks */
   const detail = document.getElementById("detail");
   const detailName = document.getElementById("detailName");
@@ -1231,7 +1252,27 @@
   const detailPin = document.getElementById("detailPin");
   const detailNotes = document.getElementById("detailNotes");
   const subtaskList = document.getElementById("subtaskList");
-  let detailTarget = { list: null, id: null };
+  const subtaskSection = document.getElementById("subtaskSection");
+  const timelineSection = document.getElementById("timelineSection");
+  const timeline = document.getElementById("timeline");
+  // kind: "tasks" | "projects" | "milestone" (a milestone lives inside a project)
+  let detailTarget = { kind: null, id: null, projectId: null };
+  let detailReturn = null;   // project to reopen after closing a milestone detail
+
+  /* the object the detail view currently edits */
+  function currentDetailItem() {
+    if (detailTarget.kind === "milestone") {
+      const project = findItem("projects", detailTarget.projectId);
+      return project ? findMilestone(project, detailTarget.id) : null;
+    }
+    return findItem(detailTarget.kind, detailTarget.id);
+  }
+
+  /* refresh whatever list the edited item belongs to (row badges / marks) */
+  function refreshDetailSource() {
+    if (detailTarget.kind === "milestone") renderList("projects");
+    else renderList(detailTarget.kind);
+  }
 
   const ICON_NOTE = '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="13" y2="17"/>';
 
@@ -1252,6 +1293,22 @@
     const badge = document.createElement("span");
     badge.className = "item__sub";
     badge.textContent = done + "/" + item.subtasks.length;
+    return badge;
+  }
+
+  /* milestone progress badge on a project row, as a percentage.
+     The start milestone is the origin and is not counted. */
+  function createMilestoneBadge(item) {
+    const milestones = item.milestones;
+    let done = 0;
+    let total = 0;
+    for (let i = 1; i < milestones.length; i++) {   // skip the start milestone
+      total++;
+      if (milestones[i].completedDate) done++;
+    }
+    const badge = document.createElement("span");
+    badge.className = "item__sub";
+    badge.textContent = (total ? Math.round(done / total * 100) : 0) + "%";
     return badge;
   }
 
@@ -1287,20 +1344,52 @@
     }
   }
 
+  /* top-level task or project */
   function openDetail(list, id) {
-    detailTarget = { list: list, id: id };
     const item = findItem(list, id);
     if (!item) return;
-    detailName.value = item.text;
-    renderDetailProps(item, list);
-    detailPin.classList.toggle("is-on", !!item.pinned);
+    detailTarget = { kind: list, id: id, projectId: null };
+    fillDetail(item);
+  }
+
+  /* a milestone, edited like a task but stored inside its project */
+  function openMilestoneDetail(project, milestone) {
+    detailReturn = project.id;   // back returns to the project timeline
+    detailTarget = { kind: "milestone", id: milestone.id, projectId: project.id };
+    fillDetail(milestone);
+  }
+
+  /* populate and show the detail view for the current target */
+  function fillDetail(item) {
+    const kind = detailTarget.kind;
+    detailName.value = item.text || "";
+    detailPin.hidden = kind === "milestone";   // milestones are not pinned
+    if (!detailPin.hidden) detailPin.classList.toggle("is-on", !!item.pinned);
+    renderDetailProps(item, kind);
     detailNotes.value = item.notes || "";
-    renderSubtasks(item);
+
+    // projects show the milestone timeline, everything else shows subtasks
+    const isProject = kind === "projects";
+    subtaskSection.hidden = isProject;
+    timelineSection.hidden = !isProject;
+    if (isProject) renderTimeline(item);
+    else renderSubtasks(item);
+
     detail.hidden = false;
-    requestAnimationFrame(function () { detail.classList.add("is-open"); });   // slide in
+    requestAnimationFrame(function () {
+      detail.classList.add("is-open");
+      if (isProject) layoutTimeline();   // measure once the view is visible
+    });
   }
 
   function closeDetail() {
+    // a milestone detail steps back to its project timeline, not out to the app
+    if (detailTarget.kind === "milestone" && detailReturn) {
+      const projectId = detailReturn;
+      detailReturn = null;
+      openDetail("projects", projectId);
+      return;
+    }
     detail.classList.remove("is-open");
     setTimeout(function () { detail.hidden = true; }, 300);   // after the slide out
   }
@@ -1308,8 +1397,8 @@
   /* refresh the type-specific controls after the calendar edits a date */
   function refreshDetailIfOpen() {
     if (detail.hidden) return;
-    const item = findItem(detailTarget.list, detailTarget.id);
-    if (item) renderDetailProps(item, detailTarget.list);
+    const item = currentDetailItem();
+    if (item) renderDetailProps(item, detailTarget.kind);
   }
 
   /* SUBTASKS */
@@ -1355,7 +1444,7 @@
     }
     saveState();
     renderSubtasks(item);
-    renderList(detailTarget.list);   // refresh the row badge
+    refreshDetailSource();   // refresh the row badge
   }
 
   function removeSubtask(item, subId) {
@@ -1367,33 +1456,263 @@
     }
     saveState();
     renderSubtasks(item);
-    renderList(detailTarget.list);
+    refreshDetailSource();
+  }
+
+  /* MILESTONE TIMELINE (projects) — a vertical line of dots, text on the right,
+     a gauge that fills down to the last completed dot, and a "+" node to extend it.
+     A milestone behaves like a task (its own detail view) but lives inside a project.
+     First and last dots are unnamed start/finish anchors; the "+" sits before finish. */
+  function renderTimeline(project) {
+    if (!project.milestones || project.milestones.length === 0) {
+      project.milestones = [
+        { id: Date.now().toString(), completedDate: null },        // start anchor
+        { id: (Date.now() + 1).toString(), completedDate: null }   // finish anchor
+      ];
+      saveState();
+    }
+
+    timeline.innerHTML = "";
+    const line = document.createElement("div");
+    line.className = "tl-line";
+    const fill = document.createElement("div");
+    fill.className = "tl-fill";
+    line.appendChild(fill);
+    timeline.appendChild(line);
+
+    const milestones = project.milestones;
+    const lastIndex = milestones.length - 1;
+    // once the finish milestone is completed the timeline is closed: no more adding
+    const finishDone = !!milestones[lastIndex].completedDate;
+    for (let i = 0; i < milestones.length; i++) {
+      if (i === lastIndex && !finishDone) timeline.appendChild(createAddRow(project));
+      const role = i === 0 ? "start" : (i === lastIndex ? "finish" : "");
+      timeline.appendChild(createMilestoneRow(project, milestones[i], role));
+    }
+    layoutTimeline();
+  }
+
+  /* one dot on the line. Anchors are just a highlighted dot; a named milestone
+     also shows its title (and completion date), and opens a task-like detail.
+     role: "start" (origin, not clickable), "finish", or "" (a normal milestone). */
+  function createMilestoneRow(project, milestone, role) {
+    const isAnchor = role === "start" || role === "finish";
+    const done = !!milestone.completedDate;
+    const row = document.createElement("div");
+    row.className = "tl-row";
+    if (done) row.classList.add("is-done");
+    if (isAnchor) row.classList.add("tl-row--anchor");
+
+    const dot = document.createElement("button");
+    dot.type = "button";
+    dot.className = "tl-dot";
+    if (role === "start") {
+      dot.disabled = true;   // the origin is fixed, not a completable step
+      dot.classList.add("tl-dot--fixed");
+    } else {
+      dot.setAttribute("aria-label", translate("habitToggleAria"));
+      dot.addEventListener("click", function (event) {
+        event.stopPropagation();   // the dot toggles; the row opens the detail
+        toggleMilestone(project, milestone.id);
+      });
+    }
+    row.appendChild(dot);
+
+    if (!isAnchor) {
+      const content = document.createElement("div");
+      content.className = "tl-content";
+
+      const title = document.createElement("span");
+      title.className = milestone.text ? "tl-title" : "tl-title is-empty";
+      title.textContent = milestone.text || translate("milestonePlaceholder");
+      content.appendChild(title);
+
+      if (done) {
+        const date = document.createElement("span");
+        date.className = "tl-date";
+        date.textContent = milestoneDateLabel(milestone.completedDate);
+        content.appendChild(date);
+      }
+
+      row.appendChild(content);
+      row.classList.add("tl-row--clickable");
+      row.addEventListener("click", function () { openMilestoneDetail(project, milestone); });
+    }
+    return row;
+  }
+
+  /* "12 juil." — localized short completion date */
+  function milestoneDateLabel(isoDate) {
+    const locale = state.settings.language === "fr" ? "fr-FR" : "en-US";
+    return new Date(isoDate + "T00:00").toLocaleDateString(locale, { day: "numeric", month: "short" });
+  }
+
+  /* the add row: a "+" dot and a title field; typing + Enter creates a milestone */
+  function createAddRow(project) {
+    const add = document.createElement("form");
+    add.className = "tl-add";
+
+    const dot = document.createElement("span");
+    dot.className = "tl-add__dot";
+    dot.textContent = "+";
+
+    const input = document.createElement("input");
+    input.type = "text";
+    input.className = "tl-add__input";
+    input.maxLength = 120;
+    input.placeholder = translate("milestoneAdd");
+
+    add.addEventListener("submit", function (event) {
+      event.preventDefault();
+      const text = input.value.trim();
+      if (text) addMilestone(project, text);
+    });
+
+    add.append(dot, input);
+    return add;
+  }
+
+  /* insert a titled milestone just before the last one, keeping the finish at the end */
+  function addMilestone(project, text) {
+    if (!project.milestones) project.milestones = [];
+    const at = Math.max(0, project.milestones.length - 1);
+    project.milestones.splice(at, 0, { id: Date.now().toString(), text: text, completedDate: null });
+    saveState();
+    renderTimeline(project);
+    renderList("projects");
+    const input = timeline.querySelector(".tl-add__input");
+    if (input) input.focus();   // ready for the next one
+  }
+
+  /* mark done (stamps today's date) or clear it, then refill the gauge */
+  function toggleMilestone(project, id) {
+    const milestone = findMilestone(project, id);
+    if (!milestone) return;
+    milestone.completedDate = milestone.completedDate ? null : todayKey();
+    saveState();
+    renderTimeline(project);
+    renderList("projects");
+  }
+
+  function removeMilestone(project, id) {
+    const milestones = project.milestones || [];
+    for (let i = 0; i < milestones.length; i++) {
+      if (milestones[i].id === id) { milestones.splice(i, 1); break; }
+    }
+    saveState();
+    renderList("projects");
+  }
+
+  function findMilestone(project, id) {
+    const milestones = project.milestones || [];
+    for (let i = 0; i < milestones.length; i++) {
+      if (milestones[i].id === id) return milestones[i];
+    }
+    return null;
+  }
+
+  /* current palette as five parsed rgb stops (--imp-1 .. --imp-5) */
+  function paletteStops() {
+    const style = getComputedStyle(document.documentElement);
+    const stops = [];
+    for (let i = 1; i <= 5; i++) {
+      stops.push(hexToRgb(style.getPropertyValue("--imp-" + i).trim()));
+    }
+    return stops;
+  }
+
+  function hexToRgb(text) {
+    let hex = text.replace("#", "");
+    if (hex.length === 3) hex = hex[0] + hex[0] + hex[1] + hex[1] + hex[2] + hex[2];
+    return {
+      r: parseInt(hex.slice(0, 2), 16),
+      g: parseInt(hex.slice(2, 4), 16),
+      b: parseInt(hex.slice(4, 6), 16)
+    };
+  }
+
+  /* color at position t (0..1) along the five evenly-spaced palette stops */
+  function paletteColorAt(stops, t) {
+    const scaled = Math.max(0, Math.min(1, t)) * (stops.length - 1);
+    const low = Math.floor(scaled);
+    const high = Math.min(low + 1, stops.length - 1);
+    const frac = scaled - low;
+    const a = stops[low];
+    const b = stops[high];
+    const r = Math.round(a.r + (b.r - a.r) * frac);
+    const g = Math.round(a.g + (b.g - a.g) * frac);
+    const blue = Math.round(a.b + (b.b - a.b) * frac);
+    return "rgb(" + r + ", " + g + ", " + blue + ")";
+  }
+
+  /* run the line from the first dot to the "+" node, fill down to the last done dot,
+     and tint every dot with its palette color at that height */
+  function layoutTimeline() {
+    const line = timeline.querySelector(".tl-line");
+    const fill = timeline.querySelector(".tl-fill");
+    if (!line || !fill) return;
+    const dots = timeline.querySelectorAll(".tl-dot, .tl-add__dot");
+    if (dots.length === 0) { line.style.height = "0"; fill.style.height = "0"; return; }
+
+    const base = timeline.getBoundingClientRect().top;
+    const centerY = function (dot) {
+      const rect = dot.getBoundingClientRect();
+      return rect.top + rect.height / 2 - base;
+    };
+    const firstY = centerY(dots[0]);
+    const lastY = centerY(dots[dots.length - 1]);
+    const span = lastY - firstY;
+    line.style.top = firstY + "px";
+    line.style.height = span + "px";
+
+    // palette gradient mapped to the whole line, revealed as the fill grows
+    fill.style.backgroundSize = "100% " + span + "px";
+
+    const doneDots = timeline.querySelectorAll(".tl-row.is-done .tl-dot");
+    const fillY = doneDots.length ? centerY(doneDots[doneDots.length - 1]) : firstY;
+    fill.style.height = Math.max(0, fillY - firstY) + "px";   // fill sits inside the line
+
+    // tint each milestone dot with the palette color at its height
+    const stops = paletteStops();
+    const milestoneDots = timeline.querySelectorAll(".tl-dot");
+    for (let i = 0; i < milestoneDots.length; i++) {
+      const dot = milestoneDots[i];
+      const row = dot.parentNode;
+      const color = paletteColorAt(stops, span > 0 ? (centerY(dot) - firstY) / span : 0);
+      const isDone = row.classList.contains("is-done");
+      const isAnchor = row.classList.contains("tl-row--anchor");
+      const isFinish = i === milestoneDots.length - 1;
+      // the finish anchor only fills once completed; the start anchor stays solid
+      const solid = isDone || (isAnchor && !isFinish);
+      dot.style.borderColor = color;
+      dot.style.background = solid ? color : "var(--surface)";
+    }
   }
 
   /* live rename */
   detailName.addEventListener("input", function () {
-    const item = findItem(detailTarget.list, detailTarget.id);
+    const item = currentDetailItem();
     if (!item) return;
     item.text = detailName.value;
     saveState();
-    renderList(detailTarget.list);
+    refreshDetailSource();
   });
 
   /* auto-saved notes */
   detailNotes.addEventListener("input", function () {
-    const item = findItem(detailTarget.list, detailTarget.id);
+    const item = currentDetailItem();
     if (!item) return;
     item.notes = detailNotes.value;
     saveState();
-    renderList(detailTarget.list);   // refresh the note mark
+    refreshDetailSource();   // refresh the note mark
   });
 
   detailPin.addEventListener("click", function () {
-    const item = findItem(detailTarget.list, detailTarget.id);
+    const item = currentDetailItem();
     if (!item) return;
     item.pinned = !item.pinned;
     saveState();
-    renderList(detailTarget.list);
+    refreshDetailSource();
     detailPin.classList.toggle("is-on", !!item.pinned);
   });
 
@@ -1402,7 +1721,7 @@
     const input = document.getElementById("subtaskInput");
     const text = input.value.trim();
     if (!text) return;
-    const item = findItem(detailTarget.list, detailTarget.id);
+    const item = currentDetailItem();
     if (!item) return;
     if (!item.subtasks) item.subtasks = [];
     item.subtasks.push({ id: Date.now().toString(), text: text, done: false });
@@ -1410,13 +1729,18 @@
     input.value = "";
     input.focus();
     renderSubtasks(item);
-    renderList(detailTarget.list);
+    refreshDetailSource();
   });
 
   document.getElementById("detailBack").addEventListener("click", closeDetail);
   document.getElementById("detailDelete").addEventListener("click", function () {
-    removeItem(detailTarget.list, detailTarget.id);
-    closeDetail();
+    if (detailTarget.kind === "milestone") {
+      const project = findItem("projects", detailTarget.projectId);
+      if (project) removeMilestone(project, detailTarget.id);
+    } else {
+      removeItem(detailTarget.kind, detailTarget.id);
+    }
+    closeDetail();   // milestone deletion steps back to the project timeline
   });
   document.addEventListener("keydown", function (event) {
     if (event.key === "Escape" && !detail.hidden) closeDetail();
@@ -1638,20 +1962,33 @@
   buildIconPicker();
   checkReminders();
   setInterval(checkReminders, 30000);
-  renderClock();
   renderGreeting();
   initSky();
+  buildRosace();
   applyDecorations();
   setInterval(function () {
-    renderClock();
     renderGreeting();
     if (state.settings.theme === "auto") applyTheme("auto");   // follow the hour
   }, 30000);
 
-  /* register the service worker for offline use */
+  /* register the service worker for offline use — but never on localhost,
+     so local dev always serves fresh files (no stale cache to resync) */
   if ("serviceWorker" in navigator) {
-    window.addEventListener("load", function () {
-      navigator.serviceWorker.register("./service-worker.js");
-    });
+    const host = location.hostname;
+    const isLocal = host === "localhost" || host === "127.0.0.1" || host === "";
+    if (isLocal) {
+      navigator.serviceWorker.getRegistrations().then(function (regs) {
+        for (let i = 0; i < regs.length; i++) regs[i].unregister();   // drop any old worker
+      });
+      if (window.caches) {
+        caches.keys().then(function (names) {
+          for (let i = 0; i < names.length; i++) caches.delete(names[i]);
+        });
+      }
+    } else {
+      window.addEventListener("load", function () {
+        navigator.serviceWorker.register("./service-worker.js");
+      });
+    }
   }
 })();
