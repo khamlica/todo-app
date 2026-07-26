@@ -1,4 +1,4 @@
-const CACHE = "todo-app-v60";
+const CACHE = "todo-app-v68";
 
 /* app shell precached so everything works offline */
 const ASSETS = [

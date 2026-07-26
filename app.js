@@ -22,6 +22,11 @@
           if (c.target == null) c.target = 8;
           if (!habits[i].sleepLog) habits[i].sleepLog = {};
         }
+        if (habits[i].type === "exercise") {
+          const c = habits[i].config || (habits[i].config = {});
+          if (!c.items) c.items = [];
+          if (!habits[i].exerciseLog) habits[i].exerciseLog = {};
+        }
       }
       const projects = saved.projects || [];
       for (let i = 0; i < projects.length; i++) {
@@ -64,7 +69,7 @@
     fr: {
       greetingPrefix: "Bonjour",
       greetingSuffix: " !",
-      welcomeQuestion: "Qu'est-ce qui compte aujourd'hui ?",
+      welcomeQuestion: "Prêt à rester sur l'essentiel ?",
       enterAria: "Entrer dans l'application",
       settingsAria: "Paramètres",
       settingsTitle: "Paramètres",
@@ -73,10 +78,9 @@
       tasksTitle: "Vos tâches du jour",
       projectsTitle: "Vos projets",
       taskInputAria: "Nouvelle tâche",
-      projectInputAria: "Nouveau projet",
       addTaskPlaceholder: "Ajouter une tâche…",
-      addProjectPlaceholder: "Ajouter un projet…",
       addAria: "Ajouter",
+      addProjectAria: "Nouveau projet",
       deleteAria: "Supprimer",
       emptyList: "Rien pour l'instant.",
       closeAria: "Fermer",
@@ -139,9 +143,22 @@
       sleepAvgLabel: "Moyenne 7 j",
       sleepDebtLabel: "Dette",
       sleepBedNotif: "Il est l'heure de dormir",
+      exerciseTitle: "Exercices rapides",
+      exerciseSearchPlaceholder: "Rechercher un exercice…",
+      exerciseCatalogEmpty: "Aucun résultat.",
+      exerciseItemsEmpty: "Ajoutez un exercice ci-dessous.",
+      exerciseTargetLabel: "Objectif",
+      exerciseAvgLabel: "Réussite 7 j",
+      exerciseRemoveAria: "Retirer l'exercice",
+      exercisePushup: "Pompes",
+      exerciseSquat: "Squats",
+      exerciseCrunch: "Abdos",
+      exerciseLunge: "Fentes",
+      exercisePullup: "Tractions",
+      exerciseDip: "Dips",
       pickDateAria: "Choisir une date",
       calendarTitle: "Échéance",
-      calTimeLabel: "Heure (optionnel)",
+      calTimeLabel: "Heure",
       calClear: "Effacer",
       calConfirm: "Valider",
       prevMonthAria: "Mois précédent",
@@ -211,10 +228,9 @@
       tasksTitle: "Your tasks today",
       projectsTitle: "Your projects",
       taskInputAria: "New task",
-      projectInputAria: "New project",
       addTaskPlaceholder: "Add a task…",
-      addProjectPlaceholder: "Add a project…",
       addAria: "Add",
+      addProjectAria: "New project",
       deleteAria: "Delete",
       emptyList: "Nothing yet.",
       closeAria: "Close",
@@ -277,9 +293,22 @@
       sleepAvgLabel: "7-day avg",
       sleepDebtLabel: "Debt",
       sleepBedNotif: "Time to sleep",
+      exerciseTitle: "Quick exercises",
+      exerciseSearchPlaceholder: "Search an exercise…",
+      exerciseCatalogEmpty: "No match.",
+      exerciseItemsEmpty: "Add an exercise below.",
+      exerciseTargetLabel: "Target",
+      exerciseAvgLabel: "7-day rate",
+      exerciseRemoveAria: "Remove exercise",
+      exercisePushup: "Push-ups",
+      exerciseSquat: "Squats",
+      exerciseCrunch: "Crunches",
+      exerciseLunge: "Lunges",
+      exercisePullup: "Pull-ups",
+      exerciseDip: "Dips",
       pickDateAria: "Pick a date",
       calendarTitle: "Deadline",
-      calTimeLabel: "Time (optional)",
+      calTimeLabel: "Time",
       calClear: "Clear",
       calConfirm: "Confirm",
       prevMonthAria: "Previous month",
@@ -875,7 +904,8 @@
      drag handle so they can be reordered (the list shows items in manual order). */
   function createItemRow(listName, item) {
     const row = document.createElement("li");
-    row.className = item.done ? "item item--open done" : "item item--open";
+    const projectClass = listName === "projects" ? " item--project" : "";
+    row.className = (item.done ? "item item--open done" : "item item--open") + projectClass;
     row.dataset.id = item.id;
     row.addEventListener("click", function () { openDetail(listName, item.id); });
 
@@ -1056,6 +1086,17 @@
     });
   }
 
+  /* a project has no quick-add field: it opens straight into its detail view */
+  document.getElementById("addProjectBtn").addEventListener("click", function () {
+    const project = { id: Date.now().toString(), text: translate("addProjectAria"), icon: "folder" };
+    state.projects.push(project);
+    saveState();
+    renderList("projects");
+    openDetail("projects", project.id);
+    detailName.focus();
+    detailName.select();
+  });
+
   /* HABITS */
   const HABIT_SLOTS = 5;
 
@@ -1085,8 +1126,21 @@
     bell: '<path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/>',
     folder: '<path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>',
     target: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.4"/>',
-    rocket: '<path d="M4.5 16.5c-1.5 1.3-2 5-2 5s3.7-.5 5-2c.7-.9.7-2.2-.1-3a2.1 2.1 0 0 0-2.9 0z"/><path d="M12 15l-3-3a11 11 0 0 1 5-8c1.9-1.9 4-2 5-2s1.1 3.1-.8 5a11 11 0 0 1-8 5z"/><path d="M9 12H4s.5-2.8 2-4c1.5-.4 3 0 3 0"/><path d="M12 15v5s2.8-.5 4-2c.4-1.5 0-3 0-3"/>'
+    rocket: '<path d="M4.5 16.5c-1.5 1.3-2 5-2 5s3.7-.5 5-2c.7-.9.7-2.2-.1-3a2.1 2.1 0 0 0-2.9 0z"/><path d="M12 15l-3-3a11 11 0 0 1 5-8c1.9-1.9 4-2 5-2s1.1 3.1-.8 5a11 11 0 0 1-8 5z"/><path d="M9 12H4s.5-2.8 2-4c1.5-.4 3 0 3 0"/><path d="M12 15v5s2.8-.5 4-2c.4-1.5 0-3 0-3"/>',
+    pushup: '<polyline points="6 8 12 13 18 8"/><polyline points="6 15 12 20 18 15"/>',
+    squat: '<line x1="4" y1="4" x2="20" y2="4"/><path d="M8 4v6l4 4 4-4V4"/><line x1="4" y1="20" x2="20" y2="20"/>',
+    crunch: '<rect x="6" y="3" width="5" height="5" rx="1"/><rect x="13" y="3" width="5" height="5" rx="1"/><rect x="6" y="9.5" width="5" height="5" rx="1"/><rect x="13" y="9.5" width="5" height="5" rx="1"/><rect x="6" y="16" width="5" height="5" rx="1"/><rect x="13" y="16" width="5" height="5" rx="1"/>',
+    lunge: '<path d="M12 3v6"/><path d="M8 9l4 6 4-6"/><path d="M8 21l4-6 4 6"/>',
+    pullup: '<line x1="3" y1="5" x2="21" y2="5"/><line x1="8" y1="5" x2="8" y2="13"/><line x1="16" y1="5" x2="16" y2="13"/><polyline points="6 10 8 13 10 10"/><polyline points="14 10 16 13 18 10"/>',
+    dip: '<line x1="5" y1="4" x2="5" y2="20"/><line x1="19" y1="4" x2="19" y2="20"/><polyline points="9 9 12 13 15 9"/>'
   };
+
+  const EXERCISE_CATALOG = ["pushup", "squat", "crunch", "lunge", "pullup", "dip"];
+  const EXERCISE_NAME_KEYS = {
+    pushup: "exercisePushup", squat: "exerciseSquat", crunch: "exerciseCrunch",
+    lunge: "exerciseLunge", pullup: "exercisePullup", dip: "exerciseDip"
+  };
+  function exerciseName(key) { return translate(EXERCISE_NAME_KEYS[key] || key); }
 
   const iconPicker = document.getElementById("iconPicker");
   const habitsGrid = document.getElementById("habitsGrid");
@@ -1115,9 +1169,10 @@
     }
   }
 
-  /* A filled habit: icon, rising water. Sleep is special (see createSleepTile). */
+  /* A filled habit: icon, rising water. Sleep/exercise are special (their own tile). */
   function createHabitTile(habit, today) {
     if (habit.type === "sleep") return createSleepTile(habit, today);
+    if (habit.type === "exercise") return createExerciseTile(habit, today);
 
     const done = !!(habit.completedDates && habit.completedDates.indexOf(today) !== -1);
     const tile = document.createElement("div");
@@ -1166,6 +1221,62 @@
       tile.appendChild(hrs);
     }
     tile.addEventListener("click", function () { openSleepView(habit.id); });
+    return tile;
+  }
+
+  /* reps logged today for one exercise; 0 if none */
+  function exerciseCount(habit, key, date) {
+    const day = (habit.exerciseLog || {})[date];
+    return (day && day[key]) || 0;
+  }
+  /* every configured exercise reached its target that day */
+  function exerciseAllDone(habit, date) {
+    const items = (habit.config && habit.config.items) || [];
+    if (!items.length) return false;
+    for (let i = 0; i < items.length; i++) {
+      if (exerciseCount(habit, items[i].key, date) < items[i].target) return false;
+    }
+    return true;
+  }
+  /* average completion across items, each capped at 100% */
+  function exerciseOverallFraction(habit, date) {
+    const items = (habit.config && habit.config.items) || [];
+    if (!items.length) return 0;
+    let sum = 0;
+    for (let i = 0; i < items.length; i++) {
+      sum += Math.min(1, exerciseCount(habit, items[i].key, date) / items[i].target);
+    }
+    return sum / items.length;
+  }
+
+  /* Exercise tile: water fills to today's overall completion, "n/n done" label. */
+  function createExerciseTile(habit, today) {
+    const items = (habit.config && habit.config.items) || [];
+    const done = exerciseAllDone(habit, today);
+    const tile = document.createElement("div");
+    tile.className = done ? "habit habit--exercise done" : "habit habit--exercise";
+    tile.setAttribute("aria-label", translate("exerciseTitle"));
+
+    const water = document.createElement("div");
+    water.className = "habit__water";
+    if (items.length) water.style.height = Math.max(6, exerciseOverallFraction(habit, today) * 100) + "%";
+
+    const icon = document.createElement("span");
+    icon.className = "habit__icon";
+    icon.innerHTML = habitSvg(habit.icon || "sport");
+
+    tile.append(water, icon);
+    if (items.length) {
+      let metCount = 0;
+      for (let i = 0; i < items.length; i++) {
+        if (exerciseCount(habit, items[i].key, today) >= items[i].target) metCount++;
+      }
+      const label = document.createElement("span");
+      label.className = "habit__hours";
+      label.textContent = metCount + "/" + items.length;
+      tile.appendChild(label);
+    }
+    tile.addEventListener("click", function () { openExerciseView(habit.id); });
     return tile;
   }
 
@@ -1325,6 +1436,25 @@
     saveState();
     renderHabits();
     openSleepView(state.habits[state.habits.length - 1].id);
+  });
+
+  /* preconfigured "Exercices rapides" habit: one per slots; reopen it if it already exists */
+  document.getElementById("presetExercise").addEventListener("click", function () {
+    iconPicker.hidden = true;
+    for (let i = 0; i < state.habits.length; i++) {
+      if (state.habits[i].type === "exercise") { openExerciseView(state.habits[i].id); return; }
+    }
+    state.habits.push({
+      id: Date.now().toString(),
+      type: "exercise",
+      name: translate("exerciseTitle"),
+      icon: "sport",
+      config: { items: [] },
+      exerciseLog: {}
+    });
+    saveState();
+    renderHabits();
+    openExerciseView(state.habits[state.habits.length - 1].id);
   });
 
   /* SLEEP VIEW — log last night's hours on a slider, configure targets, get an
@@ -1536,6 +1666,244 @@
     sleepCloseButtons[i].addEventListener("click", function () { sleepView.hidden = true; });
   }
 
+  /* EXERCISE VIEW — pick exercises from a catalog (search to add), log reps with
+     -/+1/+10 controls, each with its own daily target. */
+  const exerciseView = document.getElementById("exerciseView");
+  let exerciseHabitId = null;
+  const exerciseSearch = document.getElementById("exerciseSearch");
+
+  function currentExercise() {
+    const habit = findItem("habits", exerciseHabitId);
+    return (habit && habit.type === "exercise") ? habit : null;
+  }
+
+  function openExerciseView(id) {
+    exerciseHabitId = id;
+    const habit = currentExercise();
+    if (!habit) return;
+    if (!habit.config) habit.config = { items: [] };
+    if (!habit.config.items) habit.config.items = [];
+    if (!habit.exerciseLog) habit.exerciseLog = {};
+    exerciseSearch.value = "";
+    renderExerciseView();
+    exerciseView.hidden = false;
+  }
+
+  function renderExerciseView() {
+    const habit = currentExercise();
+    if (!habit) return;
+    renderExerciseItems(habit);
+    renderExerciseCatalog(habit);
+    renderExerciseWeek(habit);
+  }
+
+  /* the selected exercises: icon, name, editable target, today's progress, -/+1/+10 */
+  function renderExerciseItems(habit) {
+    const box = document.getElementById("exerciseItems");
+    box.innerHTML = "";
+    const items = habit.config.items;
+    if (!items.length) {
+      const empty = document.createElement("p");
+      empty.className = "ex-empty";
+      empty.textContent = translate("exerciseItemsEmpty");
+      box.appendChild(empty);
+      return;
+    }
+    for (let i = 0; i < items.length; i++) box.appendChild(createExerciseItemRow(habit, items[i]));
+  }
+
+  function createExerciseItemRow(habit, item) {
+    const today = todayKey();
+    const count = exerciseCount(habit, item.key, today);
+    const pct = Math.min(100, Math.round((count / item.target) * 100));
+    const row = document.createElement("div");
+    row.className = pct >= 100 ? "ex-item is-done" : "ex-item";
+
+    const head = document.createElement("div");
+    head.className = "ex-item__head";
+    const ico = document.createElement("span");
+    ico.className = "ex-item__ico";
+    ico.innerHTML = habitSvg(item.key);
+    const name = document.createElement("span");
+    name.className = "ex-item__name";
+    name.textContent = exerciseName(item.key);
+    const remove = document.createElement("button");
+    remove.type = "button";
+    remove.className = "ex-item__remove";
+    remove.setAttribute("aria-label", translate("exerciseRemoveAria"));
+    remove.textContent = "×";
+    remove.addEventListener("click", function () { removeExercise(item.key); });
+    head.append(ico, name, remove);
+
+    const targetRow = document.createElement("div");
+    targetRow.className = "ex-item__target";
+    const targetLabel = document.createElement("span");
+    targetLabel.textContent = translate("exerciseTargetLabel");
+    const targetInput = document.createElement("input");
+    targetInput.type = "number";
+    targetInput.min = "1";
+    targetInput.className = "ex-item__target-input";
+    targetInput.value = item.target;
+    targetInput.addEventListener("change", function () {
+      const v = parseInt(targetInput.value, 10);
+      item.target = v > 0 ? v : 1;
+      saveState();
+      renderExerciseView();
+      renderHabits();
+    });
+    targetRow.append(targetLabel, targetInput);
+
+    const progress = document.createElement("div");
+    progress.className = "ex-item__progress";
+    const bar = document.createElement("div");
+    bar.className = "ex-item__bar";
+    const fill = document.createElement("div");
+    fill.className = "ex-item__fill";
+    fill.style.width = pct + "%";
+    bar.appendChild(fill);
+    const countLabel = document.createElement("span");
+    countLabel.className = "ex-item__count";
+    countLabel.textContent = count + "/" + item.target;
+    progress.append(bar, countLabel);
+
+    const controls = document.createElement("div");
+    controls.className = "ex-item__controls";
+    const minus = document.createElement("button");
+    minus.type = "button";
+    minus.className = "ex-item__btn";
+    minus.textContent = "−";
+    minus.addEventListener("click", function () { adjustExerciseCount(habit, item.key, -1); });
+    const plus = document.createElement("button");
+    plus.type = "button";
+    plus.className = "ex-item__btn ex-item__btn--main";
+    plus.textContent = "+1";
+    plus.addEventListener("click", function () { adjustExerciseCount(habit, item.key, 1); });
+    const plusTen = document.createElement("button");
+    plusTen.type = "button";
+    plusTen.className = "ex-item__btn";
+    plusTen.textContent = "+10";
+    plusTen.addEventListener("click", function () { adjustExerciseCount(habit, item.key, 10); });
+    controls.append(minus, plus, plusTen);
+
+    row.append(head, targetRow, progress, controls);
+    return row;
+  }
+
+  function adjustExerciseCount(habit, key, delta) {
+    const today = todayKey();
+    if (!habit.exerciseLog[today]) habit.exerciseLog[today] = {};
+    const next = Math.max(0, (habit.exerciseLog[today][key] || 0) + delta);
+    habit.exerciseLog[today][key] = next;
+    saveState();
+    renderExerciseItems(habit);
+    renderExerciseWeek(habit);
+    renderHabits();
+  }
+
+  function addExercise(key) {
+    const habit = currentExercise();
+    if (!habit) return;
+    habit.config.items.push({ key: key, target: 20 });
+    saveState();
+    renderExerciseView();
+    renderHabits();
+  }
+
+  function removeExercise(key) {
+    const habit = currentExercise();
+    if (!habit) return;
+    const items = habit.config.items;
+    for (let i = 0; i < items.length; i++) {
+      if (items[i].key === key) { items.splice(i, 1); break; }
+    }
+    saveState();
+    renderExerciseView();
+    renderHabits();
+  }
+
+  /* catalog of not-yet-added exercises, filtered live by the search box */
+  function renderExerciseCatalog(habit) {
+    const box = document.getElementById("exerciseCatalog");
+    box.innerHTML = "";
+    const query = exerciseSearch.value.trim().toLowerCase();
+    const added = {};
+    for (let i = 0; i < habit.config.items.length; i++) added[habit.config.items[i].key] = true;
+    let shown = 0;
+    for (let i = 0; i < EXERCISE_CATALOG.length; i++) {
+      const key = EXERCISE_CATALOG[i];
+      if (added[key]) continue;
+      const name = exerciseName(key);
+      if (query && name.toLowerCase().indexOf(query) === -1) continue;
+      const btn = document.createElement("button");
+      btn.type = "button";
+      btn.className = "ex-cat-btn";
+      btn.innerHTML = '<span class="ex-cat-btn__ico">' + habitSvg(key) + "</span><span>" + name + "</span>";
+      btn.addEventListener("click", function () { addExercise(key); });
+      box.appendChild(btn);
+      shown++;
+    }
+    if (!shown) {
+      const empty = document.createElement("p");
+      empty.className = "ex-empty";
+      empty.textContent = translate("exerciseCatalogEmpty");
+      box.appendChild(empty);
+    }
+  }
+  exerciseSearch.addEventListener("input", function () {
+    const habit = currentExercise();
+    if (habit) renderExerciseCatalog(habit);
+  });
+
+  /* last 7 days: overall completion fraction per day (0 if unlogged), and the average */
+  function exerciseWeekData(habit) {
+    const now = new Date();
+    const days = [];
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(now);
+      d.setDate(now.getDate() - i);
+      const key = dateKey(d.getFullYear(), d.getMonth(), d.getDate());
+      days.push({ fraction: exerciseOverallFraction(habit, key), date: new Date(d) });
+    }
+    let sum = 0;
+    for (let i = 0; i < days.length; i++) sum += days[i].fraction;
+    return { days: days, avg: sum / days.length };
+  }
+
+  function renderExerciseWeek(habit) {
+    const hasItems = habit.config.items.length > 0;
+    const wk = exerciseWeekData(habit);
+    document.getElementById("exerciseAvg").textContent = hasItems ? Math.round(wk.avg * 100) + "%" : "–";
+    document.getElementById("exerciseChart").innerHTML = exerciseWeekSvg(wk.days);
+  }
+
+  /* 7-day bar chart, 0-100% completion, with a dashed line at the 100% goal */
+  function exerciseWeekSvg(days) {
+    const locale = state.settings.language === "fr" ? "fr-FR" : "en-US";
+    const W = 280, H = 122, padX = 6, padT = 10, padB = 20;
+    const plotW = W - padX * 2, plotH = H - padT - padB, y0 = padT + plotH;
+    const yAt = function (f) { return y0 - f * plotH; };
+    const step = plotW / days.length;
+    const bw = Math.min(24, step * 0.5);
+    let svg = '<svg viewBox="0 0 ' + W + ' ' + H + '" class="swk">';
+    const gy = yAt(1).toFixed(1);
+    svg += '<line class="swk-target" x1="' + padX + '" y1="' + gy + '" x2="' + (W - padX) + '" y2="' + gy + '"/>';
+    for (let i = 0; i < days.length; i++) {
+      const cx = padX + step * i + step / 2;
+      svg += '<text class="swk-wd" x="' + cx.toFixed(1) + '" y="' + (H - 6) + '">'
+        + days[i].date.toLocaleDateString(locale, { weekday: "narrow" }) + "</text>";
+      const f = days[i].fraction;
+      if (f <= 0) continue;
+      svg += '<rect class="swk-bar' + (f >= 1 ? "" : " is-out") + '" x="' + (cx - bw / 2).toFixed(1)
+        + '" y="' + yAt(f).toFixed(1) + '" width="' + bw.toFixed(1) + '" height="' + (y0 - yAt(f)).toFixed(1) + '" rx="3"/>';
+    }
+    return svg + "</svg>";
+  }
+
+  const exerciseCloseButtons = exerciseView.querySelectorAll("[data-close]");
+  for (let i = 0; i < exerciseCloseButtons.length; i++) {
+    exerciseCloseButtons[i].addEventListener("click", function () { exerciseView.hidden = true; });
+  }
+
   /* IMPORTANCE — a 5-bar level on projects (shown on rows, edited in the detail view) */
 
   /* Build the 5 bars. Read-only divs when no onSelect; clickable buttons for editing. */
@@ -1563,6 +1931,44 @@
   let pickerSelected = null;                      // "YYYY-MM-DD" chosen in the grid
   let pickerYear = 0;
   let pickerMonth = 0;
+  let pickerTimeOn = false;                       // whether a time is set on top of the date
+
+  /* time picker: an on/off toggle plus hour/minute sliders, live "HH:MM" readout */
+  const timePicker = document.getElementById("timePicker");
+  const timeHourSlider = document.getElementById("timeHour");
+  const timeMinuteSlider = document.getElementById("timeMinute");
+  const timeValueEl = document.getElementById("timeValue");
+  const timeToggle = createToggle(false, function (on) {
+    pickerTimeOn = on;
+    timePicker.hidden = !on;
+  });
+  timeToggle.classList.add("toggle--accent");   // neutral accent, not the "important" red
+  document.getElementById("timeToggleSlot").appendChild(timeToggle);
+
+  function updateTimeDisplay() {
+    const h = String(timeHourSlider.value).padStart(2, "0");
+    const m = String(timeMinuteSlider.value).padStart(2, "0");
+    timeValueEl.textContent = h + ":" + m;
+  }
+  timeHourSlider.addEventListener("input", updateTimeDisplay);
+  timeMinuteSlider.addEventListener("input", updateTimeDisplay);
+
+  /* load a "HH:MM" (or "" for no time) into the toggle + sliders */
+  function setPickerTime(time) {
+    const on = !!time;
+    pickerTimeOn = on;
+    timeToggle.classList.toggle("is-on", on);
+    timeToggle.setAttribute("aria-checked", on ? "true" : "false");
+    timePicker.hidden = !on;
+    const parts = (time || "09:00").split(":");
+    timeHourSlider.value = parseInt(parts[0], 10);
+    timeMinuteSlider.value = Math.round(parseInt(parts[1], 10) / 5) * 5;   // snap to the 5-minute step
+    updateTimeDisplay();
+  }
+  function pickerTimeValue() {
+    if (!pickerTimeOn) return "";
+    return String(timeHourSlider.value).padStart(2, "0") + ":" + String(timeMinuteSlider.value).padStart(2, "0");
+  }
 
   function findTask(id) {
     for (let i = 0; i < state.tasks.length; i++) {
@@ -1683,7 +2089,7 @@
     const base = new Date(pickerSelected + "T00:00");
     pickerYear = base.getFullYear();
     pickerMonth = base.getMonth();
-    document.getElementById("calTime").value = time;
+    setPickerTime(time);
     document.getElementById("calClear").hidden = pickerKind === "events";   // an event always has a date
     renderCalendar();
     calendarModal.hidden = false;
@@ -1729,7 +2135,7 @@
     renderCalendar();
   });
   document.getElementById("calConfirm").addEventListener("click", function () {
-    applyDue(pickerSelected, document.getElementById("calTime").value);
+    applyDue(pickerSelected, pickerTimeValue());
   });
   document.getElementById("calClear").addEventListener("click", function () {
     applyDue(null, "");
@@ -1893,6 +2299,7 @@
 
     card.appendChild(head);
     if (habit.type === "sleep") card.appendChild(buildSleepStats(habit));   // avg / debt / week chart
+    if (habit.type === "exercise") card.appendChild(buildExerciseStats(habit));   // per-exercise today + week rate
 
     const stats = document.createElement("div");
     stats.className = "hcard__stats";
@@ -1926,8 +2333,42 @@
     return wrap;
   }
 
+  /* exercise-specific stats block for the habits view: today's per-exercise chips,
+     7-day success rate, week chart */
+  function buildExerciseStats(habit) {
+    const items = (habit.config && habit.config.items) || [];
+    const today = todayKey();
+    const wk = exerciseWeekData(habit);
+    const wrap = document.createElement("div");
+    wrap.className = "hcard__sleep";
+
+    if (items.length) {
+      const chips = document.createElement("div");
+      chips.className = "ex-stats__chips";
+      for (let i = 0; i < items.length; i++) {
+        const count = exerciseCount(habit, items[i].key, today);
+        const chip = document.createElement("span");
+        chip.className = count >= items[i].target ? "ex-stats__chip is-done" : "ex-stats__chip";
+        chip.textContent = exerciseName(items[i].key) + " " + count + "/" + items[i].target;
+        chips.appendChild(chip);
+      }
+      wrap.appendChild(chips);
+    }
+
+    const row = document.createElement("div");
+    row.className = "sleep__weekstats";
+    row.innerHTML = '<div class="sleep__stat"><span class="sleep__stat-v">' + (items.length ? Math.round(wk.avg * 100) + "%" : "–")
+      + '</span><span class="sleep__stat-l">' + translate("exerciseAvgLabel") + "</span></div>";
+    const chart = document.createElement("div");
+    chart.className = "sleep__chart";
+    chart.innerHTML = exerciseWeekSvg(wk.days);
+    wrap.append(row, chart);
+    return wrap;
+  }
+
   /* completed dates as a lookup object. For sleep, a day counts when the logged
-     hours land inside the target..max range. */
+     hours land inside the target..max range. For exercise, when every configured
+     item reached its target that day. */
   function completedSet(habit) {
     const set = {};
     if (habit.type === "sleep") {
@@ -1937,6 +2378,14 @@
       for (let i = 0; i < days.length; i++) {
         const h = log[days[i]];
         if (h >= (cfg.min || 0) && (cfg.max == null || h <= cfg.max)) set[days[i]] = true;
+      }
+      return set;
+    }
+    if (habit.type === "exercise") {
+      const log = habit.exerciseLog || {};
+      const days = Object.keys(log);
+      for (let i = 0; i < days.length; i++) {
+        if (exerciseAllDone(habit, days[i])) set[days[i]] = true;
       }
       return set;
     }
@@ -3557,6 +4006,7 @@
   /* Trap the Back button (mobile) so it closes the top overlay instead of leaving
      the app. Closes the most-modal one first. */
   function closeTopOverlay() {
+    if (!exerciseView.hidden) { exerciseView.hidden = true; return true; }
     if (!sleepView.hidden) { sleepView.hidden = true; return true; }
     if (!weatherModal.hidden) { weatherModal.hidden = true; return true; }
     if (!iconPicker.hidden) { iconPicker.hidden = true; return true; }
