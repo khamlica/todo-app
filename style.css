@@ -34,6 +34,8 @@
   --dtl-arc: #e0ac6a;
   --radius: 16px;
   --shadow: 0 6px 20px rgba(0, 0, 0, 0.06);
+  /* numeric values are read as instrument readings, not as prose */
+  --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
 }
 
 [data-theme="dark"] {
@@ -414,10 +416,17 @@ body {
 }
 .decor-opt.is-active { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); font-weight: 600; }
 
-/* SETTINGS BUTTON */
-.settings-btn {
+/* TOP BAR — the weather reading sits with the tools, out of the day line */
+.topbar {
   position: fixed;
-  top: calc(16px + env(safe-area-inset-top)); right: calc(16px + env(safe-area-inset-right));
+  top: calc(16px + env(safe-area-inset-top));
+  right: calc(16px + env(safe-area-inset-right));
+  z-index: 20;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+.topbar__btn {
   width: 42px; height: 42px;
   border: none;
   border-radius: 50%;
@@ -426,11 +435,37 @@ body {
   font-size: 1.2rem;
   cursor: pointer;
   box-shadow: var(--shadow);
-  z-index: 20;
   display: grid; place-items: center;
   transition: transform .3s ease, color .2s ease;
 }
-.settings-btn:hover { transform: rotate(40deg); color: var(--accent); }
+.topbar__btn:hover { color: var(--accent); transform: translateY(-1px); }
+.topbar__btn--gear:hover { transform: rotate(40deg); }
+.topbar__btn svg { width: 20px; height: 20px; }
+
+.topbar__weather {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  height: 42px;
+  padding: 0 15px;
+  border: none;
+  border-radius: 999px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  font: inherit;
+  font-size: .85rem;
+  font-weight: 600;
+  color: var(--muted);
+  cursor: default;
+  transition: color .2s ease;
+}
+.topbar__weather[hidden] { display: none; }
+.topbar__weather svg { width: 17px; height: 17px; }
+.topbar__wico { display: inline-flex; }
+.topbar__place { color: var(--muted); }
+.topbar__temp { color: var(--text); }
+.topbar__weather.is-clickable { cursor: pointer; }
+.topbar__weather.is-clickable:hover { color: var(--accent); }
 
 /* WELCOME */
 .welcome {
@@ -539,25 +574,53 @@ body {
   to   { opacity: 1; }
 }
 
-/* APP */
+/* APP — no boxes: the reading column is held by `.wrap`, and the day band is
+   the only thing allowed to run the full width of the screen */
 .app {
   position: relative;
   z-index: 1;
-  max-width: 620px;
-  margin: 0 auto;
   /* top gap clears the fixed buttons; env() adds the notch/home-indicator safe areas */
-  padding: calc(64px + env(safe-area-inset-top)) 20px calc(60px + env(safe-area-inset-bottom));
+  /* the top gap clears the fixed top bar, plus room for the sunrise readings */
+  padding: calc(80px + env(safe-area-inset-top)) 0 calc(70px + env(safe-area-inset-bottom));
   animation: fadeUp .6s ease both;
 }
 .app[hidden] { display: none; }
 
-/* time-aware greeting line at the very top of the app */
-.app-greeting {
-  margin: 0 4px 18px;
-  font-size: .98rem;
-  color: var(--muted);
+.wrap,
+.app__grid {
+  max-width: 1160px;
+  margin: 0 auto;
+  padding-left: 20px;
+  padding-right: 20px;
 }
-#appGreetWord { color: var(--text); font-weight: 600; }
+.app__grid {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 44px;
+  align-items: start;
+}
+.app__col {
+  display: flex;
+  flex-direction: column;
+  gap: 44px;
+  min-width: 0;
+}
+
+/* below the two-column breakpoint the stack stays a readable single column */
+@media (max-width: 999px) {
+  .wrap, .app__grid { max-width: 760px; }
+}
+
+@media (min-width: 1000px) {
+  .wrap, .app__grid { padding-left: 32px; padding-right: 32px; }
+  .app__grid { grid-template-columns: minmax(0, 1.32fr) minmax(0, 1fr); gap: 48px 52px; }
+}
+
+/* keep a lane clear on the right so the tab never sits on the content */
+@media (min-width: 901px) and (max-width: 1399px) {
+  .wrap, .app__grid { padding-right: 124px; }
+}
+
 
 /* backup buttons in settings */
 .data-actions { display: flex; gap: 8px; }
@@ -607,27 +670,44 @@ body {
   padding: 2px 4px;
 }
 
-.panel {
-  background: var(--surface);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow);
-  padding: 22px;
-  margin-bottom: 24px;
-}
-.panel__title {
-  font-size: 1.15rem;
+/* a zone is not a container: just content on the page, spaced by emptiness */
+.zone { min-width: 0; }
+.zone__title {
+  font-size: 1.05rem;
   font-weight: 600;
   color: var(--text);
+  letter-spacing: .01em;
   margin-bottom: 16px;
 }
 
-/* add field */
-.add {
+/* ADD CARD — the dashed rectangle that opens a floating editor (tasks, events) */
+.add-card {
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin-bottom: 14px;
+  gap: 10px;
+  width: 100%;
+  text-align: left;
+  padding: 13px 16px;
+  border: 1px dashed color-mix(in srgb, var(--muted) 42%, transparent);
+  border-radius: 14px;
+  background: none;
+  color: var(--muted);
+  font: inherit;
+  font-size: .95rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color .2s ease, color .2s ease, background .2s ease;
 }
+.add-card:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 7%, transparent);
+}
+.add-card__plus { flex: 0 0 auto; width: 22px; text-align: center; font-size: 1.35rem; line-height: 1; }
+/* flex/inline-flex boxes need this: a display rule beats the hidden attribute */
+.add-card[hidden],
+.toast[hidden],
+
 .add__input {
   flex: 1;
   border: 1px solid var(--border);
@@ -655,6 +735,114 @@ body {
 
 /* list */
 .list { list-style: none; }
+/* rows drawn as rectangles instead of ruled lines (tasks, projects) */
+.list--cards { display: flex; flex-direction: column; gap: 10px; }
+.list--cards + .add-card,
+.tasks + .add-card,
+.tasks + .add-card + .quick { margin-top: 12px; }
+
+/* TASK GROUPS — the list splits itself by due date */
+.tasks { display: flex; flex-direction: column; gap: 16px; }
+.tgroup { display: flex; flex-direction: column; gap: 10px; }
+.tgroup__head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 0 4px;
+  border: none;
+  background: none;
+  font: inherit;
+  font-size: .7rem;
+  font-weight: 700;
+  letter-spacing: .07em;
+  text-transform: uppercase;
+  color: var(--muted);
+  cursor: pointer;
+  transition: color .2s ease;
+}
+.tgroup__head:hover { color: var(--text); }
+.tgroup__count {
+  font-size: .68rem;
+  font-weight: 700;
+  letter-spacing: 0;
+  color: var(--muted);
+  background: var(--surface);
+  border-radius: 999px;
+  padding: 1px 7px;
+}
+.tgroup__chev {
+  margin-left: auto;
+  font-size: .9rem;
+  line-height: 1;
+  transition: transform .2s ease;
+}
+.tgroup.is-collapsed .tgroup__chev { transform: rotate(-90deg); }
+.tgroup.is-collapsed .list { display: none; }
+.tgroup--late .tgroup__label { color: var(--danger); }
+.tgroup--done .list { opacity: .62; }
+
+/* PROGRESS RING — the tasks panel's own indicator */
+.zone__count { display: inline-flex; align-items: center; gap: 7px; }
+.ring { width: 22px; height: 22px; transform: rotate(-90deg); }
+.ring__track { fill: none; stroke: var(--border); stroke-width: 2.6; }
+.ring__fill {
+  fill: none;
+  stroke: var(--sig-line);
+  stroke-width: 2.6;
+  stroke-linecap: round;
+  filter: drop-shadow(0 0 3px var(--sig-glow));
+  transition: stroke-dashoffset .5s cubic-bezier(.4, 0, .2, 1);
+}
+.ring__label { font-size: .8rem; font-weight: 700; color: var(--muted); font-variant-numeric: tabular-nums; }
+
+/* QUICK ADD — the transparent input sits on a mirror that paints the highlights */
+.quick[hidden] { display: none; }
+.quick__field {
+  position: relative;
+  background: var(--surface);
+  border: 1px solid var(--accent);
+  border-radius: 14px;
+}
+/* both boxes must share every metric, or the highlights drift off the words */
+.quick__input,
+.quick__mirror {
+  width: 100%;
+  padding: 13px 16px;
+  border: none;
+  background: none;
+  font: inherit;
+  font-size: .95rem;
+  line-height: 1.4;
+}
+.quick__input {
+  position: relative;
+  z-index: 1;
+  display: block;
+  color: var(--text);
+  outline: none;
+}
+.quick__mirror {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  color: transparent;
+  white-space: pre;
+  overflow: hidden;
+  pointer-events: none;
+}
+.quick__hit {
+  border-radius: 5px;
+  background: color-mix(in srgb, var(--accent) 26%, transparent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 26%, transparent);
+}
+.quick__hint {
+  margin-top: 8px;
+  padding: 0 4px;
+  font-size: .8rem;
+  color: var(--accent);
+}
+.quick__hint[hidden] { display: none; }
 .item {
   display: flex;
   align-items: center;
@@ -681,6 +869,7 @@ body {
   touch-action: none;   /* drag instead of scrolling the page on touch */
   display: grid; place-items: center;
 }
+.item__grip:empty { cursor: default; }   /* pinned rows: spacer only */
 .item__grip:active { cursor: grabbing; opacity: .9; }
 .item__grip svg { width: 16px; height: 16px; }
 
@@ -726,16 +915,29 @@ body {
 }
 .item__ico svg { width: 20px; height: 20px; }
 
-/* a project reads as its own card, not a decorated task row */
-.item--project {
-  padding: 16px 14px;
-  margin-bottom: 10px;
-  border-bottom: none;
-  background: var(--input-bg);
-  border-radius: 16px;
-  box-shadow: var(--shadow);
+/* a task reads as its own rectangle, matching the "add a task" card below it */
+.item--task,
+.item--task:last-child {   /* beats the ruled-list rule that drops the last border */
+  padding: 14px 16px;
+  border: 1px solid var(--item-border);
+  border-radius: 14px;
+  background: var(--surface);
+  transition: border-color .2s ease, background .2s ease;
 }
-.item--project:last-child { margin-bottom: 0; }
+.item--task:hover { border-color: var(--accent); }
+.item--task.done { background: none; }
+.item--task .item__text { font-size: .98rem; }
+
+/* same object language as a task, one size up */
+.item--project {
+  padding: 16px;
+  border: 1px solid var(--item-border);
+  border-radius: 16px;
+  background: var(--surface);
+  transition: border-color .2s ease;
+}
+.item--project:last-child { border-bottom: 1px solid var(--item-border); }
+.item--project:hover { border-color: var(--accent); }
 .item--project .item__ico {
   width: 38px; height: 38px;
   border-radius: 11px;
@@ -860,29 +1062,6 @@ body {
   font-weight: 600;
 }
 
-/* FOCUS CARD */
-.focus-card { text-align: center; }
-.focus-trigger {
-  width: 100%;
-  border: none;
-  background: none;
-  cursor: pointer;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 12px;
-  padding: 10px;
-  color: var(--accent);
-  transition: transform .2s ease, color .2s ease;
-}
-.focus-trigger:hover { transform: translateY(-2px); }
-.fleur { width: 58px; height: 58px; }
-.focus-label {
-  font-size: 1rem;
-  font-weight: 600;
-  letter-spacing: .03em;
-  color: var(--text);
-}
 
 /* FOCUS OVERLAY */
 .focus {
@@ -953,15 +1132,66 @@ body {
 /* HABITS */
 .habits {
   display: grid;
-  grid-template-columns: repeat(5, 1fr);
-  gap: 10px;
+  grid-template-columns: 54px;   /* stacked in the tab; a row on mobile */
+  gap: 8px;
 }
+
+/* THE PULL TAB — the habit tiles live on the edge, and the handle drags the
+   well-being space in. It is the only way between the two spaces. */
+.welltab {
+  position: fixed;
+  top: 50%; right: 0;
+  transform: translateY(-50%);
+  z-index: 15;
+  display: flex;
+  align-items: center;
+}
+.welltab .habits {
+  padding: 12px 12px 12px 8px;
+  background: var(--surface);
+  border-radius: 20px 0 0 20px;
+  box-shadow: var(--shadow);
+}
+/* the tiles sit on the tab's own surface, so they need the darker tone */
+.welltab .habit { background: var(--input-bg); }
+.welltab__pull {
+  flex: 0 0 auto;
+  width: 26px; height: 78px;
+  border: none;
+  border-radius: 13px 0 0 13px;
+  background: var(--surface);
+  box-shadow: var(--shadow);
+  color: var(--muted);
+  cursor: grab;
+  touch-action: none;   /* the drag must not scroll the page */
+  display: grid; place-items: center;
+  transition: color .2s ease, background .2s ease;
+}
+.welltab__pull:hover { color: var(--accent); }
+.welltab__pull:active { cursor: grabbing; }
+.welltab__pull svg {
+  width: 17px; height: 17px;
+  transition: transform .45s cubic-bezier(.2, .8, .25, 1);
+}
+.welltab.is-open .welltab__pull svg { transform: rotate(180deg); }
+
+/* THE TWO SPACES — side by side on a rail that slides under the day line */
+.pages { overflow: hidden; }
+.pages.is-live { transition: height .45s cubic-bezier(.2, .8, .25, 1); }
+.pages__track {
+  display: flex;
+  align-items: flex-start;
+  width: 200%;
+  transition: transform .45s cubic-bezier(.2, .8, .25, 1);
+}
+.pages__track.is-dragging { transition: none; }
+.page { flex: 0 0 50%; min-width: 0; }
 .habit {
   position: relative;
   aspect-ratio: 1;
   border: none;
   border-radius: 14px;
-  background: var(--input-bg);
+  background: var(--surface);
   cursor: pointer;
   overflow: hidden;
   display: grid;
@@ -1475,29 +1705,36 @@ body {
 .palette[data-palette="sunset"] .palette__sw { background: linear-gradient(90deg, #e6a3cf, #f2a98a, #ecc457); }
 
 /* EDIT + PIN */
-.panel__head {
+.zone__head {
   display: flex;
   align-items: center;
   justify-content: space-between;
   margin-bottom: 16px;
 }
-.panel__head .panel__title { margin-bottom: 0; }
-.panel__action {
+.zone__head .zone__title { margin-bottom: 0; }
+/* "2/5" done counter, gives the tasks zone its own identity */
+.zone__count {
+  font-size: .8rem;
+  font-weight: 700;
+  color: var(--muted);
+  font-variant-numeric: tabular-nums;
+}
+.zone__count:empty { display: none; }
+.zone__action {
   flex: 0 0 auto;
   width: 32px;
   height: 32px;
   border: none;
   border-radius: 9px;
-  background: var(--input-bg);
+  background: var(--surface);
   color: var(--muted);
   cursor: pointer;
   display: grid;
   place-items: center;
   transition: background .2s ease, color .2s ease;
 }
-.panel__action:hover { background: var(--accent-soft); color: var(--accent); }
-.panel__action.is-active { background: var(--accent-soft); color: var(--accent); }
-.panel__action svg { width: 17px; height: 17px; }
+.zone__action:hover { background: var(--accent-soft); color: var(--accent); }
+.zone__action svg { width: 17px; height: 17px; }
 
 .item__pin {
   flex: 0 0 auto;
@@ -1577,28 +1814,53 @@ body {
 .edit-pin__flower { width: 20px; height: 20px; display: grid; place-items: center; }
 .edit-pin__flower svg { width: 20px; height: 20px; }
 
-/* DETAIL VIEW */
+/* DETAIL VIEW — a floating card over the app, like the habit dialogs */
 .detail {
   position: fixed;
   inset: 0;
   z-index: 30;
-  background: var(--bg);
-  overflow-y: auto;
-  transform: translateX(100%);
-  transition: transform .3s cubic-bezier(.4, 0, .2, 1);
+  display: grid;
+  place-items: center;
+  padding: 28px 24px;
+  overflow: hidden;   /* the sheet slides out below the fold without growing the page */
 }
 .detail[hidden] { display: none; }
-.detail.is-open { transform: translateX(0); }
+
+.detail__backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.32);
+  backdrop-filter: blur(3px);
+  opacity: 0;
+  transition: opacity .25s ease;
+}
+.detail.is-open .detail__backdrop { opacity: 1; }
+
+.detail__card {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  max-width: 580px;
+  max-height: min(88vh, 880px);
+  background: var(--surface);
+  border-radius: 20px;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.26);
+  opacity: 0;
+  transform: translateY(18px) scale(.985);
+  transition: opacity .25s ease, transform .25s cubic-bezier(.2, .8, .3, 1);
+}
+.detail.is-open .detail__card { opacity: 1; transform: none; }
+/* notes, the note editor and the habit history need more room */
+.detail--wide .detail__card { max-width: 840px; }
 
 .detail__bar {
-  position: sticky;
-  top: 0;
+  flex: 0 0 auto;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 14px 16px;
-  background: var(--bg);
-  z-index: 1;
+  padding: 14px 22px 8px;
 }
 .detail__back {
   width: 40px; height: 40px;
@@ -1624,6 +1886,7 @@ body {
   opacity: .7;
   transition: color .2s ease, background .2s ease, opacity .2s ease;
 }
+.detail__pin[hidden] { display: none; }
 .detail__pin:hover { background: var(--input-bg); color: var(--accent); opacity: 1; }
 .detail__pin.is-on { color: var(--accent); opacity: 1; }
 .detail__pin svg { width: 20px; height: 20px; }
@@ -1712,9 +1975,10 @@ body {
 .time-picker__slider::-moz-range-track { height: 8px; border-radius: 999px; background: var(--border); }
 
 .detail__body {
-  max-width: 620px;
-  margin: 0 auto;
-  padding: 4px 20px 60px;
+  flex: 1 1 auto;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 4px 22px 26px;
 }
 /* title row: a square icon button (events/projects) left of the name */
 .detail__titlerow { display: flex; align-items: center; gap: 12px; }
@@ -1931,27 +2195,13 @@ body {
 }
 .tl-add__input::placeholder { color: var(--muted); }
 
-/* DAILY SUN TIMELINE (main view) */
-.day-panel { padding-bottom: 18px; }
-.dtl__head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 20px; }
-.dtl__today { font-size: 1.05rem; font-weight: 700; color: var(--text); }
-.dtl__date { font-size: .85rem; color: var(--muted); text-transform: capitalize; }
-.dtl__weather {
-  margin-left: auto;
-  align-self: center;
-  display: inline-flex;
-  align-items: center;
-  gap: 4px;
-  font-size: .85rem;
-  font-weight: 600;
-  color: var(--muted);
+/* DAILY SUN TIMELINE — no surface at all: the strip and its wording sit
+   straight on the page, the strip itself running the full width */
+.day-line {
+  padding: 4px 0 0;
+  margin-bottom: 48px;
 }
-.dtl__weather svg { width: 17px; height: 17px; }
-.dtl__wico { display: inline-flex; }
-.dtl__place { color: var(--muted); font-weight: 600; }
-.dtl__temp { color: var(--text); }
-.dtl__weather.is-clickable { cursor: pointer; border-radius: 8px; padding: 2px 4px; margin: -2px -4px -2px auto; transition: background .2s ease; }
-.dtl__weather.is-clickable:hover { background: var(--accent-soft); }
+
 
 /* WEATHER GRAPH (modal) */
 .weather__place { color: var(--muted); font-weight: 500; font-size: .9rem; }
@@ -1980,80 +2230,114 @@ body {
 .wx-cross { stroke: var(--muted); stroke-width: 1; vector-effect: non-scaling-stroke; }
 .wx-cross-dot { fill: var(--accent); stroke: var(--surface); stroke-width: 2; }
 
-.dtl { position: relative; height: 56px; }
+.dtl { position: relative; height: 62px; }
+/* a 2px rule, matte on purpose: the only thing that emits light is "now".
+   Both ends fade out, so the day has no visible start or finish. */
 .dtl__strip {
   position: absolute;
   left: 0; right: 0; bottom: 0;
-  height: 16px;
-  border-radius: 9px;
-  box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .12);
+  height: 2px;
+  border-radius: 2px;
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 6%, #000 94%, transparent);
+          mask-image: linear-gradient(90deg, transparent, #000 6%, #000 94%, transparent);
 }
-.dtl__markers { position: absolute; inset: 0; pointer-events: none; }
+.dtl__markers { position: absolute; inset: 0; z-index: 1; pointer-events: none; }
+/* sunrise / sunset: a dot on the rule, a hairline stem, the reading above it */
 .dtl__marker {
   position: absolute;
-  bottom: 22px;
+  bottom: 0;
   transform: translateX(-50%);
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 2px;
 }
 .dtl__marker-time { font-size: .72rem; font-weight: 600; color: var(--text); }
-.dtl__marker-ico { width: 15px; height: 15px; color: var(--dtl-arc); }
-.dtl__marker-ico svg { width: 100%; height: 100%; display: block; }
+.dtl__marker-caption {
+  font-size: .56rem;
+  font-weight: 600;
+  letter-spacing: .07em;
+  text-transform: uppercase;
+  color: var(--muted);
+  margin-bottom: 6px;
+  white-space: nowrap;
+}
+.dtl__marker-stem {
+  width: 1px;
+  height: 22px;
+  background: linear-gradient(to bottom, transparent, var(--dtl-arc));
+  opacity: .6;
+}
+.dtl__marker-dot {
+  width: 5px; height: 5px;
+  margin-bottom: -1.5px;   /* sits centred on the 2px rule */
+  border-radius: 50%;
+  background: var(--dtl-arc);
+}
 
-/* the time cursor riding the bar: sun by day, moon by night, both with a halo */
+/* THE ONE LIGHT SOURCE — the present moment. Everything else on the rule is
+   matte, so this dot is what the eye lands on. */
 .dtl__cursor {
   position: absolute;
-  top: calc(100% - 8px);   /* centered on the strip */
-  width: 22px; height: 22px;
-  transform: translate(-50%, -50%);
+  bottom: 1px;                          /* the centre line of the 2px rule */
+  width: 11px; height: 11px;
+  transform: translate(-50%, 50%);
   pointer-events: none;
-  z-index: 2;
+  z-index: 3;
 }
 .dtl__cursor-ico {
   position: absolute;
   inset: 0;
   z-index: 1;
+  border-radius: 50%;
 }
-.dtl__cursor-ico svg { width: 100%; height: 100%; display: block; }
+/* a slow breath, so the present reads as live without ever being loud */
 .dtl__cursor-halo {
   position: absolute;
-  inset: -13px;
+  inset: -17px;
   border-radius: 50%;
   opacity: var(--halo, 1);
   transition: opacity .4s ease;
+  animation: now-breathe 4.5s ease-in-out infinite;
 }
-.dtl__cursor.is-day .dtl__cursor-ico { color: #ffcf5c; }
+@keyframes now-breathe {
+  0%, 100% { transform: scale(1); }
+  50%      { transform: scale(1.16); }
+}
+.dtl__cursor.is-day .dtl__cursor-ico {
+  background: #ffd67a;
+  box-shadow: 0 0 0 2px rgba(255, 214, 122, .22);
+}
 .dtl__cursor.is-day .dtl__cursor-halo {
-  background: radial-gradient(circle, rgba(255, 214, 120, .9), rgba(255, 200, 90, .3) 42%, transparent 70%);
+  background: radial-gradient(circle, rgba(255, 210, 115, .85), rgba(255, 195, 95, .24) 40%, transparent 70%);
 }
-.dtl__cursor.is-night .dtl__cursor-ico { color: #eef2ff; }
+.dtl__cursor.is-night .dtl__cursor-ico {
+  background: #eef2ff;
+  box-shadow: 0 0 0 2px rgba(226, 232, 255, .2);
+}
 .dtl__cursor.is-night .dtl__cursor-halo {
-  background: radial-gradient(circle, rgba(255, 255, 255, .75), rgba(226, 232, 255, .22) 45%, transparent 70%);
+  background: radial-gradient(circle, rgba(255, 255, 255, .8), rgba(226, 232, 255, .22) 45%, transparent 70%);
 }
 
-/* event ticks on the bar (hover shows the event) */
-.dtl__eticks { position: absolute; left: 0; right: 0; bottom: 0; height: 28px; pointer-events: none; }
+/* events: short strokes standing on the rule, under the sunrise stems */
+.dtl__eticks { position: absolute; left: 0; right: 0; bottom: 0; height: 16px; z-index: 2; pointer-events: none; }
 .dtl__etick {
   position: absolute;
   bottom: 0;
   transform: translateX(-50%);
-  width: 14px; height: 24px;
+  width: 12px; height: 14px;
   border: none; background: none; padding: 0;
   cursor: pointer;
   pointer-events: auto;
   display: flex; align-items: flex-end; justify-content: center;
 }
 .dtl__etick-line {
-  width: 2px; height: 22px;
-  border-radius: 2px;
+  width: 1.5px; height: 10px;
+  border-radius: 1px;
   background: var(--text);
-  opacity: .5;
-  box-shadow: 0 0 0 1.5px rgba(255, 255, 255, .18);
-  transition: opacity .15s ease, background .15s ease;
+  opacity: .6;
+  transition: opacity .15s ease, background .15s ease, height .15s ease;
 }
-.dtl__etick:hover .dtl__etick-line { opacity: 1; background: var(--accent); }
+.dtl__etick:hover .dtl__etick-line { opacity: 1; height: 13px; background: var(--accent); }
 .dtl__etick-tip {
   position: absolute;
   bottom: calc(100% + 4px);
@@ -2074,13 +2358,45 @@ body {
 }
 .dtl__etick:hover .dtl__etick-tip { opacity: 1; visibility: visible; }
 
+/* the rule below the line: a tick every hour, taller and labelled every three.
+   Positions are absolute so they stay true across the full-width strip. */
 .dtl__ticks {
-  display: flex;
-  justify-content: space-between;
+  position: relative;
+  height: 26px;
   margin-top: 8px;
-  padding: 0 2px;
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 6%, #000 94%, transparent);
+          mask-image: linear-gradient(90deg, transparent, #000 6%, #000 94%, transparent);
 }
-.dtl__ticks span { font-size: .66rem; color: var(--muted); }
+.dtl__tick {
+  position: absolute;
+  top: 0;
+  width: 1px; height: 3px;
+  transform: translateX(-50%);
+  background: var(--muted);
+  opacity: .3;
+}
+.dtl__tick.is-major { height: 6px; opacity: .5; }
+.dtl__tick-label {
+  position: absolute;
+  top: 11px;
+  transform: translateX(-50%);
+  font-size: .64rem;
+  color: var(--muted);
+  white-space: nowrap;
+}
+
+/* numbers read as instrument values, words stay in the reading face */
+.dtl__marker-time,
+.dtl__tick-label,
+.day-event__time,
+.event-row__time,
+.item__due,
+.ring__label,
+.tgroup__count {
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: .01em;
+}
 
 /* city search results (settings) */
 .city-results { display: flex; flex-direction: column; gap: 4px; margin-top: 6px; }
@@ -2098,10 +2414,8 @@ body {
 .city-result:hover { border-color: var(--accent); background: var(--accent-soft); }
 
 /* the day's events as rectangular rows under the gauge */
-.dtl__events { display: flex; flex-direction: column; gap: 8px; margin-top: 16px; }
-/* "your tasks" sub-section, folded into the Today panel after the events */
-.day-panel__subhead { font-size: 1.05rem; font-weight: 700; color: var(--text); margin: 26px 0 12px; }
-.dtl-ev {
+.day-events { display: flex; flex-direction: column; gap: 8px; margin-top: 16px; }
+.day-event {
   display: flex;
   align-items: center;
   gap: 12px;
@@ -2115,32 +2429,20 @@ body {
   cursor: pointer;
   transition: border-color .2s ease, background .2s ease;
 }
-.dtl-ev:hover { border-color: var(--accent); }
-.dtl-ev__ico { flex: 0 0 auto; width: 24px; height: 24px; color: var(--accent); display: grid; place-items: center; }
-.dtl-ev__ico svg { width: 22px; height: 22px; }
-.dtl-ev__title { flex: 1; min-width: 0; font-size: .95rem; word-break: break-word; }
-.dtl-ev__time { flex: 0 0 auto; font-size: .82rem; color: var(--muted); font-variant-numeric: tabular-nums; }
-.dtl-ev__bell { flex: 0 0 auto; color: var(--danger); display: flex; }
-.dtl-ev__bell svg { width: 16px; height: 16px; }
-.dtl-ev.is-past .dtl-ev__ico,
-.dtl-ev.is-past .dtl-ev__title,
-.dtl-ev.is-past .dtl-ev__time { color: var(--muted); }
-.dtl-ev.is-important { border-color: var(--danger); background: color-mix(in srgb, var(--danger) 10%, var(--input-bg)); }
-.dtl-ev.is-important .dtl-ev__ico { color: var(--danger); }
-/* the dashed "add an event" row */
-.dtl-ev--add {
-  justify-content: flex-start;
-  gap: 10px;
-  border-style: dashed;
-  background: none;
-  color: var(--muted);
-}
-.dtl-ev--add:hover { color: var(--accent); border-color: var(--accent); }
-.dtl-ev__plus { flex: 0 0 auto; width: 24px; text-align: center; font-size: 1.3rem; line-height: 1; }
-.dtl-ev--add .dtl-ev__title { font-weight: 600; color: inherit; }
+.day-event:hover { border-color: var(--accent); }
+.day-event__ico { flex: 0 0 auto; width: 24px; height: 24px; color: var(--accent); display: grid; place-items: center; }
+.day-event__ico svg { width: 22px; height: 22px; }
+.day-event__title { flex: 1; min-width: 0; font-size: .95rem; word-break: break-word; }
+.day-event__time { flex: 0 0 auto; font-size: .82rem; color: var(--muted); font-variant-numeric: tabular-nums; }
+.day-event__bell { flex: 0 0 auto; color: var(--danger); display: flex; }
+.day-event__bell svg { width: 16px; height: 16px; }
+.day-event.is-past .day-event__ico,
+.day-event.is-past .day-event__title,
+.day-event.is-past .day-event__time { color: var(--muted); }
+.day-event.is-important { border-color: var(--danger); background: color-mix(in srgb, var(--danger) 10%, var(--input-bg)); }
+.day-event.is-important .day-event__ico { color: var(--danger); }
 
 /* EVENTS CALENDAR (main view) */
-.cal-panel { padding-bottom: 18px; }
 .ecal__head {
   display: flex;
   align-items: center;
@@ -2166,11 +2468,39 @@ body {
   transition: background .2s ease, color .2s ease;
 }
 .ecal__nav:hover { background: var(--accent-soft); color: var(--accent); }
+/* the viewport is only clipped while the month unfolds, so the hover previews
+   can overflow freely once it has settled */
+.ecal__viewport { transition: height .45s cubic-bezier(.2, .8, .25, 1); }
 .ecal__grid {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
   gap: 4px;
 }
+.ecal__grid.is-morph { animation: cal-morph .42s ease both; }
+@keyframes cal-morph {
+  from { opacity: .3; }
+  to   { opacity: 1; }
+}
+
+/* the fold control, tucked in the bottom-right corner */
+.ecal__toggle {
+  display: grid;
+  place-items: center;
+  margin: 8px 0 0 auto;
+  width: 30px; height: 26px;
+  border: none;
+  background: none;
+  border-radius: 8px;
+  color: var(--muted);
+  cursor: pointer;
+  transition: color .2s ease, background .2s ease;
+}
+.ecal__toggle:hover { color: var(--accent); background: var(--accent-soft); }
+.ecal__toggle svg {
+  width: 18px; height: 18px;
+  transition: transform .45s cubic-bezier(.2, .8, .25, 1);
+}
+.ecal__toggle.is-open svg { transform: rotate(180deg); }
 .ecal__wd {
   text-align: center;
   font-size: .68rem;
@@ -2278,7 +2608,8 @@ body {
 .ecal__prev-more { display: block; font-size: .72rem; color: var(--muted); padding-top: 3px; }
 
 /* the day view stacks just under the event detail that opens above it */
-.day-view { z-index: 28; touch-action: pan-y; }   /* keep vertical scroll, free horizontal for swipe */
+.day-view { z-index: 28; }
+.day-view .detail__card { touch-action: pan-y; }   /* keep vertical scroll, free horizontal for swipe */
 .day-view .sub-add { margin-top: 4px; margin-bottom: 14px; }
 .day-view #dayList { display: flex; flex-direction: column; gap: 10px; }
 
@@ -2384,11 +2715,20 @@ body {
 }
 .date-nav__arrow:hover { border-color: var(--accent); color: var(--accent); }
 
+/* the well-being page lays the habit cards out in columns instead of one
+   full-width stack, which left the heatmaps floating in empty space */
+#habitsViewBody {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(330px, 1fr));
+  gap: 16px;
+  align-items: start;
+  margin-top: 18px;
+}
 .hcard {
   border: 1px solid var(--border);
   border-radius: var(--radius);
+  background: var(--surface);
   padding: 16px;
-  margin-bottom: 14px;
   overflow-x: auto;
 }
 .hcard__head {
@@ -2457,30 +2797,8 @@ body {
 .heat__cell.is-today { box-shadow: inset 0 0 0 1.5px var(--sig-line), 0 0 6px var(--sig-glow); }
 
 /* NOTES TOOL */
-.notes-btn {
-  position: fixed;
-  top: calc(16px + env(safe-area-inset-top)); right: calc(64px + env(safe-area-inset-right));
-  width: 42px; height: 42px;
-  border: none;
-  border-radius: 50%;
-  background: var(--surface);
-  color: var(--muted);
-  cursor: pointer;
-  box-shadow: var(--shadow);
-  z-index: 20;
-  display: grid; place-items: center;
-  transition: transform .2s ease, color .2s ease;
-}
-.notes-btn:hover { transform: translateY(-1px); color: var(--accent); }
-.notes-btn svg { width: 20px; height: 20px; }
 
-.notes__top {
-  position: sticky;
-  top: 0;
-  z-index: 2;
-  background: var(--bg);
-}
-.notes__top .detail__bar { position: static; }
+.notes__top { flex: 0 0 auto; }
 .notes__add {
   width: 40px; height: 40px;
   border: none;
@@ -2544,7 +2862,7 @@ body {
 
 .note-card {
   position: relative;
-  background: var(--surface);
+  background: var(--input-bg);
   border: 1px solid var(--border);
   border-radius: 14px;
   padding: 14px 40px 14px 16px;
@@ -2603,11 +2921,11 @@ body {
   outline: none;
 }
 .note-body {
-  background: var(--surface);
+  background: var(--input-bg);
   border: 1px solid var(--border);
   border-radius: 14px;
   padding: 18px;
-  min-height: 58vh;
+  min-height: 340px;
   color: var(--text);
   line-height: 1.7;
   outline: none;
@@ -2618,4 +2936,55 @@ body {
   color: var(--muted);
 }
 
-/* CLOCK */
+/* NARROW — the tab moves to the bottom edge and is pulled upwards; the two
+   spaces stack on the rail instead of sitting side by side */
+@media (max-width: 900px) {
+  .welltab {
+    top: auto; bottom: 0;
+    right: 50%;
+    transform: translateX(50%);
+    flex-direction: column;   /* the handle sits on top: you pull it upwards */
+  }
+  .welltab .habits {
+    grid-template-columns: repeat(5, 54px);
+    padding: 8px 12px 12px;
+    border-radius: 20px 20px 0 0;
+  }
+  .welltab__pull {
+    width: 78px; height: 26px;
+    border-radius: 13px 13px 0 0;
+  }
+  .welltab__pull svg { transform: rotate(90deg); }
+  .welltab.is-open .welltab__pull svg { transform: rotate(-90deg); }
+
+  .pages__track { flex-direction: column; width: 100%; }
+  .page { flex: 0 0 auto; width: 100%; }
+
+  .app { padding-bottom: calc(130px + env(safe-area-inset-bottom)); }
+}
+
+/* MOBILE — the desktop dialogs become bottom sheets, panels stay stacked */
+@media (max-width: 700px) {
+  .detail { padding: 0; place-items: end stretch; }
+  .detail__card,
+  .detail--wide .detail__card {
+    max-width: none;
+    max-height: 92vh;
+    border-radius: 22px 22px 0 0;
+    transform: translateY(100%);
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  .detail__card::before {   /* grab handle, the usual bottom-sheet affordance */
+    content: "";
+    flex: 0 0 auto;
+    width: 38px; height: 4px;
+    margin: 9px auto 0;
+    border-radius: 999px;
+    background: var(--border);
+  }
+  .detail__bar { padding: 8px 16px 6px; }
+  .detail__body { padding: 4px 16px 22px; }
+  .app__grid { gap: 34px; }
+  .app__col { gap: 34px; }
+  .day-line { margin-bottom: 34px; }
+}

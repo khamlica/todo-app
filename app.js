@@ -75,10 +75,17 @@
       settingsTitle: "Paramètres",
       tabSystem: "Système",
       tabCustom: "Personnalisation",
-      tasksTitle: "Vos tâches du jour",
+      tasksTitle: "Vos tâches",
+      todayTitle: "Aujourd'hui",
       projectsTitle: "Vos projets",
-      taskInputAria: "Nouvelle tâche",
-      addTaskPlaceholder: "Ajouter une tâche…",
+      addTaskTitle: "Ajouter une tâche",
+      newTaskName: "Nouvelle tâche",
+      quickPlaceholder: "Relire le rapport demain 18h !",
+      groupLate: "En retard",
+      groupToday: "Aujourd'hui",
+      groupSoon: "À venir",
+      groupNone: "Sans date",
+      groupDone: "Terminées",
       addAria: "Ajouter",
       addProjectAria: "Nouveau projet",
       deleteAria: "Supprimer",
@@ -118,10 +125,8 @@
       decorSnow: "Neige",
       decorFog: "Brouillard",
       decorStorm: "Orage",
-      focusLabel: "Mode focus",
       focusAria: "Passer en mode focus",
       focusExitAria: "Quitter le mode focus",
-      habitsTitle: "Vos habitudes",
       addHabitAria: "Ajouter une habitude",
       pickIconTitle: "Choisir une icône",
       habitDeleteAria: "Supprimer l'habitude",
@@ -161,8 +166,13 @@
       calTimeLabel: "Heure",
       calClear: "Effacer",
       calConfirm: "Valider",
+      wellTitle: "Bien-être",
+      wellTabAria: "Espace bien-être",
+      expandCalAria: "Déplier le calendrier",
       prevMonthAria: "Mois précédent",
       nextMonthAria: "Mois suivant",
+      sunriseLabel: "Lever du soleil",
+      sunsetLabel: "Coucher du soleil",
       prevDayAria: "Jour précédent",
       nextDayAria: "Jour suivant",
       reminderTitle: "Rappel",
@@ -192,11 +202,9 @@
       eventStatusPast: "Passé",
       importantAria: "Marquer comme important",
       importantLabel: "Important",
-      todayLabel: "Aujourd'hui",
       weatherTitle: "Météo du jour",
       locationLabel: "Localisation",
       cityPlaceholder: "Rechercher une ville…",
-      habitsHistoryAria: "Suivi des habitudes",
       historyLabel: "Historique",
       streakLabel: "Série",
       notesToolAria: "Prise de notes",
@@ -225,10 +233,17 @@
       settingsTitle: "Settings",
       tabSystem: "System",
       tabCustom: "Customization",
-      tasksTitle: "Your tasks today",
+      tasksTitle: "Your tasks",
+      todayTitle: "Today",
       projectsTitle: "Your projects",
-      taskInputAria: "New task",
-      addTaskPlaceholder: "Add a task…",
+      addTaskTitle: "Add a task",
+      newTaskName: "New task",
+      quickPlaceholder: "Read the report tomorrow 6pm !",
+      groupLate: "Overdue",
+      groupToday: "Today",
+      groupSoon: "Upcoming",
+      groupNone: "No date",
+      groupDone: "Done",
       addAria: "Add",
       addProjectAria: "New project",
       deleteAria: "Delete",
@@ -268,10 +283,8 @@
       decorSnow: "Snow",
       decorFog: "Fog",
       decorStorm: "Storm",
-      focusLabel: "Focus mode",
       focusAria: "Enter focus mode",
       focusExitAria: "Exit focus mode",
-      habitsTitle: "Your habits",
       addHabitAria: "Add a habit",
       pickIconTitle: "Choose an icon",
       habitDeleteAria: "Remove habit",
@@ -311,8 +324,13 @@
       calTimeLabel: "Time",
       calClear: "Clear",
       calConfirm: "Confirm",
+      wellTitle: "Well-being",
+      wellTabAria: "Well-being space",
+      expandCalAria: "Unfold the calendar",
       prevMonthAria: "Previous month",
       nextMonthAria: "Next month",
+      sunriseLabel: "Sunrise",
+      sunsetLabel: "Sunset",
       prevDayAria: "Previous day",
       nextDayAria: "Next day",
       reminderTitle: "Reminder",
@@ -342,11 +360,9 @@
       eventStatusPast: "Past",
       importantAria: "Mark as important",
       importantLabel: "Important",
-      todayLabel: "Today",
       weatherTitle: "Today's weather",
       locationLabel: "Location",
       cityPlaceholder: "Search a city…",
-      habitsHistoryAria: "Habit tracking",
       historyLabel: "History",
       streakLabel: "Streak",
       notesToolAria: "Notes",
@@ -455,32 +471,11 @@
   }
 
   /* localized current time: "il est 01:00" / "it is 01:00 am" */
-  function clockText() {
-    const now = new Date();
-    if (state.settings.language === "fr") {
-      const h = String(now.getHours()).padStart(2, "0");
-      const m = String(now.getMinutes()).padStart(2, "0");
-      return "il est " + h + ":" + m;
-    }
-    return "it is " + formatClock12(now);
-  }
-
-  /* time-aware greeting word — never "good morning" in the small hours */
-  function greetingWord() {
-    const h = new Date().getHours();
-    if (state.settings.language === "fr") return (h >= 5 && h < 18) ? "Bonjour" : "Bonsoir";
-    if (h >= 5 && h < 12) return "Good morning";
-    if (h >= 12 && h < 18) return "Good afternoon";
-    return "Good evening";   // 18:00–04:59
-  }
-
-  /* welcome phrase "Bonjour <name> !" and the main-view line "Bonsoir, il est ..." (no name) */
+  /* welcome phrase "Bonjour <name> !" — the app itself no longer greets */
   function renderGreeting() {
     const name = state.settings.name;
     document.getElementById("welcomeGreeting").textContent =
       translate("greetingPrefix") + (name ? " " + name : "") + translate("greetingSuffix");
-    document.getElementById("appGreetWord").textContent = greetingWord();
-    document.getElementById("appGreetTime").textContent = ", " + clockText();
   }
 
   /* generate the night stars once (shown only under the night theme) */
@@ -883,6 +878,7 @@
 
   /* Redraw one list (tasks or projects) from state. */
   function renderList(listName) {
+    if (listName === "tasks") { renderTasks(); return; }
     const listElement = document.getElementById(listName + "List");
     const items = sortedByDue(state[listName]);
     listElement.innerHTML = "";
@@ -900,25 +896,135 @@
     }
   }
 
+  /* TASK GROUPS — the list splits itself by due date. Order inside a group stays
+     manual (drag), so nothing the user arranged by hand is lost. */
+  const TASK_GROUPS = ["late", "today", "soon", "none", "done"];
+  const TASK_GROUP_LABELS = {
+    late: "groupLate", today: "groupToday", soon: "groupSoon",
+    none: "groupNone", done: "groupDone"
+  };
+  const collapsedGroups = { done: true };   // finished tasks start folded away
+
+  function taskGroup(task) {
+    if (task.done) return "done";
+    if (!task.dueDate) return "none";
+    if (dueSortKey(task) < Date.now()) return "late";
+    if (task.dueDate === todayKey()) return "today";
+    return "soon";
+  }
+
+  function renderTasks() {
+    const box = document.getElementById("tasksList");
+    box.innerHTML = "";
+    renderTasksRing();
+
+    const items = sortedByDue(state.tasks);
+    if (items.length === 0) {
+      const empty = document.createElement("p");
+      empty.className = "empty";
+      empty.textContent = translate("emptyList");
+      box.appendChild(empty);
+      return;
+    }
+
+    const buckets = {};
+    for (let i = 0; i < items.length; i++) {
+      const key = taskGroup(items[i]);
+      if (!buckets[key]) buckets[key] = [];
+      buckets[key].push(items[i]);
+    }
+
+    // a single bucket needs no header: the panel title already says what it is
+    let filled = 0;
+    for (let i = 0; i < TASK_GROUPS.length; i++) {
+      if (buckets[TASK_GROUPS[i]]) filled++;
+    }
+    for (let i = 0; i < TASK_GROUPS.length; i++) {
+      const key = TASK_GROUPS[i];
+      if (buckets[key]) box.appendChild(createTaskGroup(key, buckets[key], filled > 1));
+    }
+  }
+
+  function createTaskGroup(key, tasks, withHead) {
+    const group = document.createElement("div");
+    group.className = "tgroup tgroup--" + key;
+    const collapsed = withHead && !!collapsedGroups[key];
+    if (collapsed) group.classList.add("is-collapsed");
+
+    if (withHead) {
+      const head = document.createElement("button");
+      head.type = "button";
+      head.className = "tgroup__head";
+      head.setAttribute("aria-expanded", collapsed ? "false" : "true");
+
+      const label = document.createElement("span");
+      label.className = "tgroup__label";
+      label.textContent = translate(TASK_GROUP_LABELS[key]);
+      const count = document.createElement("span");
+      count.className = "tgroup__count";
+      count.textContent = tasks.length;
+      const chevron = document.createElement("span");
+      chevron.className = "tgroup__chev";
+      chevron.textContent = "⌄";
+
+      head.append(label, count, chevron);
+      head.addEventListener("click", function () {
+        collapsedGroups[key] = !collapsedGroups[key];
+        renderTasks();
+      });
+      group.appendChild(head);
+    }
+
+    const list = document.createElement("ul");
+    list.className = "list list--cards";
+    for (let i = 0; i < tasks.length; i++) {
+      list.appendChild(createItemRow("tasks", tasks[i]));
+    }
+    group.appendChild(list);
+    return group;
+  }
+
+  const RING_MARKUP =
+    '<svg class="ring" viewBox="0 0 24 24" aria-hidden="true">'
+    + '<circle class="ring__track" cx="12" cy="12" r="9"/>'
+    + '<circle class="ring__fill" cx="12" cy="12" r="9" stroke-dasharray="56.5"/></svg>'
+    + '<span class="ring__label"></span>';
+
+  /* progress ring + "2/5" next to the tasks title; blank when the list is empty.
+     Reused rather than rebuilt so the arc animates when a task is checked. */
+  function renderTasksRing() {
+    const box = document.getElementById("tasksCount");
+    const tasks = state.tasks;
+    if (tasks.length === 0) { box.innerHTML = ""; return; }
+    let done = 0;
+    for (let i = 0; i < tasks.length; i++) {
+      if (tasks[i].done) done++;
+    }
+    if (!box.firstChild) box.innerHTML = RING_MARKUP;
+    box.querySelector(".ring__fill").setAttribute("stroke-dashoffset",
+      (56.5 * (1 - done / tasks.length)).toFixed(1));
+    box.querySelector(".ring__label").textContent = done + "/" + tasks.length;
+  }
+
   /* Build one row: checkbox, label, delete button. Undated & unpinned rows get a
      drag handle so they can be reordered (the list shows items in manual order). */
   function createItemRow(listName, item) {
     const row = document.createElement("li");
-    const projectClass = listName === "projects" ? " item--project" : "";
-    row.className = (item.done ? "item item--open done" : "item item--open") + projectClass;
+    const kindClass = listName === "projects" ? " item--project" : " item--task";
+    row.className = (item.done ? "item item--open done" : "item item--open") + kindClass;
     row.dataset.id = item.id;
     row.addEventListener("click", function () { openDetail(listName, item.id); });
 
-    const reorderable = !item.pinned;   // everything but pinned rows (which stay on top)
-    if (reorderable) {
+    // pinned rows can't be dragged, but keep an empty grip so the columns line up
+    const grip = document.createElement("span");
+    grip.className = "item__grip";
+    grip.setAttribute("aria-hidden", "true");
+    row.appendChild(grip);
+    if (!item.pinned) {
       row.dataset.reorder = "1";
-      const grip = document.createElement("span");
-      grip.className = "item__grip";
-      grip.setAttribute("aria-hidden", "true");
       grip.innerHTML = ICON_GRIP;
       grip.addEventListener("click", function (e) { e.stopPropagation(); });
       grip.addEventListener("pointerdown", function (e) { startRowDrag(e, row, listName); });
-      row.appendChild(grip);
     }
 
     // a task has a completion checkbox; a project shows an icon instead (not "done"-able)
@@ -1072,21 +1178,200 @@
     renderList(listName);
   }
 
-  const addForms = document.querySelectorAll(".add");
-  for (let i = 0; i < addForms.length; i++) {
-    addForms[i].addEventListener("submit", function (event) {
-      event.preventDefault();
-      const input = this.querySelector(".add__input");
-      const text = input.value.trim();
-      if (text) {
-        addItem(this.dataset.list, text);   // date/importance are set later in the detail view
-        input.value = "";
-        input.focus();
-      }
-    });
+  /* QUICK ADD — the rectangle unfolds into a single input. "Relire le rapport
+     demain 18h !" becomes a task dated tomorrow at 18:00 and pinned; whatever
+     isn't recognised stays in the title, so no text is ever swallowed. */
+  const AMPM_RE = /\b(\d{1,2})(?::([0-5]\d))?\s*(am|pm)\b/i;
+  const HOUR_RE = /\b(\d{1,2})\s*h\s*([0-5]\d)?\b/i;
+  const COLON_RE = /\b(\d{1,2}):([0-5]\d)\b/;
+  const NUMERIC_DATE_RE = /\b(\d{1,2})[\/.](\d{1,2})(?:[\/.](\d{2,4}))?\b/;
+  const BANG_RE = /(?:^|\s)(!{1,3})(?=\s|$)/;
+  const WEEKDAY_RE = /\b(lundi|mardi|mercredi|jeudi|vendredi|samedi|dimanche|monday|tuesday|wednesday|thursday|friday|saturday|sunday)\b/i;
+  const WEEKDAY_INDEX = {
+    lundi: 1, mardi: 2, mercredi: 3, jeudi: 4, vendredi: 5, samedi: 6, dimanche: 0,
+    monday: 1, tuesday: 2, wednesday: 3, thursday: 4, friday: 5, saturday: 6, sunday: 0
+  };
+  // après-demain first, otherwise "demain" would match inside it
+  const RELATIVE_DAYS = [
+    { re: /\b(apr[eè]s[- ]demain)\b/i, days: 2 },
+    { re: /\b(aujourd['’]?hui|today)\b/i, days: 0 },
+    { re: /\b(demain|tomorrow)\b/i, days: 1 }
+  ];
+
+  function pad2(n) { return String(n).padStart(2, "0"); }
+
+  /* the next time that weekday comes round, never today */
+  function nextWeekday(weekday) {
+    const day = new Date();
+    let delta = (weekday - day.getDay() + 7) % 7;
+    if (delta === 0) delta = 7;
+    day.setDate(day.getDate() + delta);
+    return dateKey(day.getFullYear(), day.getMonth(), day.getDate());
   }
 
-  /* a project has no quick-add field: it opens straight into its detail view */
+  /* Read date / time / pin out of a line. `ranges` are the character spans that
+     were consumed, used both to strip them from the title and to highlight them. */
+  function parseQuickAdd(text) {
+    const parsed = { date: null, time: null, pinned: false, ranges: [] };
+
+    const ampm = AMPM_RE.exec(text);
+    const clock = ampm || COLON_RE.exec(text) || HOUR_RE.exec(text);
+    if (clock) {
+      let hour = parseInt(clock[1], 10);
+      const minute = clock[2] ? parseInt(clock[2], 10) : 0;
+      if (ampm) {
+        const isPm = /pm/i.test(clock[3]);
+        if (hour === 12) hour = isPm ? 12 : 0;
+        else if (isPm) hour += 12;
+      }
+      if (hour <= 23) {
+        parsed.time = pad2(hour) + ":" + pad2(minute);
+        parsed.ranges.push([clock.index, clock.index + clock[0].length]);
+      }
+    }
+
+    const numeric = NUMERIC_DATE_RE.exec(text);
+    if (numeric) {
+      // day/month in French, month/day in English
+      const english = state.settings.language === "en";
+      const day = parseInt(numeric[english ? 2 : 1], 10);
+      const month = parseInt(numeric[english ? 1 : 2], 10);
+      let year = numeric[3] ? parseInt(numeric[3], 10) : new Date().getFullYear();
+      if (year < 100) year += 2000;
+      if (month >= 1 && month <= 12 && day >= 1 && day <= 31) {
+        parsed.date = dateKey(year, month - 1, day);
+        parsed.ranges.push([numeric.index, numeric.index + numeric[0].length]);
+      }
+    }
+    if (!parsed.date) {
+      for (let i = 0; i < RELATIVE_DAYS.length; i++) {
+        const hit = RELATIVE_DAYS[i].re.exec(text);
+        if (!hit) continue;
+        parsed.date = shiftDateKey(todayKey(), RELATIVE_DAYS[i].days);
+        parsed.ranges.push([hit.index, hit.index + hit[0].length]);
+        break;
+      }
+    }
+    if (!parsed.date) {
+      const weekday = WEEKDAY_RE.exec(text);
+      if (weekday) {
+        parsed.date = nextWeekday(WEEKDAY_INDEX[weekday[1].toLowerCase()]);
+        parsed.ranges.push([weekday.index, weekday.index + weekday[0].length]);
+      }
+    }
+
+    const bang = BANG_RE.exec(text);
+    if (bang) {
+      parsed.pinned = true;
+      const start = bang.index + bang[0].length - bang[1].length;   // skip the leading space
+      parsed.ranges.push([start, start + bang[1].length]);
+    }
+
+    // a bare time needs a day to live on, or it would be silently dropped:
+    // today if it is still ahead, tomorrow otherwise. The hint line shows which.
+    if (parsed.time && !parsed.date) {
+      const at = new Date(todayKey() + "T" + parsed.time).getTime();
+      parsed.date = at >= Date.now() ? todayKey() : shiftDateKey(todayKey(), 1);
+    }
+
+    parsed.ranges.sort(function (a, b) { return a[0] - b[0]; });
+    return parsed;
+  }
+
+  /* what's left once the recognised spans are taken out */
+  function quickTitle(text, ranges) {
+    let title = "";
+    let at = 0;
+    for (let i = 0; i < ranges.length; i++) {
+      if (ranges[i][0] < at) continue;   // overlapping matches: keep the first
+      title += text.slice(at, ranges[i][0]);
+      at = ranges[i][1];
+    }
+    title += text.slice(at);
+    return title.replace(/\s+/g, " ").trim();
+  }
+
+  const quickForm = document.getElementById("quickAdd");
+  const quickInput = document.getElementById("quickInput");
+  const quickMirror = document.getElementById("quickMirror");
+  const quickHint = document.getElementById("quickHint");
+  const addTaskBtn = document.getElementById("addTaskBtn");
+
+  /* the mirror sits under the transparent input and only paints the highlights,
+     so the recognised words light up exactly beneath what's typed */
+  function renderQuickFeedback() {
+    const text = quickInput.value;
+    const parsed = parseQuickAdd(text);
+    quickMirror.innerHTML = "";
+    let at = 0;
+    for (let i = 0; i < parsed.ranges.length; i++) {
+      if (parsed.ranges[i][0] < at) continue;
+      quickMirror.appendChild(document.createTextNode(text.slice(at, parsed.ranges[i][0])));
+      const hit = document.createElement("span");
+      hit.className = "quick__hit";
+      hit.textContent = text.slice(parsed.ranges[i][0], parsed.ranges[i][1]);
+      quickMirror.appendChild(hit);
+      at = parsed.ranges[i][1];
+    }
+    quickMirror.appendChild(document.createTextNode(text.slice(at)));
+    quickMirror.scrollLeft = quickInput.scrollLeft;
+
+    const bits = [];
+    if (parsed.date) bits.push(dueLabel({ dueDate: parsed.date, dueTime: parsed.time }));
+    if (parsed.pinned) bits.push(translate("pinLabel"));
+    quickHint.hidden = bits.length === 0;
+    if (bits.length) {
+      quickHint.textContent = (quickTitle(text, parsed.ranges) || translate("newTaskName"))
+        + " · " + bits.join(" · ");
+    }
+    return parsed;
+  }
+
+  function openQuickAdd() {
+    addTaskBtn.hidden = true;
+    quickForm.hidden = false;
+    quickInput.focus();
+    renderQuickFeedback();
+  }
+  function closeQuickAdd() {
+    quickInput.value = "";
+    quickForm.hidden = true;
+    addTaskBtn.hidden = false;
+    renderQuickFeedback();
+  }
+
+  addTaskBtn.addEventListener("click", openQuickAdd);
+  quickInput.addEventListener("input", renderQuickFeedback);
+  quickInput.addEventListener("scroll", function () {
+    quickMirror.scrollLeft = quickInput.scrollLeft;
+  });
+  quickInput.addEventListener("blur", function () {
+    if (!quickInput.value.trim()) closeQuickAdd();   // keep a half-typed line alive
+  });
+  quickInput.addEventListener("keydown", function (event) {
+    if (event.key === "Escape") { event.stopPropagation(); closeQuickAdd(); }
+  });
+
+  quickForm.addEventListener("submit", function (event) {
+    event.preventDefault();
+    const text = quickInput.value;
+    const parsed = parseQuickAdd(text);
+    const title = quickTitle(text, parsed.ranges);
+    if (!title && !parsed.date) return;
+    addItem("tasks", title || translate("newTaskName"),
+      parsed.date ? { date: parsed.date, time: parsed.time } : null);
+    if (parsed.pinned) {
+      state.tasks[state.tasks.length - 1].pinned = true;
+      saveState();
+      renderList("tasks");
+    }
+    if (parsed.time) ensureNotifyPermission();
+    quickInput.value = "";
+    renderQuickFeedback();
+    quickInput.focus();   // ready for the next line
+  });
+
+  /* a project works the same way: it opens straight into its detail view */
   document.getElementById("addProjectBtn").addEventListener("click", function () {
     const project = { id: Date.now().toString(), text: translate("addProjectAria"), icon: "folder" };
     state.projects.push(project);
@@ -1333,7 +1618,7 @@
   function removeHabit(id) {
     removeWithUndo("habits", id, function () {
       renderHabits();
-      if (!habitsView.hidden) renderHabitsView();
+      renderHabitsView();
     });
   }
 
@@ -1383,7 +1668,7 @@
     saveState();
     iconPicker.hidden = true;
     renderHabits();
-    if (!habitsView.hidden) renderHabitsView();   // reflect an icon change in the view
+    renderHabitsView();   // reflect an icon change on the well-being page
   }
 
   /* open to create a new habit (name field shown) */
@@ -2210,8 +2495,45 @@
     if (changed) saveState();
   }
 
+  /* FLOATING VIEWS — the rectangle the user just clicked, captured before any
+     re-render, so the card that opens can grow out of it */
+  const OPEN_MS = 280;
+  const ORIGIN_SELECTOR = ".item, .day-event, .event-row, .add-card, .ecal__day, .tl-row,"
+    + " .note-card, .zone__action, .topbar__btn, .notes__add, .dtl__etick";
+  let clickOrigin = null;
+  document.addEventListener("click", function (event) {
+    const source = event.target.closest ? event.target.closest(ORIGIN_SELECTOR) : null;
+    clickOrigin = source ? source.getBoundingClientRect() : null;
+  }, true);
+
+  /* Show a floating view. On desktop the card expands from the clicked rectangle;
+     on mobile it stays a bottom sheet, so the slide-up is left alone. onSettled
+     runs once the motion is done — measuring inside a transform would be wrong. */
+  function openFloating(view, onSettled) {
+    view.hidden = false;
+    const card = view.querySelector(".detail__card");
+    const origin = clickOrigin;
+    if (origin && !window.matchMedia("(max-width: 700px)").matches) {
+      card.style.transition = "none";
+      card.style.transform = "none";
+      const target = card.getBoundingClientRect();
+      const scale = Math.max(.62, Math.min(1, origin.width / target.width));
+      const dx = origin.left + origin.width / 2 - (target.left + target.width / 2);
+      const dy = origin.top + origin.height / 2 - (target.top + target.height / 2);
+      card.style.transform = "translate(" + Math.round(dx) + "px, " + Math.round(dy)
+        + "px) scale(" + scale.toFixed(3) + ")";
+      card.offsetWidth;              // flush the start state before animating away from it
+      card.style.transition = "";
+    }
+    requestAnimationFrame(function () {
+      card.style.transform = "";
+      view.classList.add("is-open");
+    });
+    if (onSettled) setTimeout(onSettled, OPEN_MS);
+  }
+
   /* SHARED — small helpers used across the views */
-  const ICON_FLOWER = '<circle cx="12" cy="6" r="3"/><circle cx="17.7" cy="10.15" r="3"/><circle cx="15.5" cy="16.85" r="3"/><circle cx="8.47" cy="16.85" r="3"/><circle cx="6.3" cy="10.15" r="3"/><circle cx="12" cy="12" r="2.2"/>';
+  const ICON_FLOWER ='<circle cx="12" cy="6" r="3"/><circle cx="17.7" cy="10.15" r="3"/><circle cx="15.5" cy="16.85" r="3"/><circle cx="8.47" cy="16.85" r="3"/><circle cx="6.3" cy="10.15" r="3"/><circle cx="12" cy="12" r="2.2"/>';
 
   function iconSvg(inner) {
     return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" '
@@ -2235,18 +2557,7 @@
   }
 
   /* HABITS VIEW — manage all habits (rename / icon / delete) + completion history */
-  const habitsView = document.getElementById("habitsView");
   const habitsViewBody = document.getElementById("habitsViewBody");
-
-  function openHabitsView() {
-    renderHabitsView();
-    habitsView.hidden = false;
-    requestAnimationFrame(function () { habitsView.classList.add("is-open"); });   // slide in
-  }
-  function closeHabitsView() {
-    habitsView.classList.remove("is-open");
-    setTimeout(function () { habitsView.hidden = true; }, 300);
-  }
 
   function renderHabitsView() {
     habitsViewBody.innerHTML = "";
@@ -2437,11 +2748,6 @@
     return grid;
   }
 
-  document.getElementById("habitsViewBtn").addEventListener("click", openHabitsView);
-  document.getElementById("habitsBack").addEventListener("click", closeHabitsView);
-  document.addEventListener("keydown", function (event) {
-    if (event.key === "Escape" && !habitsView.hidden) closeHabitsView();
-  });
 
   /* DETAIL — full-screen view of a task/project: rename, props, notes, subtasks */
   const detail = document.getElementById("detail");
@@ -2651,11 +2957,10 @@
     if (isProject) renderTimeline(item);
     else renderSubtasks(item);
 
-    detail.hidden = false;
-    requestAnimationFrame(function () {
-      detail.classList.add("is-open");
-      if (isProject) layoutTimeline();   // measure once the view is visible
+    openFloating(detail, function () {
+      if (isProject) layoutTimeline();   // measure once the view has settled
     });
+    detail.querySelector(".detail__body").scrollTop = 0;   // always open at the top
   }
 
   function closeDetail() {
@@ -3045,8 +3350,11 @@
      events (add + list); each event is a task-like item with its own detail. */
   const dayView = document.getElementById("dayView");
   const ecalGrid = document.getElementById("ecalGrid");
+  const ecalViewport = document.getElementById("ecalViewport");
+  const ecalToggle = document.getElementById("ecalToggle");
   let ecalYear = new Date().getFullYear();
   let ecalMonth = new Date().getMonth();
+  let calExpanded = false;   // folded to a single week by default
   let dayViewKey = null;
 
   function eventsOnDay(key) {
@@ -3072,67 +3380,124 @@
   }
 
   /* Draw the month: label, weekday row, leading blanks, day cells with event dots. */
+  /* one day cell, shared by the week strip and the month grid */
+  function createCalDay(key, dayNumber) {
+    const cell = document.createElement("button");
+    cell.type = "button";
+    cell.className = key === todayKey() ? "ecal__day is-today" : "ecal__day";
+
+    const num = document.createElement("span");
+    num.textContent = String(dayNumber);
+    cell.appendChild(num);
+
+    const dayEvents = eventsOnDay(key);
+    if (dayEvents.length) {
+      const icons = document.createElement("span");   // event icons along the bottom
+      icons.className = "ecal__icons";
+      const shown = Math.min(dayEvents.length, 3);
+      let hasImportant = false;
+      for (let k = 0; k < dayEvents.length; k++) {
+        if (dayEvents[k].important) { hasImportant = true; break; }
+      }
+      for (let k = 0; k < shown; k++) {
+        const ico = document.createElement("span");
+        ico.className = "ecal__ico";
+        ico.innerHTML = habitSvg(dayEvents[k].icon || "calendar");
+        icons.appendChild(ico);
+      }
+      cell.appendChild(icons);
+      if (hasImportant) {   // a red bell in the top-right corner, away from the icons
+        const bell = document.createElement("span");
+        bell.className = "ecal__bell";
+        bell.innerHTML = iconSvg(ICON_BELL);
+        cell.appendChild(bell);
+      }
+      cell.appendChild(eventPreview(dayEvents));
+    }
+    cell.addEventListener("click", function () { openDayView(key); });
+    return cell;
+  }
+
+  /* Monday-first weekday headers, shared by both grids */
+  function appendWeekdayHeads(grid) {
+    const locale = state.settings.language === "fr" ? "fr-FR" : "en-US";
+    for (let i = 0; i < 7; i++) {
+      const head = document.createElement("div");
+      head.className = "ecal__wd";
+      head.textContent = new Date(2024, 0, 1 + i).toLocaleDateString(locale, { weekday: "short" });
+      grid.appendChild(head);
+    }
+  }
+
+  /* folded, the calendar shows one week: the one holding today when we're on the
+     current month, otherwise the month's opening week */
+  function foldedWeekStart() {
+    const now = new Date();
+    const onThisMonth = now.getFullYear() === ecalYear && now.getMonth() === ecalMonth;
+    const anchor = onThisMonth ? new Date(now) : new Date(ecalYear, ecalMonth, 1);
+    anchor.setDate(anchor.getDate() - ((anchor.getDay() + 6) % 7));
+    return anchor;
+  }
+
   function renderEventCal() {
     const locale = state.settings.language === "fr" ? "fr-FR" : "en-US";
     document.getElementById("ecalMonth").textContent =
       new Date(ecalYear, ecalMonth, 1).toLocaleDateString(locale, { month: "long", year: "numeric" });
 
     ecalGrid.innerHTML = "";
-    for (let i = 0; i < 7; i++) {   // weekday headers, Monday first
-      const head = document.createElement("div");
-      head.className = "ecal__wd";
-      head.textContent = new Date(2024, 0, 1 + i).toLocaleDateString(locale, { weekday: "short" });
-      ecalGrid.appendChild(head);
+    appendWeekdayHeads(ecalGrid);
+
+    if (!calExpanded) {
+      const monday = foldedWeekStart();
+      for (let i = 0; i < 7; i++) {
+        const day = new Date(monday);
+        day.setDate(monday.getDate() + i);
+        ecalGrid.appendChild(createCalDay(dateKey(day.getFullYear(), day.getMonth(), day.getDate()), day.getDate()));
+      }
+      return;
     }
 
-    const firstOfMonth = new Date(ecalYear, ecalMonth, 1);
-    const lead = (firstOfMonth.getDay() + 6) % 7;   // Monday-first offset
+    const lead = (new Date(ecalYear, ecalMonth, 1).getDay() + 6) % 7;   // Monday-first offset
     for (let i = 0; i < lead; i++) {
       const pad = document.createElement("div");
       pad.className = "ecal__pad";
       ecalGrid.appendChild(pad);
     }
-
     const daysInMonth = new Date(ecalYear, ecalMonth + 1, 0).getDate();
-    const today = todayKey();
     for (let d = 1; d <= daysInMonth; d++) {
-      const key = dateKey(ecalYear, ecalMonth, d);
-      const cell = document.createElement("button");
-      cell.type = "button";
-      cell.className = key === today ? "ecal__day is-today" : "ecal__day";
-
-      const num = document.createElement("span");
-      num.textContent = String(d);
-      cell.appendChild(num);
-
-      const dayEvents = eventsOnDay(key);
-      if (dayEvents.length) {
-        const icons = document.createElement("span");   // event icons along the bottom
-        icons.className = "ecal__icons";
-        const shown = Math.min(dayEvents.length, 3);
-        let hasImportant = false;
-        for (let k = 0; k < dayEvents.length; k++) {
-          if (dayEvents[k].important) { hasImportant = true; break; }
-        }
-        for (let k = 0; k < shown; k++) {
-          const ico = document.createElement("span");
-          ico.className = "ecal__ico";
-          ico.innerHTML = habitSvg(dayEvents[k].icon || "calendar");
-          icons.appendChild(ico);
-        }
-        cell.appendChild(icons);
-        if (hasImportant) {   // a red bell in the top-right corner, away from the icons
-          const bell = document.createElement("span");
-          bell.className = "ecal__bell";
-          bell.innerHTML = iconSvg(ICON_BELL);
-          cell.appendChild(bell);
-        }
-        cell.appendChild(eventPreview(dayEvents));
-      }
-      cell.addEventListener("click", function () { openDayView(key); });
-      ecalGrid.appendChild(cell);
+      ecalGrid.appendChild(createCalDay(dateKey(ecalYear, ecalMonth, d), d));
     }
   }
+
+  /* Unfold or fold the month in place. The viewport is clipped and its height
+     animated only for the length of the move, so hover previews stay free to
+     overflow the rest of the time. */
+  const CAL_MS = 450;
+  let calTimer = null;
+  function toggleCalendar() {
+    const from = ecalViewport.getBoundingClientRect().height;
+    calExpanded = !calExpanded;
+    renderEventCal();
+
+    ecalViewport.style.overflow = "hidden";
+    ecalViewport.style.height = from + "px";
+    ecalViewport.offsetWidth;                       // commit the start height
+    ecalViewport.style.height = ecalGrid.getBoundingClientRect().height + "px";
+
+    ecalGrid.classList.remove("is-morph");
+    ecalGrid.offsetWidth;
+    ecalGrid.classList.add("is-morph");
+
+    ecalToggle.classList.toggle("is-open", calExpanded);
+    ecalToggle.setAttribute("aria-expanded", calExpanded ? "true" : "false");
+
+    clearTimeout(calTimer);
+    calTimer = setTimeout(function () {
+      ecalViewport.style.height = "";
+      ecalViewport.style.overflow = "";
+    }, CAL_MS + 20);
+  }
+  ecalToggle.addEventListener("click", toggleCalendar);
 
   /* hover card listing a day's events (up to four, then a "+N" line) */
   function eventPreview(dayEvents) {
@@ -3171,6 +3536,7 @@
     renderEventCal();
   });
 
+
   /* DAY VIEW */
   function setDayViewDate(key) {
     dayViewKey = key;
@@ -3179,9 +3545,7 @@
   }
   function openDayView(key) {
     setDayViewDate(key);
-    dayView.hidden = false;
-    requestAnimationFrame(function () {
-      dayView.classList.add("is-open");
+    openFloating(dayView, function () {
       document.getElementById("dayAddInput").focus();
     });
   }
@@ -3315,34 +3679,11 @@
     if (event.key === "Escape" && detail.hidden && !dayView.hidden) closeDayView();
   });
 
-  /* DAILY TIMELINE — a 24h sun bar (sunrise/sunset from Open-Meteo, cached once a
-     day) with the day's events as chips underneath. Falls back to a plain bar. */
-  // half-sun (horizon) marker for sunrise/sunset, and the sun/moon cursor glyphs
-  const HALFSUN_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" '
-    + 'stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="18" x2="21" y2="18"/>'
-    + '<path d="M7.5 18 a4.5 4.5 0 0 1 9 0"/><line x1="12" y1="5" x2="12" y2="8"/>'
-    + '<line x1="5.5" y1="9.8" x2="7" y2="11.3"/><line x1="18.5" y1="9.8" x2="17" y2="11.3"/></svg>';
-  const SUN_CURSOR_SVG = '<svg viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" '
-    + 'stroke-width="1.6" stroke-linecap="round"><circle cx="12" cy="12" r="5" stroke="none"/>'
-    + '<g fill="none"><line x1="12" y1="1.5" x2="12" y2="4"/><line x1="12" y1="20" x2="12" y2="22.5"/>'
-    + '<line x1="3.6" y1="3.6" x2="5.3" y2="5.3"/><line x1="18.7" y1="18.7" x2="20.4" y2="20.4"/>'
-    + '<line x1="1.5" y1="12" x2="4" y2="12"/><line x1="20" y1="12" x2="22.5" y2="12"/>'
-    + '<line x1="3.6" y1="20.4" x2="5.3" y2="18.7"/><line x1="18.7" y1="5.3" x2="20.4" y2="3.6"/></g></svg>';
-  const MOON_CURSOR_SVG = '<svg viewBox="0 0 24 24" fill="currentColor" stroke="none">'
-    + '<path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8z"/></svg>';
-
+  /* DAILY TIMELINE — a 24h rule (sunrise/sunset from Open-Meteo, cached once a
+     day) with the day's events as chips underneath. Falls back to a plain rule. */
   function toMinutes(hhmm) {
     const parts = hhmm.split(":");
     return parseInt(parts[0], 10) * 60 + parseInt(parts[1], 10);
-  }
-  function capitalizeFirst(text) { return text.charAt(0).toUpperCase() + text.slice(1); }
-
-  /* current time as HH:MM am/pm */
-  function formatClock12(date) {
-    let hours = date.getHours();
-    const ampm = hours < 12 ? "am" : "pm";
-    hours = hours % 12 || 12;
-    return String(hours).padStart(2, "0") + ":" + String(date.getMinutes()).padStart(2, "0") + " " + ampm;
   }
 
   function todaySun() {
@@ -3362,56 +3703,68 @@
       + Math.min(100, ss + 7).toFixed(1) + "%, var(--dtl-night) 100%)";
   }
 
-  /* a sunrise/sunset marker: the time above a small sun icon, placed at its hour */
-  function sunMarker(timeText, pct) {
+  /* a sunrise/sunset marker: a dot on the rule, a stem, the reading above it */
+  function sunMarker(timeText, captionKey, pct) {
     const marker = document.createElement("div");
     marker.className = "dtl__marker";
     marker.style.left = pct + "%";
+
     const time = document.createElement("span");
     time.className = "dtl__marker-time";
     time.textContent = timeText;
-    const icon = document.createElement("span");
-    icon.className = "dtl__marker-ico";
-    icon.innerHTML = HALFSUN_SVG;
-    marker.append(time, icon);
+    const caption = document.createElement("span");
+    caption.className = "dtl__marker-caption";
+    caption.textContent = translate(captionKey);
+    const stem = document.createElement("span");
+    stem.className = "dtl__marker-stem";
+    const dot = document.createElement("span");
+    dot.className = "dtl__marker-dot";
+
+    marker.append(time, caption, stem, dot);
     return marker;
   }
 
+  /* a tick every hour, taller and labelled every three. Midnight keeps its tick
+     but no label: it sits in the faded end of the rule. */
   function renderDtlTicks() {
     const ticks = document.getElementById("dtlTicks");
     ticks.innerHTML = "";
-    for (let h = 0; h <= 24; h += 3) {
+    for (let h = 0; h <= 24; h++) {
+      const major = h % 3 === 0;
+      const tick = document.createElement("span");
+      tick.className = major ? "dtl__tick is-major" : "dtl__tick";
+      tick.style.left = (h / 24 * 100) + "%";
+      ticks.appendChild(tick);
+      if (!major || h === 0 || h === 24) continue;
       const label = document.createElement("span");
+      label.className = "dtl__tick-label";
+      label.style.left = (h / 24 * 100) + "%";
       label.textContent = (h < 10 ? "0" : "") + h + ":00";
       ticks.appendChild(label);
     }
   }
 
   function renderDailyTimeline() {
-    const locale = state.settings.language === "fr" ? "fr-FR" : "en-US";
-    document.getElementById("dtlDate").textContent = capitalizeFirst(
-      new Date().toLocaleDateString(locale, { weekday: "long", day: "numeric", month: "long" }));
-
     const sun = todaySun();
     document.getElementById("dtlStrip").style.background = stripGradient(sun);
     renderDtlTicks();
 
-    // place + current weather pill next to the date
+    // place + current weather, up in the top bar beside the tools
     const weather = document.getElementById("dtlWeather");
     weather.innerHTML = "";
     if (sun && sun.temp != null) {
       weather.hidden = false;
       if (sun.place) {
         const place = document.createElement("span");
-        place.className = "dtl__place";
+        place.className = "topbar__place";
         place.textContent = sun.place;
         weather.appendChild(place);
       }
       const icon = document.createElement("span");
-      icon.className = "dtl__wico";
+      icon.className = "topbar__wico";
       icon.innerHTML = weatherIcon(sun.code);   // trusted svg markup
       const temp = document.createElement("span");
-      temp.className = "dtl__temp";
+      temp.className = "topbar__temp";
       temp.textContent = Math.round(sun.temp) + "°";
       weather.append(icon, temp);
       weather.classList.toggle("is-clickable", !!(sun.hourly && sun.hourly.temp));   // opens the day graph
@@ -3426,8 +3779,8 @@
     if (sun) {
       const srMin = toMinutes(sun.sunrise);
       const ssMin = toMinutes(sun.sunset);
-      markers.appendChild(sunMarker(sun.sunrise, srMin / 1440 * 100));
-      markers.appendChild(sunMarker(sun.sunset, ssMin / 1440 * 100));
+      markers.appendChild(sunMarker(sun.sunrise, "sunriseLabel", srMin / 1440 * 100));
+      markers.appendChild(sunMarker(sun.sunset, "sunsetLabel", ssMin / 1440 * 100));
 
       const now = new Date();
       updateCursor(cursor, now.getHours() * 60 + now.getMinutes(), srMin, ssMin);
@@ -3437,7 +3790,7 @@
     }
 
     renderEventTicks();
-    renderDtlEvents();
+    renderTodayEvents();
   }
 
   /* place the cursor at the current time on the bar: sun by day (halo fading
@@ -3447,15 +3800,10 @@
     const isDay = nowMin >= srMin && nowMin <= ssMin;
     cursor.classList.toggle("is-day", isDay);
     cursor.classList.toggle("is-night", !isDay);
-    const icon = cursor.querySelector(".dtl__cursor-ico");
-    let halo;
+    let halo = 0.9;
     if (isDay) {
-      icon.innerHTML = SUN_CURSOR_SVG;
       const edge = Math.min(nowMin - srMin, ssMin - nowMin);   // minutes to nearest edge
-      halo = edge >= 60 ? 1 : Math.max(0.12, edge / 60);
-    } else {
-      icon.innerHTML = MOON_CURSOR_SVG;
-      halo = 0.9;
+      halo = edge >= 60 ? 1 : Math.max(0.45, edge / 60);       // softens, never goes out
     }
     cursor.style.setProperty("--halo", halo.toFixed(2));
   }
@@ -3484,27 +3832,26 @@
     }
   }
 
-  function dtlEventSort(a, b) {
+  function eventTimeSort(a, b) {
     const ta = a.time || "99:99";
     const tb = b.time || "99:99";
     return ta < tb ? -1 : ta > tb ? 1 : 0;
   }
 
-  function renderDtlEvents() {
-    const box = document.getElementById("dtlEvents");
+  function renderTodayEvents() {
+    const box = document.getElementById("todayEvents");
     box.innerHTML = "";
     const today = todayKey();
-    const list = eventsOnDay(today).slice().sort(dtlEventSort);
-    for (let i = 0; i < list.length; i++) box.appendChild(dtlEventRow(list[i]));
+    const list = eventsOnDay(today).slice().sort(eventTimeSort);
+    for (let i = 0; i < list.length; i++) box.appendChild(todayEventRow(list[i]));
 
     const add = document.createElement("button");
     add.type = "button";
-    add.className = "dtl-ev dtl-ev--add";
+    add.className = "add-card";
     const plus = document.createElement("span");
-    plus.className = "dtl-ev__plus";
+    plus.className = "add-card__plus";
     plus.textContent = "+";
     const label = document.createElement("span");
-    label.className = "dtl-ev__title";
     label.textContent = translate("addEventTitle");
     add.append(plus, label);
     add.addEventListener("click", function () { openDayView(today); });
@@ -3512,31 +3859,31 @@
   }
 
   /* an event under the gauge: a rectangle with icon, title, and time on the right */
-  function dtlEventRow(event) {
+  function todayEventRow(event) {
     const row = document.createElement("button");
     row.type = "button";
-    row.className = "dtl-ev is-" + eventStatus(event) + (event.important ? " is-important" : "");
+    row.className = "day-event is-" + eventStatus(event) + (event.important ? " is-important" : "");
     row.addEventListener("click", function () { openEventDetail(event); });
 
     const icon = document.createElement("span");
-    icon.className = "dtl-ev__ico";
+    icon.className = "day-event__ico";
     icon.innerHTML = habitSvg(event.icon || "calendar");
     row.appendChild(icon);
 
     const title = document.createElement("span");
-    title.className = "dtl-ev__title";
+    title.className = "day-event__title";
     title.textContent = event.text;
     row.appendChild(title);
 
     if (event.important) {
       const bell = document.createElement("span");
-      bell.className = "dtl-ev__bell";
+      bell.className = "day-event__bell";
       bell.innerHTML = iconSvg(ICON_BELL);
       row.appendChild(bell);
     }
     if (event.time) {
       const time = document.createElement("span");
-      time.className = "dtl-ev__time";
+      time.className = "day-event__time";
       time.textContent = event.time;
       row.appendChild(time);
     }
@@ -3854,8 +4201,7 @@
   /* LIST */
   function openNotes() {
     renderNotesList();
-    notesView.hidden = false;
-    requestAnimationFrame(function () { notesView.classList.add("is-open"); });
+    openFloating(notesView);
   }
   function closeNotes() {
     notesView.classList.remove("is-open");
@@ -3939,11 +4285,7 @@
     noteTitleInput.value = note ? (note.title || "") : "";
     noteEditorBody.setAttribute("data-placeholder", translate("notePlaceholder"));
     noteEditorBody.innerHTML = note ? (note.html || "") : "";
-    noteEditor.hidden = false;
-    requestAnimationFrame(function () {
-      noteEditor.classList.add("is-open");
-      noteTitleInput.focus();
-    });
+    openFloating(noteEditor, function () { noteTitleInput.focus(); });
   }
   function closeNoteEditor() {
     noteEditor.classList.remove("is-open");
@@ -4003,6 +4345,108 @@
     else if (!notesView.hidden) closeNotes();
   });
 
+  /* every floating view closes on its backdrop, the way the habit dialogs do */
+  const detailClosers = {
+    detail: closeDetail, dayView: closeDayView,
+    notes: closeNotes, noteEditor: closeNoteEditor
+  };
+  const detailBackdrops = document.querySelectorAll(".detail__backdrop");
+  for (let i = 0; i < detailBackdrops.length; i++) {
+    const view = detailBackdrops[i].parentNode;
+    detailBackdrops[i].addEventListener("click", detailClosers[view.id]);
+  }
+
+  /* THE TWO SPACES — work and well-being sit on one rail under the day line.
+     The tab on the edge is the handle: dragging it brings the other space in
+     behind the pointer, and a plain click flips between them. */
+  const pagesEl = document.getElementById("pages");
+  const pagesTrack = document.getElementById("pagesTrack");
+  const workPage = document.getElementById("workPage");
+  const wellPage = document.getElementById("wellPage");
+  const wellTab = document.getElementById("wellTab");
+  const wellPull = document.getElementById("wellPull");
+  let wellOpen = false;
+
+  /* below this width the rail stacks and the tab is pulled upwards instead */
+  function tabIsBottom() { return window.matchMedia("(max-width: 900px)").matches; }
+
+  function trackOffset(progress) {
+    if (tabIsBottom()) return "translateY(" + (-workPage.offsetHeight * progress).toFixed(1) + "px)";
+    return "translateX(" + (-50 * progress).toFixed(2) + "%)";
+  }
+
+  /* the rail is as tall as the space on show; while dragging it takes the
+     taller of the two so the incoming one is never clipped */
+  function syncPagesHeight(dragging) {
+    const work = workPage.offsetHeight;
+    const well = wellPage.offsetHeight;
+    pagesEl.style.height = (dragging ? Math.max(work, well) : (wellOpen ? well : work)) + "px";
+  }
+
+  function setWellOpen(open) {
+    wellOpen = open;
+    pagesTrack.classList.remove("is-dragging");
+    pagesTrack.style.transform = trackOffset(open ? 1 : 0);
+    wellTab.classList.toggle("is-open", open);
+    wellPull.setAttribute("aria-expanded", open ? "true" : "false");
+    syncPagesHeight(false);
+  }
+
+  let pullDrag = null;
+  let pullClickBlockedUntil = 0;
+
+  wellPull.addEventListener("pointerdown", function (event) {
+    if (event.pointerType === "mouse" && event.button !== 0) return;
+    event.preventDefault();
+    wellPull.setPointerCapture(event.pointerId);
+    pullDrag = { x: event.clientX, y: event.clientY, moved: false, progress: wellOpen ? 1 : 0 };
+    pagesTrack.classList.add("is-dragging");
+    syncPagesHeight(true);
+  });
+
+  wellPull.addEventListener("pointermove", function (event) {
+    if (!pullDrag) return;
+    const bottom = tabIsBottom();
+    const span = bottom ? window.innerHeight * 0.4 : window.innerWidth * 0.35;
+    const delta = bottom ? (pullDrag.y - event.clientY) : (pullDrag.x - event.clientX);
+    if (Math.abs(delta) > 4) pullDrag.moved = true;
+    pullDrag.progress = Math.max(0, Math.min(1, (wellOpen ? 1 : 0) + delta / span));
+    pagesTrack.style.transform = trackOffset(pullDrag.progress);
+  });
+
+  function endPull() {
+    if (!pullDrag) return;
+    const drag = pullDrag;
+    pullDrag = null;
+    // a tap flips; a real drag settles to whichever side it ended up closest to
+    setWellOpen(drag.moved ? drag.progress > 0.5 : !wellOpen);
+    if (drag.moved) pullClickBlockedUntil = Date.now() + 400;
+  }
+  wellPull.addEventListener("pointerup", endPull);
+  wellPull.addEventListener("pointercancel", endPull);
+
+  // keyboard activation still goes through click
+  wellPull.addEventListener("click", function () {
+    if (Date.now() < pullClickBlockedUntil) return;
+    if (pullDrag) return;
+    setWellOpen(!wellOpen);
+  });
+
+  window.addEventListener("resize", function () {
+    if (pullDrag) return;
+    pagesTrack.style.transform = trackOffset(wellOpen ? 1 : 0);
+    syncPagesHeight(false);
+  });
+
+  // content grows and shrinks all the time; the rail follows without bookkeeping
+  if (window.ResizeObserver) {
+    const pageWatcher = new ResizeObserver(function () {
+      if (!pullDrag) syncPagesHeight(false);
+    });
+    pageWatcher.observe(workPage);
+    pageWatcher.observe(wellPage);
+  }
+
   /* Trap the Back button (mobile) so it closes the top overlay instead of leaving
      the app. Closes the most-modal one first. */
   function closeTopOverlay() {
@@ -4017,7 +4461,6 @@
     if (!focusOverlay.hidden) { closeFocus(); return true; }
     if (!detail.hidden) { closeDetail(); return true; }   // milestone steps back to its project
     if (!dayView.hidden) { closeDayView(); return true; }
-    if (!habitsView.hidden) { closeHabitsView(); return true; }
     return false;
   }
   window.addEventListener("popstate", function () {
@@ -4032,6 +4475,7 @@
   renderList("projects");
   renderHabits();
   renderEventCal();
+  renderHabitsView();
   renderDailyTimeline();
   buildIconPicker();
   checkReminders();
@@ -4041,8 +4485,9 @@
   initSky();
   buildRosace();
   applyDecorations();
+  setWellOpen(false);
+  requestAnimationFrame(function () { pagesEl.classList.add("is-live"); });
   setInterval(function () {
-    renderGreeting();
     renderDailyTimeline();   // advance the sun, roll the date over at midnight
     if (state.sun && state.sun.lat != null) ensureSunData();   // refresh weather when stale
     if (state.settings.theme === "auto") applyTheme("auto");   // follow the hour
