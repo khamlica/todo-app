@@ -20,12 +20,18 @@
       for (let i = 0; i < projects.length; i++) {
         delete projects[i].subtasks;   // projects moved from subtasks to milestones
       }
+      const events = saved.events || [];
+      for (let i = 0; i < events.length; i++) {   // events are past/pending now, not checkable
+        delete events[i].done;
+        if (events[i].important == null) events[i].important = false;
+        if (!events[i].icon) events[i].icon = "calendar";
+      }
       return {
         tasks: saved.tasks || [],
         projects: projects,
         habits: habits,
         notes: saved.notes || [],
-        events: saved.events || [],
+        events: events,
         sun: saved.sun || null,
         settings: {
           name: (saved.settings && saved.settings.name) || "",
@@ -49,7 +55,7 @@
     fr: {
       greetingPrefix: "Bonjour",
       greetingSuffix: " !",
-      welcomeQuestion: "Prêt à travailler sur l'essentiel ?",
+      welcomeQuestion: "Qu'est-ce qui compte aujourd'hui ?",
       enterAria: "Entrer dans l'application",
       settingsAria: "Paramètres",
       settingsTitle: "Paramètres",
@@ -127,6 +133,11 @@
       addEventPlaceholder: "Ajouter un événement…",
       eventDateLabel: "Date",
       timeLabel: "Heure",
+      eventStatusPending: "En attente",
+      eventStatusPast: "Passé",
+      rescheduleBtn: "Replanifier",
+      importantAria: "Marquer comme important",
+      importantLabel: "Important",
       todayLabel: "Aujourd'hui",
       locationLabel: "Localisation",
       cityPlaceholder: "Rechercher une ville…",
@@ -153,7 +164,7 @@
     en: {
       greetingPrefix: "Hello",
       greetingSuffix: "!",
-      welcomeQuestion: "Are you ready to work on what matters?",
+      welcomeQuestion: "What matters today?",
       enterAria: "Enter the app",
       settingsAria: "Settings",
       settingsTitle: "Settings",
@@ -231,6 +242,11 @@
       addEventPlaceholder: "Add an event…",
       eventDateLabel: "Date",
       timeLabel: "Time",
+      eventStatusPending: "Pending",
+      eventStatusPast: "Past",
+      rescheduleBtn: "Reschedule",
+      importantAria: "Mark as important",
+      importantLabel: "Important",
       todayLabel: "Today",
       locationLabel: "Location",
       cityPlaceholder: "Search a city…",
@@ -342,33 +358,33 @@
     }
   }
 
-  /* localized current time: "il est 15 heures 26" / "it is 3:26 PM" */
+  /* localized current time: "il est 01:00" / "it is 01:00 am" */
   function clockText() {
     const now = new Date();
-    const h = now.getHours();
-    const m = String(now.getMinutes()).padStart(2, "0");
     if (state.settings.language === "fr") {
-      return "il est " + h + " " + (h <= 1 ? "heure" : "heures") + " " + m;
+      const h = String(now.getHours()).padStart(2, "0");
+      const m = String(now.getMinutes()).padStart(2, "0");
+      return "il est " + h + ":" + m;
     }
-    const suffix = h < 12 ? "AM" : "PM";
-    const h12 = (h % 12) === 0 ? 12 : (h % 12);
-    return "it is " + h12 + ":" + m + " " + suffix;
+    return "it is " + formatClock12(now);
   }
 
-  /* time-aware greeting word */
+  /* time-aware greeting word — never "good morning" in the small hours */
   function greetingWord() {
     const h = new Date().getHours();
-    if (state.settings.language === "fr") return h < 18 ? "Bonjour" : "Bonsoir";
-    if (h < 12) return "Good morning";
-    if (h < 18) return "Good afternoon";
-    return "Good evening";
+    if (state.settings.language === "fr") return (h >= 5 && h < 18) ? "Bonjour" : "Bonsoir";
+    if (h >= 5 && h < 12) return "Good morning";
+    if (h >= 12 && h < 18) return "Good afternoon";
+    return "Good evening";   // 18:00–04:59
   }
 
-  /* welcome phrase: "Bonsoir <name>," then "il est ..." */
+  /* welcome phrase "Bonjour <name> !" and the main-view line "Bonsoir, il est ..." (no name) */
   function renderGreeting() {
     const name = state.settings.name;
-    document.getElementById("welcomeGreeting").textContent = greetingWord() + (name ? " " + name : "") + ",";
-    document.getElementById("welcomeTime").textContent = clockText();
+    document.getElementById("welcomeGreeting").textContent =
+      translate("greetingPrefix") + (name ? " " + name : "") + translate("greetingSuffix");
+    document.getElementById("appGreetWord").textContent = greetingWord();
+    document.getElementById("appGreetTime").textContent = ", " + clockText();
   }
 
   /* generate the night stars once (shown only under the night theme) */
@@ -818,7 +834,13 @@
     sport: '<line x1="2.5" y1="9" x2="2.5" y2="15"/><line x1="5.5" y1="7" x2="5.5" y2="17"/><line x1="18.5" y1="7" x2="18.5" y2="17"/><line x1="21.5" y1="9" x2="21.5" y2="15"/><line x1="5.5" y1="12" x2="18.5" y2="12"/>',
     meditation: '<circle cx="12" cy="5" r="2"/><path d="M12 8v3"/><path d="M7.5 18.5c1.2 -.8 2.7 -1.2 4.5 -1.2s3.3 .4 4.5 1.2"/><path d="M12 11c-2.5 .5 -4 2 -4.5 4"/><path d="M12 11c2.5 .5 4 2 4.5 4"/>',
     walk: '<circle cx="13" cy="4" r="1.6"/><path d="M7 21l3 -4"/><path d="M16 21l-2 -4l-3 -3l1 -6"/><path d="M6 12l2 -3l4 -1l3 3l3 1"/>',
-    game: '<rect x="2" y="7" width="20" height="10" rx="5"/><line x1="6" y1="12" x2="9" y2="12"/><line x1="7.5" y1="10.5" x2="7.5" y2="13.5"/><circle cx="15.5" cy="13" r="1"/><circle cx="18.5" cy="11" r="1"/>'
+    game: '<rect x="2" y="7" width="20" height="10" rx="5"/><line x1="6" y1="12" x2="9" y2="12"/><line x1="7.5" y1="10.5" x2="7.5" y2="13.5"/><circle cx="15.5" cy="13" r="1"/><circle cx="18.5" cy="11" r="1"/>',
+    calendar: '<rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>',
+    cake: '<path d="M4 21h16"/><path d="M5 21v-7a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v7"/><path d="M4 16.4c1.4 0 1.4 1 2.8 1s1.4-1 2.8-1 1.4 1 2.8 1 1.4-1 2.8-1 1.4 1 2.8 1"/><path d="M12 6.5V9"/><path d="M12 3.5a1 1 0 0 0-1 1c0 .8 1 1.5 1 1.5s1-.7 1-1.5a1 1 0 0 0-1-1z"/>',
+    meeting: '<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
+    course: '<path d="M22 10 12 5 2 10l10 5 10-5z"/><path d="M6 12v5c0 1.1 2.7 3 6 3s6-1.9 6-3v-5"/><line x1="22" y1="10" x2="22" y2="15"/>',
+    gift: '<polyline points="20 12 20 22 4 22 4 12"/><rect x="2" y="7" width="20" height="5"/><line x1="12" y1="22" x2="12" y2="7"/><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"/><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"/>',
+    bell: '<path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/>'
   };
 
   const iconPicker = document.getElementById("iconPicker");
@@ -926,11 +948,20 @@
     }
   }
 
-  let iconPickerMode = "new";   // "new" (create) or a habit id (change its icon)
+  let iconPickerMode = { kind: "habit-new" };   // habit-new | habit-edit | event
 
-  /* Apply a picked icon: create a new habit, or update the edited one. */
+  /* Apply a picked icon: create a habit, or update the edited habit / event. */
   function chooseIcon(iconKey) {
-    if (iconPickerMode === "new") {
+    if (iconPickerMode.kind === "event") {
+      const event = findItem("events", iconPickerMode.id);
+      if (event) event.icon = iconKey;
+      saveState();
+      iconPicker.hidden = true;
+      refreshDetailIfOpen();   // update the icon button in the detail
+      refreshDetailSource();   // update rows / calendar / timeline
+      return;
+    }
+    if (iconPickerMode.kind === "habit-new") {
       const nameInput = document.getElementById("habitNameInput");
       // name is stored but not shown; a future history graph will use it
       state.habits.push({
@@ -941,7 +972,7 @@
       });
       nameInput.value = "";
     } else {
-      const habit = findItem("habits", iconPickerMode);
+      const habit = findItem("habits", iconPickerMode.id);
       if (habit) habit.icon = iconKey;
     }
     saveState();
@@ -952,7 +983,7 @@
 
   /* open to create a new habit (name field shown) */
   function openIconPicker() {
-    iconPickerMode = "new";
+    iconPickerMode = { kind: "habit-new" };
     document.getElementById("habitNameField").hidden = false;
     document.getElementById("habitNameInput").value = "";
     iconPicker.hidden = false;
@@ -960,7 +991,14 @@
 
   /* open to change an existing habit's icon (name field hidden) */
   function openIconPickerForEdit(habitId) {
-    iconPickerMode = habitId;
+    iconPickerMode = { kind: "habit-edit", id: habitId };
+    document.getElementById("habitNameField").hidden = true;
+    iconPicker.hidden = false;
+  }
+
+  /* open to change an event's icon */
+  function openIconPickerForEvent(eventId) {
+    iconPickerMode = { kind: "event", id: eventId };
     document.getElementById("habitNameField").hidden = true;
     iconPicker.hidden = false;
   }
@@ -993,9 +1031,10 @@
     return wrap;
   }
 
-  /* AGENDA — due date/time on tasks, edited from the detail view */
+  /* AGENDA — date/time picker, reused for a task's due date and an event's reschedule */
   const calendarModal = document.getElementById("calendar");
-  let pickerContext = "new";                      // "new" or an existing task id
+  let pickerContext = "new";                      // "new" or an existing task/event id
+  let pickerKind = "tasks";                        // "tasks" or "events"
   let pickerSelected = null;                      // "YYYY-MM-DD" chosen in the grid
   let pickerYear = 0;
   let pickerMonth = 0;
@@ -1099,23 +1138,44 @@
   }
 
   /* Open the calendar to edit a task's date (context = task id). */
-  function openCalendar(context) {
+  function openCalendar(context, kind) {
     pickerContext = context;
+    pickerKind = kind || "tasks";
     let date = null;
     let time = "";
-    const task = findTask(context);
-    if (task) { date = task.dueDate || null; time = task.dueTime || ""; }
+    if (pickerKind === "events") {
+      const event = findItem("events", context);
+      if (event) { date = event.date || null; time = event.time || ""; }
+    } else {
+      const task = findTask(context);
+      if (task) { date = task.dueDate || null; time = task.dueTime || ""; }
+    }
     pickerSelected = date || todayKey();   // today highlighted by default
     const base = new Date(pickerSelected + "T00:00");
     pickerYear = base.getFullYear();
     pickerMonth = base.getMonth();
     document.getElementById("calTime").value = time;
+    document.getElementById("calClear").hidden = pickerKind === "events";   // an event always has a date
     renderCalendar();
     calendarModal.hidden = false;
   }
 
-  /* Write the chosen (or cleared) date to the edited task. */
+  /* Write the chosen (or cleared) date to the edited task or rescheduled event. */
   function applyDue(date, time) {
+    if (pickerKind === "events") {
+      const event = findItem("events", pickerContext);
+      if (event && date) {
+        event.date = date;
+        event.time = time || null;
+        saveState();
+        renderEventCal();
+        renderDailyTimeline();
+        if (!dayView.hidden) renderDayList();
+        refreshDetailIfOpen();
+      }
+      calendarModal.hidden = true;
+      return;
+    }
     const task = findTask(pickerContext);
     if (task) {
       task.dueDate = date;
@@ -1385,6 +1445,7 @@
   }
 
   const ICON_NOTE = '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="13" y2="17"/>';
+  const ICON_BELL = '<path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/>';
 
   /* small "has notes" mark on a row */
   function createNoteMark() {
@@ -1422,15 +1483,34 @@
     return badge;
   }
 
-  /* label + control wrapper (reuses the .field look) */
-  function detailField(labelText, control) {
+  /* label + control wrapper (reuses the .field look); modifier for a row layout */
+  function detailField(labelText, control, modifier) {
     const field = document.createElement("div");
-    field.className = "field";
+    field.className = modifier ? "field " + modifier : "field";
     const label = document.createElement("span");
     label.className = "field__label";
     label.textContent = labelText;
     field.append(label, control);
     return field;
+  }
+
+  /* an on/off switch with a sliding, animated knob */
+  function createToggle(isOn, onChange) {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = isOn ? "toggle is-on" : "toggle";
+    btn.setAttribute("role", "switch");
+    btn.setAttribute("aria-checked", isOn ? "true" : "false");
+    const knob = document.createElement("span");
+    knob.className = "toggle__knob";
+    btn.appendChild(knob);
+    btn.addEventListener("click", function () {
+      const on = !btn.classList.contains("is-on");
+      btn.classList.toggle("is-on", on);
+      btn.setAttribute("aria-checked", on ? "true" : "false");
+      onChange(on);
+    });
+    return btn;
   }
 
   /* type-specific controls — add per-type fields here (modular) */
@@ -1452,21 +1532,32 @@
       });
       detailProps.appendChild(detailField(translate("importanceAria"), bars));
     } else if (list === "events") {
+      const iconBtn = document.createElement("button");
+      iconBtn.type = "button";
+      iconBtn.className = "edit-prop edit-prop--icon";
+      iconBtn.innerHTML = habitSvg(item.icon || "calendar");
+      iconBtn.addEventListener("click", function () { openIconPickerForEvent(item.id); });
+      detailProps.appendChild(detailField(translate("editIconLabel"), iconBtn));
+
       const dateSpan = document.createElement("span");
       dateSpan.className = "edit-prop edit-prop--static";
-      dateSpan.textContent = fullDateLabel(item.date);
+      dateSpan.textContent = fullDateLabel(item.date) + (item.time ? " · " + item.time : "");
       detailProps.appendChild(detailField(translate("eventDateLabel"), dateSpan));
 
-      const timeInput = document.createElement("input");
-      timeInput.type = "time";
-      timeInput.className = "edit-prop";
-      timeInput.value = item.time || "";
-      timeInput.addEventListener("change", function () {
-        item.time = timeInput.value || null;
+      const rescheduleBtn = document.createElement("button");
+      rescheduleBtn.type = "button";
+      rescheduleBtn.className = "edit-prop event-reschedule";
+      rescheduleBtn.textContent = translate("rescheduleBtn");
+      rescheduleBtn.addEventListener("click", function () { openCalendar(item.id, "events"); });
+      detailProps.appendChild(rescheduleBtn);
+
+      const toggle = createToggle(!!item.important, function (on) {
+        item.important = on;
         saveState();
-        refreshDetailSource();
+        refreshDetailSource();   // calendar bell / row highlight
       });
-      detailProps.appendChild(detailField(translate("timeLabel"), timeInput));
+      toggle.setAttribute("aria-label", translate("importantAria"));
+      detailProps.appendChild(detailField(translate("importantLabel"), toggle, "field--row"));
     }
   }
 
@@ -1890,6 +1981,12 @@
     return found;
   }
 
+  /* "past" once its time (or the end of its day, if no time) has gone by */
+  function eventStatus(event) {
+    const at = new Date(event.date + "T" + (event.time || "23:59:59"));
+    return Date.now() > at.getTime() ? "past" : "pending";
+  }
+
   /* "vendredi 25 juillet 2026" — full localized date, first letter capitalized */
   function fullDateLabel(key) {
     const locale = state.settings.language === "fr" ? "fr-FR" : "en-US";
@@ -1934,15 +2031,26 @@
 
       const dayEvents = eventsOnDay(key);
       if (dayEvents.length) {
-        const dots = document.createElement("span");
-        dots.className = "ecal__dots";
+        const icons = document.createElement("span");   // event icons along the bottom
+        icons.className = "ecal__icons";
         const shown = Math.min(dayEvents.length, 3);
-        for (let k = 0; k < shown; k++) {
-          const dot = document.createElement("span");
-          dot.className = "ecal__dot";
-          dots.appendChild(dot);
+        let hasImportant = false;
+        for (let k = 0; k < dayEvents.length; k++) {
+          if (dayEvents[k].important) { hasImportant = true; break; }
         }
-        cell.appendChild(dots);
+        for (let k = 0; k < shown; k++) {
+          const ico = document.createElement("span");
+          ico.className = "ecal__ico";
+          ico.innerHTML = habitSvg(dayEvents[k].icon || "calendar");
+          icons.appendChild(ico);
+        }
+        cell.appendChild(icons);
+        if (hasImportant) {   // a red bell in the top-right corner, away from the icons
+          const bell = document.createElement("span");
+          bell.className = "ecal__bell";
+          bell.innerHTML = iconSvg(ICON_BELL);
+          cell.appendChild(bell);
+        }
         cell.appendChild(eventPreview(dayEvents));
       }
       cell.addEventListener("click", function () { openDayView(key); });
@@ -1957,8 +2065,14 @@
     const shown = Math.min(dayEvents.length, 4);
     for (let i = 0; i < shown; i++) {
       const line = document.createElement("span");
-      line.className = dayEvents[i].done ? "ecal__prev-item done" : "ecal__prev-item";
-      line.textContent = dayEvents[i].text;
+      line.className = dayEvents[i].important ? "ecal__prev-item important" : "ecal__prev-item";
+      const ico = document.createElement("span");
+      ico.className = "ecal__prev-ico";
+      ico.innerHTML = habitSvg(dayEvents[i].icon || "calendar");
+      const text = document.createElement("span");
+      text.className = "ecal__prev-text";
+      text.textContent = dayEvents[i].text;
+      line.append(ico, text);
       card.appendChild(line);
     }
     if (dayEvents.length > shown) {
@@ -2013,27 +2127,49 @@
     }
   }
 
-  /* one event row: check toggles done, the rest opens the task-like detail */
+  /* one event row: rectangular, time on the left; a click opens the detail.
+     No checkbox — an event is past or pending, never "completed". */
   function createEventRow(event) {
+    const status = eventStatus(event);
     const row = document.createElement("li");
-    row.className = event.done ? "item item--open done" : "item item--open";
+    row.className = "event-row is-" + status + (event.important ? " is-important" : "");
     row.addEventListener("click", function () { openEventDetail(event); });
 
-    const checkbox = document.createElement("span");
-    checkbox.className = "item__check";
-    checkbox.textContent = event.done ? "✓" : "";
-    checkbox.addEventListener("click", function (clickEvent) {
-      clickEvent.stopPropagation();
-      toggleEvent(event.id);
-    });
+    const icon = document.createElement("span");
+    icon.className = "event-row__icon";
+    icon.innerHTML = habitSvg(event.icon || "calendar");
+    row.appendChild(icon);
 
-    const label = document.createElement("span");
-    label.className = "item__text";
-    label.textContent = event.text;
+    const time = document.createElement("span");
+    time.className = "event-row__time";
+    time.textContent = event.time || "—";
+    row.appendChild(time);
 
-    row.append(checkbox, label);
-    if (event.notes && event.notes.trim()) row.appendChild(createNoteMark());
-    if (event.subtasks && event.subtasks.length) row.appendChild(createSubBadge(event));
+    const main = document.createElement("div");
+    main.className = "event-row__main";
+
+    const title = document.createElement("span");
+    title.className = "event-row__title";
+    title.textContent = event.text;
+    main.appendChild(title);
+
+    const meta = document.createElement("span");
+    meta.className = "event-row__meta";
+    const statusEl = document.createElement("span");
+    statusEl.className = "event-row__status";
+    statusEl.textContent = translate(status === "past" ? "eventStatusPast" : "eventStatusPending");
+    meta.appendChild(statusEl);
+    if (event.notes && event.notes.trim()) meta.appendChild(createNoteMark());
+    if (event.subtasks && event.subtasks.length) meta.appendChild(createSubBadge(event));
+    main.appendChild(meta);
+
+    row.appendChild(main);
+    if (event.important) {
+      const alert = document.createElement("span");
+      alert.className = "event-row__alert";
+      alert.innerHTML = iconSvg(ICON_BELL);
+      row.appendChild(alert);
+    }
     return row;
   }
 
@@ -2044,17 +2180,7 @@
   }
 
   function addEvent(key, text) {
-    state.events.push({ id: Date.now().toString(), text: text, done: false, date: key });
-    saveState();
-    renderDayList();
-    renderEventCal();
-    renderDailyTimeline();
-  }
-
-  function toggleEvent(id) {
-    const event = findItem("events", id);
-    if (!event) return;
-    event.done = !event.done;
+    state.events.push({ id: Date.now().toString(), text: text, important: false, icon: "calendar", date: key });
     saveState();
     renderDayList();
     renderEventCal();
@@ -2161,7 +2287,6 @@
     const locale = state.settings.language === "fr" ? "fr-FR" : "en-US";
     document.getElementById("dtlDate").textContent = capitalizeFirst(
       new Date().toLocaleDateString(locale, { weekday: "long", day: "numeric", month: "long" }));
-    document.getElementById("dtlNow").textContent = formatClock12(new Date());
 
     const sun = todaySun();
     document.getElementById("dtlStrip").style.background = stripGradient(sun);
@@ -2279,7 +2404,7 @@
   function dtlEventChip(event) {
     const chip = document.createElement("button");
     chip.type = "button";
-    chip.className = event.done ? "dtl__event done" : "dtl__event";
+    chip.className = "dtl__event is-" + eventStatus(event) + (event.important ? " is-important" : "");
     chip.addEventListener("click", function () { openEventDetail(event); });
 
     if (event.time) {
@@ -2288,9 +2413,10 @@
       time.textContent = event.time;
       chip.appendChild(time);
     }
-    const dot = document.createElement("span");
-    dot.className = "dtl__event-dot";
-    chip.appendChild(dot);
+    const icon = document.createElement("span");
+    icon.className = "dtl__event-ico";
+    icon.innerHTML = habitSvg(event.icon || "calendar");
+    chip.appendChild(icon);
     const title = document.createElement("span");
     title.className = "dtl__event-title";
     title.textContent = event.text;

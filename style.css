@@ -456,12 +456,8 @@ body {
   margin: 0 auto 40px;
   max-width: 600px;
 }
-#welcomeGreeting,
-#welcomeTime {
-  display: block;
-  white-space: nowrap;
-}
-.welcome__time { font-weight: 500; opacity: .82; }
+#welcomeGreeting { display: block; white-space: nowrap; }
+.welcome__q { display: block; font-size: .78em; font-weight: 500; opacity: .8; margin-top: 10px; }
 
 .enter {
   width: 100%;
@@ -548,6 +544,14 @@ body {
   animation: fadeUp .6s ease both;
 }
 .app[hidden] { display: none; }
+
+/* time-aware greeting line at the very top of the app */
+.app-greeting {
+  margin: 0 4px 18px;
+  font-size: .98rem;
+  color: var(--muted);
+}
+#appGreetWord { color: var(--text); font-weight: 600; }
 
 .panel {
   background: var(--surface);
@@ -1160,6 +1164,8 @@ body {
 .edit-prop--static:hover { border-color: var(--border); }
 .edit-prop--icon { display: grid; place-items: center; padding: 10px; }
 .edit-prop--icon svg { width: 26px; height: 26px; }
+.event-reschedule { text-align: center; font-weight: 600; color: var(--accent); margin-bottom: 20px; }
+.event-reschedule:hover { border-color: var(--accent); }
 .edit-pin {
   display: flex;
   align-items: center;
@@ -1229,6 +1235,37 @@ body {
 .detail__pin:hover { background: var(--input-bg); color: var(--accent); opacity: 1; }
 .detail__pin.is-on { color: var(--accent); opacity: 1; }
 .detail__pin svg { width: 20px; height: 20px; }
+
+/* on/off switch (event "important" flag) */
+.field--row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+.field--row .field__label { margin-bottom: 0; }
+.toggle {
+  position: relative;
+  flex: 0 0 auto;
+  width: 46px; height: 26px;
+  border: none;
+  border-radius: 999px;
+  background: var(--border);
+  cursor: pointer;
+  padding: 0;
+  transition: background .25s ease;
+}
+.toggle.is-on { background: var(--danger); }
+.toggle__knob {
+  position: absolute;
+  top: 3px; left: 3px;
+  width: 20px; height: 20px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 1px 3px rgba(0, 0, 0, .3);
+  transition: transform .25s ease;
+}
+.toggle.is-on .toggle__knob { transform: translateX(20px); }
 
 .detail__body {
   max-width: 620px;
@@ -1410,18 +1447,8 @@ body {
 
 /* DAILY SUN TIMELINE (main view) */
 .day-panel { padding-bottom: 18px; }
-.dtl__head { position: relative; display: flex; align-items: baseline; gap: 10px; margin-bottom: 20px; }
+.dtl__head { display: flex; align-items: baseline; gap: 10px; margin-bottom: 20px; }
 .dtl__today { font-size: 1.05rem; font-weight: 700; color: var(--text); }
-.dtl__now {
-  position: absolute;
-  left: 50%; top: 50%;
-  transform: translate(-50%, -50%);
-  font-size: .95rem;
-  font-weight: 700;
-  color: var(--text);
-  font-variant-numeric: tabular-nums;
-  letter-spacing: .02em;
-}
 .dtl__date { font-size: .85rem; color: var(--muted); text-transform: capitalize; }
 .dtl__weather {
   margin-left: auto;
@@ -1569,9 +1596,13 @@ body {
 }
 .dtl__event:hover { border-color: var(--accent); }
 .dtl__event-time { font-size: .78rem; font-weight: 600; color: var(--text); }
-.dtl__event-dot { flex: 0 0 auto; width: 6px; height: 6px; border-radius: 50%; background: var(--accent); }
+.dtl__event-ico { flex: 0 0 auto; display: grid; place-items: center; color: var(--accent); }
+.dtl__event-ico svg { width: 15px; height: 15px; }
 .dtl__event-title { font-size: .82rem; color: var(--text); }
-.dtl__event.done .dtl__event-title { text-decoration: line-through; color: var(--muted); }
+.dtl__event.is-past .dtl__event-title,
+.dtl__event.is-past .dtl__event-ico { color: var(--muted); }
+.dtl__event.is-important { border-color: var(--danger); background: color-mix(in srgb, var(--danger) 12%, var(--input-bg)); }
+.dtl__event.is-important .dtl__event-ico { color: var(--danger); }
 .dtl__add {
   width: 32px; height: 32px;
   border-radius: 50%;
@@ -1647,20 +1678,29 @@ body {
   font-weight: 600;
   box-shadow: 0 0 8px 1px var(--sig-glow), 0 0 20px 5px var(--sig-glow);
 }
-.ecal__dots {
+/* event icons along the bottom of the cell (kept small, even on mobile) */
+.ecal__icons {
   position: absolute;
-  bottom: 6px;
-  left: 0; right: 0;
+  bottom: 4px;
+  left: 2px; right: 2px;
   display: flex;
   justify-content: center;
-  gap: 3px;
+  gap: 2px;
+  pointer-events: none;
+  overflow: hidden;
 }
-.ecal__dot {
-  width: 4px; height: 4px;
-  border-radius: 50%;
-  background: var(--accent);
+.ecal__ico { flex: 0 0 auto; color: var(--accent); display: grid; place-items: center; }
+.ecal__ico svg { width: 12px; height: 12px; }
+.ecal__day.is-today .ecal__ico { color: var(--sig-ink); }
+/* an important event: just a red bell in the top-right corner (cell stays neutral) */
+.ecal__bell {
+  position: absolute;
+  top: 3px; right: 3px;
+  display: flex;
+  color: var(--danger);
+  pointer-events: none;
 }
-.ecal__day.is-today .ecal__dot { background: var(--sig-ink); }
+.ecal__bell svg { width: 12px; height: 12px; }
 
 /* hover preview of a day's events */
 .ecal__preview {
@@ -1703,24 +1743,79 @@ body {
   font-size: .78rem;
   color: var(--text);
   padding: 2px 0;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
 }
-.ecal__prev-item::before {
-  content: "";
+.ecal__prev-ico {
   flex: 0 0 auto;
-  width: 5px; height: 5px;
-  border-radius: 50%;
-  background: var(--accent);
+  color: var(--accent);
+  display: grid; place-items: center;
 }
-.ecal__prev-item.done { color: var(--muted); text-decoration: line-through; }
-.ecal__prev-item.done::before { background: var(--muted); }
+.ecal__prev-ico svg { width: 14px; height: 14px; }
+.ecal__prev-text { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ecal__prev-item.important { color: var(--danger); font-weight: 600; }
+.ecal__prev-item.important .ecal__prev-ico { color: var(--danger); }
 .ecal__prev-more { display: block; font-size: .72rem; color: var(--muted); padding-top: 3px; }
 
 /* the day view stacks just under the event detail that opens above it */
 .day-view { z-index: 28; }
 .day-view .sub-add { margin-top: 4px; margin-bottom: 14px; }
+.day-view #dayList { display: flex; flex-direction: column; gap: 10px; }
+
+/* EVENT ROW — a rectangular card, time on the left; no checkbox (past/pending, not done) */
+.event-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 14px 16px;
+  border: 1px solid var(--item-border);
+  border-radius: 14px;
+  background: var(--input-bg);
+  cursor: pointer;
+  transition: border-color .2s ease, background .2s ease;
+  animation: fadeUp .3s ease both;
+}
+.event-row:hover { border-color: var(--accent); }
+.event-row__icon {
+  flex: 0 0 auto;
+  width: 30px; height: 30px;
+  color: var(--accent);
+  display: grid; place-items: center;
+}
+.event-row__icon svg { width: 24px; height: 24px; }
+.event-row.is-important .event-row__icon { color: var(--danger); }
+.event-row.is-past .event-row__icon { color: var(--muted); }
+.event-row__time {
+  flex: 0 0 auto;
+  min-width: 48px;
+  font-size: .95rem;
+  font-weight: 700;
+  color: var(--text);
+  font-variant-numeric: tabular-nums;
+}
+.event-row__main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.event-row__title { font-size: .98rem; color: var(--text); word-break: break-word; }
+.event-row__meta { display: flex; align-items: center; gap: 8px; }
+.event-row__status {
+  font-size: .72rem;
+  font-weight: 700;
+  color: var(--accent);
+  text-transform: uppercase;
+  letter-spacing: .03em;
+}
+.event-row.is-past .event-row__time,
+.event-row.is-past .event-row__title,
+.event-row.is-past .event-row__status { color: var(--muted); }
+.event-row__alert { flex: 0 0 auto; color: var(--danger); display: flex; }
+.event-row__alert svg { width: 19px; height: 19px; }
+.event-row.is-important {
+  border-color: var(--danger);
+  background: color-mix(in srgb, var(--danger) 10%, var(--input-bg));
+}
 
 /* HABITS VIEW */
 .detail__viewtitle {

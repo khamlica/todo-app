@@ -52,7 +52,7 @@
     <div class="welcome__inner">
       <h1 class="welcome__title">
         <span id="welcomeGreeting"></span>
-        <span id="welcomeTime" class="welcome__time"></span>
+        <span id="welcomeQuestion" class="welcome__q" data-i18n="welcomeQuestion"></span>
       </h1>
       <button id="enterBtn" class="enter" data-i18n-aria="enterAria" aria-label="Entrer dans l'application">
         <span class="enter__arrow">→</span>
@@ -63,12 +63,14 @@
   <!-- app -->
   <main id="app" class="app" hidden>
 
+    <!-- time-aware greeting (no name): "Good evening, it is 01:00 am" -->
+    <p class="app-greeting"><span id="appGreetWord"></span><span id="appGreetTime"></span></p>
+
     <!-- daily sun timeline with the day's events below -->
     <section class="panel day-panel">
       <div class="dtl__head">
         <span class="dtl__today" data-i18n="todayLabel">Aujourd'hui</span>
         <span class="dtl__date" id="dtlDate"></span>
-        <span class="dtl__now" id="dtlNow"></span>
         <span class="dtl__weather" id="dtlWeather" hidden></span>
       </div>
       <div class="dtl" id="dtl">
