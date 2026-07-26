@@ -25,6 +25,8 @@
         projects: projects,
         habits: habits,
         notes: saved.notes || [],
+        events: saved.events || [],
+        sun: saved.sun || null,
         settings: {
           name: (saved.settings && saved.settings.name) || "",
           theme: (saved.settings && saved.settings.theme) || "light",
@@ -34,7 +36,7 @@
         }
       };
     } catch (err) {
-      return { tasks: [], projects: [], habits: [], notes: [], settings: { name: "", theme: "light", language: "fr", palette: "aurora", decorations: [] } };
+      return { tasks: [], projects: [], habits: [], notes: [], events: [], sun: null, settings: { name: "", theme: "light", language: "fr", palette: "aurora", decorations: [] } };
     }
   }
 
@@ -70,6 +72,7 @@
       themeAuto: "Adaptatif",
       themeDawn: "Aube",
       themeDay: "Jour",
+      themeRain: "Pluie",
       themeDusk: "Crépuscule",
       themeNight: "Nuit",
       languageLabel: "Langue",
@@ -80,6 +83,10 @@
       decorPetals: "Pétales",
       decorBubbles: "Bulles",
       decorFireflies: "Lucioles",
+      decorRain: "Pluie",
+      decorSnow: "Neige",
+      decorFog: "Brouillard",
+      decorStorm: "Orage",
       focusLabel: "Mode focus",
       focusAria: "Passer en mode focus",
       focusExitAria: "Quitter le mode focus",
@@ -117,6 +124,12 @@
       milestonesLabel: "Jalons",
       milestonePlaceholder: "Jalon",
       milestoneAdd: "Ajouter un jalon",
+      addEventPlaceholder: "Ajouter un événement…",
+      eventDateLabel: "Date",
+      timeLabel: "Heure",
+      todayLabel: "Aujourd'hui",
+      locationLabel: "Localisation",
+      cityPlaceholder: "Rechercher une ville…",
       habitsHistoryAria: "Suivi des habitudes",
       historyLabel: "Historique",
       streakLabel: "Série",
@@ -163,6 +176,7 @@
       themeAuto: "Adaptive",
       themeDawn: "Dawn",
       themeDay: "Day",
+      themeRain: "Rain",
       themeDusk: "Dusk",
       themeNight: "Night",
       languageLabel: "Language",
@@ -173,6 +187,10 @@
       decorPetals: "Petals",
       decorBubbles: "Bubbles",
       decorFireflies: "Fireflies",
+      decorRain: "Rain",
+      decorSnow: "Snow",
+      decorFog: "Fog",
+      decorStorm: "Storm",
       focusLabel: "Focus mode",
       focusAria: "Enter focus mode",
       focusExitAria: "Exit focus mode",
@@ -210,6 +228,12 @@
       milestonesLabel: "Milestones",
       milestonePlaceholder: "Milestone",
       milestoneAdd: "Add a milestone",
+      addEventPlaceholder: "Add an event…",
+      eventDateLabel: "Date",
+      timeLabel: "Time",
+      todayLabel: "Today",
+      locationLabel: "Location",
+      cityPlaceholder: "Search a city…",
       habitsHistoryAria: "Habit tracking",
       historyLabel: "History",
       streakLabel: "Streak",
@@ -270,16 +294,27 @@
 
   const themeBarColors = {
     light: "#f6ecf7", dark: "#1e1c26", rose: "#fdeef2",
-    dawn: "#ffc9d8", day: "#d0e6ff", dusk: "#e97ba0", night: "#0c0f1a"
+    dawn: "#ffc9d8", day: "#d0e6ff", dusk: "#e97ba0", night: "#0c0f1a", rain: "#39414c"
   };
 
-  /* dawn / day / dusk / night by the current hour */
+  /* today's cached weather is rain/drizzle/showers/storm */
+  function isRainyNow() {
+    if (!(state.sun && state.sun.date === todayKey() && state.sun.code != null)) return false;
+    const code = state.sun.code;
+    return (code >= 51 && code <= 67) || (code >= 80 && code <= 82) || code >= 95;
+  }
+
+  /* adaptive theme: dawn / day / dusk / night by the hour, but the grey rain
+     theme takes over when it rains (except at night, already dark enough) */
   function timeTheme() {
     const h = new Date().getHours();
-    if (h >= 5 && h < 8) return "dawn";
-    if (h >= 8 && h < 18) return "day";
-    if (h >= 18 && h < 21) return "dusk";
-    return "night";
+    let base;
+    if (h >= 5 && h < 8) base = "dawn";
+    else if (h >= 8 && h < 18) base = "day";
+    else if (h >= 18 && h < 21) base = "dusk";
+    else base = "night";
+    if (base !== "night" && isRainyNow()) return "rain";
+    return base;
   }
 
   /* Apply a theme. "auto" resolves to the current time-of-day theme. */
@@ -401,6 +436,7 @@
     if (rosace) rosace.classList.add("is-launching");
     welcomeScreen.classList.add("is-leaving");
     setTimeout(function () { welcomeScreen.style.display = "none"; }, 550);
+    ensureSunData();   // ask for location only once the app is entered
   });
 
   const settingsModal = document.getElementById("settings");
@@ -430,6 +466,7 @@
     themeButtons[i].addEventListener("click", function () {
       state.settings.theme = themeButtons[i].dataset.theme;
       applyTheme(state.settings.theme);
+      applyDecorations();   // the adaptive theme adds/removes the weather effect
       saveState();
     });
   }
@@ -451,6 +488,8 @@
       renderList("tasks");     // refresh empty text and delete labels
       renderList("projects");
       renderHabits();
+      renderEventCal();
+      renderDailyTimeline();
       renderGreeting();
       saveState();
     });
@@ -517,16 +556,83 @@
     }
   }
 
-  /* rebuild the decor layer from the active set */
+  /* WEATHER DECORATIONS — ambient effects, combinable with any theme */
+  function spawnRain() {
+    for (let i = 0; i < 60; i++) {
+      const drop = decorEl("wx-rain");
+      drop.style.left = rand(-6, 100) + "%";   // start left, the slant drifts them right
+      drop.style.height = rand(16, 30) + "px";
+      drop.style.animationDuration = rand(0.45, 0.85) + "s";
+      drop.style.animationDelay = -rand(0, 2) + "s";
+      decor.appendChild(drop);
+    }
+  }
+  function spawnSnow() {
+    for (let i = 0; i < 40; i++) {
+      const flake = decorEl("wx-snow");
+      const size = rand(3, 7);
+      flake.style.width = size + "px";
+      flake.style.height = size + "px";
+      flake.style.left = rand(0, 100) + "%";
+      flake.style.setProperty("--sway", rand(-40, 40) + "px");
+      flake.style.animationDuration = rand(6, 13) + "s";
+      flake.style.animationDelay = -rand(0, 13) + "s";
+      decor.appendChild(flake);
+    }
+  }
+  function spawnFog() {
+    for (let i = 0; i < 4; i++) {
+      const bank = decorEl("wx-fog");
+      bank.style.top = rand(5, 80) + "%";
+      bank.style.opacity = rand(0.12, 0.26);
+      bank.style.animationDuration = rand(28, 50) + "s";
+      bank.style.animationDelay = -rand(0, 40) + "s";
+      decor.appendChild(bank);
+    }
+  }
+  function spawnStorm() {
+    spawnRain();                            // slanted rain plus lightning flashes
+    decor.appendChild(decorEl("wx-flash"));
+  }
+
+  /* rain / snow / storm implied by the weather, only under the adaptive theme */
+  function weatherDecoration() {
+    if (state.settings.theme !== "auto") return null;
+    if (!(state.sun && state.sun.date === todayKey() && state.sun.code != null)) return null;
+    const code = state.sun.code;
+    if (code >= 95) return "storm";
+    if ((code >= 71 && code <= 77) || code === 85 || code === 86) return "snow";
+    if ((code >= 51 && code <= 67) || (code >= 80 && code <= 82)) return "rain";
+    return null;
+  }
+
+  /* rebuild the decor layer: manual decorations plus the adaptive weather one */
   function applyDecorations() {
     decor.innerHTML = "";
     const active = state.settings.decorations;
+    let rainShown = false;
     for (let i = 0; i < active.length; i++) {
       if (active[i] === "particles") spawnParticles();
       else if (active[i] === "petals") spawnPetals();
       else if (active[i] === "bubbles") spawnBubbles();
       else if (active[i] === "fireflies") spawnFireflies();
+      else if (active[i] === "rain") { spawnRain(); rainShown = true; }
+      else if (active[i] === "snow") spawnSnow();
+      else if (active[i] === "fog") spawnFog();
+      else if (active[i] === "storm") { spawnStorm(); rainShown = true; }
     }
+    // adaptive theme adds the weather effect, unless it's already on manually
+    const weather = weatherDecoration();
+    if (weather && active.indexOf(weather) === -1) {
+      if (weather === "rain") { spawnRain(); rainShown = true; }
+      else if (weather === "snow") spawnSnow();
+      else if (weather === "storm") { spawnStorm(); rainShown = true; }
+    }
+    // the grey rain theme (manual pick or adaptive) always has falling rain
+    if (document.documentElement.getAttribute("data-theme") === "rain" && !rainShown) {
+      spawnRain();
+    }
+
     const buttons = document.querySelectorAll(".decor-opt");
     for (let i = 0; i < buttons.length; i++) {
       buttons[i].classList.toggle("is-active", active.indexOf(buttons[i].dataset.decor) !== -1);
@@ -1271,7 +1377,11 @@
   /* refresh whatever list the edited item belongs to (row badges / marks) */
   function refreshDetailSource() {
     if (detailTarget.kind === "milestone") renderList("projects");
-    else renderList(detailTarget.kind);
+    else if (detailTarget.kind === "events") {
+      renderEventCal();
+      renderDailyTimeline();
+      if (!dayView.hidden) renderDayList();
+    } else renderList(detailTarget.kind);
   }
 
   const ICON_NOTE = '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="13" y2="17"/>';
@@ -1341,6 +1451,22 @@
         renderDetailProps(item, "projects");
       });
       detailProps.appendChild(detailField(translate("importanceAria"), bars));
+    } else if (list === "events") {
+      const dateSpan = document.createElement("span");
+      dateSpan.className = "edit-prop edit-prop--static";
+      dateSpan.textContent = fullDateLabel(item.date);
+      detailProps.appendChild(detailField(translate("eventDateLabel"), dateSpan));
+
+      const timeInput = document.createElement("input");
+      timeInput.type = "time";
+      timeInput.className = "edit-prop";
+      timeInput.value = item.time || "";
+      timeInput.addEventListener("change", function () {
+        item.time = timeInput.value || null;
+        saveState();
+        refreshDetailSource();
+      });
+      detailProps.appendChild(detailField(translate("timeLabel"), timeInput));
     }
   }
 
@@ -1363,7 +1489,7 @@
   function fillDetail(item) {
     const kind = detailTarget.kind;
     detailName.value = item.text || "";
-    detailPin.hidden = kind === "milestone";   // milestones are not pinned
+    detailPin.hidden = kind === "milestone" || kind === "events";   // not pinnable
     if (!detailPin.hidden) detailPin.classList.toggle("is-on", !!item.pinned);
     renderDetailProps(item, kind);
     detailNotes.value = item.notes || "";
@@ -1737,14 +1863,563 @@
     if (detailTarget.kind === "milestone") {
       const project = findItem("projects", detailTarget.projectId);
       if (project) removeMilestone(project, detailTarget.id);
+    } else if (detailTarget.kind === "events") {
+      removeEvent(detailTarget.id);
     } else {
       removeItem(detailTarget.kind, detailTarget.id);
     }
-    closeDetail();   // milestone deletion steps back to the project timeline
+    closeDetail();   // milestone/event deletion steps back to its source view
   });
   document.addEventListener("keydown", function (event) {
     if (event.key === "Escape" && !detail.hidden) closeDetail();
   });
+
+  /* EVENTS — a calendar in the main view. Clicking a day opens that day's
+     events (add + list); each event is a task-like item with its own detail. */
+  const dayView = document.getElementById("dayView");
+  const ecalGrid = document.getElementById("ecalGrid");
+  let ecalYear = new Date().getFullYear();
+  let ecalMonth = new Date().getMonth();
+  let dayViewKey = null;
+
+  function eventsOnDay(key) {
+    const found = [];
+    for (let i = 0; i < state.events.length; i++) {
+      if (state.events[i].date === key) found.push(state.events[i]);
+    }
+    return found;
+  }
+
+  /* "vendredi 25 juillet 2026" — full localized date, first letter capitalized */
+  function fullDateLabel(key) {
+    const locale = state.settings.language === "fr" ? "fr-FR" : "en-US";
+    const text = new Date(key + "T00:00").toLocaleDateString(locale,
+      { weekday: "long", day: "numeric", month: "long", year: "numeric" });
+    return text.charAt(0).toUpperCase() + text.slice(1);
+  }
+
+  /* Draw the month: label, weekday row, leading blanks, day cells with event dots. */
+  function renderEventCal() {
+    const locale = state.settings.language === "fr" ? "fr-FR" : "en-US";
+    document.getElementById("ecalMonth").textContent =
+      new Date(ecalYear, ecalMonth, 1).toLocaleDateString(locale, { month: "long", year: "numeric" });
+
+    ecalGrid.innerHTML = "";
+    for (let i = 0; i < 7; i++) {   // weekday headers, Monday first
+      const head = document.createElement("div");
+      head.className = "ecal__wd";
+      head.textContent = new Date(2024, 0, 1 + i).toLocaleDateString(locale, { weekday: "short" });
+      ecalGrid.appendChild(head);
+    }
+
+    const firstOfMonth = new Date(ecalYear, ecalMonth, 1);
+    const lead = (firstOfMonth.getDay() + 6) % 7;   // Monday-first offset
+    for (let i = 0; i < lead; i++) {
+      const pad = document.createElement("div");
+      pad.className = "ecal__pad";
+      ecalGrid.appendChild(pad);
+    }
+
+    const daysInMonth = new Date(ecalYear, ecalMonth + 1, 0).getDate();
+    const today = todayKey();
+    for (let d = 1; d <= daysInMonth; d++) {
+      const key = dateKey(ecalYear, ecalMonth, d);
+      const cell = document.createElement("button");
+      cell.type = "button";
+      cell.className = key === today ? "ecal__day is-today" : "ecal__day";
+
+      const num = document.createElement("span");
+      num.textContent = String(d);
+      cell.appendChild(num);
+
+      const dayEvents = eventsOnDay(key);
+      if (dayEvents.length) {
+        const dots = document.createElement("span");
+        dots.className = "ecal__dots";
+        const shown = Math.min(dayEvents.length, 3);
+        for (let k = 0; k < shown; k++) {
+          const dot = document.createElement("span");
+          dot.className = "ecal__dot";
+          dots.appendChild(dot);
+        }
+        cell.appendChild(dots);
+        cell.appendChild(eventPreview(dayEvents));
+      }
+      cell.addEventListener("click", function () { openDayView(key); });
+      ecalGrid.appendChild(cell);
+    }
+  }
+
+  /* hover card listing a day's events (up to four, then a "+N" line) */
+  function eventPreview(dayEvents) {
+    const card = document.createElement("span");   // span: valid inside the day button
+    card.className = "ecal__preview";
+    const shown = Math.min(dayEvents.length, 4);
+    for (let i = 0; i < shown; i++) {
+      const line = document.createElement("span");
+      line.className = dayEvents[i].done ? "ecal__prev-item done" : "ecal__prev-item";
+      line.textContent = dayEvents[i].text;
+      card.appendChild(line);
+    }
+    if (dayEvents.length > shown) {
+      const more = document.createElement("span");
+      more.className = "ecal__prev-more";
+      more.textContent = "+" + (dayEvents.length - shown);
+      card.appendChild(more);
+    }
+    return card;
+  }
+
+  document.getElementById("ecalPrev").addEventListener("click", function () {
+    ecalMonth--;
+    if (ecalMonth < 0) { ecalMonth = 11; ecalYear--; }
+    renderEventCal();
+  });
+  document.getElementById("ecalNext").addEventListener("click", function () {
+    ecalMonth++;
+    if (ecalMonth > 11) { ecalMonth = 0; ecalYear++; }
+    renderEventCal();
+  });
+
+  /* DAY VIEW */
+  function openDayView(key) {
+    dayViewKey = key;
+    document.getElementById("dayTitle").textContent = fullDateLabel(key);
+    renderDayList();
+    dayView.hidden = false;
+    requestAnimationFrame(function () {
+      dayView.classList.add("is-open");
+      document.getElementById("dayAddInput").focus();
+    });
+  }
+  function closeDayView() {
+    dayView.classList.remove("is-open");
+    setTimeout(function () { dayView.hidden = true; }, 300);
+  }
+
+  function renderDayList() {
+    const list = document.getElementById("dayList");
+    list.innerHTML = "";
+    const dayEvents = eventsOnDay(dayViewKey);
+    if (dayEvents.length === 0) {
+      const empty = document.createElement("li");
+      empty.className = "empty";
+      empty.textContent = translate("emptyList");
+      list.appendChild(empty);
+      return;
+    }
+    for (let i = 0; i < dayEvents.length; i++) {
+      list.appendChild(createEventRow(dayEvents[i]));
+    }
+  }
+
+  /* one event row: check toggles done, the rest opens the task-like detail */
+  function createEventRow(event) {
+    const row = document.createElement("li");
+    row.className = event.done ? "item item--open done" : "item item--open";
+    row.addEventListener("click", function () { openEventDetail(event); });
+
+    const checkbox = document.createElement("span");
+    checkbox.className = "item__check";
+    checkbox.textContent = event.done ? "✓" : "";
+    checkbox.addEventListener("click", function (clickEvent) {
+      clickEvent.stopPropagation();
+      toggleEvent(event.id);
+    });
+
+    const label = document.createElement("span");
+    label.className = "item__text";
+    label.textContent = event.text;
+
+    row.append(checkbox, label);
+    if (event.notes && event.notes.trim()) row.appendChild(createNoteMark());
+    if (event.subtasks && event.subtasks.length) row.appendChild(createSubBadge(event));
+    return row;
+  }
+
+  function openEventDetail(event) {
+    detailReturn = null;   // the day view stays open underneath
+    detailTarget = { kind: "events", id: event.id, projectId: null };
+    fillDetail(event);
+  }
+
+  function addEvent(key, text) {
+    state.events.push({ id: Date.now().toString(), text: text, done: false, date: key });
+    saveState();
+    renderDayList();
+    renderEventCal();
+    renderDailyTimeline();
+  }
+
+  function toggleEvent(id) {
+    const event = findItem("events", id);
+    if (!event) return;
+    event.done = !event.done;
+    saveState();
+    renderDayList();
+    renderEventCal();
+    renderDailyTimeline();
+  }
+
+  function removeEvent(id) {
+    for (let i = 0; i < state.events.length; i++) {
+      if (state.events[i].id === id) { state.events.splice(i, 1); break; }
+    }
+    saveState();
+    renderDayList();
+    renderEventCal();
+    renderDailyTimeline();
+  }
+
+  document.getElementById("dayAddForm").addEventListener("submit", function (event) {
+    event.preventDefault();
+    const input = document.getElementById("dayAddInput");
+    const text = input.value.trim();
+    if (!text) return;
+    addEvent(dayViewKey, text);
+    input.value = "";
+    input.focus();
+  });
+  document.getElementById("dayBack").addEventListener("click", closeDayView);
+  document.addEventListener("keydown", function (event) {
+    if (event.key === "Escape" && detail.hidden && !dayView.hidden) closeDayView();
+  });
+
+  /* DAILY TIMELINE — a 24h sun bar (sunrise/sunset from Open-Meteo, cached once a
+     day) with the day's events as chips underneath. Falls back to a plain bar. */
+  // half-sun (horizon) marker for sunrise/sunset, and the sun/moon cursor glyphs
+  const HALFSUN_SVG = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" '
+    + 'stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="18" x2="21" y2="18"/>'
+    + '<path d="M7.5 18 a4.5 4.5 0 0 1 9 0"/><line x1="12" y1="5" x2="12" y2="8"/>'
+    + '<line x1="5.5" y1="9.8" x2="7" y2="11.3"/><line x1="18.5" y1="9.8" x2="17" y2="11.3"/></svg>';
+  const SUN_CURSOR_SVG = '<svg viewBox="0 0 24 24" fill="currentColor" stroke="currentColor" '
+    + 'stroke-width="1.6" stroke-linecap="round"><circle cx="12" cy="12" r="5" stroke="none"/>'
+    + '<g fill="none"><line x1="12" y1="1.5" x2="12" y2="4"/><line x1="12" y1="20" x2="12" y2="22.5"/>'
+    + '<line x1="3.6" y1="3.6" x2="5.3" y2="5.3"/><line x1="18.7" y1="18.7" x2="20.4" y2="20.4"/>'
+    + '<line x1="1.5" y1="12" x2="4" y2="12"/><line x1="20" y1="12" x2="22.5" y2="12"/>'
+    + '<line x1="3.6" y1="20.4" x2="5.3" y2="18.7"/><line x1="18.7" y1="5.3" x2="20.4" y2="3.6"/></g></svg>';
+  const MOON_CURSOR_SVG = '<svg viewBox="0 0 24 24" fill="currentColor" stroke="none">'
+    + '<path d="M21 12.8A9 9 0 1 1 11.2 3 7 7 0 0 0 21 12.8z"/></svg>';
+
+  function toMinutes(hhmm) {
+    const parts = hhmm.split(":");
+    return parseInt(parts[0], 10) * 60 + parseInt(parts[1], 10);
+  }
+  function capitalizeFirst(text) { return text.charAt(0).toUpperCase() + text.slice(1); }
+
+  /* current time as HH:MM am/pm */
+  function formatClock12(date) {
+    let hours = date.getHours();
+    const ampm = hours < 12 ? "am" : "pm";
+    hours = hours % 12 || 12;
+    return String(hours).padStart(2, "0") + ":" + String(date.getMinutes()).padStart(2, "0") + " " + ampm;
+  }
+
+  function todaySun() {
+    return (state.sun && state.sun.date === todayKey() && state.sun.sunrise) ? state.sun : null;
+  }
+
+  /* gradient that follows the real daylight window when we have it */
+  function stripGradient(sun) {
+    if (!sun) return "linear-gradient(90deg, var(--dtl-night), var(--dtl-day) 50%, var(--dtl-night))";
+    const sr = toMinutes(sun.sunrise) / 1440 * 100;
+    const ss = toMinutes(sun.sunset) / 1440 * 100;
+    const noon = (toMinutes(sun.sunrise) + toMinutes(sun.sunset)) / 2 / 1440 * 100;
+    return "linear-gradient(90deg,"
+      + " var(--dtl-night) 0%, var(--dtl-night) " + Math.max(0, sr - 7).toFixed(1) + "%,"
+      + " var(--dtl-dawn) " + sr.toFixed(1) + "%, var(--dtl-day) " + noon.toFixed(1) + "%,"
+      + " var(--dtl-dusk) " + ss.toFixed(1) + "%, var(--dtl-night) "
+      + Math.min(100, ss + 7).toFixed(1) + "%, var(--dtl-night) 100%)";
+  }
+
+  /* a sunrise/sunset marker: the time above a small sun icon, placed at its hour */
+  function sunMarker(timeText, pct) {
+    const marker = document.createElement("div");
+    marker.className = "dtl__marker";
+    marker.style.left = pct + "%";
+    const time = document.createElement("span");
+    time.className = "dtl__marker-time";
+    time.textContent = timeText;
+    const icon = document.createElement("span");
+    icon.className = "dtl__marker-ico";
+    icon.innerHTML = HALFSUN_SVG;
+    marker.append(time, icon);
+    return marker;
+  }
+
+  function renderDtlTicks() {
+    const ticks = document.getElementById("dtlTicks");
+    ticks.innerHTML = "";
+    for (let h = 0; h <= 24; h += 3) {
+      const label = document.createElement("span");
+      label.textContent = (h < 10 ? "0" : "") + h + ":00";
+      ticks.appendChild(label);
+    }
+  }
+
+  function renderDailyTimeline() {
+    const locale = state.settings.language === "fr" ? "fr-FR" : "en-US";
+    document.getElementById("dtlDate").textContent = capitalizeFirst(
+      new Date().toLocaleDateString(locale, { weekday: "long", day: "numeric", month: "long" }));
+    document.getElementById("dtlNow").textContent = formatClock12(new Date());
+
+    const sun = todaySun();
+    document.getElementById("dtlStrip").style.background = stripGradient(sun);
+    renderDtlTicks();
+
+    // place + current weather pill next to the date
+    const weather = document.getElementById("dtlWeather");
+    weather.innerHTML = "";
+    if (sun && sun.temp != null) {
+      weather.hidden = false;
+      if (sun.place) {
+        const place = document.createElement("span");
+        place.className = "dtl__place";
+        place.textContent = sun.place;
+        weather.appendChild(place);
+      }
+      const icon = document.createElement("span");
+      icon.className = "dtl__wico";
+      icon.innerHTML = weatherIcon(sun.code);   // trusted svg markup
+      const temp = document.createElement("span");
+      temp.className = "dtl__temp";
+      temp.textContent = Math.round(sun.temp) + "°";
+      weather.append(icon, temp);
+    } else {
+      weather.hidden = true;
+    }
+
+    const markers = document.getElementById("dtlMarkers");
+    const cursor = document.getElementById("dtlCursor");
+    markers.innerHTML = "";
+
+    if (sun) {
+      const srMin = toMinutes(sun.sunrise);
+      const ssMin = toMinutes(sun.sunset);
+      markers.appendChild(sunMarker(sun.sunrise, srMin / 1440 * 100));
+      markers.appendChild(sunMarker(sun.sunset, ssMin / 1440 * 100));
+
+      const now = new Date();
+      updateCursor(cursor, now.getHours() * 60 + now.getMinutes(), srMin, ssMin);
+      cursor.hidden = false;
+    } else {
+      cursor.hidden = true;
+    }
+
+    renderEventTicks();
+    renderDtlEvents();
+  }
+
+  /* place the cursor at the current time on the bar: sun by day (halo fading
+     within an hour of sunrise/sunset), moon with a white halo by night */
+  function updateCursor(cursor, nowMin, srMin, ssMin) {
+    cursor.style.left = (nowMin / 1440 * 100) + "%";
+    const isDay = nowMin >= srMin && nowMin <= ssMin;
+    cursor.classList.toggle("is-day", isDay);
+    cursor.classList.toggle("is-night", !isDay);
+    const icon = cursor.querySelector(".dtl__cursor-ico");
+    let halo;
+    if (isDay) {
+      icon.innerHTML = SUN_CURSOR_SVG;
+      const edge = Math.min(nowMin - srMin, ssMin - nowMin);   // minutes to nearest edge
+      halo = edge >= 60 ? 1 : Math.max(0.12, edge / 60);
+    } else {
+      icon.innerHTML = MOON_CURSOR_SVG;
+      halo = 0.9;
+    }
+    cursor.style.setProperty("--halo", halo.toFixed(2));
+  }
+
+  /* one tick per timed event, placed on the bar at its hour (hover shows it) */
+  function renderEventTicks() {
+    const layer = document.getElementById("dtlEticks");
+    layer.innerHTML = "";
+    const dayEvents = eventsOnDay(todayKey());
+    for (let i = 0; i < dayEvents.length; i++) {
+      const event = dayEvents[i];
+      if (!event.time) continue;
+      const tick = document.createElement("button");
+      tick.type = "button";
+      tick.className = "dtl__etick";
+      tick.style.left = (toMinutes(event.time) / 1440 * 100) + "%";
+      tick.addEventListener("click", function () { openEventDetail(event); });
+
+      const line = document.createElement("span");
+      line.className = "dtl__etick-line";
+      const tip = document.createElement("span");
+      tip.className = "dtl__etick-tip";
+      tip.textContent = event.time + " · " + event.text;
+      tick.append(line, tip);
+      layer.appendChild(tick);
+    }
+  }
+
+  function dtlEventSort(a, b) {
+    const ta = a.time || "99:99";
+    const tb = b.time || "99:99";
+    return ta < tb ? -1 : ta > tb ? 1 : 0;
+  }
+
+  function renderDtlEvents() {
+    const box = document.getElementById("dtlEvents");
+    box.innerHTML = "";
+    const today = todayKey();
+    const list = eventsOnDay(today).slice().sort(dtlEventSort);
+    for (let i = 0; i < list.length; i++) box.appendChild(dtlEventChip(list[i]));
+
+    const add = document.createElement("button");
+    add.type = "button";
+    add.className = "dtl__add";
+    add.setAttribute("aria-label", translate("addAria"));
+    add.textContent = "+";
+    add.addEventListener("click", function () { openDayView(today); });
+    box.appendChild(add);
+  }
+
+  function dtlEventChip(event) {
+    const chip = document.createElement("button");
+    chip.type = "button";
+    chip.className = event.done ? "dtl__event done" : "dtl__event";
+    chip.addEventListener("click", function () { openEventDetail(event); });
+
+    if (event.time) {
+      const time = document.createElement("span");
+      time.className = "dtl__event-time";
+      time.textContent = event.time;
+      chip.appendChild(time);
+    }
+    const dot = document.createElement("span");
+    dot.className = "dtl__event-dot";
+    chip.appendChild(dot);
+    const title = document.createElement("span");
+    title.className = "dtl__event-title";
+    title.textContent = event.text;
+    chip.appendChild(title);
+    return chip;
+  }
+
+  /* sunrise/sunset (once a day) and weather (refreshed every few hours) from
+     Open-Meteo. Never re-prompts geolocation once coordinates are known. */
+  const WEATHER_MAX_AGE = 3 * 3600 * 1000;   // 3h
+  function ensureSunData() {
+    const sun = state.sun;
+    const freshSun = sun && sun.date === todayKey() && sun.sunrise;
+    const freshWeather = sun && sun.weatherAt && (Date.now() - sun.weatherAt < WEATHER_MAX_AGE);
+    if (freshSun && freshWeather) return;
+    if (sun && sun.lat != null) {
+      fetchSun(sun.lat, sun.lon);   // reuse known coords, no prompt
+    } else if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(function (pos) {
+        fetchSun(pos.coords.latitude, pos.coords.longitude);
+      }, function () {});   // denied: use the city search in settings instead
+    }
+  }
+
+  function fetchSun(lat, lon) {
+    const url = "https://api.open-meteo.com/v1/forecast?latitude=" + lat + "&longitude=" + lon
+      + "&daily=sunrise,sunset&current=temperature_2m,weather_code&timezone=auto";
+    fetch(url).then(function (res) { return res.json(); }).then(function (data) {
+      const sunrise = data.daily.sunrise[0];   // "2026-06-25T05:59"
+      const sunset = data.daily.sunset[0];
+      state.sun = {
+        date: todayKey(), lat: lat, lon: lon,
+        place: (state.sun && state.sun.place) || placeFromTimezone(data.timezone),
+        sunrise: sunrise.slice(11, 16), sunset: sunset.slice(11, 16),
+        temp: data.current.temperature_2m,
+        code: data.current.weather_code,
+        weatherAt: Date.now()
+      };
+      saveState();
+      renderDailyTimeline();
+      if (state.settings.theme === "auto") applyTheme("auto");   // may switch to/from rain
+      applyDecorations();   // reflect the new weather under the adaptive theme
+    }).catch(function () {});
+  }
+
+  /* rough place name from a tz like "Europe/Paris" -> "Paris" (for geolocation) */
+  function placeFromTimezone(tz) {
+    if (!tz) return null;
+    const parts = tz.split("/");
+    return parts[parts.length - 1].replace(/_/g, " ");
+  }
+
+  /* pick a weather glyph from the WMO code (0 clear … 95+ storm) */
+  function weatherIcon(code) {
+    const sun = '<circle cx="12" cy="12" r="4"/><line x1="12" y1="3" x2="12" y2="5"/>'
+      + '<line x1="12" y1="19" x2="12" y2="21"/><line x1="3" y1="12" x2="5" y2="12"/>'
+      + '<line x1="19" y1="12" x2="21" y2="12"/><line x1="6" y1="6" x2="7.4" y2="7.4"/>'
+      + '<line x1="16.6" y1="16.6" x2="18" y2="18"/><line x1="6" y1="18" x2="7.4" y2="16.6"/>'
+      + '<line x1="16.6" y1="7.4" x2="18" y2="6"/>';
+    const cloud = '<path d="M7 18a4 4 0 0 1 0-8 5 5 0 0 1 9.5-1.4A3.6 3.6 0 0 1 18 18z"/>';
+    const partly = '<circle cx="8" cy="8" r="2.6"/><line x1="8" y1="3" x2="8" y2="4.2"/>'
+      + '<line x1="3.4" y1="8" x2="4.6" y2="8"/><line x1="4.8" y1="4.8" x2="5.6" y2="5.6"/>'
+      + '<path d="M9 19a3.5 3.5 0 0 1 0-7 4.5 4.5 0 0 1 8.5-1.2A3.2 3.2 0 0 1 18 19z"/>';
+    const rain = cloud + '<line x1="8" y1="20" x2="7" y2="22"/><line x1="12" y1="20" x2="11" y2="22"/>'
+      + '<line x1="16" y1="20" x2="15" y2="22"/>';
+    const snow = cloud + '<line x1="8" y1="20.5" x2="8" y2="20.51"/><line x1="12" y1="21" x2="12" y2="21.01"/>'
+      + '<line x1="16" y1="20.5" x2="16" y2="20.51"/>';
+    const storm = cloud + '<polyline points="12 19 10 22.5 13 22 11 25.5"/>';
+    const fog = '<line x1="4" y1="9" x2="20" y2="9"/><line x1="3" y1="13" x2="21" y2="13"/>'
+      + '<line x1="5" y1="17" x2="19" y2="17"/>';
+
+    let inner;
+    if (code === 0) inner = sun;
+    else if (code <= 2) inner = partly;
+    else if (code === 45 || code === 48) inner = fog;
+    else if ((code >= 51 && code <= 67) || (code >= 80 && code <= 82)) inner = rain;
+    else if ((code >= 71 && code <= 77) || code === 85 || code === 86) inner = snow;
+    else if (code >= 95) inner = storm;
+    else inner = cloud;
+    return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" '
+      + 'stroke-linecap="round" stroke-linejoin="round">' + inner + '</svg>';
+  }
+
+  /* LOCATION — city search (Open-Meteo geocoding) as a fallback when geolocation
+     is denied, or to set the place by hand */
+  const citySearchInput = document.getElementById("citySearch");
+  const cityResults = document.getElementById("cityResults");
+  let citySearchTimer = null;
+
+  citySearchInput.addEventListener("input", function () {
+    clearTimeout(citySearchTimer);
+    const query = citySearchInput.value.trim();
+    if (query.length < 2) { cityResults.innerHTML = ""; return; }
+    citySearchTimer = setTimeout(function () { searchCity(query); }, 300);   // debounce
+  });
+
+  function searchCity(query) {
+    const url = "https://geocoding-api.open-meteo.com/v1/search?name=" + encodeURIComponent(query)
+      + "&count=5&language=" + state.settings.language;
+    fetch(url).then(function (res) { return res.json(); }).then(function (data) {
+      renderCityResults(data.results || []);
+    }).catch(function () {});
+  }
+
+  function renderCityResults(results) {
+    cityResults.innerHTML = "";
+    for (let i = 0; i < results.length; i++) {
+      const place = results[i];
+      const parts = [place.name];
+      if (place.admin1) parts.push(place.admin1);
+      if (place.country) parts.push(place.country);
+      const choice = document.createElement("button");
+      choice.type = "button";
+      choice.className = "city-result";
+      choice.textContent = parts.join(", ");
+      choice.addEventListener("click", function () {
+        setLocation(place.latitude, place.longitude, place.name);
+      });
+      cityResults.appendChild(choice);
+    }
+  }
+
+  function setLocation(lat, lon, name) {
+    state.sun = { date: null, lat: lat, lon: lon, place: name };   // force a refetch
+    saveState();
+    citySearchInput.value = "";
+    cityResults.innerHTML = "";
+    fetchSun(lat, lon);
+  }
 
   /* NOTES — a list of note titles; clicking one opens a rich-text editor.
      The emoji list is feature data requested by the user (not decorative code). */
@@ -1959,6 +2634,8 @@
   renderList("tasks");
   renderList("projects");
   renderHabits();
+  renderEventCal();
+  renderDailyTimeline();
   buildIconPicker();
   checkReminders();
   setInterval(checkReminders, 30000);
@@ -1968,6 +2645,8 @@
   applyDecorations();
   setInterval(function () {
     renderGreeting();
+    renderDailyTimeline();   // advance the sun, roll the date over at midnight
+    if (state.sun && state.sun.lat != null) ensureSunData();   // refresh weather when stale
     if (state.settings.theme === "auto") applyTheme("auto");   // follow the hour
   }, 30000);
 

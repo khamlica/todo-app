@@ -17,6 +17,13 @@
         if (t === "auto") {
           var h = new Date().getHours();
           t = h >= 5 && h < 8 ? "dawn" : h >= 8 && h < 18 ? "day" : h >= 18 && h < 21 ? "dusk" : "night";
+          var s = saved.sun, now = new Date();
+          var todayK = now.getFullYear() + "-" + String(now.getMonth() + 1).padStart(2, "0")
+            + "-" + String(now.getDate()).padStart(2, "0");
+          if (t !== "night" && s && s.date === todayK && s.code != null) {
+            var c = s.code;
+            if ((c >= 51 && c <= 67) || (c >= 80 && c <= 82) || c >= 95) t = "rain";
+          }
         }
         document.documentElement.setAttribute("data-theme", t);
       }
@@ -43,7 +50,10 @@
   <section id="welcome" class="welcome">
     <div id="rosace" class="rosace" aria-hidden="true"><div class="rosace__spin"></div></div>
     <div class="welcome__inner">
-      <h1 class="welcome__title"><span id="welcomeGreeting"></span><br><span id="welcomeTime" class="welcome__time"></span></h1>
+      <h1 class="welcome__title">
+        <span id="welcomeGreeting"></span>
+        <span id="welcomeTime" class="welcome__time"></span>
+      </h1>
       <button id="enterBtn" class="enter" data-i18n-aria="enterAria" aria-label="Entrer dans l'application">
         <span class="enter__arrow">→</span>
       </button>
@@ -52,6 +62,39 @@
 
   <!-- app -->
   <main id="app" class="app" hidden>
+
+    <!-- daily sun timeline with the day's events below -->
+    <section class="panel day-panel">
+      <div class="dtl__head">
+        <span class="dtl__today" data-i18n="todayLabel">Aujourd'hui</span>
+        <span class="dtl__date" id="dtlDate"></span>
+        <span class="dtl__now" id="dtlNow"></span>
+        <span class="dtl__weather" id="dtlWeather" hidden></span>
+      </div>
+      <div class="dtl" id="dtl">
+        <div class="dtl__markers" id="dtlMarkers"></div>
+        <div class="dtl__strip" id="dtlStrip"></div>
+        <div class="dtl__eticks" id="dtlEticks"></div>
+        <div class="dtl__cursor" id="dtlCursor" hidden>
+          <span class="dtl__cursor-halo"></span>
+          <span class="dtl__cursor-ico"></span>
+        </div>
+      </div>
+      <div class="dtl__ticks" id="dtlTicks"></div>
+      <div class="dtl__events" id="dtlEvents"></div>
+    </section>
+
+    <!-- events calendar, shown directly in the main view -->
+    <section class="panel cal-panel">
+      <div class="ecal">
+        <div class="ecal__head">
+          <button type="button" class="ecal__nav" id="ecalPrev" data-i18n-aria="prevMonthAria" aria-label="Mois précédent">‹</button>
+          <span class="ecal__month" id="ecalMonth"></span>
+          <button type="button" class="ecal__nav" id="ecalNext" data-i18n-aria="nextMonthAria" aria-label="Mois suivant">›</button>
+        </div>
+        <div class="ecal__grid" id="ecalGrid"></div>
+      </div>
+    </section>
 
     <!-- daily tasks -->
     <section class="panel">
@@ -140,6 +183,23 @@
     </div>
   </div>
 
+  <!-- day view: events of a clicked calendar day -->
+  <div id="dayView" class="detail day-view" hidden>
+    <div class="detail__bar">
+      <button id="dayBack" class="detail__back" type="button" data-i18n-aria="backAria" aria-label="Retour">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6"/></svg>
+      </button>
+    </div>
+    <div class="detail__body">
+      <h2 class="detail__viewtitle" id="dayTitle"></h2>
+      <form id="dayAddForm" class="sub-add">
+        <input id="dayAddInput" class="add__input" type="text" data-i18n-placeholder="addEventPlaceholder" placeholder="Ajouter un événement…" required>
+        <button class="add__btn" type="submit" data-i18n-aria="addAria" aria-label="Ajouter">+</button>
+      </form>
+      <ul id="dayList" class="list"></ul>
+    </div>
+  </div>
+
   <!-- focus overlay -->
   <div id="focus" class="focus" hidden>
     <img id="scubaGif" class="scuba-gif" src="./assets/cat-scuba.gif" alt="" hidden>
@@ -164,6 +224,13 @@
       </label>
 
       <div class="field">
+        <span class="field__label" data-i18n="locationLabel">Localisation</span>
+        <input id="citySearch" class="field__input" type="text" data-i18n-placeholder="cityPlaceholder"
+               placeholder="Rechercher une ville…" autocomplete="off">
+        <div id="cityResults" class="city-results"></div>
+      </div>
+
+      <div class="field">
         <span class="field__label" data-i18n="themeLabel">Thème</span>
         <div class="themes" id="themes">
           <button class="theme" data-theme="light" data-i18n="themeLight" type="button">Clair</button>
@@ -172,6 +239,7 @@
           <button class="theme" data-theme="auto" data-i18n="themeAuto" type="button">Adaptatif</button>
           <button class="theme" data-theme="dawn" data-i18n="themeDawn" type="button">Aube</button>
           <button class="theme" data-theme="day" data-i18n="themeDay" type="button">Jour</button>
+          <button class="theme" data-theme="rain" data-i18n="themeRain" type="button">Pluie</button>
           <button class="theme" data-theme="dusk" data-i18n="themeDusk" type="button">Crépuscule</button>
           <button class="theme" data-theme="night" data-i18n="themeNight" type="button">Nuit</button>
         </div>
@@ -207,6 +275,10 @@
           <button class="decor-opt" data-decor="petals" data-i18n="decorPetals" type="button">Pétales</button>
           <button class="decor-opt" data-decor="bubbles" data-i18n="decorBubbles" type="button">Bulles</button>
           <button class="decor-opt" data-decor="fireflies" data-i18n="decorFireflies" type="button">Lucioles</button>
+          <button class="decor-opt" data-decor="rain" data-i18n="decorRain" type="button">Pluie</button>
+          <button class="decor-opt" data-decor="fog" data-i18n="decorFog" type="button">Brouillard</button>
+          <button class="decor-opt" data-decor="snow" data-i18n="decorSnow" type="button">Neige</button>
+          <button class="decor-opt" data-decor="storm" data-i18n="decorStorm" type="button">Orage</button>
         </div>
       </div>
     </div>
