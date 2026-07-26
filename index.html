@@ -12,21 +12,19 @@
   <script>
     try {
       var saved = JSON.parse(localStorage.getItem("todoAppData"));
-      if (saved && saved.settings && saved.settings.theme) {
-        var t = saved.settings.theme;
-        if (t === "auto") {
-          var h = new Date().getHours();
-          t = h >= 5 && h < 8 ? "dawn" : h >= 8 && h < 18 ? "day" : h >= 18 && h < 21 ? "dusk" : "night";
-          var s = saved.sun, now = new Date();
-          var todayK = now.getFullYear() + "-" + String(now.getMonth() + 1).padStart(2, "0")
-            + "-" + String(now.getDate()).padStart(2, "0");
-          if (t !== "night" && s && s.date === todayK && s.code != null) {
-            var c = s.code;
-            if ((c >= 51 && c <= 67) || (c >= 80 && c <= 82) || c >= 95) t = "rain";
-          }
+      var t = (saved && saved.settings && saved.settings.theme) || "auto";   // adaptive by default
+      if (t === "auto") {
+        var h = new Date().getHours();
+        t = h >= 5 && h < 8 ? "dawn" : h >= 8 && h < 18 ? "day" : h >= 18 && h < 21 ? "dusk" : "night";
+        var s = saved && saved.sun, now = new Date();
+        var todayK = now.getFullYear() + "-" + String(now.getMonth() + 1).padStart(2, "0")
+          + "-" + String(now.getDate()).padStart(2, "0");
+        if (t !== "night" && s && s.date === todayK && s.code != null) {
+          var c = s.code;
+          if ((c >= 51 && c <= 67) || (c >= 80 && c <= 82) || c >= 95) t = "rain";
         }
-        document.documentElement.setAttribute("data-theme", t);
       }
+      document.documentElement.setAttribute("data-theme", t);
       if (saved && saved.settings && saved.settings.palette) {
         document.documentElement.setAttribute("data-palette", saved.settings.palette);
       }
@@ -159,7 +157,10 @@
       </button>
     </div>
     <div class="detail__body">
-      <input id="detailName" class="detail__name" type="text" maxlength="120">
+      <div class="detail__titlerow">
+        <button id="detailIcon" class="detail__icon" type="button" data-i18n-aria="editIconLabel" aria-label="Icône" hidden></button>
+        <input id="detailName" class="detail__name" type="text" maxlength="120">
+      </div>
       <div id="detailProps" class="detail__props"></div>
 
       <div class="detail__section">
@@ -193,7 +194,11 @@
       </button>
     </div>
     <div class="detail__body">
-      <h2 class="detail__viewtitle" id="dayTitle"></h2>
+      <div class="dayview__nav">
+        <button id="dayPrev" class="dayview__arrow" type="button" data-i18n-aria="prevDayAria" aria-label="Jour précédent">‹</button>
+        <h2 class="detail__viewtitle" id="dayTitle"></h2>
+        <button id="dayNext" class="dayview__arrow" type="button" data-i18n-aria="nextDayAria" aria-label="Jour suivant">›</button>
+      </div>
       <form id="dayAddForm" class="sub-add">
         <input id="dayAddInput" class="add__input" type="text" data-i18n-placeholder="addEventPlaceholder" placeholder="Ajouter un événement…" required>
         <button class="add__btn" type="submit" data-i18n-aria="addAria" aria-label="Ajouter">+</button>
@@ -219,68 +224,86 @@
         <button class="modal__close" data-close data-i18n-aria="closeAria" aria-label="Fermer">×</button>
       </div>
 
-      <label class="field">
-        <span class="field__label" data-i18n="nameLabel">Votre prénom</span>
-        <input id="nameInput" class="field__input" type="text" data-i18n-placeholder="namePlaceholder"
-               placeholder="Ex. Aymane" maxlength="30">
-      </label>
-
-      <div class="field">
-        <span class="field__label" data-i18n="locationLabel">Localisation</span>
-        <input id="citySearch" class="field__input" type="text" data-i18n-placeholder="cityPlaceholder"
-               placeholder="Rechercher une ville…" autocomplete="off">
-        <div id="cityResults" class="city-results"></div>
+      <div class="tabs" id="settingsTabs" role="tablist">
+        <button class="tab is-active" data-tab="system" type="button" role="tab" data-i18n="tabSystem">Système</button>
+        <button class="tab" data-tab="custom" type="button" role="tab" data-i18n="tabCustom">Personnalisation</button>
       </div>
 
-      <div class="field">
-        <span class="field__label" data-i18n="themeLabel">Thème</span>
-        <div class="themes" id="themes">
-          <button class="theme" data-theme="light" data-i18n="themeLight" type="button">Clair</button>
-          <button class="theme" data-theme="dark" data-i18n="themeDark" type="button">Sombre</button>
-          <button class="theme" data-theme="rose" data-i18n="themeRose" type="button">Rose</button>
-          <button class="theme" data-theme="auto" data-i18n="themeAuto" type="button">Adaptatif</button>
-          <button class="theme" data-theme="dawn" data-i18n="themeDawn" type="button">Aube</button>
-          <button class="theme" data-theme="day" data-i18n="themeDay" type="button">Jour</button>
-          <button class="theme" data-theme="rain" data-i18n="themeRain" type="button">Pluie</button>
-          <button class="theme" data-theme="dusk" data-i18n="themeDusk" type="button">Crépuscule</button>
-          <button class="theme" data-theme="night" data-i18n="themeNight" type="button">Nuit</button>
+      <div class="tab-panel is-active" data-tabpanel="system">
+        <label class="field">
+          <span class="field__label" data-i18n="nameLabel">Votre prénom</span>
+          <input id="nameInput" class="field__input" type="text" data-i18n-placeholder="namePlaceholder"
+                 placeholder="Ex. Aymane" maxlength="30">
+        </label>
+
+        <div class="field">
+          <span class="field__label" data-i18n="locationLabel">Localisation</span>
+          <input id="citySearch" class="field__input" type="text" data-i18n-placeholder="cityPlaceholder"
+                 placeholder="Rechercher une ville…" autocomplete="off">
+          <div id="cityResults" class="city-results"></div>
+        </div>
+
+        <div class="field">
+          <span class="field__label" data-i18n="languageLabel">Langue</span>
+          <div class="langs" id="langs">
+            <button class="lang" data-lang="fr" data-i18n="langFr" type="button">Français</button>
+            <button class="lang" data-lang="en" data-i18n="langEn" type="button">English</button>
+          </div>
+        </div>
+
+        <div class="field">
+          <span class="field__label" data-i18n="dataLabel">Sauvegarde</span>
+          <div class="data-actions">
+            <button id="exportBtn" class="data-btn" type="button" data-i18n="exportBtn">Exporter</button>
+            <button id="importBtn" class="data-btn" type="button" data-i18n="importBtn">Importer</button>
+            <input id="importFile" type="file" accept="application/json,.json" hidden>
+          </div>
         </div>
       </div>
 
-      <div class="field">
-        <span class="field__label" data-i18n="paletteLabel">Palette</span>
-        <div class="palettes" id="palettes">
-          <button class="palette" data-palette="aurora" type="button">
-            <span class="palette__sw"></span><span data-i18n="paletteAurora">Aurore</span>
-          </button>
-          <button class="palette" data-palette="meadow" type="button">
-            <span class="palette__sw"></span><span data-i18n="paletteMeadow">Prairie</span>
-          </button>
-          <button class="palette" data-palette="sunset" type="button">
-            <span class="palette__sw"></span><span data-i18n="paletteSunset">Coucher</span>
-          </button>
+      <div class="tab-panel" data-tabpanel="custom" hidden>
+        <div class="field">
+          <span class="field__label" data-i18n="themeLabel">Thème</span>
+          <div class="themes" id="themes">
+            <button class="theme" data-theme="auto" data-i18n="themeAuto" type="button">Adaptatif</button>
+            <button class="theme" data-theme="light" data-i18n="themeLight" type="button">Clair</button>
+            <button class="theme" data-theme="dark" data-i18n="themeDark" type="button">Sombre</button>
+            <button class="theme" data-theme="rose" data-i18n="themeRose" type="button">Rose</button>
+            <button class="theme" data-theme="dawn" data-i18n="themeDawn" type="button">Aube</button>
+            <button class="theme" data-theme="day" data-i18n="themeDay" type="button">Jour</button>
+            <button class="theme" data-theme="rain" data-i18n="themeRain" type="button">Pluie</button>
+            <button class="theme" data-theme="dusk" data-i18n="themeDusk" type="button">Crépuscule</button>
+            <button class="theme" data-theme="night" data-i18n="themeNight" type="button">Nuit</button>
+          </div>
         </div>
-      </div>
 
-      <div class="field">
-        <span class="field__label" data-i18n="languageLabel">Langue</span>
-        <div class="langs" id="langs">
-          <button class="lang" data-lang="fr" data-i18n="langFr" type="button">Français</button>
-          <button class="lang" data-lang="en" data-i18n="langEn" type="button">English</button>
+        <div class="field">
+          <span class="field__label" data-i18n="paletteLabel">Palette</span>
+          <div class="palettes" id="palettes">
+            <button class="palette" data-palette="aurora" type="button">
+              <span class="palette__sw"></span><span data-i18n="paletteAurora">Aurore</span>
+            </button>
+            <button class="palette" data-palette="meadow" type="button">
+              <span class="palette__sw"></span><span data-i18n="paletteMeadow">Prairie</span>
+            </button>
+            <button class="palette" data-palette="sunset" type="button">
+              <span class="palette__sw"></span><span data-i18n="paletteSunset">Coucher</span>
+            </button>
+          </div>
         </div>
-      </div>
 
-      <div class="field">
-        <span class="field__label" data-i18n="decorLabel">Décorations</span>
-        <div class="decors" id="decors">
-          <button class="decor-opt" data-decor="particles" data-i18n="decorParticles" type="button">Particules</button>
-          <button class="decor-opt" data-decor="petals" data-i18n="decorPetals" type="button">Pétales</button>
-          <button class="decor-opt" data-decor="bubbles" data-i18n="decorBubbles" type="button">Bulles</button>
-          <button class="decor-opt" data-decor="fireflies" data-i18n="decorFireflies" type="button">Lucioles</button>
-          <button class="decor-opt" data-decor="rain" data-i18n="decorRain" type="button">Pluie</button>
-          <button class="decor-opt" data-decor="fog" data-i18n="decorFog" type="button">Brouillard</button>
-          <button class="decor-opt" data-decor="snow" data-i18n="decorSnow" type="button">Neige</button>
-          <button class="decor-opt" data-decor="storm" data-i18n="decorStorm" type="button">Orage</button>
+        <div class="field">
+          <span class="field__label" data-i18n="decorLabel">Décorations</span>
+          <div class="decors" id="decors">
+            <button class="decor-opt" data-decor="particles" data-i18n="decorParticles" type="button">Particules</button>
+            <button class="decor-opt" data-decor="petals" data-i18n="decorPetals" type="button">Pétales</button>
+            <button class="decor-opt" data-decor="bubbles" data-i18n="decorBubbles" type="button">Bulles</button>
+            <button class="decor-opt" data-decor="fireflies" data-i18n="decorFireflies" type="button">Lucioles</button>
+            <button class="decor-opt" data-decor="rain" data-i18n="decorRain" type="button">Pluie</button>
+            <button class="decor-opt" data-decor="fog" data-i18n="decorFog" type="button">Brouillard</button>
+            <button class="decor-opt" data-decor="snow" data-i18n="decorSnow" type="button">Neige</button>
+            <button class="decor-opt" data-decor="storm" data-i18n="decorStorm" type="button">Orage</button>
+          </div>
         </div>
       </div>
     </div>
@@ -384,6 +407,12 @@
         <button type="button" class="cal__confirm" id="calConfirm" data-i18n="calConfirm">Valider</button>
       </div>
     </div>
+  </div>
+
+  <!-- transient message (deletion undo, backup feedback) -->
+  <div id="toast" class="toast" hidden>
+    <span id="toastMsg" class="toast__msg"></span>
+    <button id="toastAction" class="toast__action" type="button" hidden></button>
   </div>
 
   <script src="./app.js"></script>

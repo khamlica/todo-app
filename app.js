@@ -19,6 +19,8 @@
       const projects = saved.projects || [];
       for (let i = 0; i < projects.length; i++) {
         delete projects[i].subtasks;   // projects moved from subtasks to milestones
+        delete projects[i].done;       // projects aren't completable, they have milestones
+        if (!projects[i].icon) projects[i].icon = "folder";
       }
       const events = saved.events || [];
       for (let i = 0; i < events.length; i++) {   // events are past/pending now, not checkable
@@ -35,14 +37,14 @@
         sun: saved.sun || null,
         settings: {
           name: (saved.settings && saved.settings.name) || "",
-          theme: (saved.settings && saved.settings.theme) || "light",
+          theme: (saved.settings && saved.settings.theme) || "auto",
           language: (saved.settings && saved.settings.language) || "fr",
           palette: (saved.settings && saved.settings.palette) || "aurora",
           decorations: (saved.settings && saved.settings.decorations) || []
         }
       };
     } catch (err) {
-      return { tasks: [], projects: [], habits: [], notes: [], events: [], sun: null, settings: { name: "", theme: "light", language: "fr", palette: "aurora", decorations: [] } };
+      return { tasks: [], projects: [], habits: [], notes: [], events: [], sun: null, settings: { name: "", theme: "auto", language: "fr", palette: "aurora", decorations: [] } };
     }
   }
 
@@ -59,6 +61,8 @@
       enterAria: "Entrer dans l'application",
       settingsAria: "Paramètres",
       settingsTitle: "Paramètres",
+      tabSystem: "Système",
+      tabCustom: "Personnalisation",
       tasksTitle: "Vos tâches du jour",
       projectsTitle: "Vos projets",
       taskInputAria: "Nouvelle tâche",
@@ -84,6 +88,16 @@
       languageLabel: "Langue",
       langFr: "Français",
       langEn: "English",
+      dataLabel: "Sauvegarde",
+      exportBtn: "Exporter",
+      importBtn: "Importer",
+      importConfirm: "Remplacer toutes les données actuelles par le fichier importé ?",
+      importError: "Fichier de sauvegarde invalide.",
+      importDone: "Données importées.",
+      exportDone: "Sauvegarde exportée.",
+      addEventTitle: "Ajouter un événement",
+      undoDeleted: "Élément supprimé",
+      undoBtn: "Annuler",
       decorLabel: "Décorations",
       decorParticles: "Particules",
       decorPetals: "Pétales",
@@ -168,6 +182,8 @@
       enterAria: "Enter the app",
       settingsAria: "Settings",
       settingsTitle: "Settings",
+      tabSystem: "System",
+      tabCustom: "Customization",
       tasksTitle: "Your tasks today",
       projectsTitle: "Your projects",
       taskInputAria: "New task",
@@ -193,6 +209,16 @@
       languageLabel: "Language",
       langFr: "Français",
       langEn: "English",
+      dataLabel: "Backup",
+      exportBtn: "Export",
+      importBtn: "Import",
+      importConfirm: "Replace all current data with the imported file?",
+      importError: "Invalid backup file.",
+      importDone: "Data imported.",
+      exportDone: "Backup exported.",
+      addEventTitle: "Add an event",
+      undoDeleted: "Item deleted",
+      undoBtn: "Undo",
       decorLabel: "Decorations",
       decorParticles: "Particles",
       decorPetals: "Petals",
@@ -469,6 +495,21 @@
     });
   }
 
+  /* settings tabs: system / customization */
+  const settingsTabs = settingsModal.querySelectorAll(".tab");
+  const settingsPanels = settingsModal.querySelectorAll(".tab-panel");
+  for (let i = 0; i < settingsTabs.length; i++) {
+    settingsTabs[i].addEventListener("click", function () {
+      const target = this.dataset.tab;
+      for (let j = 0; j < settingsTabs.length; j++) {
+        settingsTabs[j].classList.toggle("is-active", settingsTabs[j].dataset.tab === target);
+      }
+      for (let j = 0; j < settingsPanels.length; j++) {
+        settingsPanels[j].hidden = settingsPanels[j].dataset.tabpanel !== target;
+      }
+    });
+  }
+
   const nameInput = document.getElementById("nameInput");
   nameInput.value = state.settings.name;
   nameInput.addEventListener("input", function () {
@@ -510,6 +551,65 @@
       saveState();
     });
   }
+
+  /* TOAST — brief bottom message, optionally with an action (used by Undo) */
+  let toastTimer = null;
+  function showToast(message, actionLabel, onAction) {
+    const el = document.getElementById("toast");
+    const msg = document.getElementById("toastMsg");
+    const action = document.getElementById("toastAction");
+    msg.textContent = message;
+    if (actionLabel && onAction) {
+      action.textContent = actionLabel;
+      action.hidden = false;
+      action.onclick = function () { hideToast(); onAction(); };
+    } else {
+      action.hidden = true;
+      action.onclick = null;
+    }
+    el.hidden = false;
+    requestAnimationFrame(function () { el.classList.add("is-open"); });
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(hideToast, 5000);
+  }
+  function hideToast() {
+    const el = document.getElementById("toast");
+    el.classList.remove("is-open");
+    clearTimeout(toastTimer);
+    setTimeout(function () { el.hidden = true; }, 250);
+  }
+
+  /* EXPORT / IMPORT — a portable JSON backup (works on mobile via file download/upload) */
+  document.getElementById("exportBtn").addEventListener("click", function () {
+    const blob = new Blob([JSON.stringify(state, null, 2)], { type: "application/json" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = "todo-backup-" + todayKey() + ".json";
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
+    showToast(translate("exportDone"));
+  });
+
+  const importFile = document.getElementById("importFile");
+  document.getElementById("importBtn").addEventListener("click", function () { importFile.click(); });
+  importFile.addEventListener("change", function () {
+    const file = importFile.files && importFile.files[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = function () {
+      let data = null;
+      try { data = JSON.parse(reader.result); } catch (err) { data = null; }
+      const valid = data && typeof data === "object" && ("settings" in data || "tasks" in data);
+      if (!valid) { showToast(translate("importError")); importFile.value = ""; return; }
+      if (!window.confirm(translate("importConfirm"))) { importFile.value = ""; return; }
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+      location.reload();   // cleanest: re-init from the imported data
+    };
+    reader.readAsText(file);
+  });
 
   /* DECORATIONS — activatable ambient effects (particles / petals / bubbles / fireflies) */
   const decor = document.getElementById("decor");
@@ -730,25 +830,48 @@
     }
   }
 
-  /* Build one row: checkbox, label, delete button. */
+  /* Build one row: checkbox, label, delete button. Undated & unpinned rows get a
+     drag handle so they can be reordered (they show in array order under sortedByDue). */
   function createItemRow(listName, item) {
     const row = document.createElement("li");
     row.className = item.done ? "item item--open done" : "item item--open";
+    row.dataset.id = item.id;
     row.addEventListener("click", function () { openDetail(listName, item.id); });
 
-    const checkbox = document.createElement("span");
-    checkbox.className = "item__check";
-    checkbox.textContent = item.done ? "✓" : "";
-    checkbox.addEventListener("click", function (event) {
-      event.stopPropagation();   // the box toggles; the rest of the row opens the detail
-      toggleItem(listName, item.id);
-    });
+    const reorderable = !item.pinned && !item.dueDate;
+    if (reorderable) {
+      row.dataset.reorder = "1";
+      const grip = document.createElement("span");
+      grip.className = "item__grip";
+      grip.setAttribute("aria-hidden", "true");
+      grip.innerHTML = ICON_GRIP;
+      grip.addEventListener("click", function (e) { e.stopPropagation(); });
+      grip.addEventListener("pointerdown", function (e) { startRowDrag(e, row, listName); });
+      row.appendChild(grip);
+    }
+
+    // a task has a completion checkbox; a project shows an icon instead (not "done"-able)
+    if (listName === "projects") {
+      const icon = document.createElement("span");
+      icon.className = "item__ico";
+      icon.innerHTML = habitSvg(item.icon || "folder");
+      row.appendChild(icon);
+    } else {
+      const checkbox = document.createElement("span");
+      checkbox.className = "item__check";
+      checkbox.textContent = item.done ? "✓" : "";
+      checkbox.addEventListener("click", function (event) {
+        event.stopPropagation();   // the box toggles; the rest of the row opens the detail
+        toggleItem(listName, item.id);
+      });
+      row.appendChild(checkbox);
+    }
 
     const label = document.createElement("span");
     label.className = "item__text";
     label.textContent = item.text;
 
-    row.append(checkbox, label);
+    row.appendChild(label);
     if (item.notes && item.notes.trim()) row.appendChild(createNoteMark());
     if (listName === "tasks" && item.subtasks && item.subtasks.length) row.appendChild(createSubBadge(item));
     if (listName === "projects" && item.milestones && item.milestones.length) row.appendChild(createMilestoneBadge(item));
@@ -762,8 +885,76 @@
     return row;
   }
 
+  const ICON_GRIP = '<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="1.4"/><circle cx="15" cy="6" r="1.4"/><circle cx="9" cy="12" r="1.4"/><circle cx="15" cy="12" r="1.4"/><circle cx="9" cy="18" r="1.4"/><circle cx="15" cy="18" r="1.4"/></svg>';
+
+  /* pointer-based drag reorder (works on touch); moves the row among its
+     reorderable siblings, then persists the new order into the state array */
+  let rowDrag = null;
+  function startRowDrag(event, row, listName) {
+    if (event.pointerType === "mouse" && event.button !== 0) return;
+    event.preventDefault();
+    const grip = event.currentTarget;
+    grip.setPointerCapture(event.pointerId);
+    rowDrag = { row: row, listName: listName, listEl: row.parentNode, grip: grip, pointerId: event.pointerId };
+    row.classList.add("is-dragging");
+    grip.addEventListener("pointermove", onRowDragMove);
+    grip.addEventListener("pointerup", endRowDrag);
+    grip.addEventListener("pointercancel", endRowDrag);
+  }
+  function onRowDragMove(event) {
+    if (!rowDrag) return;
+    const listEl = rowDrag.listEl;
+    const siblings = listEl.querySelectorAll('.item[data-reorder]:not(.is-dragging)');
+    let inserted = false;
+    for (let i = 0; i < siblings.length; i++) {
+      const rect = siblings[i].getBoundingClientRect();
+      if (event.clientY < rect.top + rect.height / 2) {
+        listEl.insertBefore(rowDrag.row, siblings[i]);
+        inserted = true;
+        break;
+      }
+    }
+    if (!inserted && siblings.length) {
+      const last = siblings[siblings.length - 1];
+      listEl.insertBefore(rowDrag.row, last.nextSibling);
+    }
+  }
+  function endRowDrag(event) {
+    if (!rowDrag) return;
+    const drag = rowDrag;
+    rowDrag = null;
+    drag.row.classList.remove("is-dragging");
+    drag.grip.removeEventListener("pointermove", onRowDragMove);
+    drag.grip.removeEventListener("pointerup", endRowDrag);
+    drag.grip.removeEventListener("pointercancel", endRowDrag);
+    try { drag.grip.releasePointerCapture(event.pointerId); } catch (err) {}
+
+    const ordered = [];
+    const rows = drag.listEl.querySelectorAll('.item[data-reorder]');
+    for (let i = 0; i < rows.length; i++) ordered.push(rows[i].dataset.id);
+    persistOrder(drag.listName, ordered);
+    saveState();
+    renderList(drag.listName);
+  }
+  /* rebuild state[listName] so the reorderable items follow `ordered`,
+     while pinned/dated items keep their slots */
+  function persistOrder(listName, ordered) {
+    const items = state[listName];
+    const byId = {};
+    for (let i = 0; i < items.length; i++) byId[items[i].id] = items[i];
+    let take = 0;
+    const result = [];
+    for (let i = 0; i < items.length; i++) {
+      if (ordered.indexOf(items[i].id) !== -1) result.push(byId[ordered[take++]]);
+      else result.push(items[i]);
+    }
+    state[listName] = result;
+  }
+
   function addItem(listName, text, due, importance) {
-    const item = { id: Date.now().toString(), text: text, done: false }; // timestamp id
+    const item = { id: Date.now().toString(), text: text }; // timestamp id
+    if (listName === "projects") item.icon = "folder";      // projects use an icon, no "done"
+    else item.done = false;
     if (due && due.date) {
       item.dueDate = due.date;
       item.dueTime = due.time || null;
@@ -775,17 +966,29 @@
     renderList(listName);
   }
 
+  /* Remove an item from a state list, keeping its slot so Undo can restore it.
+     rerender() redraws whatever views showed it. */
+  function removeWithUndo(listName, id, rerender) {
+    const items = state[listName];
+    let index = -1;
+    let removed = null;
+    for (let i = 0; i < items.length; i++) {
+      if (items[i].id === id) { index = i; removed = items[i]; break; }
+    }
+    if (!removed) return;
+    items.splice(index, 1);
+    saveState();
+    rerender();
+    showToast(translate("undoDeleted"), translate("undoBtn"), function () {
+      state[listName].splice(index, 0, removed);
+      saveState();
+      rerender();
+    });
+  }
+
   /* Find the item by id, drop it, redraw. */
   function removeItem(listName, id) {
-    const items = state[listName];
-    for (let i = 0; i < items.length; i++) {
-      if (items[i].id === id) {
-        items.splice(i, 1);
-        break;
-      }
-    }
-    saveState();
-    renderList(listName);
+    removeWithUndo(listName, id, function () { renderList(listName); });
   }
 
   function toggleItem(listName, id) {
@@ -840,7 +1043,10 @@
     meeting: '<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
     course: '<path d="M22 10 12 5 2 10l10 5 10-5z"/><path d="M6 12v5c0 1.1 2.7 3 6 3s6-1.9 6-3v-5"/><line x1="22" y1="10" x2="22" y2="15"/>',
     gift: '<polyline points="20 12 20 22 4 22 4 12"/><rect x="2" y="7" width="20" height="5"/><line x1="12" y1="22" x2="12" y2="7"/><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"/><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"/>',
-    bell: '<path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/>'
+    bell: '<path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/>',
+    folder: '<path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>',
+    target: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.4"/>',
+    rocket: '<path d="M4.5 16.5c-1.5 1.3-2 5-2 5s3.7-.5 5-2c.7-.9.7-2.2-.1-3a2.1 2.1 0 0 0-2.9 0z"/><path d="M12 15l-3-3a11 11 0 0 1 5-8c1.9-1.9 4-2 5-2s1.1 3.1-.8 5a11 11 0 0 1-8 5z"/><path d="M9 12H4s.5-2.8 2-4c1.5-.4 3 0 3 0"/><path d="M12 15v5s2.8-.5 4-2c.4-1.5 0-3 0-3"/>'
   };
 
   const iconPicker = document.getElementById("iconPicker");
@@ -922,14 +1128,10 @@
   }
 
   function removeHabit(id) {
-    for (let i = 0; i < state.habits.length; i++) {
-      if (state.habits[i].id === id) {
-        state.habits.splice(i, 1);
-        break;
-      }
-    }
-    saveState();
-    renderHabits();
+    removeWithUndo("habits", id, function () {
+      renderHabits();
+      if (!habitsView.hidden) renderHabitsView();
+    });
   }
 
   /* Fill the picker with one button per catalog icon. */
@@ -948,16 +1150,16 @@
     }
   }
 
-  let iconPickerMode = { kind: "habit-new" };   // habit-new | habit-edit | event
+  let iconPickerMode = { kind: "habit-new" };   // habit-new | habit-edit | detail
 
-  /* Apply a picked icon: create a habit, or update the edited habit / event. */
+  /* Apply a picked icon: create a habit, update a habit's icon, or the open detail item's. */
   function chooseIcon(iconKey) {
-    if (iconPickerMode.kind === "event") {
-      const event = findItem("events", iconPickerMode.id);
-      if (event) event.icon = iconKey;
+    if (iconPickerMode.kind === "detail") {   // the open event/project detail
+      const item = currentDetailItem();
+      if (item) item.icon = iconKey;
       saveState();
       iconPicker.hidden = true;
-      refreshDetailIfOpen();   // update the icon button in the detail
+      detailIcon.innerHTML = habitSvg(iconKey);   // update the square button
       refreshDetailSource();   // update rows / calendar / timeline
       return;
     }
@@ -996,9 +1198,9 @@
     iconPicker.hidden = false;
   }
 
-  /* open to change an event's icon */
-  function openIconPickerForEvent(eventId) {
-    iconPickerMode = { kind: "event", id: eventId };
+  /* open to change the icon of the item in the detail view (event or project) */
+  function openIconPickerForDetail() {
+    iconPickerMode = { kind: "detail" };
     document.getElementById("habitNameField").hidden = true;
     iconPicker.hidden = false;
   }
@@ -1333,8 +1535,7 @@
     del.setAttribute("aria-label", translate("habitDeleteAria"));
     del.textContent = "×";
     del.addEventListener("click", function () {
-      removeHabit(habit.id);
-      renderHabitsView();
+      removeHabit(habit.id);   // handles re-render + undo
     });
 
     const head = document.createElement("div");
@@ -1414,6 +1615,7 @@
   /* DETAIL — full-screen view of a task/project: rename, props, notes, subtasks */
   const detail = document.getElementById("detail");
   const detailName = document.getElementById("detailName");
+  const detailIcon = document.getElementById("detailIcon");
   const detailProps = document.getElementById("detailProps");
   const detailPin = document.getElementById("detailPin");
   const detailNotes = document.getElementById("detailNotes");
@@ -1532,13 +1734,6 @@
       });
       detailProps.appendChild(detailField(translate("importanceAria"), bars));
     } else if (list === "events") {
-      const iconBtn = document.createElement("button");
-      iconBtn.type = "button";
-      iconBtn.className = "edit-prop edit-prop--icon";
-      iconBtn.innerHTML = habitSvg(item.icon || "calendar");
-      iconBtn.addEventListener("click", function () { openIconPickerForEvent(item.id); });
-      detailProps.appendChild(detailField(translate("editIconLabel"), iconBtn));
-
       const dateSpan = document.createElement("span");
       dateSpan.className = "edit-prop edit-prop--static";
       dateSpan.textContent = fullDateLabel(item.date) + (item.time ? " · " + item.time : "");
@@ -1582,6 +1777,10 @@
     detailName.value = item.text || "";
     detailPin.hidden = kind === "milestone" || kind === "events";   // not pinnable
     if (!detailPin.hidden) detailPin.classList.toggle("is-on", !!item.pinned);
+    // events and projects carry an icon, shown as a square button left of the title
+    const hasIcon = kind === "events" || kind === "projects";
+    detailIcon.hidden = !hasIcon;
+    if (hasIcon) detailIcon.innerHTML = habitSvg(item.icon || (kind === "events" ? "calendar" : "folder"));
     renderDetailProps(item, kind);
     detailNotes.value = item.notes || "";
 
@@ -1933,6 +2132,8 @@
     detailPin.classList.toggle("is-on", !!item.pinned);
   });
 
+  detailIcon.addEventListener("click", openIconPickerForDetail);
+
   document.getElementById("subtaskForm").addEventListener("submit", function (event) {
     event.preventDefault();
     const input = document.getElementById("subtaskInput");
@@ -2188,13 +2389,11 @@
   }
 
   function removeEvent(id) {
-    for (let i = 0; i < state.events.length; i++) {
-      if (state.events[i].id === id) { state.events.splice(i, 1); break; }
-    }
-    saveState();
-    renderDayList();
-    renderEventCal();
-    renderDailyTimeline();
+    removeWithUndo("events", id, function () {
+      if (!dayView.hidden) renderDayList();
+      renderEventCal();
+      renderDailyTimeline();
+    });
   }
 
   document.getElementById("dayAddForm").addEventListener("submit", function (event) {
@@ -2390,38 +2589,52 @@
     box.innerHTML = "";
     const today = todayKey();
     const list = eventsOnDay(today).slice().sort(dtlEventSort);
-    for (let i = 0; i < list.length; i++) box.appendChild(dtlEventChip(list[i]));
+    for (let i = 0; i < list.length; i++) box.appendChild(dtlEventRow(list[i]));
 
     const add = document.createElement("button");
     add.type = "button";
-    add.className = "dtl__add";
-    add.setAttribute("aria-label", translate("addAria"));
-    add.textContent = "+";
+    add.className = "dtl-ev dtl-ev--add";
+    const plus = document.createElement("span");
+    plus.className = "dtl-ev__plus";
+    plus.textContent = "+";
+    const label = document.createElement("span");
+    label.className = "dtl-ev__title";
+    label.textContent = translate("addEventTitle");
+    add.append(plus, label);
     add.addEventListener("click", function () { openDayView(today); });
     box.appendChild(add);
   }
 
-  function dtlEventChip(event) {
-    const chip = document.createElement("button");
-    chip.type = "button";
-    chip.className = "dtl__event is-" + eventStatus(event) + (event.important ? " is-important" : "");
-    chip.addEventListener("click", function () { openEventDetail(event); });
+  /* an event under the gauge: a rectangle with icon, title, and time on the right */
+  function dtlEventRow(event) {
+    const row = document.createElement("button");
+    row.type = "button";
+    row.className = "dtl-ev is-" + eventStatus(event) + (event.important ? " is-important" : "");
+    row.addEventListener("click", function () { openEventDetail(event); });
 
+    const icon = document.createElement("span");
+    icon.className = "dtl-ev__ico";
+    icon.innerHTML = habitSvg(event.icon || "calendar");
+    row.appendChild(icon);
+
+    const title = document.createElement("span");
+    title.className = "dtl-ev__title";
+    title.textContent = event.text;
+    row.appendChild(title);
+
+    if (event.important) {
+      const bell = document.createElement("span");
+      bell.className = "dtl-ev__bell";
+      bell.innerHTML = iconSvg(ICON_BELL);
+      row.appendChild(bell);
+    }
     if (event.time) {
       const time = document.createElement("span");
-      time.className = "dtl__event-time";
+      time.className = "dtl-ev__time";
       time.textContent = event.time;
-      chip.appendChild(time);
+      row.appendChild(time);
     }
-    const icon = document.createElement("span");
-    icon.className = "dtl__event-ico";
-    icon.innerHTML = habitSvg(event.icon || "calendar");
-    chip.appendChild(icon);
-    const title = document.createElement("span");
-    title.className = "dtl__event-title";
-    title.textContent = event.text;
-    chip.appendChild(title);
-    return chip;
+    return row;
   }
 
   /* sunrise/sunset (once a day) and weather (refreshed every few hours) from
@@ -2676,11 +2889,7 @@
   }
 
   function removeNote(id) {
-    for (let i = 0; i < state.notes.length; i++) {
-      if (state.notes[i].id === id) { state.notes.splice(i, 1); break; }
-    }
-    saveState();
-    renderNotesList();
+    removeWithUndo("notes", id, function () { renderNotesList(); });
   }
 
   /* EDITOR */
