@@ -15,6 +15,13 @@
           habits[i].completedDates = habits[i].completedOn ? [habits[i].completedOn] : [];
         }
         delete habits[i].completedOn;
+        if (habits[i].type === "sleep") {   // min/max = recommended zone; target = bedtime goal
+          const c = habits[i].config || (habits[i].config = {});
+          if (c.min == null) c.min = c.target != null ? c.target : 7;   // old target was the zone min
+          if (c.max == null) c.max = 9;
+          if (c.target == null) c.target = 8;
+          if (!habits[i].sleepLog) habits[i].sleepLog = {};
+        }
       }
       const projects = saved.projects || [];
       for (let i = 0; i < projects.length; i++) {
@@ -117,6 +124,21 @@
       habitToggleAria: "Compléter l'habitude",
       habitNameLabel: "Nom de l'habitude",
       habitNamePlaceholder: "Ex. Boire de l'eau",
+      presetsLabel: "Préconfigurées",
+      sleepTitle: "Sommeil",
+      sleepTonight: "Cette nuit",
+      sleepGood: "Dans la cible",
+      sleepShort: "Trop court",
+      sleepLong: "Trop long",
+      sleepConfig: "Configuration",
+      sleepAgeLabel: "Âge",
+      sleepTargetLabel: "Objectif (h)",
+      sleepWakeLabel: "Réveil visé",
+      sleepReco: "Recommandé :",
+      sleepBedtime: "Coucher conseillé :",
+      sleepAvgLabel: "Moyenne 7 j",
+      sleepDebtLabel: "Dette",
+      sleepBedNotif: "Il est l'heure de dormir",
       pickDateAria: "Choisir une date",
       calendarTitle: "Échéance",
       calTimeLabel: "Heure (optionnel)",
@@ -124,6 +146,8 @@
       calConfirm: "Valider",
       prevMonthAria: "Mois précédent",
       nextMonthAria: "Mois suivant",
+      prevDayAria: "Jour précédent",
+      nextDayAria: "Jour suivant",
       reminderTitle: "Rappel",
       importanceAria: "Importance",
       paletteLabel: "Palette",
@@ -149,10 +173,10 @@
       timeLabel: "Heure",
       eventStatusPending: "En attente",
       eventStatusPast: "Passé",
-      rescheduleBtn: "Replanifier",
       importantAria: "Marquer comme important",
       importantLabel: "Important",
       todayLabel: "Aujourd'hui",
+      weatherTitle: "Météo du jour",
       locationLabel: "Localisation",
       cityPlaceholder: "Rechercher une ville…",
       habitsHistoryAria: "Suivi des habitudes",
@@ -238,6 +262,21 @@
       habitToggleAria: "Complete habit",
       habitNameLabel: "Habit name",
       habitNamePlaceholder: "e.g. Drink water",
+      presetsLabel: "Preset",
+      sleepTitle: "Sleep",
+      sleepTonight: "Last night",
+      sleepGood: "On target",
+      sleepShort: "Too short",
+      sleepLong: "Too long",
+      sleepConfig: "Configuration",
+      sleepAgeLabel: "Age",
+      sleepTargetLabel: "Target (h)",
+      sleepWakeLabel: "Wake-up time",
+      sleepReco: "Recommended:",
+      sleepBedtime: "Suggested bedtime:",
+      sleepAvgLabel: "7-day avg",
+      sleepDebtLabel: "Debt",
+      sleepBedNotif: "Time to sleep",
       pickDateAria: "Pick a date",
       calendarTitle: "Deadline",
       calTimeLabel: "Time (optional)",
@@ -245,6 +284,8 @@
       calConfirm: "Confirm",
       prevMonthAria: "Previous month",
       nextMonthAria: "Next month",
+      prevDayAria: "Previous day",
+      nextDayAria: "Next day",
       reminderTitle: "Reminder",
       importanceAria: "Importance",
       paletteLabel: "Palette",
@@ -270,10 +311,10 @@
       timeLabel: "Time",
       eventStatusPending: "Pending",
       eventStatusPast: "Past",
-      rescheduleBtn: "Reschedule",
       importantAria: "Mark as important",
       importantLabel: "Important",
       todayLabel: "Today",
+      weatherTitle: "Today's weather",
       locationLabel: "Location",
       cityPlaceholder: "Search a city…",
       habitsHistoryAria: "Habit tracking",
@@ -831,14 +872,14 @@
   }
 
   /* Build one row: checkbox, label, delete button. Undated & unpinned rows get a
-     drag handle so they can be reordered (they show in array order under sortedByDue). */
+     drag handle so they can be reordered (the list shows items in manual order). */
   function createItemRow(listName, item) {
     const row = document.createElement("li");
     row.className = item.done ? "item item--open done" : "item item--open";
     row.dataset.id = item.id;
     row.addEventListener("click", function () { openDetail(listName, item.id); });
 
-    const reorderable = !item.pinned && !item.dueDate;
+    const reorderable = !item.pinned;   // everything but pinned rows (which stay on top)
     if (reorderable) {
       row.dataset.reorder = "1";
       const grip = document.createElement("span");
@@ -887,22 +928,21 @@
 
   const ICON_GRIP = '<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="1.4"/><circle cx="15" cy="6" r="1.4"/><circle cx="9" cy="12" r="1.4"/><circle cx="15" cy="12" r="1.4"/><circle cx="9" cy="18" r="1.4"/><circle cx="15" cy="18" r="1.4"/></svg>';
 
-  /* pointer-based drag reorder (works on touch); moves the row among its
-     reorderable siblings, then persists the new order into the state array */
+  /* pointer-based drag reorder (works on touch). Listens on document so the drag
+     survives the row moving in the DOM, then persists the new order to state. */
   let rowDrag = null;
   function startRowDrag(event, row, listName) {
     if (event.pointerType === "mouse" && event.button !== 0) return;
     event.preventDefault();
-    const grip = event.currentTarget;
-    grip.setPointerCapture(event.pointerId);
-    rowDrag = { row: row, listName: listName, listEl: row.parentNode, grip: grip, pointerId: event.pointerId };
+    rowDrag = { row: row, listName: listName, listEl: row.parentNode };
     row.classList.add("is-dragging");
-    grip.addEventListener("pointermove", onRowDragMove);
-    grip.addEventListener("pointerup", endRowDrag);
-    grip.addEventListener("pointercancel", endRowDrag);
+    document.addEventListener("pointermove", onRowDragMove, { passive: false });
+    document.addEventListener("pointerup", endRowDrag);
+    document.addEventListener("pointercancel", endRowDrag);
   }
   function onRowDragMove(event) {
     if (!rowDrag) return;
+    event.preventDefault();   // don't scroll the page while dragging
     const listEl = rowDrag.listEl;
     const siblings = listEl.querySelectorAll('.item[data-reorder]:not(.is-dragging)');
     let inserted = false;
@@ -919,15 +959,14 @@
       listEl.insertBefore(rowDrag.row, last.nextSibling);
     }
   }
-  function endRowDrag(event) {
+  function endRowDrag() {
     if (!rowDrag) return;
     const drag = rowDrag;
     rowDrag = null;
     drag.row.classList.remove("is-dragging");
-    drag.grip.removeEventListener("pointermove", onRowDragMove);
-    drag.grip.removeEventListener("pointerup", endRowDrag);
-    drag.grip.removeEventListener("pointercancel", endRowDrag);
-    try { drag.grip.releasePointerCapture(event.pointerId); } catch (err) {}
+    document.removeEventListener("pointermove", onRowDragMove);
+    document.removeEventListener("pointerup", endRowDrag);
+    document.removeEventListener("pointercancel", endRowDrag);
 
     const ordered = [];
     const rows = drag.listEl.querySelectorAll('.item[data-reorder]');
@@ -936,8 +975,8 @@
     saveState();
     renderList(drag.listName);
   }
-  /* rebuild state[listName] so the reorderable items follow `ordered`,
-     while pinned/dated items keep their slots */
+  /* rebuild state[listName] so the reorderable (unpinned) items follow `ordered`,
+     while pinned items keep their slots */
   function persistOrder(listName, ordered) {
     const items = state[listName];
     const byId = {};
@@ -1076,8 +1115,10 @@
     }
   }
 
-  /* A filled habit: icon, rising water, delete button. */
+  /* A filled habit: icon, rising water. Sleep is special (see createSleepTile). */
   function createHabitTile(habit, today) {
+    if (habit.type === "sleep") return createSleepTile(habit, today);
+
     const done = !!(habit.completedDates && habit.completedDates.indexOf(today) !== -1);
     const tile = document.createElement("div");
     tile.className = done ? "habit done" : "habit";
@@ -1095,6 +1136,57 @@
     tile.addEventListener("click", function () { toggleHabit(habit.id, tile); });
     tile.append(water, icon);
     return tile;
+  }
+
+  /* Sleep tile: water fills to last night's hours, hours label, opens the sleep view. */
+  function createSleepTile(habit, today) {
+    const cfg = habit.config || {};
+    const hours = (habit.sleepLog || {})[today];
+    const inRange = hours != null && hours >= (cfg.min || 0) && (cfg.max == null || hours <= cfg.max);
+    const tile = document.createElement("div");
+    tile.className = inRange ? "habit habit--sleep done" : "habit habit--sleep";
+    tile.setAttribute("aria-label", translate("sleepTitle"));
+
+    const water = document.createElement("div");
+    water.className = "habit__water";
+    if (hours != null) {
+      const ref = cfg.max || cfg.target || 8;
+      water.style.height = Math.max(6, Math.min(100, (hours / ref) * 100)) + "%";
+    }
+
+    const icon = document.createElement("span");
+    icon.className = "habit__icon";
+    icon.innerHTML = habitSvg(habit.icon || "sleep");
+
+    tile.append(water, icon);
+    if (hours != null) {
+      const hrs = document.createElement("span");
+      hrs.className = "habit__hours";
+      hrs.textContent = formatHours(hours);
+      tile.appendChild(hrs);
+    }
+    tile.addEventListener("click", function () { openSleepView(habit.id); });
+    return tile;
+  }
+
+  /* "7.5" -> "7h30", "8" -> "8h" */
+  function formatHours(h) {
+    const whole = Math.floor(h);
+    const min = Math.round((h - whole) * 60);
+    return min ? whole + "h" + String(min).padStart(2, "0") : whole + "h";
+  }
+
+  /* scientifically-accepted nightly sleep range by age (National Sleep Foundation) */
+  function recommendedSleep(age) {
+    if (age == null || age === "" || isNaN(age)) return null;
+    const a = Number(age);
+    if (a < 1) return { min: 12, max: 16, label: "Nourrisson" };
+    if (a <= 2) return { min: 11, max: 14, label: "Tout-petit" };
+    if (a <= 5) return { min: 10, max: 13, label: "Préscolaire" };
+    if (a <= 13) return { min: 9, max: 12, label: "Enfant" };
+    if (a <= 17) return { min: 8, max: 10, label: "Adolescent" };
+    if (a <= 64) return { min: 7, max: 9, label: "Adulte" };
+    return { min: 7, max: 8, label: "Senior" };
   }
 
   /* An empty slot: a "+" with a soft blurred glow behind it. */
@@ -1188,6 +1280,7 @@
     iconPickerMode = { kind: "habit-new" };
     document.getElementById("habitNameField").hidden = false;
     document.getElementById("habitNameInput").value = "";
+    document.getElementById("iconPresets").hidden = false;   // presets only when creating
     iconPicker.hidden = false;
   }
 
@@ -1195,6 +1288,7 @@
   function openIconPickerForEdit(habitId) {
     iconPickerMode = { kind: "habit-edit", id: habitId };
     document.getElementById("habitNameField").hidden = true;
+    document.getElementById("iconPresets").hidden = true;
     iconPicker.hidden = false;
   }
 
@@ -1202,6 +1296,7 @@
   function openIconPickerForDetail() {
     iconPickerMode = { kind: "detail" };
     document.getElementById("habitNameField").hidden = true;
+    document.getElementById("iconPresets").hidden = true;
     iconPicker.hidden = false;
   }
 
@@ -1211,6 +1306,234 @@
     iconCloseButtons[i].addEventListener("click", function () {
       iconPicker.hidden = true;
     });
+  }
+
+  /* preconfigured "Sommeil" habit: one per slots; reopen it if it already exists */
+  document.getElementById("presetSleep").addEventListener("click", function () {
+    iconPicker.hidden = true;
+    for (let i = 0; i < state.habits.length; i++) {
+      if (state.habits[i].type === "sleep") { openSleepView(state.habits[i].id); return; }
+    }
+    state.habits.push({
+      id: Date.now().toString(),
+      type: "sleep",
+      name: translate("sleepTitle"),
+      icon: "sleep",
+      config: { age: null, min: 7, max: 9, target: 8, wake: "07:00" },
+      sleepLog: {}
+    });
+    saveState();
+    renderHabits();
+    openSleepView(state.habits[state.habits.length - 1].id);
+  });
+
+  /* SLEEP VIEW — log last night's hours on a slider, configure targets, get an
+     age-based recommendation. */
+  const sleepView = document.getElementById("sleepView");
+  let sleepHabitId = null;
+  const sleepSlider = document.getElementById("sleepSlider");
+  const sleepAge = document.getElementById("sleepAge");
+  const sleepTarget = document.getElementById("sleepTarget");
+  const sleepWake = document.getElementById("sleepWake");
+
+  function currentSleep() {
+    const habit = findItem("habits", sleepHabitId);
+    return (habit && habit.type === "sleep") ? habit : null;
+  }
+
+  const sleepZone = document.getElementById("sleepZone");
+  const sleepBubble = document.getElementById("sleepBubble");
+
+  // position within the track's inner region (thumb radius 11px inset each side)
+  function insetLeft(fraction) { return "calc(11px + (100% - 22px) * " + fraction + ")"; }
+  function sliderFrac(v) {
+    const smin = parseFloat(sleepSlider.min), smax = parseFloat(sleepSlider.max);
+    return (v - smin) / (smax - smin);
+  }
+
+  function openSleepView(id) {
+    sleepHabitId = id;
+    const habit = currentSleep();
+    if (!habit) return;
+    if (!habit.config) habit.config = { age: null, min: 7, max: 9, target: 8, wake: "07:00" };
+    if (!habit.sleepLog) habit.sleepLog = {};
+    const cfg = habit.config;
+    sleepAge.value = cfg.age != null ? cfg.age : "";
+    sleepTarget.value = cfg.target != null ? cfg.target : "";
+    sleepWake.value = cfg.wake || "";
+    const logged = habit.sleepLog[todayKey()];
+    sleepSlider.value = logged != null ? logged : (cfg.target || cfg.min || 8);
+    buildSleepTicks();
+    renderSleepView();
+    sleepView.hidden = false;
+  }
+
+  /* half-hour ticks under the track (taller on the hour) */
+  function buildSleepTicks() {
+    const ticks = document.getElementById("sleepTicks");
+    ticks.innerHTML = "";
+    const smin = parseFloat(sleepSlider.min), smax = parseFloat(sleepSlider.max);
+    for (let v = smin; v <= smax + 0.001; v += 0.5) {
+      const tick = document.createElement("span");
+      tick.className = Math.abs(v - Math.round(v)) < 0.001 ? "sleep__tick is-hour" : "sleep__tick";
+      tick.style.left = insetLeft((v - smin) / (smax - smin));
+      ticks.appendChild(tick);
+    }
+  }
+
+  function updateSleepBubble() {
+    const val = parseFloat(sleepSlider.value);
+    sleepBubble.textContent = formatHours(val);
+    sleepBubble.style.left = insetLeft(sliderFrac(val));
+  }
+
+  function renderSleepView() {
+    const habit = currentSleep();
+    if (!habit) return;
+    const cfg = habit.config;
+    const val = parseFloat(sleepSlider.value);
+
+    // good zone = the recommended [min, max] range
+    if (cfg.min != null && cfg.max != null && cfg.max >= cfg.min) {
+      sleepZone.hidden = false;
+      sleepZone.style.left = insetLeft(sliderFrac(cfg.min));
+      sleepZone.style.width = "calc((100% - 22px) * " + (sliderFrac(cfg.max) - sliderFrac(cfg.min)) + ")";
+    } else {
+      sleepZone.hidden = true;
+    }
+    updateSleepBubble();
+
+    document.getElementById("sleepVal").textContent = formatHours(val);
+    const status = document.getElementById("sleepStatus");
+    if (cfg.min != null && val < cfg.min) { status.textContent = translate("sleepShort"); status.className = "sleep__status is-short"; }
+    else if (cfg.max != null && val > cfg.max) { status.textContent = translate("sleepLong"); status.className = "sleep__status is-long"; }
+    else { status.textContent = translate("sleepGood"); status.className = "sleep__status is-good"; }
+
+    // recommended zone (min–max, set from age)
+    const recoEl = document.getElementById("sleepReco");
+    if (cfg.min != null && cfg.max != null) {
+      recoEl.hidden = false;
+      document.getElementById("sleepRecoTxt").textContent = translate("sleepReco") + " " + cfg.min + "–" + cfg.max + " h";
+    } else {
+      recoEl.hidden = true;
+    }
+
+    const bed = bedtime(cfg.wake, cfg.target);   // bedtime uses the objectif
+    const bedEl = document.getElementById("sleepBedtime");
+    bedEl.hidden = !bed;
+    if (bed) bedEl.textContent = translate("sleepBedtime") + " " + bed;
+
+    renderSleepWeek(habit);
+  }
+
+  /* bedtime = wake-up time minus the target hours (wraps past midnight) */
+  function bedtime(wake, hours) {
+    if (!wake || hours == null) return null;
+    const parts = wake.split(":");
+    let total = parseInt(parts[0], 10) * 60 + parseInt(parts[1], 10) - Math.round(hours * 60);
+    total = ((total % 1440) + 1440) % 1440;
+    return String(Math.floor(total / 60)).padStart(2, "0") + ":" + String(total % 60).padStart(2, "0");
+  }
+
+  /* last 7 days as {days, avg, debt}; debt is the deficit vs the recommended minimum */
+  function sleepWeekData(habit) {
+    const cfg = habit.config || {};
+    const log = habit.sleepLog || {};
+    const now = new Date();
+    const days = [];
+    for (let i = 6; i >= 0; i--) {
+      const d = new Date(now);
+      d.setDate(now.getDate() - i);
+      const key = dateKey(d.getFullYear(), d.getMonth(), d.getDate());
+      days.push({ hours: log[key], date: new Date(d) });
+    }
+    let sum = 0, cnt = 0, debt = 0;
+    for (let i = 0; i < days.length; i++) {
+      const h = days[i].hours;
+      if (h == null) continue;
+      sum += h; cnt++;
+      if (cfg.min != null && h < cfg.min) debt += cfg.min - h;
+    }
+    return { days: days, avg: cnt ? sum / cnt : null, debt: debt };
+  }
+
+  function renderSleepWeek(habit) {
+    const wk = sleepWeekData(habit);
+    document.getElementById("sleepAvg").textContent = wk.avg != null ? formatHours(wk.avg) : "–";
+    document.getElementById("sleepDebt").textContent = wk.debt > 0.01 ? "-" + formatHours(wk.debt) : "0h";
+    document.getElementById("sleepChart").innerHTML = sleepWeekSvg(wk.days, habit.config || {});
+  }
+
+  /* 7-day bar chart with the recommended [min,max] band shaded behind */
+  function sleepWeekSvg(days, cfg) {
+    const locale = state.settings.language === "fr" ? "fr-FR" : "en-US";
+    const W = 280, H = 122, padX = 6, padT = 10, padB = 20;
+    const plotW = W - padX * 2, plotH = H - padT - padB, y0 = padT + plotH;
+    let hi = cfg.max || 9;
+    for (let i = 0; i < days.length; i++) if (days[i].hours != null && days[i].hours > hi) hi = days[i].hours;
+    hi = Math.ceil(hi + 0.5);
+    const yAt = function (h) { return y0 - (h / hi) * plotH; };
+    const step = plotW / days.length;
+    const bw = Math.min(24, step * 0.5);
+    let svg = '<svg viewBox="0 0 ' + W + ' ' + H + '" class="swk">';
+    if (cfg.min != null && cfg.max != null) {
+      const yb = yAt(cfg.max).toFixed(1);
+      const hb = Math.max(0, yAt(cfg.min) - yAt(cfg.max)).toFixed(1);
+      svg += '<rect class="swk-zone" x="' + padX + '" y="' + yb + '" width="' + plotW + '" height="' + hb + '"/>';
+    }
+    for (let i = 0; i < days.length; i++) {
+      const cx = padX + step * i + step / 2;
+      svg += '<text class="swk-wd" x="' + cx.toFixed(1) + '" y="' + (H - 6) + '">'
+        + days[i].date.toLocaleDateString(locale, { weekday: "narrow" }) + "</text>";
+      const h = days[i].hours;
+      if (h == null) continue;
+      const inRange = cfg.min != null && h >= cfg.min && (cfg.max == null || h <= cfg.max);
+      svg += '<rect class="swk-bar' + (inRange ? "" : " is-out") + '" x="' + (cx - bw / 2).toFixed(1)
+        + '" y="' + yAt(h).toFixed(1) + '" width="' + bw.toFixed(1) + '" height="' + (y0 - yAt(h)).toFixed(1) + '" rx="3"/>';
+    }
+    return svg + "</svg>";
+  }
+
+  sleepSlider.addEventListener("input", function () { updateSleepBubble(); renderSleepView(); });
+  sleepSlider.addEventListener("change", function () {
+    const habit = currentSleep();
+    if (!habit) return;
+    habit.sleepLog[todayKey()] = parseFloat(sleepSlider.value);
+    saveState();
+    renderSleepView();   // refresh week average / debt / chart
+    renderHabits();
+  });
+  function bindSleepConfig(input, key, asNumber) {
+    input.addEventListener("change", function () {
+      const habit = currentSleep();
+      if (!habit) return;
+      const raw = input.value;
+      habit.config[key] = raw === "" ? null : (asNumber ? parseFloat(raw) : raw);
+      saveState();
+      renderSleepView();
+      renderHabits();
+    });
+  }
+  bindSleepConfig(sleepTarget, "target", true);   // objectif (bedtime only)
+  bindSleepConfig(sleepWake, "wake", false);
+  sleepWake.addEventListener("change", ensureNotifyPermission);   // enable bedtime reminders
+
+  // age fixes the recommended [min, max] zone
+  sleepAge.addEventListener("change", function () {
+    const habit = currentSleep();
+    if (!habit) return;
+    const raw = sleepAge.value;
+    habit.config.age = raw === "" ? null : parseFloat(raw);
+    const reco = recommendedSleep(habit.config.age);
+    if (reco) { habit.config.min = reco.min; habit.config.max = reco.max; }
+    saveState();
+    renderSleepView();
+    renderHabits();
+  });
+
+  const sleepCloseButtons = sleepView.querySelectorAll("[data-close]");
+  for (let i = 0; i < sleepCloseButtons.length; i++) {
+    sleepCloseButtons[i].addEventListener("click", function () { sleepView.hidden = true; });
   }
 
   /* IMPORTANCE — a 5-bar level on projects (shown on rows, edited in the detail view) */
@@ -1253,18 +1576,22 @@
     return year + "-" + String(month + 1).padStart(2, "0") + "-" + String(day).padStart(2, "0");
   }
 
-  /* Pinned first, then undated (in order), then dated soonest-first. */
+  /* a date key shifted by whole days (handles month/year rollover) */
+  function shiftDateKey(key, delta) {
+    const d = new Date(key + "T00:00");
+    d.setDate(d.getDate() + delta);
+    return dateKey(d.getFullYear(), d.getMonth(), d.getDate());
+  }
+
+  /* Pinned rows float to the top; everything else keeps its manual (drag) order. */
   function sortedByDue(items) {
     const pinned = [];
-    const undated = [];
-    const dated = [];
+    const rest = [];
     for (let i = 0; i < items.length; i++) {
       if (items[i].pinned) pinned.push(items[i]);
-      else if (items[i].dueDate) dated.push(items[i]);
-      else undated.push(items[i]);
+      else rest.push(items[i]);
     }
-    dated.sort(function (a, b) { return dueSortKey(a) - dueSortKey(b); });
-    return pinned.concat(undated, dated);
+    return pinned.concat(rest);
   }
 
   /* date-only tasks sort at the end of their day */
@@ -1427,13 +1754,35 @@
     return new Date(task.dueDate + "T" + task.dueTime).getTime();
   }
 
-  function showReminder(task) {
-    const title = translate("reminderTitle");
-    const options = { body: task.text, icon: "./icons/icon-192.png", tag: "task-" + task.id };
+  function notify(title, body, tag) {
+    if (!window.Notification || Notification.permission !== "granted") return;
+    const options = { body: body, icon: "./icons/icon-192.png", tag: tag };
     if (navigator.serviceWorker && navigator.serviceWorker.ready) {
       navigator.serviceWorker.ready.then(function (reg) { reg.showNotification(title, options); });
-    } else if (window.Notification) {
+    } else {
       new Notification(title, options);
+    }
+  }
+  function showReminder(task) {
+    notify(translate("reminderTitle"), task.text, "task-" + task.id);
+  }
+
+  /* foreground bedtime reminder: wake - target, once per day when the app is open */
+  function checkSleepReminder() {
+    if (!window.Notification || Notification.permission !== "granted") return;
+    let habit = null;
+    for (let i = 0; i < state.habits.length; i++) {
+      if (state.habits[i].type === "sleep") { habit = state.habits[i]; break; }
+    }
+    if (!habit || !habit.config) return;
+    const bt = bedtime(habit.config.wake, habit.config.target);
+    if (!bt) return;
+    const now = new Date();
+    const nowHM = String(now.getHours()).padStart(2, "0") + ":" + String(now.getMinutes()).padStart(2, "0");
+    if (nowHM === bt && habit.bedNotifiedOn !== todayKey()) {
+      habit.bedNotifiedOn = todayKey();
+      saveState();
+      notify(translate("sleepTitle"), translate("sleepBedNotif"), "sleep-bed");
     }
   }
 
@@ -1542,6 +1891,9 @@
     head.className = "hcard__head";
     head.append(iconBtn, nameInput, del);
 
+    card.appendChild(head);
+    if (habit.type === "sleep") card.appendChild(buildSleepStats(habit));   // avg / debt / week chart
+
     const stats = document.createElement("div");
     stats.className = "hcard__stats";
     const histLabel = document.createElement("span");
@@ -1551,13 +1903,43 @@
     streak.textContent = translate("streakLabel") + " " + habitStreak(habit);
     stats.append(histLabel, streak);
 
-    card.append(head, stats, createHeatmap(habit));
+    card.append(stats, createHeatmap(habit));
     return card;
   }
 
-  /* completed dates as a lookup object */
+  /* sleep-specific stats block for the habits view: 7-day average, debt, week chart */
+  function buildSleepStats(habit) {
+    const wk = sleepWeekData(habit);
+    const wrap = document.createElement("div");
+    wrap.className = "hcard__sleep";
+    const avg = wk.avg != null ? formatHours(wk.avg) : "–";
+    const debt = wk.debt > 0.01 ? "-" + formatHours(wk.debt) : "0h";
+    const row = document.createElement("div");
+    row.className = "sleep__weekstats";
+    row.innerHTML =
+      '<div class="sleep__stat"><span class="sleep__stat-v">' + avg + '</span><span class="sleep__stat-l">' + translate("sleepAvgLabel") + '</span></div>' +
+      '<div class="sleep__stat"><span class="sleep__stat-v">' + debt + '</span><span class="sleep__stat-l">' + translate("sleepDebtLabel") + '</span></div>';
+    const chart = document.createElement("div");
+    chart.className = "sleep__chart";
+    chart.innerHTML = sleepWeekSvg(wk.days, habit.config || {});
+    wrap.append(row, chart);
+    return wrap;
+  }
+
+  /* completed dates as a lookup object. For sleep, a day counts when the logged
+     hours land inside the target..max range. */
   function completedSet(habit) {
     const set = {};
+    if (habit.type === "sleep") {
+      const log = habit.sleepLog || {};
+      const cfg = habit.config || {};
+      const days = Object.keys(log);
+      for (let i = 0; i < days.length; i++) {
+        const h = log[days[i]];
+        if (h >= (cfg.min || 0) && (cfg.max == null || h <= cfg.max)) set[days[i]] = true;
+      }
+      return set;
+    }
     const dates = habit.completedDates || [];
     for (let i = 0; i < dates.length; i++) set[dates[i]] = true;
     return set;
@@ -1616,6 +1998,7 @@
   const detail = document.getElementById("detail");
   const detailName = document.getElementById("detailName");
   const detailIcon = document.getElementById("detailIcon");
+  const detailDate = document.getElementById("detailDate");
   const detailProps = document.getElementById("detailProps");
   const detailPin = document.getElementById("detailPin");
   const detailNotes = document.getElementById("detailNotes");
@@ -1715,17 +2098,35 @@
     return btn;
   }
 
+  /* a bordered clickable property: leading icon (inner paths) + text */
+  function propButton(innerIcon, text, onClick) {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "edit-prop";
+    const ico = document.createElement("span");
+    ico.className = "edit-prop__ico";
+    ico.innerHTML = iconSvg(innerIcon);
+    const label = document.createElement("span");
+    label.className = "edit-prop__text";
+    label.textContent = text;
+    btn.append(ico, label);
+    btn.addEventListener("click", onClick);
+    return btn;
+  }
+  function dayArrow(glyph, aria, onClick) {
+    const btn = document.createElement("button");
+    btn.type = "button";
+    btn.className = "date-nav__arrow";
+    btn.textContent = glyph;
+    btn.setAttribute("aria-label", aria);
+    btn.addEventListener("click", onClick);
+    return btn;
+  }
+
   /* type-specific controls — add per-type fields here (modular) */
   function renderDetailProps(item, list) {
     detailProps.innerHTML = "";
-    if (list === "tasks") {
-      const dateBtn = document.createElement("button");
-      dateBtn.type = "button";
-      dateBtn.className = "edit-prop";
-      dateBtn.textContent = item.dueDate ? dueLabel(item) : translate("editDateNone");
-      dateBtn.addEventListener("click", function () { openCalendar(item.id); });
-      detailProps.appendChild(detailField(translate("calendarTitle"), dateBtn));
-    } else if (list === "projects") {
+    if (list === "projects") {
       const bars = createImportanceBars(item.importance || 0, function (level) {
         item.importance = item.importance === level ? 0 : level;
         saveState();
@@ -1734,17 +2135,18 @@
       });
       detailProps.appendChild(detailField(translate("importanceAria"), bars));
     } else if (list === "events") {
-      const dateSpan = document.createElement("span");
-      dateSpan.className = "edit-prop edit-prop--static";
-      dateSpan.textContent = fullDateLabel(item.date) + (item.time ? " · " + item.time : "");
-      detailProps.appendChild(detailField(translate("eventDateLabel"), dateSpan));
-
-      const rescheduleBtn = document.createElement("button");
-      rescheduleBtn.type = "button";
-      rescheduleBtn.className = "edit-prop event-reschedule";
-      rescheduleBtn.textContent = translate("rescheduleBtn");
-      rescheduleBtn.addEventListener("click", function () { openCalendar(item.id, "events"); });
-      detailProps.appendChild(rescheduleBtn);
+      // the date itself opens the calendar to reschedule; the < > jump one day
+      const dateNav = document.createElement("div");
+      dateNav.className = "date-nav";
+      const dateBtn = propButton(HABIT_ICONS.calendar,
+        fullDateLabel(item.date) + (item.time ? " · " + item.time : ""),
+        function () { openCalendar(item.id, "events"); });
+      dateNav.append(
+        dayArrow("‹", translate("prevDayAria"), function () { shiftEventDay(item, -1); }),
+        dateBtn,
+        dayArrow("›", translate("nextDayAria"), function () { shiftEventDay(item, 1); })
+      );
+      detailProps.appendChild(detailField(translate("eventDateLabel"), dateNav));
 
       const toggle = createToggle(!!item.important, function (on) {
         item.important = on;
@@ -1754,6 +2156,14 @@
       toggle.setAttribute("aria-label", translate("importantAria"));
       detailProps.appendChild(detailField(translate("importantLabel"), toggle, "field--row"));
     }
+  }
+
+  /* move an event one day back/forward from its detail view */
+  function shiftEventDay(event, delta) {
+    event.date = shiftDateKey(event.date, delta);
+    saveState();
+    renderDetailProps(event, "events");   // refresh the date label
+    refreshDetailSource();                // calendar / timeline / day list
   }
 
   /* top-level task or project */
@@ -1781,6 +2191,7 @@
     const hasIcon = kind === "events" || kind === "projects";
     detailIcon.hidden = !hasIcon;
     if (hasIcon) detailIcon.innerHTML = habitSvg(item.icon || (kind === "events" ? "calendar" : "folder"));
+    syncTaskDate(item);
     renderDetailProps(item, kind);
     detailNotes.value = item.notes || "";
 
@@ -1810,11 +2221,22 @@
     setTimeout(function () { detail.hidden = true; }, 300);   // after the slide out
   }
 
+  /* a task's due date is a discreet calendar button to the right of the title */
+  function syncTaskDate(item) {
+    const isTask = detailTarget.kind === "tasks";
+    detailDate.hidden = !isTask;
+    if (!isTask) return;
+    detailDate.classList.toggle("is-set", !!item.dueDate);
+    const label = item.dueDate ? dueLabel(item) : translate("editDateNone");
+    detailDate.setAttribute("aria-label", label);
+    detailDate.title = label;
+  }
+
   /* refresh the type-specific controls after the calendar edits a date */
   function refreshDetailIfOpen() {
     if (detail.hidden) return;
     const item = currentDetailItem();
-    if (item) renderDetailProps(item, detailTarget.kind);
+    if (item) { renderDetailProps(item, detailTarget.kind); syncTaskDate(item); }
   }
 
   /* SUBTASKS */
@@ -2133,6 +2555,10 @@
   });
 
   detailIcon.addEventListener("click", openIconPickerForDetail);
+  detailDate.addEventListener("click", function () {
+    const item = currentDetailItem();
+    if (item) openCalendar(item.id);
+  });
 
   document.getElementById("subtaskForm").addEventListener("submit", function (event) {
     event.preventDefault();
@@ -2297,16 +2723,46 @@
   });
 
   /* DAY VIEW */
-  function openDayView(key) {
+  function setDayViewDate(key) {
     dayViewKey = key;
     document.getElementById("dayTitle").textContent = fullDateLabel(key);
     renderDayList();
+  }
+  function openDayView(key) {
+    setDayViewDate(key);
     dayView.hidden = false;
     requestAnimationFrame(function () {
       dayView.classList.add("is-open");
       document.getElementById("dayAddInput").focus();
     });
   }
+  document.getElementById("dayPrev").addEventListener("click", function () {
+    setDayViewDate(shiftDateKey(dayViewKey, -1));
+  });
+  document.getElementById("dayNext").addEventListener("click", function () {
+    setDayViewDate(shiftDateKey(dayViewKey, 1));
+  });
+
+  /* swipe left/right on the day view to change day (mobile-friendly) */
+  let daySwipeStart = null;
+  let daySwipeUntil = 0;   // suppress the click that ends a swipe
+  dayView.addEventListener("pointerdown", function (event) {
+    daySwipeStart = (event.pointerType === "mouse" && event.button !== 0)
+      ? null : { x: event.clientX, y: event.clientY };
+  });
+  dayView.addEventListener("pointerup", function (event) {
+    if (!daySwipeStart) return;
+    const dx = event.clientX - daySwipeStart.x;
+    const dy = event.clientY - daySwipeStart.y;
+    daySwipeStart = null;
+    if (Math.abs(dx) >= 55 && Math.abs(dx) > Math.abs(dy) * 1.4) {   // clearly horizontal
+      daySwipeUntil = Date.now() + 350;
+      setDayViewDate(shiftDateKey(dayViewKey, dx < 0 ? 1 : -1));   // left = next day
+    }
+  });
+  dayView.addEventListener("click", function (event) {
+    if (Date.now() < daySwipeUntil) { event.stopPropagation(); event.preventDefault(); }
+  }, true);
   function closeDayView() {
     dayView.classList.remove("is-open");
     setTimeout(function () { dayView.hidden = true; }, 300);
@@ -2509,6 +2965,7 @@
       temp.className = "dtl__temp";
       temp.textContent = Math.round(sun.temp) + "°";
       weather.append(icon, temp);
+      weather.classList.toggle("is-clickable", !!(sun.hourly && sun.hourly.temp));   // opens the day graph
     } else {
       weather.hidden = true;
     }
@@ -2655,8 +3112,10 @@
   }
 
   function fetchSun(lat, lon) {
+    // one request brings back daily (sunrise/sunset), current, and today's hourly
     const url = "https://api.open-meteo.com/v1/forecast?latitude=" + lat + "&longitude=" + lon
-      + "&daily=sunrise,sunset&current=temperature_2m,weather_code&timezone=auto";
+      + "&daily=sunrise,sunset&current=temperature_2m,weather_code"
+      + "&hourly=temperature_2m,weather_code&forecast_days=1&timezone=auto";
     fetch(url).then(function (res) { return res.json(); }).then(function (data) {
       const sunrise = data.daily.sunrise[0];   // "2026-06-25T05:59"
       const sunset = data.daily.sunset[0];
@@ -2666,6 +3125,7 @@
         sunrise: sunrise.slice(11, 16), sunset: sunset.slice(11, 16),
         temp: data.current.temperature_2m,
         code: data.current.weather_code,
+        hourly: data.hourly ? { time: data.hourly.time, temp: data.hourly.temperature_2m, code: data.hourly.weather_code } : null,
         weatherAt: Date.now()
       };
       saveState();
@@ -2682,8 +3142,8 @@
     return parts[parts.length - 1].replace(/_/g, " ");
   }
 
-  /* pick a weather glyph from the WMO code (0 clear … 95+ storm) */
-  function weatherIcon(code) {
+  /* inner SVG paths for a WMO weather code (0 clear … 95+ storm) */
+  function weatherGlyph(code) {
     const sun = '<circle cx="12" cy="12" r="4"/><line x1="12" y1="3" x2="12" y2="5"/>'
       + '<line x1="12" y1="19" x2="12" y2="21"/><line x1="3" y1="12" x2="5" y2="12"/>'
       + '<line x1="19" y1="12" x2="21" y2="12"/><line x1="6" y1="6" x2="7.4" y2="7.4"/>'
@@ -2701,16 +3161,147 @@
     const fog = '<line x1="4" y1="9" x2="20" y2="9"/><line x1="3" y1="13" x2="21" y2="13"/>'
       + '<line x1="5" y1="17" x2="19" y2="17"/>';
 
-    let inner;
-    if (code === 0) inner = sun;
-    else if (code <= 2) inner = partly;
-    else if (code === 45 || code === 48) inner = fog;
-    else if ((code >= 51 && code <= 67) || (code >= 80 && code <= 82)) inner = rain;
-    else if ((code >= 71 && code <= 77) || code === 85 || code === 86) inner = snow;
-    else if (code >= 95) inner = storm;
-    else inner = cloud;
+    if (code === 0) return sun;
+    if (code <= 2) return partly;
+    if (code === 45 || code === 48) return fog;
+    if ((code >= 51 && code <= 67) || (code >= 80 && code <= 82)) return rain;
+    if ((code >= 71 && code <= 77) || code === 85 || code === 86) return snow;
+    if (code >= 95) return storm;
+    return cloud;
+  }
+
+  function weatherIcon(code) {
     return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" '
-      + 'stroke-linecap="round" stroke-linejoin="round">' + inner + '</svg>';
+      + 'stroke-linecap="round" stroke-linejoin="round">' + weatherGlyph(code) + '</svg>';
+  }
+
+  /* WEATHER GRAPH — today's hourly temperature as a line+area chart, with condition
+     glyphs, a "now" marker and a tap/hover readout. Uses the once-a-day cached data. */
+  const weatherModal = document.getElementById("weatherModal");
+
+  function smoothPath(pts) {
+    if (pts.length < 2) return "";
+    let d = "M " + pts[0].x.toFixed(1) + " " + pts[0].y.toFixed(1);
+    for (let i = 0; i < pts.length - 1; i++) {
+      const p0 = pts[i - 1] || pts[i];
+      const p1 = pts[i];
+      const p2 = pts[i + 1];
+      const p3 = pts[i + 2] || p2;
+      const c1x = p1.x + (p2.x - p0.x) / 6;
+      const c1y = p1.y + (p2.y - p0.y) / 6;
+      const c2x = p2.x - (p3.x - p1.x) / 6;
+      const c2y = p2.y - (p3.y - p1.y) / 6;
+      d += " C " + c1x.toFixed(1) + " " + c1y.toFixed(1) + " " + c2x.toFixed(1) + " "
+         + c2y.toFixed(1) + " " + p2.x.toFixed(1) + " " + p2.y.toFixed(1);
+    }
+    return d;
+  }
+  function interpTemp(arr, f) {
+    const i = Math.floor(f);
+    if (i >= arr.length - 1) return arr[arr.length - 1];
+    if (i < 0) return arr[0];
+    return arr[i] + (arr[i + 1] - arr[i]) * (f - i);
+  }
+  function setWeatherReadout(hour, temp, code) {
+    const el = document.getElementById("wxReadout");
+    if (!el) return;
+    el.innerHTML = '<span class="wx-readout__ico">' + weatherIcon(code) + '</span>'
+      + '<span class="wx-readout__h">' + String(hour).padStart(2, "0") + ":00</span>"
+      + '<span class="wx-readout__t">' + temp + "°</span>";
+  }
+
+  function renderWeatherChart() {
+    const sun = state.sun;
+    document.getElementById("weatherPlace").textContent = (sun && sun.place) ? sun.place : "";
+    const container = document.getElementById("weatherChart");
+    if (!sun || !sun.hourly || !sun.hourly.temp || !sun.hourly.temp.length) { container.innerHTML = ""; return; }
+
+    const temps = sun.hourly.temp;
+    const codes = sun.hourly.code;
+    const n = temps.length;
+
+    const W = 360, H = 240, padL = 18, padR = 18, padT = 52, padB = 26;
+    const plotW = W - padL - padR;
+    const yTop = padT, yBot = H - padB, plotH = yBot - yTop;
+
+    let lo = Math.min.apply(null, temps);
+    let hi = Math.max.apply(null, temps);
+    if (hi - lo < 4) { const mid = (hi + lo) / 2; lo = mid - 2; hi = mid + 2; }
+    lo = Math.floor(lo - 1);
+    hi = Math.ceil(hi + 1);
+
+    const xAt = function (i) { return padL + (i / (n - 1)) * plotW; };
+    const yAt = function (t) { return yBot - (t - lo) / (hi - lo) * plotH; };
+
+    const pts = [];
+    for (let i = 0; i < n; i++) pts.push({ x: xAt(i), y: yAt(temps[i]) });
+    const line = smoothPath(pts);
+    const area = line + " L " + xAt(n - 1).toFixed(1) + " " + yBot + " L " + xAt(0).toFixed(1) + " " + yBot + " Z";
+
+    let iMax = 0, iMin = 0;
+    for (let i = 1; i < n; i++) {
+      if (temps[i] > temps[iMax]) iMax = i;
+      if (temps[i] < temps[iMin]) iMin = i;
+    }
+
+    const now = new Date();
+    const nowF = Math.max(0, Math.min(n - 1, now.getHours() + now.getMinutes() / 60));
+    const nowX = xAt(nowF);
+    const nowY = yAt(interpTemp(temps, nowF));
+
+    let svg = '<svg viewBox="0 0 ' + W + ' ' + H + '" class="wx">';
+    svg += '<defs><linearGradient id="wxFill" x1="0" y1="0" x2="0" y2="1">'
+         + '<stop offset="0" class="wx-fill-top"/><stop offset="1" class="wx-fill-bot"/></linearGradient></defs>';
+    svg += '<path class="wx-area" d="' + area + '" fill="url(#wxFill)"/>';
+    svg += '<path class="wx-line" d="' + line + '"/>';
+    for (let i = 0; i < n; i += 3) {   // condition glyph every 3h, hour label every 6h
+      const gx = xAt(i);
+      svg += '<svg x="' + (gx - 10).toFixed(1) + '" y="6" width="20" height="20" viewBox="0 0 24 24" '
+           + 'fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" '
+           + 'stroke-linejoin="round" class="wx-glyph">' + weatherGlyph(codes[i]) + '</svg>';
+      if (i % 6 === 0) svg += '<text class="wx-hour" x="' + gx.toFixed(1) + '" y="' + (H - 8) + '">' + i + 'h</text>';
+    }
+    svg += '<line class="wx-now" x1="' + nowX.toFixed(1) + '" y1="' + yTop + '" x2="' + nowX.toFixed(1) + '" y2="' + yBot + '"/>';
+    svg += '<circle class="wx-now-dot" cx="' + nowX.toFixed(1) + '" cy="' + nowY.toFixed(1) + '" r="3.2"/>';
+    svg += '<text class="wx-ext" x="' + xAt(iMax).toFixed(1) + '" y="' + (yAt(temps[iMax]) - 8).toFixed(1) + '">' + Math.round(temps[iMax]) + '°</text>';
+    svg += '<text class="wx-ext" x="' + xAt(iMin).toFixed(1) + '" y="' + (yAt(temps[iMin]) + 15).toFixed(1) + '">' + Math.round(temps[iMin]) + '°</text>';
+    svg += '<line class="wx-cross" id="wxCross" y1="' + yTop + '" y2="' + yBot + '" style="display:none"/>';
+    svg += '<circle class="wx-cross-dot" id="wxCrossDot" r="3.5" style="display:none"/>';
+    svg += "</svg>";
+
+    container.innerHTML = '<div class="wx-readout" id="wxReadout"></div>' + svg;
+    const nowIdx = Math.min(n - 1, Math.round(nowF));
+    setWeatherReadout(now.getHours(), Math.round(interpTemp(temps, nowF)), codes[nowIdx]);
+
+    const svgEl = container.querySelector("svg.wx");
+    const cross = container.querySelector("#wxCross");
+    const crossDot = container.querySelector("#wxCrossDot");
+    svgEl.addEventListener("pointermove", function (event) {
+      const rect = svgEl.getBoundingClientRect();
+      const vx = ((event.clientX - rect.left) / rect.width) * W;
+      let i = Math.round(((vx - padL) / plotW) * (n - 1));
+      i = Math.max(0, Math.min(n - 1, i));
+      const cx = xAt(i);
+      cross.setAttribute("x1", cx); cross.setAttribute("x2", cx); cross.style.display = "";
+      crossDot.setAttribute("cx", cx); crossDot.setAttribute("cy", yAt(temps[i])); crossDot.style.display = "";
+      setWeatherReadout(i, Math.round(temps[i]), codes[i]);
+    });
+    svgEl.addEventListener("pointerleave", function () {
+      cross.style.display = "none";
+      crossDot.style.display = "none";
+      setWeatherReadout(now.getHours(), Math.round(interpTemp(temps, nowF)), codes[nowIdx]);
+    });
+  }
+
+  function openWeather() {
+    if (!(state.sun && state.sun.hourly && state.sun.hourly.temp)) return;
+    renderWeatherChart();
+    weatherModal.hidden = false;
+  }
+  document.getElementById("dtlWeather").addEventListener("click", openWeather);
+  const weatherCloseButtons = weatherModal.querySelectorAll("[data-close]");
+  for (let i = 0; i < weatherCloseButtons.length; i++) {
+    weatherCloseButtons[i].addEventListener("click", function () { weatherModal.hidden = true; });
   }
 
   /* LOCATION — city search (Open-Meteo geocoding) as a fallback when geolocation
@@ -2963,6 +3554,27 @@
     else if (!notesView.hidden) closeNotes();
   });
 
+  /* Trap the Back button (mobile) so it closes the top overlay instead of leaving
+     the app. Closes the most-modal one first. */
+  function closeTopOverlay() {
+    if (!sleepView.hidden) { sleepView.hidden = true; return true; }
+    if (!weatherModal.hidden) { weatherModal.hidden = true; return true; }
+    if (!iconPicker.hidden) { iconPicker.hidden = true; return true; }
+    if (!calendarModal.hidden) { calendarModal.hidden = true; return true; }
+    if (!settingsModal.hidden) { settingsModal.hidden = true; return true; }
+    if (!noteEditor.hidden) { closeNoteEditor(); return true; }
+    if (!notesView.hidden) { closeNotes(); return true; }
+    if (!focusOverlay.hidden) { closeFocus(); return true; }
+    if (!detail.hidden) { closeDetail(); return true; }   // milestone steps back to its project
+    if (!dayView.hidden) { closeDayView(); return true; }
+    if (!habitsView.hidden) { closeHabitsView(); return true; }
+    return false;
+  }
+  window.addEventListener("popstate", function () {
+    if (closeTopOverlay()) history.pushState(null, "");   // re-arm for the next Back
+  });
+  history.pushState(null, "");   // arm the trap
+
   applyTheme(state.settings.theme);
   applyPalette(state.settings.palette);
   applyLanguage(state.settings.language);
@@ -2973,7 +3585,8 @@
   renderDailyTimeline();
   buildIconPicker();
   checkReminders();
-  setInterval(checkReminders, 30000);
+  checkSleepReminder();
+  setInterval(function () { checkReminders(); checkSleepReminder(); }, 30000);
   renderGreeting();
   initSky();
   buildRosace();

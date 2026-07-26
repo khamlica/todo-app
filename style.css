@@ -236,12 +236,17 @@
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
+/* no horizontal scroll: keep the app centered on the viewport (mobile especially) */
+html { overflow-x: hidden; }
+
 body {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
   color: var(--text);
   background: var(--bg);
   -webkit-font-smoothing: antialiased;
   min-height: 100vh;
+  overflow-x: hidden;
+  max-width: 100%;
   transition: background .3s ease, color .3s ease;
 }
 
@@ -412,7 +417,7 @@ body {
 /* SETTINGS BUTTON */
 .settings-btn {
   position: fixed;
-  top: 16px; right: 16px;
+  top: calc(16px + env(safe-area-inset-top)); right: calc(16px + env(safe-area-inset-right));
   width: 42px; height: 42px;
   border: none;
   border-radius: 50%;
@@ -486,8 +491,8 @@ body {
   /* translate centers it on screen even when larger than the viewport
      (margin:auto would pin an oversized box to the left) */
   transform: translate(-50%, -50%);
-  width: 175vw;
-  height: 175vw;
+  width: 190vmax;
+  height: 190vmax;
   color: var(--accent);
   transform-origin: center;
   transition: transform .55s cubic-bezier(.2, .85, .25, 1);
@@ -540,7 +545,8 @@ body {
   z-index: 1;
   max-width: 620px;
   margin: 0 auto;
-  padding: 64px 20px 60px;   /* top gap clears the fixed notes/settings buttons */
+  /* top gap clears the fixed buttons; env() adds the notch/home-indicator safe areas */
+  padding: calc(64px + env(safe-area-inset-top)) 20px calc(60px + env(safe-area-inset-bottom));
   animation: fadeUp .6s ease both;
 }
 .app[hidden] { display: none; }
@@ -1033,6 +1039,171 @@ body {
 .icon-choice:hover { border-color: var(--accent); transform: translateY(-2px); }
 .icon-choice svg { display: block; width: 52%; height: 52%; }
 
+/* preconfigured-habit preset button (in the picker) */
+.icon-preset {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  padding: 12px 14px;
+  border: 1px solid var(--border);
+  background: var(--input-bg);
+  border-radius: 12px;
+  color: var(--text);
+  font-size: .95rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: border-color .2s ease, background .2s ease;
+}
+.icon-preset:hover { border-color: var(--accent); }
+.icon-preset__ico { display: flex; color: var(--accent); }
+.icon-preset__ico svg { width: 22px; height: 22px; }
+
+/* sleep tile: hours logged, shown under the moon */
+.habit__hours {
+  position: absolute;
+  bottom: 5px; left: 0; right: 0;
+  z-index: 3;
+  text-align: center;
+  font-size: .72rem;
+  font-weight: 700;
+  color: var(--text);
+  pointer-events: none;
+}
+
+/* SLEEP VIEW */
+.modal__card.sleep { max-width: 460px; }
+.sleep__today { text-align: center; margin-bottom: 24px; }
+.sleep__today .field__label { display: block; margin-bottom: 8px; }
+.sleep__value { font-size: 2.4rem; font-weight: 700; color: var(--text); line-height: 1; }
+.sleep__status { font-size: .85rem; font-weight: 600; margin: 6px 0 18px; min-height: 1.1em; }
+.sleep__status.is-good { color: var(--accent); }
+.sleep__status.is-short, .sleep__status.is-long { color: var(--danger); }
+/* custom track: base bar + good-zone overlay + half-hour ticks + value bubble */
+.sleep__track { position: relative; height: 40px; margin-top: 4px; }
+.sleep__bar {
+  position: absolute; top: 50%; left: 11px; right: 11px;
+  height: 8px; margin-top: -4px;
+  border-radius: 999px;
+  background: var(--border);
+}
+.sleep__zone {
+  position: absolute; top: 50%;
+  height: 8px; margin-top: -4px;
+  border-radius: 999px;
+  background: var(--accent);
+}
+.sleep__zone[hidden] { display: none; }
+.sleep__ticks { position: absolute; top: 50%; left: 0; right: 0; height: 0; pointer-events: none; }
+.sleep__tick {
+  position: absolute; top: 8px;
+  width: 1.5px; height: 4px;
+  transform: translateX(-50%);
+  background: var(--muted);
+  opacity: .35;
+}
+.sleep__tick.is-hour { height: 7px; opacity: .6; }
+.sleep__slider {
+  position: absolute; left: 0; top: 50%;
+  transform: translateY(-50%);
+  width: 100%; height: 22px; margin: 0;
+  -webkit-appearance: none;
+  appearance: none;
+  background: transparent;
+  outline: none;
+  cursor: pointer;
+  z-index: 2;
+}
+.sleep__slider::-webkit-slider-runnable-track { height: 22px; background: transparent; }
+.sleep__slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  margin-top: 0;   /* thumb fills the 22px track, centered on the bar */
+  width: 22px; height: 22px;
+  border-radius: 50%;
+  background: var(--surface);
+  border: 3px solid var(--accent);
+  box-shadow: 0 1px 4px rgba(0, 0, 0, .25);
+  cursor: pointer;
+}
+.sleep__slider::-moz-range-track { height: 22px; background: transparent; }
+.sleep__slider::-moz-range-thumb {
+  width: 20px; height: 20px;
+  border-radius: 50%;
+  background: var(--surface);
+  border: 3px solid var(--accent);
+  cursor: pointer;
+}
+.sleep__bubble {
+  position: absolute; bottom: calc(50% + 15px);
+  transform: translateX(-50%);
+  background: var(--text);
+  color: var(--bg);
+  font-size: .74rem;
+  font-weight: 700;
+  padding: 2px 7px;
+  border-radius: 8px;
+  white-space: nowrap;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity .15s ease;
+}
+.sleep__slider:active ~ .sleep__bubble,
+.sleep__slider:focus ~ .sleep__bubble { opacity: 1; }
+.sleep__scale { display: flex; justify-content: space-between; font-size: .72rem; color: var(--muted); margin-top: 4px; padding: 0 11px; }
+.sleep__config .field__label { display: block; margin-bottom: 12px; }
+.sleep__grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.sleep__field { display: flex; flex-direction: column; gap: 6px; font-size: .82rem; color: var(--muted); }
+.sleep__field input {
+  border: 1px solid var(--border);
+  background: var(--input-bg);
+  border-radius: 10px;
+  padding: 10px 12px;
+  color: var(--text);
+  font-size: .95rem;
+  outline: none;
+  transition: border-color .2s ease;
+}
+.sleep__field input:focus { border-color: var(--accent); }
+.sleep__reco {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 16px;
+  padding: 10px 12px;
+  border-radius: 10px;
+  background: var(--accent-soft);
+}
+.sleep__reco[hidden] { display: none; }
+.sleep__reco-txt { flex: 1; font-size: .85rem; color: var(--text); }
+.sleep__reco-apply { border: none; background: none; color: var(--accent); font-weight: 700; font-size: .85rem; cursor: pointer; padding: 2px 4px; }
+.sleep__bedtime { margin-top: 12px; font-size: .9rem; font-weight: 600; color: var(--text); }
+.sleep__bedtime[hidden] { display: none; }
+
+/* weekly overview: 7-day average, sleep debt, and a bar chart */
+.sleep__week { margin-top: 24px; }
+.sleep__weekstats { display: flex; gap: 12px; margin-bottom: 12px; }
+.sleep__stat {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 10px 12px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: var(--input-bg);
+}
+.sleep__stat-v { font-size: 1.3rem; font-weight: 700; color: var(--text); font-variant-numeric: tabular-nums; }
+.sleep__stat-l { font-size: .75rem; color: var(--muted); }
+.swk { width: 100%; height: auto; aspect-ratio: 280 / 122; display: block; }
+.swk-zone { fill: var(--accent); opacity: .12; }
+.swk-bar { fill: var(--accent); }
+.swk-bar.is-out { fill: var(--muted); opacity: .55; }
+.swk-wd { fill: var(--muted); font-size: 10px; text-anchor: middle; }
+.sleep__field--wide { grid-column: 1 / -1; }
+.hcard__sleep { margin: 4px 0 6px; }
+.hcard__sleep .sleep__weekstats { margin-bottom: 10px; }
+
 /* AGENDA */
 .add__date {
   flex: 0 0 auto;
@@ -1249,6 +1420,9 @@ body {
 .field[hidden], .edit-pin[hidden] { display: none; }
 .edit-prop {
   width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 10px;
   text-align: left;
   border: 1px solid var(--border);
   background: var(--input-bg);
@@ -1257,13 +1431,12 @@ body {
   color: var(--text);
   font-size: .95rem;
   cursor: pointer;
-  transition: border-color .2s ease;
+  transition: border-color .2s ease, background .2s ease;
 }
 .edit-prop:hover { border-color: var(--accent); }
-.edit-prop--static { cursor: default; text-transform: capitalize; }
-.edit-prop--static:hover { border-color: var(--border); }
-.event-reschedule { text-align: center; font-weight: 600; color: var(--accent); margin-bottom: 20px; }
-.event-reschedule:hover { border-color: var(--accent); }
+.edit-prop__ico { flex: 0 0 auto; display: flex; color: var(--muted); }
+.edit-prop__ico svg { width: 18px; height: 18px; }
+.edit-prop__text { flex: 1; }
 .edit-pin {
   display: flex;
   align-items: center;
@@ -1386,6 +1559,24 @@ body {
 .detail__icon[hidden] { display: none; }
 .detail__icon:hover { border-color: var(--accent); }
 .detail__icon svg { width: 26px; height: 26px; }
+
+/* discreet due-date button, right of a task's title (accent when a date is set) */
+.detail__date {
+  flex: 0 0 auto;
+  width: 40px; height: 40px;
+  border: none;
+  background: none;
+  color: var(--muted);
+  cursor: pointer;
+  border-radius: 10px;
+  display: grid; place-items: center;
+  opacity: .7;
+  transition: color .2s ease, background .2s ease, opacity .2s ease;
+}
+.detail__date[hidden] { display: none; }
+.detail__date:hover { background: var(--input-bg); color: var(--accent); opacity: 1; }
+.detail__date.is-set { color: var(--accent); opacity: 1; }
+.detail__date svg { width: 22px; height: 22px; }
 .detail__name {
   flex: 1;
   min-width: 0;
@@ -1429,16 +1620,22 @@ body {
 .detail__delete {
   margin-top: 30px;
   width: 100%;
-  border: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  border: 1px solid color-mix(in srgb, var(--danger) 40%, var(--border));
   background: none;
   color: var(--danger);
   border-radius: 12px;
   padding: 12px;
   font-size: .95rem;
+  font-weight: 600;
   cursor: pointer;
-  transition: background .2s ease;
+  transition: background .2s ease, border-color .2s ease;
 }
-.detail__delete:hover { background: var(--accent-soft); }
+.detail__delete:hover { background: color-mix(in srgb, var(--danger) 12%, transparent); border-color: var(--danger); }
+.detail__delete svg { width: 17px; height: 17px; }
 
 /* row indicators */
 .item--open { cursor: pointer; }
@@ -1580,6 +1777,35 @@ body {
 .dtl__wico { display: inline-flex; }
 .dtl__place { color: var(--muted); font-weight: 600; }
 .dtl__temp { color: var(--text); }
+.dtl__weather.is-clickable { cursor: pointer; border-radius: 8px; padding: 2px 4px; margin: -2px -4px -2px auto; transition: background .2s ease; }
+.dtl__weather.is-clickable:hover { background: var(--accent-soft); }
+
+/* WEATHER GRAPH (modal) */
+.weather__place { color: var(--muted); font-weight: 500; font-size: .9rem; }
+.weather-chart { margin-top: 4px; }
+.wx-readout {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-bottom: 8px;
+  color: var(--muted);
+}
+.wx-readout__ico { display: inline-flex; color: var(--accent); }
+.wx-readout__ico svg { width: 22px; height: 22px; }
+.wx-readout__h { font-weight: 600; }
+.wx-readout__t { color: var(--text); font-weight: 700; font-size: 1.2rem; margin-left: auto; }
+.wx { width: 100%; height: auto; aspect-ratio: 3 / 2; display: block; touch-action: none; }
+.wx-area { stroke: none; }
+.wx-fill-top { stop-color: var(--accent); stop-opacity: .32; }
+.wx-fill-bot { stop-color: var(--accent); stop-opacity: 0; }
+.wx-line { fill: none; stroke: var(--accent); stroke-width: 2; vector-effect: non-scaling-stroke; }
+.wx-glyph { color: var(--muted); }
+.wx-hour { fill: var(--muted); font-size: 11px; text-anchor: middle; }
+.wx-ext { fill: var(--text); font-size: 12px; font-weight: 700; text-anchor: middle; }
+.wx-now { stroke: var(--accent); stroke-width: 1.5; stroke-dasharray: 3 3; opacity: .55; vector-effect: non-scaling-stroke; }
+.wx-now-dot { fill: var(--accent); }
+.wx-cross { stroke: var(--muted); stroke-width: 1; vector-effect: non-scaling-stroke; }
+.wx-cross-dot { fill: var(--accent); stroke: var(--surface); stroke-width: 2; }
 
 .dtl { position: relative; height: 56px; }
 .dtl__strip {
@@ -1700,6 +1926,8 @@ body {
 
 /* the day's events as rectangular rows under the gauge */
 .dtl__events { display: flex; flex-direction: column; gap: 8px; margin-top: 16px; }
+/* "your tasks" sub-section, folded into the Today panel after the events */
+.day-panel__subhead { font-size: 1.05rem; font-weight: 700; color: var(--text); margin: 26px 0 12px; }
 .dtl-ev {
   display: flex;
   align-items: center;
@@ -1877,7 +2105,7 @@ body {
 .ecal__prev-more { display: block; font-size: .72rem; color: var(--muted); padding-top: 3px; }
 
 /* the day view stacks just under the event detail that opens above it */
-.day-view { z-index: 28; }
+.day-view { z-index: 28; touch-action: pan-y; }   /* keep vertical scroll, free horizontal for swipe */
 .day-view .sub-add { margin-top: 4px; margin-bottom: 14px; }
 .day-view #dayList { display: flex; flex-direction: column; gap: 10px; }
 
@@ -1946,6 +2174,42 @@ body {
   margin-bottom: 20px;
 }
 .detail__empty { color: var(--muted); font-size: .92rem; }
+
+/* day view: title framed by prev/next day arrows */
+.dayview__nav { display: flex; align-items: center; gap: 12px; margin-bottom: 20px; }
+.dayview__nav .detail__viewtitle { flex: 1; margin-bottom: 0; text-align: center; font-size: 1.3rem; }
+.dayview__arrow {
+  flex: 0 0 auto;
+  width: 38px; height: 38px;
+  border: 1px solid var(--border);
+  background: var(--input-bg);
+  color: var(--text);
+  border-radius: 10px;
+  font-size: 1.3rem;
+  line-height: 1;
+  cursor: pointer;
+  display: grid; place-items: center;
+  transition: border-color .2s ease, color .2s ease;
+}
+.dayview__arrow:hover { border-color: var(--accent); color: var(--accent); }
+
+/* event detail: date framed by prev/next day arrows */
+.date-nav { display: flex; align-items: stretch; gap: 8px; }
+.date-nav .edit-prop { flex: 1; }
+.date-nav__arrow {
+  flex: 0 0 auto;
+  width: 44px;
+  border: 1px solid var(--border);
+  background: var(--input-bg);
+  color: var(--muted);
+  border-radius: 12px;
+  font-size: 1.3rem;
+  line-height: 1;
+  cursor: pointer;
+  display: grid; place-items: center;
+  transition: border-color .2s ease, color .2s ease;
+}
+.date-nav__arrow:hover { border-color: var(--accent); color: var(--accent); }
 
 .hcard {
   border: 1px solid var(--border);
@@ -2022,7 +2286,7 @@ body {
 /* NOTES TOOL */
 .notes-btn {
   position: fixed;
-  top: 16px; right: 64px;
+  top: calc(16px + env(safe-area-inset-top)); right: calc(64px + env(safe-area-inset-right));
   width: 42px; height: 42px;
   border: none;
   border-radius: 50%;
