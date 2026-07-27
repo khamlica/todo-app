@@ -52,11 +52,15 @@
           theme: (saved.settings && saved.settings.theme) || "auto",
           language: (saved.settings && saved.settings.language) || "fr",
           palette: (saved.settings && saved.settings.palette) || "aurora",
-          decorations: (saved.settings && saved.settings.decorations) || []
+          decorations: (saved.settings && saved.settings.decorations) || [],
+          timeScrub: !!(saved.settings && saved.settings.timeScrub),
+          themeEdits: (saved.settings && saved.settings.themeEdits) || {},
+          paletteEdits: (saved.settings && saved.settings.paletteEdits) || {},
+          themePalettes: (saved.settings && saved.settings.themePalettes) || {}
         }
       };
     } catch (err) {
-      return { tasks: [], projects: [], habits: [], notes: [], events: [], sun: null, settings: { name: "", theme: "auto", language: "fr", palette: "aurora", decorations: [] } };
+      return { tasks: [], projects: [], habits: [], notes: [], events: [], sun: null, settings: { name: "", theme: "auto", language: "fr", palette: "aurora", decorations: [], timeScrub: false, themeEdits: {}, paletteEdits: {}, themePalettes: {} } };
     }
   }
 
@@ -93,6 +97,27 @@
       closeAria: "Fermer",
       nameLabel: "Votre prénom",
       namePlaceholder: "Ex. Aymane",
+      paintAria: "Couleurs",
+      paintTitle: "Couleurs",
+      paintThemeLabel: "Thème à modifier",
+      paintReset: "Réinitialiser ce thème",
+      paintResetOne: "Réinitialiser",
+      paintBase: "Base",
+      paintInk: "Encre",
+      paintSignal: "Signal",
+      paintSky: "Ciel",
+      slotBg: "Fond",
+      slotSurface: "Surface",
+      slotLine: "Trait",
+      slotText: "Texte",
+      slotMuted: "Discret",
+      slotAccent: "Accent",
+      slotDanger: "Alerte",
+      slotSig: "Signature",
+      slotSky1: "Horizon",
+      slotSky2: "Milieu",
+      slotSky3: "Zénith",
+      slotStep: "Palier",
       themeLabel: "Thème",
       themeLight: "Clair",
       themeDark: "Sombre",
@@ -167,7 +192,9 @@
       calClear: "Effacer",
       calConfirm: "Valider",
       wellTitle: "Bien-être",
-      wellTabAria: "Espace bien-être",
+      switchSpaceAria: "Changer d'espace",
+      scrubLabel: "Faire défiler le temps",
+      scrubHint: "Tirez la barre du temps pour voyager dans la journée",
       expandCalAria: "Déplier le calendrier",
       prevMonthAria: "Mois précédent",
       nextMonthAria: "Mois suivant",
@@ -181,6 +208,7 @@
       paletteAurora: "Aurore",
       paletteMeadow: "Prairie",
       paletteSunset: "Coucher",
+      paletteCustom: "Du thème",
       editAria: "Modifier",
       editTitle: "Modifier",
       editNameLabel: "Nom",
@@ -251,6 +279,27 @@
       closeAria: "Close",
       nameLabel: "Your first name",
       namePlaceholder: "e.g. Aymane",
+      paintAria: "Colours",
+      paintTitle: "Colours",
+      paintThemeLabel: "Theme to edit",
+      paintReset: "Reset this theme",
+      paintResetOne: "Reset",
+      paintBase: "Base",
+      paintInk: "Ink",
+      paintSignal: "Signal",
+      paintSky: "Sky",
+      slotBg: "Background",
+      slotSurface: "Surface",
+      slotLine: "Line",
+      slotText: "Text",
+      slotMuted: "Quiet",
+      slotAccent: "Accent",
+      slotDanger: "Alert",
+      slotSig: "Signature",
+      slotSky1: "Horizon",
+      slotSky2: "Middle",
+      slotSky3: "Zenith",
+      slotStep: "Step",
       themeLabel: "Theme",
       themeLight: "Light",
       themeDark: "Dark",
@@ -325,7 +374,9 @@
       calClear: "Clear",
       calConfirm: "Confirm",
       wellTitle: "Well-being",
-      wellTabAria: "Well-being space",
+      switchSpaceAria: "Switch space",
+      scrubLabel: "Scrub the timeline",
+      scrubHint: "Drag the time bar to travel through the day",
       expandCalAria: "Unfold the calendar",
       prevMonthAria: "Previous month",
       nextMonthAria: "Next month",
@@ -339,6 +390,7 @@
       paletteAurora: "Aurora",
       paletteMeadow: "Meadow",
       paletteSunset: "Sunset",
+      paletteCustom: "Theme\u2019s own",
       editAria: "Edit",
       editTitle: "Edit",
       editNameLabel: "Name",
@@ -435,7 +487,7 @@
   /* adaptive theme: dawn / day / dusk / night by the hour, but the grey rain
      theme takes over when it rains (except at night, already dark enough) */
   function timeTheme() {
-    const h = new Date().getHours();
+    const h = new Date(refTime()).getHours();
     let base;
     if (h >= 5 && h < 8) base = "dawn";
     else if (h >= 8 && h < 18) base = "day";
@@ -449,6 +501,8 @@
   function applyTheme(themeName) {
     const effective = themeName === "auto" ? timeTheme() : themeName;
     document.documentElement.setAttribute("data-theme", effective);
+    applyThemeEdits(effective);
+    applyPaletteVars();   // a custom palette belongs to the theme, so it follows
 
     const themeColorMeta = document.querySelector('meta[name="theme-color"]');
     if (themeColorMeta) {
@@ -464,6 +518,7 @@
   /* Apply a color palette (aurora / meadow / sunset) via a root attribute. */
   function applyPalette(paletteName) {
     document.documentElement.setAttribute("data-palette", paletteName);
+    applyPaletteVars();
     const paletteButtons = document.querySelectorAll(".palette");
     for (let i = 0; i < paletteButtons.length; i++) {
       paletteButtons[i].classList.toggle("is-active", paletteButtons[i].dataset.palette === paletteName);
@@ -593,15 +648,6 @@
     });
   }
 
-  const paletteButtons = document.querySelectorAll(".palette");
-  for (let i = 0; i < paletteButtons.length; i++) {
-    paletteButtons[i].addEventListener("click", function () {
-      state.settings.palette = paletteButtons[i].dataset.palette;
-      applyPalette(state.settings.palette);
-      saveState();
-    });
-  }
-
   const languageButtons = document.querySelectorAll(".lang");
   for (let i = 0; i < languageButtons.length; i++) {
     languageButtons[i].addEventListener("click", function () {
@@ -616,6 +662,258 @@
       saveState();
     });
   }
+
+  /* COLOUR WORKSHOP — a theme is nine source colours plus an optional sky, and
+     everything else in the stylesheet is derived from them. Editing one writes
+     the same custom property inline on <html>, so the whole interface follows
+     without a single recalculation here. */
+  const PAINT_THEMES = ["light", "dark", "rose", "dawn", "day", "dusk", "night", "rain"];
+  const PAINT_GROUPS = [
+    { label: "paintBase", slots: [["--c-bg", "slotBg"], ["--c-surface", "slotSurface"], ["--c-line", "slotLine"]] },
+    { label: "paintInk", slots: [["--c-text", "slotText"], ["--c-muted", "slotMuted"]] },
+    { label: "paintSignal", slots: [["--c-accent", "slotAccent"], ["--c-danger", "slotDanger"], ["--c-sig", "slotSig"]] },
+    { label: "paintSky", slots: [["--c-sky-1", "slotSky1"], ["--c-sky-2", "slotSky2"], ["--c-sky-3", "slotSky3"]] }
+  ];
+  const IMP_SLOTS = ["--c-imp-1", "--c-imp-2", "--c-imp-3", "--c-imp-4", "--c-imp-5"];
+  const ALL_SLOTS = PAINT_GROUPS.reduce(function (list, group) {
+    for (let i = 0; i < group.slots.length; i++) list.push(group.slots[i][0]);
+    return list;
+  }, []);
+
+  const paintModal = document.getElementById("paint");
+  let paintTheme = "night";   // the theme being edited, not necessarily the one in use
+
+  /* the value a slot has once every edit is taken into account */
+  function slotValue(themeName, slot) {
+    const edits = state.settings.themeEdits[themeName];
+    if (edits && edits[slot]) return edits[slot];
+    return readThemeSlot(themeName, slot);
+  }
+
+  /* Read a slot straight out of the stylesheet through a hidden probe. The probe
+     sits inside a host that resets every slot to `initial`, otherwise it would
+     inherit them from <html> and a theme with no sky would report the sky of
+     whatever theme happens to be on screen. */
+  const slotProbes = {};
+  let probeHost = null;
+  function probeFor(attribute, value) {
+    const key = attribute + "=" + value;
+    if (slotProbes[key]) return slotProbes[key];
+    if (!probeHost) {
+      probeHost = document.createElement("div");
+      probeHost.style.cssText = "position:absolute;visibility:hidden;pointer-events:none;"
+        + ALL_SLOTS.concat(IMP_SLOTS).map(function (slot) { return slot + ":initial"; }).join(";");
+      document.body.appendChild(probeHost);
+    }
+    const probe = document.createElement("div");
+    probe.setAttribute(attribute, value);
+    probeHost.appendChild(probe);
+    slotProbes[key] = probe;
+    return probe;
+  }
+  function readThemeSlot(themeName, slot) {
+    return getComputedStyle(probeFor("data-theme", themeName)).getPropertyValue(slot).trim();
+  }
+  function readPaletteSlot(paletteName, slot) {
+    return getComputedStyle(probeFor("data-palette", paletteName)).getPropertyValue(slot).trim();
+  }
+
+  /* push the edits for whichever theme is on screen; inline props beat the
+     stylesheet, so only the active theme's edits may be applied at a time */
+  function applyThemeEdits(themeName) {
+    const root = document.documentElement.style;
+    for (let i = 0; i < ALL_SLOTS.length; i++) root.removeProperty(ALL_SLOTS[i]);
+    const edits = state.settings.themeEdits[themeName];
+    if (!edits) return;
+    for (const slot in edits) root.setProperty(slot, edits[slot]);
+  }
+
+  /* Where the five stops in force are stored. The three presets are shared, so
+     their touch-ups live under the palette name. "custom" belongs to the theme
+     on screen instead — one bespoke palette per theme. */
+  function impStore() {
+    if (state.settings.palette !== "custom") {
+      return state.settings.paletteEdits[state.settings.palette] || null;
+    }
+    return state.settings.themePalettes[currentThemeName()] || null;
+  }
+
+  function applyPaletteVars() {
+    const root = document.documentElement.style;
+    for (let i = 0; i < IMP_SLOTS.length; i++) root.removeProperty(IMP_SLOTS[i]);
+    const values = impStore();
+    if (!values) return;
+    for (const slot in values) root.setProperty(slot, values[slot]);
+  }
+
+  /* hex is all <input type="color"> understands; computed values may be rgb() */
+  function toHex(value) {
+    if (!value) return "#000000";
+    if (value.charAt(0) === "#") {
+      return value.length === 4
+        ? "#" + value[1] + value[1] + value[2] + value[2] + value[3] + value[3]
+        : value.slice(0, 7);
+    }
+    const nums = value.match(/[\d.]+/g);
+    if (!nums) return "#000000";
+    let out = "#";
+    for (let i = 0; i < 3; i++) out += Math.round(parseFloat(nums[i])).toString(16).padStart(2, "0");
+    return out;
+  }
+
+  function createSwatch(labelKey, value, onPick) {
+    const wrap = document.createElement("label");
+    wrap.className = "swatch";
+    const input = document.createElement("input");
+    input.type = "color";
+    input.value = toHex(value);
+    input.addEventListener("input", function () { onPick(input.value); });
+    const text = document.createElement("span");
+    text.textContent = translate(labelKey);
+    wrap.append(input, text);
+    return wrap;
+  }
+
+  function renderPaint() {
+    const themeList = document.getElementById("paintThemes");
+    themeList.innerHTML = "";
+    for (let i = 0; i < PAINT_THEMES.length; i++) {
+      const name = PAINT_THEMES[i];
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = name === paintTheme ? "theme is-active" : "theme";
+      button.textContent = translate("theme" + name.charAt(0).toUpperCase() + name.slice(1));
+      button.addEventListener("click", function () {
+        paintTheme = name;
+        state.settings.theme = name;   // edit what you can see
+        applyTheme(name);
+        renderPaint();
+        saveState();
+      });
+      themeList.appendChild(button);
+    }
+
+    const box = document.getElementById("paintSlots");
+    box.innerHTML = "";
+    for (let g = 0; g < PAINT_GROUPS.length; g++) {
+      const group = PAINT_GROUPS[g];
+      const section = document.createElement("div");
+      section.className = "paint__group";
+      const label = document.createElement("span");
+      label.className = "paint__group-label";
+      label.textContent = translate(group.label);
+      const row = document.createElement("div");
+      row.className = "swatches";
+      for (let i = 0; i < group.slots.length; i++) {
+        const slot = group.slots[i][0];
+        row.appendChild(createSwatch(group.slots[i][1], slotValue(paintTheme, slot), function (hex) {
+          editSlot(paintTheme, slot, hex);
+        }));
+      }
+      section.append(label, row);
+      box.appendChild(section);
+    }
+
+    const palettes = document.getElementById("paintPalettes");
+    palettes.innerHTML = "";
+    const names = ["aurora", "meadow", "sunset", "custom"];
+    for (let i = 0; i < names.length; i++) {
+      const name = names[i];
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = name === state.settings.palette ? "palette is-active" : "palette";
+      button.dataset.palette = name;
+      button.innerHTML = '<span class="palette__sw"></span><span>'
+        + translate("palette" + name.charAt(0).toUpperCase() + name.slice(1)) + "</span>";
+      // the swatch bar previews the stops the button stands for
+      if (name === "custom") {
+        const own = state.settings.themePalettes[currentThemeName()];
+        for (let k = 0; k < IMP_SLOTS.length; k++) {
+          if (own && own[IMP_SLOTS[k]]) button.style.setProperty(IMP_SLOTS[k], own[IMP_SLOTS[k]]);
+        }
+      }
+      button.addEventListener("click", function () {
+        // picking the bespoke palette for the first time copies what is on
+        // screen, so there is something to work from rather than a blank slate
+        if (name === "custom" && !state.settings.themePalettes[currentThemeName()]) {
+          const seed = {};
+          for (let k = 0; k < IMP_SLOTS.length; k++) seed[IMP_SLOTS[k]] = toHex(resolvedImp(IMP_SLOTS[k]));
+          state.settings.themePalettes[currentThemeName()] = seed;
+        }
+        state.settings.palette = name;
+        applyPalette(name);
+        renderPaint();
+        saveState();
+      });
+      palettes.appendChild(button);
+    }
+
+    const imp = document.getElementById("paintImp");
+    imp.innerHTML = "";
+    for (let i = 0; i < IMP_SLOTS.length; i++) {
+      const slot = IMP_SLOTS[i];
+      imp.appendChild(createSwatch("slotStep", resolvedImp(slot), function (hex) {
+        editImp(slot, hex);
+      }));
+    }
+  }
+
+  /* the stop as it stands: the stored value if there is one, else the preset */
+  function resolvedImp(slot) {
+    const stored = impStore();
+    if (stored && stored[slot]) return stored[slot];
+    const base = state.settings.palette === "custom" ? "aurora" : state.settings.palette;
+    return readPaletteSlot(base, slot);
+  }
+
+  function editImp(slot, hex) {
+    const settings = state.settings;
+    let store;
+    if (settings.palette === "custom") {
+      const theme = currentThemeName();
+      store = settings.themePalettes[theme] || (settings.themePalettes[theme] = {});
+    } else {
+      store = settings.paletteEdits[settings.palette] || (settings.paletteEdits[settings.palette] = {});
+    }
+    store[slot] = hex;
+    applyPaletteVars();
+    saveState();
+  }
+
+  function editSlot(themeName, slot, hex) {
+    if (!state.settings.themeEdits[themeName]) state.settings.themeEdits[themeName] = {};
+    state.settings.themeEdits[themeName][slot] = hex;
+    applyThemeEdits(currentThemeName());
+    saveState();
+  }
+
+  /* which theme is actually on screen right now */
+  function currentThemeName() {
+    return document.documentElement.getAttribute("data-theme") || "light";
+  }
+
+  document.getElementById("paintBtn").addEventListener("click", function () {
+    paintTheme = currentThemeName();
+    renderPaint();
+    paintModal.hidden = false;
+  });
+  const paintCloseButtons = paintModal.querySelectorAll("[data-close]");
+  for (let i = 0; i < paintCloseButtons.length; i++) {
+    paintCloseButtons[i].addEventListener("click", function () { paintModal.hidden = true; });
+  }
+  document.getElementById("paintReset").addEventListener("click", function () {
+    delete state.settings.themeEdits[paintTheme];
+    applyThemeEdits(currentThemeName());
+    renderPaint();
+    saveState();
+  });
+  document.getElementById("paintPaletteReset").addEventListener("click", function () {
+    if (state.settings.palette === "custom") delete state.settings.themePalettes[currentThemeName()];
+    else delete state.settings.paletteEdits[state.settings.palette];
+    applyPaletteVars();
+    renderPaint();
+    saveState();
+  });
 
   /* TOAST — brief bottom message, optionally with an action (used by Undo) */
   let toastTimer = null;
@@ -819,6 +1117,16 @@
       buttons[i].classList.toggle("is-active", active.indexOf(buttons[i].dataset.decor) !== -1);
     }
   }
+
+  /* the scrub option lives with the other personalisation switches */
+  const scrubToggle = createToggle(state.settings.timeScrub, function (on) {
+    state.settings.timeScrub = on;
+    document.getElementById("dtl").classList.toggle("is-scrubbable", on);
+    saveState();
+  });
+  scrubToggle.classList.add("toggle--accent");
+  scrubToggle.setAttribute("aria-label", translate("scrubLabel"));
+  document.getElementById("scrubToggleSlot").appendChild(scrubToggle);
 
   const decorButtons = document.querySelectorAll(".decor-opt");
   for (let i = 0; i < decorButtons.length; i++) {
@@ -2262,6 +2570,11 @@
     return null;
   }
 
+  /* "YYYY-MM-DD" for a Date */
+  function dateKeyOf(date) {
+    return dateKey(date.getFullYear(), date.getMonth(), date.getDate());
+  }
+
   /* "YYYY-MM-DD" from numeric parts */
   function dateKey(year, month, day) {
     return year + "-" + String(month + 1).padStart(2, "0") + "-" + String(day).padStart(2, "0");
@@ -3679,8 +3992,25 @@
     if (event.key === "Escape" && detail.hidden && !dayView.hidden) closeDayView();
   });
 
-  /* DAILY TIMELINE — a 24h rule (sunrise/sunset from Open-Meteo, cached once a
-     day) with the day's events as chips underneath. Falls back to a plain rule. */
+  /* DAILY TIMELINE — a 24h window that rides the clock instead of framing the
+     calendar day: the present is pinned a third of the way in, and the rule
+     slides underneath it. Everything on the rule is placed by its position in
+     that window, so the view crosses midnight without a seam. */
+  const DAY_MS = 86400000;
+  const SPAN_MS = DAY_MS;          // how much time the rule shows
+  const NOW_ANCHOR = 1 / 3;        // where "now" sits: a third in, so more future than past
+
+  /* the moment the rule is drawn around — the clock, unless the user is
+     dragging the timeline (an option), in which case it is shifted */
+  let scrubOffset = 0;
+  function refTime() { return Date.now() + scrubOffset; }
+  function windowStartMs() { return refTime() - SPAN_MS * NOW_ANCHOR; }
+
+  /* a moment's position across the rule, in percent (may fall outside 0-100) */
+  function timePct(ms, windowStart) {
+    return (ms - windowStart) / SPAN_MS * 100;
+  }
+
   function toMinutes(hhmm) {
     const parts = hhmm.split(":");
     return parseInt(parts[0], 10) * 60 + parseInt(parts[1], 10);
@@ -3691,16 +4021,30 @@
   }
 
   /* gradient that follows the real daylight window when we have it */
-  function stripGradient(sun) {
+  /* the daylight colours laid over the window; the window can straddle midnight,
+     so the stops are generated day by day. Sunrise and sunset move about a
+     minute a day, so reusing today's times for the neighbours is invisible. */
+  function stripGradient(sun, windowStart) {
     if (!sun) return "linear-gradient(90deg, var(--dtl-night), var(--dtl-day) 50%, var(--dtl-night))";
-    const sr = toMinutes(sun.sunrise) / 1440 * 100;
-    const ss = toMinutes(sun.sunset) / 1440 * 100;
-    const noon = (toMinutes(sun.sunrise) + toMinutes(sun.sunset)) / 2 / 1440 * 100;
-    return "linear-gradient(90deg,"
-      + " var(--dtl-night) 0%, var(--dtl-night) " + Math.max(0, sr - 7).toFixed(1) + "%,"
-      + " var(--dtl-dawn) " + sr.toFixed(1) + "%, var(--dtl-day) " + noon.toFixed(1) + "%,"
-      + " var(--dtl-dusk) " + ss.toFixed(1) + "%, var(--dtl-night) "
-      + Math.min(100, ss + 7).toFixed(1) + "%, var(--dtl-night) 100%)";
+    const srMin = toMinutes(sun.sunrise);
+    const ssMin = toMinutes(sun.sunset);
+    const midday = (srMin + ssMin) / 2;
+    const firstDay = new Date(windowStart);
+    firstDay.setHours(0, 0, 0, 0);
+
+    const parts = [];
+    for (let d = -1; d <= 1; d++) {
+      const base = firstDay.getTime() + d * DAY_MS;
+      const at = function (minutes) {
+        return ((base + minutes * 60000 - windowStart) / SPAN_MS * 100).toFixed(2) + "%";
+      };
+      parts.push("var(--dtl-night) " + at(srMin - 50));
+      parts.push("var(--dtl-dawn) " + at(srMin));
+      parts.push("var(--dtl-day) " + at(midday));
+      parts.push("var(--dtl-dusk) " + at(ssMin));
+      parts.push("var(--dtl-night) " + at(ssMin + 50));
+    }
+    return "linear-gradient(90deg, " + parts.join(", ") + ")";
   }
 
   /* a sunrise/sunset marker: a dot on the rule, a stem, the reading above it */
@@ -3724,30 +4068,76 @@
     return marker;
   }
 
-  /* a tick every hour, taller and labelled every three. Midnight keeps its tick
-     but no label: it sits in the faded end of the rule. */
-  function renderDtlTicks() {
+  /* the rule under the line: a tick every hour, taller and labelled every three,
+     plus a marked line at midnight carrying the date of the day that begins */
+  function renderDtlTicks(windowStart) {
+    const locale = state.settings.language === "fr" ? "fr-FR" : "en-US";
     const ticks = document.getElementById("dtlTicks");
     ticks.innerHTML = "";
-    for (let h = 0; h <= 24; h++) {
-      const major = h % 3 === 0;
+
+    const first = new Date(windowStart);
+    first.setMinutes(0, 0, 0);
+    if (first.getTime() < windowStart) first.setHours(first.getHours() + 1);
+
+    for (let hour = new Date(first); hour.getTime() <= windowStart + SPAN_MS; hour.setHours(hour.getHours() + 1)) {
+      const h = hour.getHours();
+      const left = timePct(hour.getTime(), windowStart).toFixed(2) + "%";
+      const midnight = h === 0;
+      const major = midnight || h % 3 === 0;
+
       const tick = document.createElement("span");
-      tick.className = major ? "dtl__tick is-major" : "dtl__tick";
-      tick.style.left = (h / 24 * 100) + "%";
+      tick.className = midnight ? "dtl__tick is-day-break" : (major ? "dtl__tick is-major" : "dtl__tick");
+      tick.style.left = left;
       ticks.appendChild(tick);
-      if (!major || h === 0 || h === 24) continue;
+      if (!major) continue;
+
       const label = document.createElement("span");
-      label.className = "dtl__tick-label";
-      label.style.left = (h / 24 * 100) + "%";
-      label.textContent = (h < 10 ? "0" : "") + h + ":00";
+      label.className = midnight ? "dtl__tick-label is-day-break" : "dtl__tick-label";
+      label.style.left = left;
+      label.textContent = midnight
+        ? hour.toLocaleDateString(locale, { day: "numeric", month: "short" })
+        : (h < 10 ? "0" : "") + h + ":00";
       ticks.appendChild(label);
     }
   }
 
+  /* just the rule: this is what a scrub redraws, dozens of times a second */
+  function renderTimeRule() {
+    const sun = todaySun();
+    const windowStart = windowStartMs();
+    document.getElementById("dtlStrip").style.background = stripGradient(sun, windowStart);
+    renderDtlTicks(windowStart);
+
+    const markers = document.getElementById("dtlMarkers");
+    const cursor = document.getElementById("dtlCursor");
+    markers.innerHTML = "";
+
+    if (sun) {
+      const srMin = toMinutes(sun.sunrise);
+      const ssMin = toMinutes(sun.sunset);
+      const firstDay = new Date(windowStart);
+      firstDay.setHours(0, 0, 0, 0);
+      // one sunrise and one sunset always land in a 24h window, but which day
+      // they belong to depends on where the window starts
+      for (let d = 0; d <= 1; d++) {
+        const base = firstDay.getTime() + d * DAY_MS;
+        const rise = timePct(base + srMin * 60000, windowStart);
+        const set = timePct(base + ssMin * 60000, windowStart);
+        if (rise >= 0 && rise <= 100) markers.appendChild(sunMarker(sun.sunrise, "sunriseLabel", rise));
+        if (set >= 0 && set <= 100) markers.appendChild(sunMarker(sun.sunset, "sunsetLabel", set));
+      }
+      updateCursor(cursor, srMin, ssMin);
+      cursor.hidden = false;
+    } else {
+      cursor.hidden = true;
+    }
+
+    renderEventTicks(windowStart);
+  }
+
   function renderDailyTimeline() {
     const sun = todaySun();
-    document.getElementById("dtlStrip").style.background = stripGradient(sun);
-    renderDtlTicks();
+    renderTimeRule();
 
     // place + current weather, up in the top bar beside the tools
     const weather = document.getElementById("dtlWeather");
@@ -3772,31 +4162,84 @@
       weather.hidden = true;
     }
 
-    const markers = document.getElementById("dtlMarkers");
-    const cursor = document.getElementById("dtlCursor");
-    markers.innerHTML = "";
-
-    if (sun) {
-      const srMin = toMinutes(sun.sunrise);
-      const ssMin = toMinutes(sun.sunset);
-      markers.appendChild(sunMarker(sun.sunrise, "sunriseLabel", srMin / 1440 * 100));
-      markers.appendChild(sunMarker(sun.sunset, "sunsetLabel", ssMin / 1440 * 100));
-
-      const now = new Date();
-      updateCursor(cursor, now.getHours() * 60 + now.getMinutes(), srMin, ssMin);
-      cursor.hidden = false;
-    } else {
-      cursor.hidden = true;
-    }
-
-    renderEventTicks();
     renderTodayEvents();
   }
 
+  /* SCRUBBING (optional) — drag the rule and the reference moment moves with
+     it, theme included, then eases back to the real clock on its own. */
+  const SCRUB_HOLD_MS = 900;      // pause before the clock reels itself back in
+  const SCRUB_RETURN_MS = 1600;
+  const dtlEl = document.getElementById("dtl");
+  let scrubDrag = null;
+  let scrubHold = null;
+  let scrubFrame = 0;
+  let lastAutoTheme = null;
+
+  /* the time-of-day theme follows the scrubbed hour, but only re-applied when
+     it actually changes — applyTheme touches the meta tag and every button */
+  function syncScrubTheme() {
+    if (state.settings.theme !== "auto") return;
+    const next = timeTheme();
+    if (next === lastAutoTheme) return;
+    lastAutoTheme = next;
+    applyTheme("auto");
+  }
+
+  function scrubTo(offset) {
+    scrubOffset = offset;
+    renderTimeRule();
+    syncScrubTheme();
+  }
+
+  /* ease the offset back to zero, so the day drifts home instead of snapping */
+  function releaseScrub() {
+    cancelAnimationFrame(scrubFrame);
+    const from = scrubOffset;
+    if (!from) return;
+    const startedAt = performance.now();
+    const step = function (at) {
+      const t = Math.min(1, (at - startedAt) / SCRUB_RETURN_MS);
+      const eased = 1 - Math.pow(1 - t, 3);
+      scrubTo(Math.round(from * (1 - eased)));
+      if (t < 1) scrubFrame = requestAnimationFrame(step);
+    };
+    scrubFrame = requestAnimationFrame(step);
+  }
+
+  dtlEl.addEventListener("pointerdown", function (event) {
+    if (!state.settings.timeScrub) return;
+    if (event.pointerType === "mouse" && event.button !== 0) return;
+    if (event.target.closest(".dtl__etick")) return;   // event ticks stay clickable
+    event.preventDefault();
+    dtlEl.setPointerCapture(event.pointerId);
+    cancelAnimationFrame(scrubFrame);
+    clearTimeout(scrubHold);
+    scrubDrag = { x: event.clientX, from: scrubOffset, width: dtlEl.getBoundingClientRect().width };
+    dtlEl.classList.add("is-scrubbing");
+  });
+
+  dtlEl.addEventListener("pointermove", function (event) {
+    if (!scrubDrag) return;
+    // dragging the rule left brings later hours under the anchor
+    const moved = (scrubDrag.x - event.clientX) / scrubDrag.width * SPAN_MS;
+    scrubTo(scrubDrag.from + moved);
+  });
+
+  function endScrub() {
+    if (!scrubDrag) return;
+    scrubDrag = null;
+    dtlEl.classList.remove("is-scrubbing");
+    scrubHold = setTimeout(releaseScrub, SCRUB_HOLD_MS);
+  }
+  dtlEl.addEventListener("pointerup", endScrub);
+  dtlEl.addEventListener("pointercancel", endScrub);
+
   /* place the cursor at the current time on the bar: sun by day (halo fading
      within an hour of sunrise/sunset), moon with a white halo by night */
-  function updateCursor(cursor, nowMin, srMin, ssMin) {
-    cursor.style.left = (nowMin / 1440 * 100) + "%";
+  function updateCursor(cursor, srMin, ssMin) {
+    const at = new Date(refTime());
+    const nowMin = at.getHours() * 60 + at.getMinutes();
+    cursor.style.left = (NOW_ANCHOR * 100) + "%";   // the present never moves
     const isDay = nowMin >= srMin && nowMin <= ssMin;
     cursor.classList.toggle("is-day", isDay);
     cursor.classList.toggle("is-night", !isDay);
@@ -3809,17 +4252,23 @@
   }
 
   /* one tick per timed event, placed on the bar at its hour (hover shows it) */
-  function renderEventTicks() {
+  function renderEventTicks(windowStart) {
     const layer = document.getElementById("dtlEticks");
     layer.innerHTML = "";
-    const dayEvents = eventsOnDay(todayKey());
+    // the window straddles midnight, so yesterday and tomorrow can show up too
+    const anchorKey = dateKeyOf(new Date(refTime()));
+    const dayEvents = eventsOnDay(shiftDateKey(anchorKey, -1))
+      .concat(eventsOnDay(anchorKey), eventsOnDay(shiftDateKey(anchorKey, 1)));
     for (let i = 0; i < dayEvents.length; i++) {
       const event = dayEvents[i];
       if (!event.time) continue;
+      const at = new Date(event.date + "T" + event.time).getTime();
+      const pct = timePct(at, windowStart);
+      if (pct < 0 || pct > 100) continue;
       const tick = document.createElement("button");
       tick.type = "button";
       tick.className = "dtl__etick";
-      tick.style.left = (toMinutes(event.time) / 1440 * 100) + "%";
+      tick.style.left = pct.toFixed(2) + "%";
       tick.addEventListener("click", function () { openEventDetail(event); });
 
       const line = document.createElement("span");
@@ -4356,93 +4805,54 @@
     detailBackdrops[i].addEventListener("click", detailClosers[view.id]);
   }
 
-  /* THE TWO SPACES — work and well-being sit on one rail under the day line.
-     The tab on the edge is the handle: dragging it brings the other space in
-     behind the pointer, and a plain click flips between them. */
+  /* THE TWO SPACES — work and well-being sit on one rail under the day line,
+     and the switch above slides between them. */
   const pagesEl = document.getElementById("pages");
   const pagesTrack = document.getElementById("pagesTrack");
   const workPage = document.getElementById("workPage");
   const wellPage = document.getElementById("wellPage");
-  const wellTab = document.getElementById("wellTab");
-  const wellPull = document.getElementById("wellPull");
+  const pageFlip = document.getElementById("pageFlip");
   let wellOpen = false;
 
-  /* below this width the rail stacks and the tab is pulled upwards instead */
-  function tabIsBottom() { return window.matchMedia("(max-width: 900px)").matches; }
-
-  function trackOffset(progress) {
-    if (tabIsBottom()) return "translateY(" + (-workPage.offsetHeight * progress).toFixed(1) + "px)";
-    return "translateX(" + (-50 * progress).toFixed(2) + "%)";
-  }
-
-  /* the rail is as tall as the space on show; while dragging it takes the
-     taller of the two so the incoming one is never clipped */
-  function syncPagesHeight(dragging) {
-    const work = workPage.offsetHeight;
-    const well = wellPage.offsetHeight;
-    pagesEl.style.height = (dragging ? Math.max(work, well) : (wellOpen ? well : work)) + "px";
+  /* the rail is as tall as the space on show */
+  function syncPagesHeight() {
+    pagesEl.style.height = (wellOpen ? wellPage.offsetHeight : workPage.offsetHeight) + "px";
   }
 
   function setWellOpen(open) {
     wellOpen = open;
-    pagesTrack.classList.remove("is-dragging");
-    pagesTrack.style.transform = trackOffset(open ? 1 : 0);
-    wellTab.classList.toggle("is-open", open);
-    wellPull.setAttribute("aria-expanded", open ? "true" : "false");
-    syncPagesHeight(false);
+    pagesTrack.style.transform = "translateX(" + (open ? -50 : 0) + "%)";
+    pageFlip.classList.toggle("is-open", open);
+    pageFlip.setAttribute("aria-expanded", open ? "true" : "false");
+    syncPagesHeight();
   }
 
-  let pullDrag = null;
-  let pullClickBlockedUntil = 0;
+  pageFlip.addEventListener("click", function () { setWellOpen(!wellOpen); });
+  window.addEventListener("resize", syncPagesHeight);
 
-  wellPull.addEventListener("pointerdown", function (event) {
-    if (event.pointerType === "mouse" && event.button !== 0) return;
-    event.preventDefault();
-    wellPull.setPointerCapture(event.pointerId);
-    pullDrag = { x: event.clientX, y: event.clientY, moved: false, progress: wellOpen ? 1 : 0 };
-    pagesTrack.classList.add("is-dragging");
-    syncPagesHeight(true);
+  /* touch only: a horizontal swipe crosses between the two spaces. Mouse drags
+     are left alone so they never fight the row reordering. */
+  let pageSwipe = null;
+  let pageSwipeUntil = 0;
+  pagesEl.addEventListener("pointerdown", function (event) {
+    pageSwipe = event.pointerType === "mouse" ? null : { x: event.clientX, y: event.clientY };
   });
-
-  wellPull.addEventListener("pointermove", function (event) {
-    if (!pullDrag) return;
-    const bottom = tabIsBottom();
-    const span = bottom ? window.innerHeight * 0.4 : window.innerWidth * 0.35;
-    const delta = bottom ? (pullDrag.y - event.clientY) : (pullDrag.x - event.clientX);
-    if (Math.abs(delta) > 4) pullDrag.moved = true;
-    pullDrag.progress = Math.max(0, Math.min(1, (wellOpen ? 1 : 0) + delta / span));
-    pagesTrack.style.transform = trackOffset(pullDrag.progress);
+  pagesEl.addEventListener("pointerup", function (event) {
+    if (!pageSwipe) return;
+    const dx = event.clientX - pageSwipe.x;
+    const dy = event.clientY - pageSwipe.y;
+    pageSwipe = null;
+    if (Math.abs(dx) < 60 || Math.abs(dx) < Math.abs(dy) * 1.4) return;   // clearly horizontal
+    pageSwipeUntil = Date.now() + 350;
+    setWellOpen(dx < 0);   // swipe left reveals well-being, right goes back
   });
-
-  function endPull() {
-    if (!pullDrag) return;
-    const drag = pullDrag;
-    pullDrag = null;
-    // a tap flips; a real drag settles to whichever side it ended up closest to
-    setWellOpen(drag.moved ? drag.progress > 0.5 : !wellOpen);
-    if (drag.moved) pullClickBlockedUntil = Date.now() + 400;
-  }
-  wellPull.addEventListener("pointerup", endPull);
-  wellPull.addEventListener("pointercancel", endPull);
-
-  // keyboard activation still goes through click
-  wellPull.addEventListener("click", function () {
-    if (Date.now() < pullClickBlockedUntil) return;
-    if (pullDrag) return;
-    setWellOpen(!wellOpen);
-  });
-
-  window.addEventListener("resize", function () {
-    if (pullDrag) return;
-    pagesTrack.style.transform = trackOffset(wellOpen ? 1 : 0);
-    syncPagesHeight(false);
-  });
+  pagesEl.addEventListener("click", function (event) {
+    if (Date.now() < pageSwipeUntil) { event.stopPropagation(); event.preventDefault(); }
+  }, true);
 
   // content grows and shrinks all the time; the rail follows without bookkeeping
   if (window.ResizeObserver) {
-    const pageWatcher = new ResizeObserver(function () {
-      if (!pullDrag) syncPagesHeight(false);
-    });
+    const pageWatcher = new ResizeObserver(syncPagesHeight);
     pageWatcher.observe(workPage);
     pageWatcher.observe(wellPage);
   }
@@ -4485,6 +4895,7 @@
   initSky();
   buildRosace();
   applyDecorations();
+  document.getElementById("dtl").classList.toggle("is-scrubbable", state.settings.timeScrub);
   setWellOpen(false);
   requestAnimationFrame(function () { pagesEl.classList.add("is-live"); });
   setInterval(function () {

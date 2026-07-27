@@ -43,6 +43,11 @@
   <!-- activatable decorations (particles / petals / cats / …) -->
   <div id="decor"></div>
 
+  <!-- colour workshop, kept apart from the tools on the right -->
+  <button id="paintBtn" class="paint-btn" type="button" data-i18n-aria="paintAria" aria-label="Couleurs">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18.4 2.6a2 2 0 0 1 3 3L11 16l-4 1 1-4z"/><path d="M6 14c-2 1-3 3-3 6 3 0 5-1 6-3"/></svg>
+  </button>
+
   <!-- top bar: the weather sits with the tools, always visible top-right -->
   <div class="topbar">
     <button id="dtlWeather" class="topbar__weather" type="button" hidden></button>
@@ -172,10 +177,11 @@
     </div>
     </section>
 
-    <!-- well-being: the tracking side of the habits, away from the work -->
+    <!-- well-being: the daily tiles and their tracking, away from the work -->
     <section class="page" id="wellPage">
       <div class="wrap">
         <h2 class="zone__title" data-i18n="wellTitle">Bien-être</h2>
+        <div class="habits" id="habitsGrid"></div>
         <div id="habitsViewBody"></div>
       </div>
     </section>
@@ -185,14 +191,11 @@
 
   </main>
 
-  <!-- the pull tab: the daily habit tiles, and the handle between the two spaces -->
-  <aside class="welltab" id="wellTab">
-    <button class="welltab__pull" id="wellPull" type="button" aria-expanded="false"
-            data-i18n-aria="wellTabAria" aria-label="Espace bien-être">
-      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6"/></svg>
-    </button>
-    <div class="habits" id="habitsGrid"></div>
-  </aside>
+  <!-- the way between the two spaces: this arrow, or a swipe on touch -->
+  <button class="pageflip" id="pageFlip" type="button" aria-expanded="false"
+          data-i18n-aria="switchSpaceAria" aria-label="Changer d'espace">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6"/></svg>
+  </button>
 
   <!-- task/project detail view (floating) -->
   <div id="detail" class="detail" hidden>
@@ -337,20 +340,11 @@
           </div>
         </div>
 
-        <div class="field">
-          <span class="field__label" data-i18n="paletteLabel">Palette</span>
-          <div class="palettes" id="palettes">
-            <button class="palette" data-palette="aurora" type="button">
-              <span class="palette__sw"></span><span data-i18n="paletteAurora">Aurore</span>
-            </button>
-            <button class="palette" data-palette="meadow" type="button">
-              <span class="palette__sw"></span><span data-i18n="paletteMeadow">Prairie</span>
-            </button>
-            <button class="palette" data-palette="sunset" type="button">
-              <span class="palette__sw"></span><span data-i18n="paletteSunset">Coucher</span>
-            </button>
-          </div>
+        <div class="field field--row">
+          <span class="field__label" data-i18n="scrubLabel">Faire défiler le temps</span>
+          <span id="scrubToggleSlot"></span>
         </div>
+        <p class="field__hint" data-i18n="scrubHint">Tirez la barre du temps pour voyager dans la journée</p>
 
         <div class="field">
           <span class="field__label" data-i18n="decorLabel">Décorations</span>
@@ -366,6 +360,35 @@
           </div>
         </div>
       </div>
+    </div>
+  </div>
+
+  <!-- colour workshop: pick a theme, then edit its source colours -->
+  <div id="paint" class="modal" hidden>
+    <div class="modal__backdrop" data-close></div>
+    <div class="modal__card paint">
+      <div class="modal__head">
+        <h2 class="modal__title" data-i18n="paintTitle">Couleurs</h2>
+        <button class="modal__close" data-close data-i18n-aria="closeAria" aria-label="Fermer">×</button>
+      </div>
+
+      <div class="field">
+        <span class="field__label" data-i18n="paintThemeLabel">Thème à modifier</span>
+        <div class="themes" id="paintThemes"></div>
+      </div>
+
+      <div id="paintSlots"></div>
+
+      <div class="field">
+        <div class="paint__row">
+          <span class="field__label" data-i18n="paletteLabel">Palette</span>
+          <button type="button" class="paint__undo" id="paintPaletteReset" data-i18n="paintResetOne">Réinitialiser</button>
+        </div>
+        <div class="palettes" id="paintPalettes"></div>
+        <div class="swatches" id="paintImp"></div>
+      </div>
+
+      <button type="button" class="data-btn paint__reset" id="paintReset" data-i18n="paintReset">Réinitialiser ce thème</button>
     </div>
   </div>
 
