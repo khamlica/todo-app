@@ -6,6 +6,14 @@
 
   /* Load saved data. Falls back to an empty state if nothing is stored
      or the JSON is corrupt, so a bad value can never break startup. */
+  /* The block field used to be one decoration among others; it is part of the
+     app now. Anyone who already had a saved state gets it turned on once, and
+     from then on their own choice is kept. */
+  function withField(list, alreadyOffered) {
+    if (alreadyOffered || list.indexOf("field") !== -1) return list;
+    return list.concat("field");
+  }
+
   function loadState() {
     try {
       const saved = JSON.parse(localStorage.getItem(STORAGE_KEY)) || {};
@@ -30,9 +38,30 @@
       }
       const projects = saved.projects || [];
       for (let i = 0; i < projects.length; i++) {
-        delete projects[i].subtasks;   // projects moved from subtasks to milestones
-        delete projects[i].done;       // projects aren't completable, they have milestones
-        if (!projects[i].icon) projects[i].icon = "folder";
+        const project = projects[i];
+        delete project.subtasks;       // projects moved from subtasks to milestones
+        if (!project.icon) project.icon = "folder";
+        if (!project.sky) project.sky = freeSkySpot(i);   // its place in the sky
+        if (!project.journal) project.journal = [];
+        if (!project.dream) project.dream = [];
+        if (project.why == null) project.why = "";
+        if (project.outcome == null) project.outcome = "";
+        if (project.targetDate === undefined) project.targetDate = null;
+        // the notes box left with the detail card; the text becomes a journal line
+        // rather than staying in the data with nowhere to be read
+        if (project.notes && project.notes.trim()) {
+          project.journal.unshift({ id: project.id + "n", date: todayKey(), text: project.notes.trim() });
+        }
+        delete project.notes;
+      }
+      // constellations: a plain visual link between two stars
+      const links = saved.links || [];
+      for (let i = links.length - 1; i >= 0; i--) {
+        if (!hasProject(projects, links[i].a) || !hasProject(projects, links[i].b)) links.splice(i, 1);
+      }
+      const tasks = saved.tasks || [];
+      for (let i = 0; i < tasks.length; i++) {   // tasks can now belong to a project
+        if (tasks[i].projectId === undefined) tasks[i].projectId = null;
       }
       const events = saved.events || [];
       for (let i = 0; i < events.length; i++) {   // events are past/pending now, not checkable
@@ -41,8 +70,9 @@
         if (!events[i].icon) events[i].icon = "calendar";
       }
       return {
-        tasks: saved.tasks || [],
+        tasks: tasks,
         projects: projects,
+        links: links,
         habits: habits,
         notes: saved.notes || [],
         events: events,
@@ -52,7 +82,9 @@
           theme: (saved.settings && saved.settings.theme) || "auto",
           language: (saved.settings && saved.settings.language) || "fr",
           palette: (saved.settings && saved.settings.palette) || "aurora",
-          decorations: (saved.settings && saved.settings.decorations) || [],
+          decorations: withField((saved.settings && saved.settings.decorations) || [],
+                                 saved.settings && saved.settings.fieldOn),
+          fieldOn: true,   // once seen, the choice is the user's
           timeScrub: !!(saved.settings && saved.settings.timeScrub),
           themeEdits: (saved.settings && saved.settings.themeEdits) || {},
           paletteEdits: (saved.settings && saved.settings.paletteEdits) || {},
@@ -60,12 +92,31 @@
         }
       };
     } catch (err) {
-      return { tasks: [], projects: [], habits: [], notes: [], events: [], sun: null, settings: { name: "", theme: "auto", language: "fr", palette: "aurora", decorations: [], timeScrub: false, themeEdits: {}, paletteEdits: {}, themePalettes: {} } };
+      return { tasks: [], projects: [], links: [], habits: [], notes: [], events: [], sun: null, settings: { name: "", theme: "auto", language: "fr", palette: "aurora", decorations: ["field"], fieldOn: true, timeScrub: false, themeEdits: {}, paletteEdits: {}, themePalettes: {} } };
     }
+  }
+
+  function hasProject(projects, id) {
+    for (let i = 0; i < projects.length; i++) {
+      if (projects[i].id === id) return true;
+    }
+    return false;
   }
 
   function saveState() {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  }
+
+  /* Where a project lands in the sky when it has never been placed. A golden-angle
+     spiral keeps successive stars from piling onto the same spot, and the whole
+     thing stays deterministic so a reload doesn't reshuffle the sky. */
+  function freeSkySpot(index) {
+    const angle = index * 2.39996;
+    const radius = 9 + Math.sqrt(index + 0.7) * 12;
+    return {
+      x: Math.max(9, Math.min(91, 50 + Math.cos(angle) * radius)),
+      y: Math.max(11, Math.min(70, 40 + Math.sin(angle) * radius * 0.66))
+    };
   }
 
   /* All interface strings, one block per language. */
@@ -73,7 +124,7 @@
     fr: {
       greetingPrefix: "Bonjour",
       greetingSuffix: " !",
-      welcomeQuestion: "Prêt à rester sur l'essentiel ?",
+      welcomeQuestion: "Que faites-vous aujourd'hui ?",
       enterAria: "Entrer dans l'application",
       settingsAria: "Paramètres",
       settingsTitle: "Paramètres",
@@ -81,10 +132,13 @@
       tabCustom: "Personnalisation",
       tasksTitle: "Vos tâches",
       todayTitle: "Aujourd'hui",
+      backToToday: "Revenir à aujourd'hui",
+      newEventName: "Nouvel événement",
       projectsTitle: "Vos projets",
       addTaskTitle: "Ajouter une tâche",
       newTaskName: "Nouvelle tâche",
       quickPlaceholder: "Relire le rapport demain 18h !",
+      quickEventPlaceholder: "Réunion équipe vendredi 14h !",
       groupLate: "En retard",
       groupToday: "Aujourd'hui",
       groupSoon: "À venir",
@@ -93,6 +147,7 @@
       addAria: "Ajouter",
       addProjectAria: "Nouveau projet",
       deleteAria: "Supprimer",
+      doneAria: "Marquer comme faite",
       emptyList: "Rien pour l'instant.",
       closeAria: "Fermer",
       nameLabel: "Votre prénom",
@@ -150,6 +205,10 @@
       decorSnow: "Neige",
       decorFog: "Brouillard",
       decorStorm: "Orage",
+      decorField: "Champ",
+      enterHint: "Touchez pour entrer",
+      paintLabel: "Couleurs",
+      paintOpen: "Ouvrir l'atelier",
       focusAria: "Passer en mode focus",
       focusExitAria: "Quitter le mode focus",
       addHabitAria: "Ajouter une habitude",
@@ -214,22 +273,58 @@
       editNameLabel: "Nom",
       editIconLabel: "Icône",
       editDateNone: "Aucune date",
-      pinLabel: "Épingler",
-      backAria: "Retour",
       notesLabel: "Notes",
-      notesPlaceholder: "Ajouter des notes…",
       subtasksLabel: "Sous-tâches",
-      addSubtaskPlaceholder: "Ajouter une sous-tâche…",
       milestonesLabel: "Jalons",
+      pinLabel: "Épingler",
+      importantLabel: "Important",
+      backAria: "Retour",
+      notesPlaceholder: "Ajouter des notes…",
+      addSubtaskPlaceholder: "Ajouter une sous-tâche…",
       milestonePlaceholder: "Jalon",
       milestoneAdd: "Ajouter un jalon",
+      skyAria: "Le ciel des projets",
+      skyTitle: "Le ciel",
+      skyEmpty: "Le ciel est vide. Allumez une première étoile.",
+      skyFree: "Libre",
+      skyAligned: "Rangé",
+      skyModeAria: "Ranger le ciel ou le libérer",
+      skyDormant: "En sommeil",
+      skyNear: "Bientôt",
+      skyFar: "Un jour",
+      skyAmbition: "Ambition",
+      skyOpenAria: "Ouvrir le projet",
+      skyLinkAria: "Relier deux projets",
+      skyLinkHint: "Choisissez deux étoiles à relier.",
+      capLabel: "Le cap",
+      whyPlaceholder: "Pourquoi ce projet ?",
+      outcomePlaceholder: "À quoi ça ressemble, une fois fini ?",
+      horizonLabel: "Horizon",
+      horizonNone: "Sans date",
+      stepsLabel: "Prochaines étapes",
+      stepAdd: "Une étape concrète…",
+      stepsEmpty: "Aucune étape en cours.",
+      dreamLabel: "Mur de rêve",
+      dreamAdd: "Carte",
+      dreamPlaceholder: "Une idée, une référence, une envie…",
+      journalLabel: "Journal",
+      journalAdd: "Noter une avancée, une idée…",
+      journalEmpty: "Rien de consigné pour l'instant.",
+      promoteStep: "En faire une étape",
+      promotedLabel: "Devenu une étape",
+      stepCreated: "Étape ajoutée.",
+      milestoneTarget: "Date visée",
+      lateLabel: "en retard",
+      dormantFor: "sans nouvelles depuis",
+      daysShort: "j",
       addEventPlaceholder: "Ajouter un événement…",
-      eventDateLabel: "Date",
       timeLabel: "Heure",
       eventStatusPending: "En attente",
       eventStatusPast: "Passé",
       importantAria: "Marquer comme important",
-      importantLabel: "Important",
+      rescheduleLabel: "Replanifier",
+      completeLabel: "Compléter",
+      reopenLabel: "Rouvrir",
       weatherTitle: "Météo du jour",
       locationLabel: "Localisation",
       cityPlaceholder: "Rechercher une ville…",
@@ -255,7 +350,7 @@
     en: {
       greetingPrefix: "Hello",
       greetingSuffix: "!",
-      welcomeQuestion: "What matters today?",
+      welcomeQuestion: "What is happening today?",
       enterAria: "Enter the app",
       settingsAria: "Settings",
       settingsTitle: "Settings",
@@ -263,10 +358,13 @@
       tabCustom: "Customization",
       tasksTitle: "Your tasks",
       todayTitle: "Today",
+      backToToday: "Back to today",
+      newEventName: "New event",
       projectsTitle: "Your projects",
       addTaskTitle: "Add a task",
       newTaskName: "New task",
       quickPlaceholder: "Read the report tomorrow 6pm !",
+      quickEventPlaceholder: "Team meeting friday 2pm !",
       groupLate: "Overdue",
       groupToday: "Today",
       groupSoon: "Upcoming",
@@ -275,6 +373,7 @@
       addAria: "Add",
       addProjectAria: "New project",
       deleteAria: "Delete",
+      doneAria: "Mark as done",
       emptyList: "Nothing yet.",
       closeAria: "Close",
       nameLabel: "Your first name",
@@ -332,6 +431,10 @@
       decorSnow: "Snow",
       decorFog: "Fog",
       decorStorm: "Storm",
+      decorField: "Field",
+      enterHint: "Tap to enter",
+      paintLabel: "Colours",
+      paintOpen: "Open the workshop",
       focusAria: "Enter focus mode",
       focusExitAria: "Exit focus mode",
       addHabitAria: "Add a habit",
@@ -396,22 +499,58 @@
       editNameLabel: "Name",
       editIconLabel: "Icon",
       editDateNone: "No date",
-      pinLabel: "Pin",
-      backAria: "Back",
       notesLabel: "Notes",
-      notesPlaceholder: "Add notes…",
       subtasksLabel: "Subtasks",
-      addSubtaskPlaceholder: "Add a subtask…",
       milestonesLabel: "Milestones",
+      pinLabel: "Pin",
+      importantLabel: "Important",
+      backAria: "Back",
+      notesPlaceholder: "Add notes…",
+      addSubtaskPlaceholder: "Add a subtask…",
       milestonePlaceholder: "Milestone",
       milestoneAdd: "Add a milestone",
+      skyAria: "The project sky",
+      skyTitle: "The sky",
+      skyEmpty: "The sky is empty. Light a first star.",
+      skyFree: "Free",
+      skyAligned: "Aligned",
+      skyModeAria: "Align the sky or set it free",
+      skyDormant: "Dormant",
+      skyNear: "Soon",
+      skyFar: "Someday",
+      skyAmbition: "Ambition",
+      skyOpenAria: "Open the project",
+      skyLinkAria: "Link two projects",
+      skyLinkHint: "Pick two stars to link.",
+      capLabel: "The heading",
+      whyPlaceholder: "Why this project?",
+      outcomePlaceholder: "What does it look like once done?",
+      horizonLabel: "Horizon",
+      horizonNone: "No date",
+      stepsLabel: "Next steps",
+      stepAdd: "One concrete step…",
+      stepsEmpty: "No step in progress.",
+      dreamLabel: "Dream wall",
+      dreamAdd: "Card",
+      dreamPlaceholder: "An idea, a reference, a want…",
+      journalLabel: "Journal",
+      journalAdd: "Log a move, an idea…",
+      journalEmpty: "Nothing logged yet.",
+      promoteStep: "Make it a step",
+      promotedLabel: "Became a step",
+      stepCreated: "Step added.",
+      milestoneTarget: "Target date",
+      lateLabel: "late",
+      dormantFor: "nothing for",
+      daysShort: "d",
       addEventPlaceholder: "Add an event…",
-      eventDateLabel: "Date",
       timeLabel: "Time",
       eventStatusPending: "Pending",
       eventStatusPast: "Past",
       importantAria: "Mark as important",
-      importantLabel: "Important",
+      rescheduleLabel: "Reschedule",
+      completeLabel: "Complete",
+      reopenLabel: "Reopen",
       weatherTitle: "Today's weather",
       locationLabel: "Location",
       cityPlaceholder: "Search a city…",
@@ -553,53 +692,57 @@
   const welcomeScreen = document.getElementById("welcome");
   const appScreen = document.getElementById("app");
 
-  const rosace = document.getElementById("rosace");
-  const enterBtn = document.getElementById("enterBtn");
+  const dayLine = document.querySelector(".day-line");
+  const welcomeSlot = document.getElementById("welcomeSlot");
+  const APP_ENTER_MS = 620;
+  const WELCOME_RULE_SCALE = 1.35;   // must match .welcome__slot .day-line
 
-  /* Draw a rose from Bezier petals radiating around the center. The mask in CSS
-     hides the busy middle, so only the outer tips show. */
-  function buildRosace() {
-    if (!rosace) return;
-    const ns = "http://www.w3.org/2000/svg";
-    const svg = document.createElementNS(ns, "svg");
-    svg.setAttribute("viewBox", "0 0 300 300");
+  /* The day rule spends the welcome screen in the middle of the page, blown up.
+     Entering does not swap one for another: the very same element is moved back
+     into the app and flown from where it was to where it lands, the way the
+     editor card travels between rows. */
+  if (dayLine && welcomeSlot) welcomeSlot.appendChild(dayLine);
 
-    const cx = 150, cy = 150;
-    const tipRadius = 128;      // distance from center to petal tip
-    const controlWidth = 44;    // how wide each petal bulges
-    const petalCount = 30;
-    const tipY = cy - tipRadius;
-    // one upward petal, reused and rotated around the center
-    const petal = "M" + cx + " " + cy
-      + " C" + (cx + controlWidth) + " " + (cy - tipRadius * 0.30)
-        + ", " + (cx + controlWidth * 0.5) + " " + (cy - tipRadius * 0.82) + ", " + cx + " " + tipY
-      + " C" + (cx - controlWidth * 0.5) + " " + (cy - tipRadius * 0.82)
-        + ", " + (cx - controlWidth) + " " + (cy - tipRadius * 0.30) + ", " + cx + " " + cy + " Z";
+  function enterApp(event) {
+    if (!welcomeScreen || welcomeScreen.dataset.gone) return;
+    welcomeScreen.dataset.gone = "1";
+    // the light runs out from wherever the finger landed
+    startFieldFlash(event ? event.clientX : innerWidth / 2,
+                    event ? event.clientY : innerHeight / 2);
 
-    for (let i = 0; i < petalCount; i++) {
-      const path = document.createElementNS(ns, "path");
-      path.setAttribute("d", petal);
-      path.setAttribute("transform", "rotate(" + (i * 360 / petalCount) + " " + cx + " " + cy + ")");
-      svg.appendChild(path);
+    const from = dayLine ? dayLine.getBoundingClientRect() : null;
+    appScreen.hidden = false;
+    if (dayLine) appScreen.insertBefore(dayLine, appScreen.firstChild);
+    // the rail was measured while the app was still display:none, so its height
+    // was zero; now that it has a size, take it again
+    syncPagesHeight(false);
+    requestAnimationFrame(function () { syncPagesHeight(false); });
+
+    if (from && dayLine) {
+      const to = dayLine.getBoundingClientRect();
+      const scale = WELCOME_RULE_SCALE;
+      dayLine.style.transformOrigin = "50% 50%";
+      dayLine.style.transition = "none";
+      dayLine.style.transform = "translate(" + (from.left - to.left) + "px,"
+        + (from.top - to.top) + "px) scale(" + scale + ")";
+      dayLine.offsetWidth;                       // commit before releasing
+      dayLine.style.transition = "transform " + APP_ENTER_MS + "ms cubic-bezier(.22,.8,.25,1)";
+      dayLine.style.transform = "";
+      setTimeout(function () {
+        dayLine.style.transition = "";
+        dayLine.style.transformOrigin = "";
+      }, APP_ENTER_MS);
     }
-    const spin = rosace.querySelector(".rosace__spin");
-    (spin || rosace).appendChild(svg);
-  }
 
-  /* the rosace spins on its own; hovering the arrow stops it with a reverse recoil */
-  if (enterBtn && rosace) {
-    enterBtn.addEventListener("mouseenter", function () { rosace.classList.add("is-recoil"); });
-    enterBtn.addEventListener("mouseleave", function () { rosace.classList.remove("is-recoil"); });
-  }
-
-  /* on click the rosace spins outward and vanishes while the app fades in behind */
-  enterBtn.addEventListener("click", function () {
-    appScreen.hidden = false;   // app waits behind the welcome
-    if (rosace) rosace.classList.add("is-launching");
     welcomeScreen.classList.add("is-leaving");
-    setTimeout(function () { welcomeScreen.style.display = "none"; }, 550);
+    setTimeout(function () { welcomeScreen.style.display = "none"; }, 560);
+    setTimeout(function () { setFieldWelcome(false); }, flashSpan + 60);   // let the light finish
     ensureSunData();   // ask for location only once the app is entered
-  });
+  }
+
+  // no target to aim at: the whole threshold is the door
+  welcomeScreen.addEventListener("click", enterApp);
+
 
   const settingsModal = document.getElementById("settings");
 
@@ -1085,6 +1228,503 @@
     return null;
   }
 
+  /* THE BLOCK FIELD — a grid of small squares that answers the pointer: a well
+     that follows it, and a ring that travels outwards from every click. It
+     invents no colour of its own; #field carries the theme's accent and the
+     script only reads back what the browser resolved, so a palette change
+     carries over on its own. The lattice is always drawn and never moves; what
+     answers the pointer is the cells filling in, which is what keeps it reading
+     as lit pixels rather than as cloth. */
+  const fieldCanvas = document.getElementById("field");
+  const FIELD_STEP = 25;      // side of a cell
+  const REST_ALPHA = .025;    // the bare lattice: present, barely
+  const SHADE_ALPHA = .34;    // how dark a cell goes under a click
+  const SHADE_CHROMA = 2.2;   // the shade keeps its hue instead of going grey
+  const SHADE_MIX = .62;      // and only loses this much of its light
+  /* The pointer is ambient, so it is held well under a click: at full strength
+     it stopped being a grid answering and became an effect of its own. */
+  const WELL_WEIGHT = .38;
+  const WELL_RADIUS = 100;    // a handful of cells around the pointer, no more
+  const TRAIL_MS = 260;       // how far back the smear still reaches
+  const TRAIL_STEP = 7;       // px between samples, so a slow drag is not a cluster
+  const TRAIL_MAX = 26;       // samples kept at most, however fast the hand is
+  const WELL_REST = .55;      // the hollow at a standstill, against a full one
+  const WELL_SQUASH = .48;    // how far it is pressed flat along its own path
+  const SPEED_FULL = 1400;    // px per second counted as full pelt
+  const SPEED_COOL = 220;     // ms for a stopped pointer to read as stopped
+  /* The sun on the rule is a real light on the page, so the field answers it:
+     the cells around it lift instead of sinking, in the sun's own colour. It is
+     the one thing here that gives light rather than taking it — and since that
+     colour is sampled off the sky ramp, the field warms at dusk and turns to
+     moonlight at night on its own. */
+  /* THE FLASH — entering sends a band of light out across the grid from wherever
+     it was clicked. It rides over the field rather than replacing it: the cells
+     light up in turn, the ruling stays where it is. */
+  const FLASH_SPEED = 1900;   // px per second the front travels
+  const FLASH_WIDTH = 130;    // px, how broad the lit band is
+  const FLASH_ALPHA = .5;
+  /* THE LAYOUT'S WEIGHT — a panel presses the grid under it as deep as it is
+     opaque: a solid card sinks the cells, a barely-tinted one grazes them. The
+     rects are taken fresh on every frame the field draws, so a scroll drags the
+     hollows along with the panels that made them, without a line of extra code. */
+  const PANEL_SELECTOR = ".item--task, .item--project, .day-event, .habit, .hcard,"
+    + " .quick__field, .ecal, .modal__card, .note-card";
+  const PANEL_DEPTH = .55;    // how much of a panel's own opacity is dug
+  let panels = [];
+  let panelsMoving = false;
+  let flashAt = 0, flashX = 0, flashY = 0, flashSpan = 0;
+
+  const SUN_ALPHA = .15;
+  const SUN_RADIUS = 120;
+  // a click sinks the one cell it lands on, and nothing around it
+  const PRESS_DECAY = 220;    // ms the press takes to shrink by e
+  const PRESS_LIFE = 760;     // ms before a press is spent
+
+  let fieldCtx = null;
+  let fieldW = 0, fieldH = 0, fieldCols = 0, fieldRows = 0;
+  let latticePath = null;
+  let fieldInk = "rgb(255,255,255)";
+  let rowShade = [];
+  let shadeLift = 1;
+  let inkReadAt = 0;
+  const presses = [];
+  const trail = [];
+  let sunSpot = null;
+  let fieldBoost = 1;
+  let pointerX = -9999, pointerY = -9999;
+  let wellTarget = 0, wellNow = 0;
+  let fieldFrame = null, fieldLast = 0, pointerMoved = false;
+  /* Anything that wakes the field keeps it drawing for a moment afterwards. A
+     fold takes .42s to play out and a rail .45s, and neither says a word while
+     it moves: without this tail the hollows would be left behind by the panels
+     that cast them. */
+  const FOLLOW_MS = 700;
+  let liveUntil = 0;
+
+  function readColour(text) {
+    const raw = text.trim();
+    if (raw.charAt(0) !== "#") {
+      const parts = raw.match(/[\d.]+/g) || ["0", "0", "0"];
+      return [+parts[0], +parts[1], +parts[2]];
+    }
+    const hex = raw.length < 7
+      ? raw[1] + raw[1] + raw[2] + raw[2] + raw[3] + raw[3]
+      : raw.slice(1, 7);
+    return [parseInt(hex.slice(0, 2), 16), parseInt(hex.slice(2, 4), 16),
+            parseInt(hex.slice(4, 6), 16)];
+  }
+
+  /* The colour a cell darkens to, worked out row by row. It follows the sky
+     that is actually on screen: the raw gradient, which runs from the horizon
+     at the bottom to the zenith at the top, then the veil that settles it into
+     the page colour further down. So the same click comes out warm under a
+     dusk horizon and cold under a night zenith, instead of one flat tint. */
+  function buildRowShades() {
+    const css = getComputedStyle(document.documentElement);
+    const horizon = readColour(css.getPropertyValue("--c-sky-1"));
+    const middle = readColour(css.getPropertyValue("--c-sky-2"));
+    const zenith = readColour(css.getPropertyValue("--c-sky-3"));
+    const page = readColour(css.getPropertyValue("--c-bg"));
+    const mid = (parseFloat(css.getPropertyValue("--c-sky-mid")) || 45) / 100;
+    /* A dark ground leaves almost nothing to take away: the same opacity that
+       reads clearly on a pale theme moves two levels out of 255 on the night
+       one. So the darker the page, the harder the field presses. */
+    const pageLum = (page[0] * .2126 + page[1] * .7152 + page[2] * .0722) / 255;
+    shadeLift = 1 + (1 - pageLum) * 2.2;
+
+    rowShade = [];
+    for (let r = 0; r <= fieldRows; r++) {
+      const down = fieldRows ? r / fieldRows : 0;   // 0 at the top of the page
+      const up = 1 - down;                          // the sky gradient runs upwards
+      const sky = up <= mid
+        ? mixRgb(horizon, middle, mid ? up / mid : 0)
+        : mixRgb(middle, zenith, (up - mid) / (1 - mid));
+      // the veil: nothing at the top, .78 of the page colour at 52%, all of it below
+      const veil = down <= .52 ? down / .52 * .78 : .78 + (down - .52) / .48 * .22;
+      /* Scaling the whole colour down keeps the hue in proportion but flattens
+         the chroma, and a near-white day sky then shades grey. So the channels
+         are pushed away from their own luminance first, and only then does the
+         light come off: the shadow of a blue sky stays blue. */
+      const seen = mixRgb(sky, page, veil);
+      const lum = seen[0] * .2126 + seen[1] * .7152 + seen[2] * .0722;
+      const tint = [];
+      for (let i = 0; i < 3; i++) {
+        const wide = lum + (seen[i] - lum) * SHADE_CHROMA;
+        tint.push(Math.round(Math.max(0, Math.min(255, wide)) * SHADE_MIX));
+      }
+      rowShade.push(rgbText(tint));
+    }
+  }
+
+  function fieldResize() {
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    fieldW = window.innerWidth;
+    fieldH = window.innerHeight;
+    fieldCanvas.width = Math.round(fieldW * dpr);
+    fieldCanvas.height = Math.round(fieldH * dpr);
+    fieldCtx = fieldCanvas.getContext("2d");
+    fieldCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    fieldCols = Math.ceil(fieldW / FIELD_STEP);
+    fieldRows = Math.ceil(fieldH / FIELD_STEP);
+
+    // the lattice as one path: a single stroke per frame, whatever the size.
+    // the half pixel keeps the lines on the pixel grid instead of straddling it
+    latticePath = new Path2D();
+    for (let c = 0; c <= fieldCols; c++) {
+      const x = Math.round(c * FIELD_STEP) + .5;
+      latticePath.moveTo(x, 0);
+      latticePath.lineTo(x, fieldH);
+    }
+    for (let r = 0; r <= fieldRows; r++) {
+      const y = Math.round(r * FIELD_STEP) + .5;
+      latticePath.moveTo(0, y);
+      latticePath.lineTo(fieldW, y);
+    }
+    buildRowShades();
+  }
+
+  /* energy from the well and from every live ring, gathered per cell. Only the
+     cells a source can actually reach are visited, so a lone click near the
+     edge does not cost a full sweep of the grid. */
+  /* where the sun sits on screen, and what colour it is burning right now */
+  function readSun() {
+    const cursor = document.getElementById("dtlCursor");
+    if (!cursor || cursor.hidden) { sunSpot = null; return; }
+    const box = cursor.getBoundingClientRect();
+    if (!box.width || box.bottom < -SUN_RADIUS || box.top > fieldH + SUN_RADIUS) {
+      sunSpot = null;
+      return;
+    }
+    sunSpot = {
+      x: box.left + box.width / 2,
+      y: box.top + box.height / 2,
+      ink: getComputedStyle(cursor).getPropertyValue("--sun-core").trim() || "#ffd67a"
+    };
+  }
+
+  /* the alpha a panel paints with, whatever notation the theme resolved to */
+  function alphaOf(colour) {
+    const parts = colour.match(/[\d.]+/g);
+    if (!parts) return 0;
+    return parts.length > 3 ? +parts[3] : 1;
+  }
+
+  function readPanels() {
+    const found = document.querySelectorAll(PANEL_SELECTOR);
+    panels = [];
+    for (let i = 0; i < found.length; i++) {
+      const depth = alphaOf(getComputedStyle(found[i]).backgroundColor);
+      if (depth > .02) panels.push({ el: found[i], depth: depth, top: NaN, left: NaN });
+    }
+  }
+
+  function gatherEnergy(now) {
+    const lit = new Map();
+    const add = function (col, row, amount) {
+      if (col < 0 || row < 0 || col >= fieldCols || row >= fieldRows) return;
+      const key = row * fieldCols + col;
+      lit.set(key, (lit.get(key) || 0) + amount);
+    };
+    // the trail keeps the strongest pass over a cell rather than piling up:
+    // where the path crosses itself it must not burn brighter than elsewhere
+    const raise = function (col, row, amount) {
+      if (col < 0 || row < 0 || col >= fieldCols || row >= fieldRows) return;
+      const key = row * fieldCols + col;
+      const had = lit.get(key) || 0;
+      if (amount > had) lit.set(key, amount);
+    };
+
+    /* The shade is dragged behind the pointer: the head sits under it, the
+       places it came from hold on for a moment, narrower and fainter. Speed
+       does two things to each hollow — it widens it, and it presses it flat
+       along the heading it was made on, so the samples stop overlapping into a
+       sausage and the path reads as a drawn line. At a standstill nothing is
+       squashed and the whole thing draws back to a small circle. */
+    const head = trail[trail.length - 1];
+    if (wellNow > .002) {
+      for (let s = -1; s < trail.length; s++) {
+        const spot = s < 0 ? head : trail[s];
+        const age = s < 0 ? 0 : now - spot.at;
+        if (age > TRAIL_MS) continue;
+        const life = 1 - age / TRAIL_MS;
+        const x = s < 0 ? pointerX : spot.x;
+        const y = s < 0 ? pointerY : spot.y;
+        // the head cools down as the pointer sits still, the tail keeps its own
+        let rush = spot ? spot.speed / SPEED_FULL : 0;
+        if (s < 0 && head) rush *= Math.max(0, 1 - (now - head.at) / SPEED_COOL);
+        if (rush > 1) rush = 1;
+        else if (!(rush > 0)) rush = 0;
+
+        const radius = WELL_RADIUS * (WELL_REST + (1 - WELL_REST) * rush) * (.55 + .45 * life);
+        const squash = 1 - WELL_SQUASH * rush;
+        const weight = wellNow * WELL_WEIGHT * life;
+        const heading = spot && (spot.ux || spot.uy);
+        const reach = radius * 1.6;
+        const c0 = Math.floor((x - reach) / FIELD_STEP);
+        const c1 = Math.ceil((x + reach) / FIELD_STEP);
+        const r0 = Math.floor((y - reach) / FIELD_STEP);
+        const r1 = Math.ceil((y + reach) / FIELD_STEP);
+        for (let r = r0; r <= r1; r++) {
+          for (let c = c0; c <= c1; c++) {
+            const dx = (c + .5) * FIELD_STEP - x;   // the cell's middle
+            const dy = (r + .5) * FIELD_STEP - y;
+            let t;
+            if (heading) {
+              const along = (dx * spot.ux + dy * spot.uy) / squash;
+              const across = dy * spot.ux - dx * spot.uy;
+              t = (along * along + across * across) / (radius * radius);
+            } else {
+              t = (dx * dx + dy * dy) / (radius * radius);
+            }
+            if (t > 4) continue;
+            raise(c, r, Math.exp(-t) * weight);
+          }
+        }
+      }
+    }
+
+    /* A panel can move without a scroll event to announce it — a row unfolding,
+       the rail sliding, a list rebuilt. So the field watches the rects it just
+       drew: as long as one of them is still moving it keeps drawing, and the
+       hollows stay under the panels that cast them. */
+    let stalePanels = false;
+    panelsMoving = false;
+    for (let i = 0; i < panels.length; i++) {
+      if (!panels[i].el.isConnected) { stalePanels = true; continue; }
+      const box = panels[i].el.getBoundingClientRect();
+      if (box.top !== panels[i].top || box.left !== panels[i].left) {
+        panelsMoving = true;
+        panels[i].top = box.top;
+        panels[i].left = box.left;
+      }
+      if (!box.width || box.bottom < 0 || box.top > fieldH) continue;
+      const depth = panels[i].depth * PANEL_DEPTH;
+      const c0 = Math.floor(box.left / FIELD_STEP);
+      const c1 = Math.ceil(box.right / FIELD_STEP);
+      const r0 = Math.floor(box.top / FIELD_STEP);
+      const r1 = Math.ceil(box.bottom / FIELD_STEP);
+      for (let r = r0; r <= r1; r++) {
+        const cy = (r + .5) * FIELD_STEP;
+        // half a cell of give on each edge, so the hollow has a lip, not a step
+        const iy = Math.min(1, Math.max(0, Math.min(cy - box.top, box.bottom - cy) / FIELD_STEP + .5));
+        if (!iy) continue;
+        for (let c = c0; c <= c1; c++) {
+          const cx = (c + .5) * FIELD_STEP;
+          const ix = Math.min(1, Math.max(0, Math.min(cx - box.left, box.right - cx) / FIELD_STEP + .5));
+          if (ix) add(c, r, depth * ix * iy);
+        }
+      }
+    }
+
+    if (stalePanels) readPanels();   // a list was rebuilt under us
+
+    // the one cell that was clicked goes down and eases back up, nothing else
+    for (let i = 0; i < presses.length; i++) {
+      const press = presses[i];
+      const down = Math.exp(-(now - press.born) / PRESS_DECAY);
+      add(Math.floor(press.x / FIELD_STEP), Math.floor(press.y / FIELD_STEP), down);
+    }
+    return lit;
+  }
+
+  /* the cells the sun reaches, gathered the same way the shade is */
+  function gatherSun() {
+    const glow = new Map();
+    if (!sunSpot) return glow;
+    const reach = SUN_RADIUS * 1.5;
+    const c0 = Math.floor((sunSpot.x - reach) / FIELD_STEP);
+    const c1 = Math.ceil((sunSpot.x + reach) / FIELD_STEP);
+    const r0 = Math.floor((sunSpot.y - reach) / FIELD_STEP);
+    const r1 = Math.ceil((sunSpot.y + reach) / FIELD_STEP);
+    for (let r = r0; r <= r1; r++) {
+      if (r < 0 || r >= fieldRows) continue;
+      for (let c = c0; c <= c1; c++) {
+        if (c < 0 || c >= fieldCols) continue;
+        const dx = (c + .5) * FIELD_STEP - sunSpot.x;
+        const dy = (r + .5) * FIELD_STEP - sunSpot.y;
+        const t = (dx * dx + dy * dy) / (SUN_RADIUS * SUN_RADIUS);
+        if (t > 4) continue;
+        glow.set(r * fieldCols + c, Math.exp(-t));
+      }
+    }
+    return glow;
+  }
+
+  function fieldDraw(now) {
+    const ctx = fieldCtx;
+    ctx.clearRect(0, 0, fieldW, fieldH);
+    if (now - inkReadAt > 800) {           // follows a theme or palette change
+      fieldInk = getComputedStyle(fieldCanvas).color;
+      buildRowShades();
+      readPanels();          // lists get rebuilt, themes change their veil
+      inkReadAt = now;
+    }
+    /* The sun first, then what the pointer takes away, then the lattice over
+       both so the ruling stays legible. The pointer and a click only ever sink
+       a square — the sun is the one source allowed to lift one. */
+    readSun();
+    const glow = gatherSun();
+    glow.forEach(function (light, key) {
+      if (light < .02) return;
+      const col = key % fieldCols;
+      const row = (key - col) / fieldCols;
+      ctx.fillStyle = sunSpot.ink;
+      ctx.globalAlpha = SUN_ALPHA * fieldBoost * light;
+      ctx.fillRect(col * FIELD_STEP, row * FIELD_STEP, FIELD_STEP, FIELD_STEP);
+    });
+
+    const lit = gatherEnergy(now);
+    lit.forEach(function (energy, key) {
+      if (energy < .02) return;
+      const col = key % fieldCols;
+      const row = (key - col) / fieldCols;
+      ctx.fillStyle = rowShade[row] || "#000";
+      ctx.globalAlpha = Math.min(.75, SHADE_ALPHA * shadeLift * fieldBoost * (energy > 1 ? 1 : energy));
+      ctx.fillRect(col * FIELD_STEP, row * FIELD_STEP, FIELD_STEP, FIELD_STEP);
+    });
+
+    if (flashAt) drawFieldFlash(now);
+
+    ctx.strokeStyle = fieldInk;
+    ctx.lineWidth = 1;
+    ctx.globalAlpha = REST_ALPHA * fieldBoost;
+    ctx.stroke(latticePath);
+    ctx.globalAlpha = 1;
+  }
+
+  function fieldStep(now) {
+    fieldFrame = null;
+    const dt = Math.min((now - fieldLast) / 1000, .05);
+    fieldLast = now;
+
+    wellNow += (wellTarget - wellNow) * Math.min(1, dt * 7);   // eases in and out
+    for (let i = presses.length - 1; i >= 0; i--) {
+      if (now - presses[i].born > PRESS_LIFE) presses.splice(i, 1);
+    }
+    while (trail.length && now - trail[0].at > TRAIL_MS) trail.shift();
+    fieldDraw(now);
+
+    // nothing left to animate: stop, and let the last frame stand
+    const settling = Math.abs(wellTarget - wellNow) > .002;
+    if (flashAt || presses.length || trail.length || settling || pointerMoved
+        || panelsMoving || now < liveUntil) {
+      pointerMoved = false;
+      fieldWake();
+    }
+  }
+
+  function fieldWake() {
+    if (fieldCanvas.hidden) return;
+    liveUntil = performance.now() + FOLLOW_MS;
+    if (fieldFrame) return;
+    fieldFrame = requestAnimationFrame(fieldStep);
+  }
+
+  function onFieldMove(event) {
+    const last = trail[trail.length - 1];
+    if (!last || Math.abs(last.x - event.clientX) + Math.abs(last.y - event.clientY) > TRAIL_STEP) {
+      // each sample remembers which way it was going and how fast, so the
+      // hollow it leaves can be squashed along that heading
+      const at = performance.now();
+      const spot = { x: event.clientX, y: event.clientY, at: at, ux: 0, uy: 0, speed: 0 };
+      if (last) {
+        const dx = spot.x - last.x;
+        const dy = spot.y - last.y;
+        const len = Math.hypot(dx, dy) || 1;
+        spot.ux = dx / len;
+        spot.uy = dy / len;
+        spot.speed = len / Math.max(16, at - last.at) * 1000;
+      }
+      trail.push(spot);
+      if (trail.length > TRAIL_MAX) trail.shift();
+    }
+    pointerX = event.clientX;
+    pointerY = event.clientY;
+    wellTarget = 1;
+    pointerMoved = true;
+    fieldWake();
+  }
+  function onFieldDown(event) {
+    pointerX = event.clientX;
+    pointerY = event.clientY;
+    presses.push({ x: event.clientX, y: event.clientY, born: performance.now() });
+    wellTarget = 1;
+    fieldWake();
+  }
+  function onFieldLeave() { wellTarget = 0; fieldWake(); }
+  function onFieldResize() {
+    if (fieldCanvas.hidden) return;
+    fieldResize();
+    fieldWake();
+  }
+
+  /* The threshold shows the field whether or not it is switched on as a
+     decoration, and shows it louder: it is the ground the app comes through. */
+  /* the light starts where it was clicked and runs outwards from there */
+  function startFieldFlash(x, y) {
+    flashX = x;
+    flashY = y;
+    flashAt = performance.now();
+    const far = Math.hypot(Math.max(x, fieldW - x), Math.max(y, fieldH - y));
+    flashSpan = (far + FLASH_WIDTH * 2) / FLASH_SPEED * 1000;
+    fieldWake();
+  }
+
+  function drawFieldFlash(now) {
+    const ctx = fieldCtx;
+    const age = now - flashAt;
+    if (age > flashSpan) { flashAt = 0; return; }
+    const radius = FLASH_SPEED * age / 1000;
+    const fade = 1 - age / flashSpan;         // it spends itself on the way out
+    ctx.fillStyle = fieldInk;
+    for (let r = 0; r < fieldRows; r++) {
+      const cy = (r + .5) * FIELD_STEP;
+      for (let c = 0; c < fieldCols; c++) {
+        const cx = (c + .5) * FIELD_STEP;
+        const off = (Math.hypot(cx - flashX, cy - flashY) - radius) / FLASH_WIDTH;
+        if (off * off > 4) continue;
+        ctx.globalAlpha = FLASH_ALPHA * Math.exp(-off * off) * fade * fade;
+        ctx.fillRect(c * FIELD_STEP, r * FIELD_STEP, FIELD_STEP, FIELD_STEP);
+      }
+    }
+    ctx.globalAlpha = 1;
+  }
+
+  function setFieldWelcome(on) {
+    fieldBoost = on ? 2.6 : 1;
+    if (on) setFieldOn(true);
+    else setFieldOn(state.settings.decorations.indexOf("field") !== -1);
+    fieldWake();
+  }
+
+  function setFieldOn(on) {
+    if (on && window.matchMedia("(prefers-reduced-motion: reduce)").matches) on = false;
+    if (on === !fieldCanvas.hidden) return;
+    fieldCanvas.hidden = !on;
+    if (on) {
+      fieldResize();
+      fieldLast = performance.now();
+      window.addEventListener("pointermove", onFieldMove);
+      window.addEventListener("pointerdown", onFieldDown);
+      document.addEventListener("pointerleave", onFieldLeave);
+      window.addEventListener("resize", onFieldResize);
+      window.addEventListener("scroll", fieldWake, { passive: true });   // the sun rides with the page
+      fieldWake();
+    } else {
+      if (fieldFrame) cancelAnimationFrame(fieldFrame);
+      fieldFrame = null;
+      presses.length = 0;
+      trail.length = 0;
+      wellNow = 0;
+      wellTarget = 0;
+      window.removeEventListener("pointermove", onFieldMove);
+      window.removeEventListener("pointerdown", onFieldDown);
+      document.removeEventListener("pointerleave", onFieldLeave);
+      window.removeEventListener("resize", onFieldResize);
+      window.removeEventListener("scroll", fieldWake);
+    }
+  }
+
   /* rebuild the decor layer: manual decorations plus the adaptive weather one */
   function applyDecorations() {
     decor.innerHTML = "";
@@ -1100,6 +1740,7 @@
       else if (active[i] === "fog") spawnFog();
       else if (active[i] === "storm") { spawnStorm(); rainShown = true; }
     }
+    setFieldOn(active.indexOf("field") !== -1);   // its own canvas, outside the wipe
     // adaptive theme adds the weather effect, unless it's already on manually
     const weather = weatherDecoration();
     if (weather && active.indexOf(weather) === -1) {
@@ -1184,8 +1825,28 @@
     }
   });
 
+  /* While an object is unfolded its row must survive: rebuilding the list would
+     tear out the very node the editor lives in, which is what made the panel
+     snap shut on every keystroke. Redraws are deferred to the fold closing. */
+  const listsDirty = {};
+  function listsLocked(which) {
+    if (!openHost) return false;
+    listsDirty[which] = true;
+    return true;
+  }
+  /* redraw only what changed: rebuilding all three read as the whole page reloading */
+  function flushLists() {
+    const pending = Object.keys(listsDirty);
+    for (let i = 0; i < pending.length; i++) delete listsDirty[pending[i]];
+    for (let i = 0; i < pending.length; i++) {
+      if (pending[i] === "events") renderTodayEvents();
+      else renderList(pending[i]);
+    }
+  }
+
   /* Redraw one list (tasks or projects) from state. */
   function renderList(listName) {
+    if (listsLocked(listName)) return;
     if (listName === "tasks") { renderTasks(); return; }
     const listElement = document.getElementById(listName + "List");
     const items = sortedByDue(state[listName]);
@@ -1321,44 +1982,43 @@
     const kindClass = listName === "projects" ? " item--project" : " item--task";
     row.className = (item.done ? "item item--open done" : "item item--open") + kindClass;
     row.dataset.id = item.id;
-    row.addEventListener("click", function () { openDetail(listName, item.id); });
-
-    // pinned rows can't be dragged, but keep an empty grip so the columns line up
-    const grip = document.createElement("span");
-    grip.className = "item__grip";
-    grip.setAttribute("aria-hidden", "true");
-    row.appendChild(grip);
+    const fold = createUnfold();
+    row.addEventListener("click", function (event) {
+      if (event.target.closest(".unfold, .detail__titlerow, .item__check")) return;
+      if (Date.now() < dragEndedAt) return;          // the click that ends a drag
+      // the dashboard list is a reminder: a project opens in its own workspace
+      if (listName === "projects") { openProjectView(item.id); return; }
+      if (row.classList.contains("is-open")) { closeDetail(); return; }
+      openDetail(listName, item.id, fold.firstChild);
+    });
     if (!item.pinned) {
       row.dataset.reorder = "1";
-      grip.innerHTML = ICON_GRIP;
-      grip.addEventListener("click", function (e) { e.stopPropagation(); });
-      grip.addEventListener("pointerdown", function (e) { startRowDrag(e, row, listName); });
+      armLongPress(row, listName);
     }
 
-    // a task has a completion checkbox; a project shows an icon instead (not "done"-able)
+    // completion is the card's left edge: a full-height bar instead of a box
     if (listName === "projects") {
       const icon = document.createElement("span");
       icon.className = "item__ico";
       icon.innerHTML = habitSvg(item.icon || "folder");
       row.appendChild(icon);
     } else {
-      const checkbox = document.createElement("span");
-      checkbox.className = "item__check";
-      checkbox.textContent = item.done ? "✓" : "";
-      checkbox.addEventListener("click", function (event) {
-        event.stopPropagation();   // the box toggles; the rest of the row opens the detail
-        toggleItem(listName, item.id);
-      });
-      row.appendChild(checkbox);
+      row.appendChild(createCheckbox(function () { toggleItem(listName, item.id); }));
     }
 
     const label = document.createElement("span");
     label.className = "item__text";
     label.textContent = item.text;
+    const slot = document.createElement("span");
+    slot.className = "item__slot";
 
-    row.appendChild(label);
+    row.append(label, slot);
     if (item.notes && item.notes.trim()) row.appendChild(createNoteMark());
     if (listName === "tasks" && item.subtasks && item.subtasks.length) row.appendChild(createSubBadge(item));
+    if (listName === "tasks" && item.projectId) {
+      const star = createStarMark(item.projectId);
+      if (star) row.appendChild(star);
+    }
     if (listName === "projects" && item.milestones && item.milestones.length) row.appendChild(createMilestoneBadge(item));
     if (item.pinned) row.appendChild(createPinMarker());
     if (item.dueDate) {
@@ -1367,17 +2027,185 @@
     if (listName === "projects") {
       row.appendChild(createImportanceBars(item.importance || 0));
     }
+
+    // a task completes with its ring, so only a project needs the tick here
+    const actions = [];
+    if (listName === "projects") {
+      actions.push(rowAction("done", ICON_TICK, "completeLabel", function () {
+        toggleItem("projects", item.id);
+      }));
+    } else {
+      actions.push(rowAction("when", ICON_WHEN, "rescheduleLabel", function () {
+        openCalendar(item.id, "tasks");
+      }));
+    }
+    actions.push(rowAction("del", ICON_TRASH, "deleteAria", function () {
+      removeItem(listName, item.id);
+    }));
+    row.appendChild(createRowActions(actions));
+    armSwipe(row);
+
+    row.appendChild(fold);
     return row;
   }
 
-  const ICON_GRIP = '<svg viewBox="0 0 24 24" fill="currentColor"><circle cx="9" cy="6" r="1.4"/><circle cx="15" cy="6" r="1.4"/><circle cx="9" cy="12" r="1.4"/><circle cx="15" cy="12" r="1.4"/><circle cx="9" cy="18" r="1.4"/><circle cx="15" cy="18" r="1.4"/></svg>';
+  /* the pocket an object unfolds into; the editor is moved inside it */
+  function createUnfold() {
+    const fold = document.createElement("div");
+    fold.className = "unfold";
+    const inner = document.createElement("div");
+    inner.className = "unfold__inner";
+    fold.appendChild(inner);
+    return fold;
+  }
+
+  /* ROW ACTIONS — the rarer moves wait on the right of the row and are uncovered
+     by a hover, or by a left swipe on touch. They are laid over the row rather
+     than in it, so showing them never reflows the line. */
+  const ICON_WHEN = '<rect x="3" y="4" width="18" height="18" rx="2"/>'
+    + '<line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/>'
+    + '<line x1="3" y1="10" x2="21" y2="10"/>';
+  const ICON_TRASH = '<polyline points="3 6 5 6 21 6"/>'
+    + '<path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>'
+    + '<line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/>';
+  const ICON_TICK = '<polyline points="4 12.5 9.5 18 20 6"/>';
+
+  function rowAction(name, paths, labelKey, onRun) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "row-act row-act--" + name;
+    button.setAttribute("aria-label", translate(labelKey));
+    button.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" '
+      + 'stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
+      + paths + '</svg>';
+    button.addEventListener("click", function (event) {
+      event.stopPropagation();
+      closeSwipe();
+      onRun();
+    });
+    return button;
+  }
+
+  function createRowActions(buttons) {
+    const group = document.createElement("span");
+    group.className = "row-acts";
+    for (let i = 0; i < buttons.length; i++) group.appendChild(buttons[i]);
+    return group;
+  }
+
+  /* the tick is drawn, not typed: an SVG stroke that draws itself in */
+  function createCheckbox(onToggle) {
+    const box = document.createElement("button");
+    box.type = "button";
+    box.className = "item__check";
+    box.setAttribute("aria-label", translate("doneAria"));
+    box.innerHTML = '<svg viewBox="0 0 16 16" aria-hidden="true">'
+      + '<polyline points="3.5 8.4 6.6 11.5 12.5 4.8"/></svg>';
+    box.addEventListener("click", function (event) {
+      event.stopPropagation();
+      onToggle();
+    });
+    return box;
+  }
+
+  /* Touch has no hover, so a left swipe uncovers the same actions. The group
+     follows the finger instead of snapping, and a swipe that turns out to be
+     vertical is handed back to the scroll. */
+  const SWIPE_MIN = 10;    // under this it could still become a scroll
+  const SWIPE_FULL = 56;   // travel that uncovers the group completely
+  let swipedRow = null;
+
+  function closeSwipe() {
+    if (!swipedRow) return;
+    swipedRow.classList.remove("is-swiped");
+    swipedRow = null;
+  }
+
+  function armSwipe(row) {
+    let fromX = 0, fromY = 0, live = false, decided = false, shown = 0;
+
+    row.addEventListener("pointerdown", function (event) {
+      if (event.pointerType === "mouse") return;
+      if (row.classList.contains("is-open")) return;
+      if (event.target.closest(".row-acts, .unfold, .detail__titlerow")) return;
+      fromX = event.clientX;
+      fromY = event.clientY;
+      live = true;
+      decided = false;
+      shown = 0;
+    });
+
+    row.addEventListener("pointermove", function (event) {
+      if (!live) return;
+      const dx = event.clientX - fromX;
+      const dy = event.clientY - fromY;
+      if (!decided) {
+        if (Math.abs(dx) < SWIPE_MIN && Math.abs(dy) < SWIPE_MIN) return;
+        if (Math.abs(dx) <= Math.abs(dy)) { live = false; return; }   // a scroll
+        decided = true;
+        closeSwipe();
+        row.classList.add("is-swiping");
+      }
+      shown = Math.max(0, Math.min(1, -dx / SWIPE_FULL));
+      row.style.setProperty("--swipe", shown.toFixed(3));
+    });
+
+    const release = function () {
+      if (!live) return;
+      live = false;
+      if (!decided) return;
+      row.classList.remove("is-swiping");
+      row.style.removeProperty("--swipe");
+      dragEndedAt = Date.now() + 350;   // the swipe must not also open the row
+      if (shown > .5) {
+        row.classList.add("is-swiped");
+        swipedRow = row;
+      }
+    };
+    row.addEventListener("pointerup", release);
+    row.addEventListener("pointercancel", release);
+  }
+
+  // a touch anywhere else puts the uncovered row back
+  document.addEventListener("pointerdown", function (event) {
+    if (swipedRow && !event.target.closest(".is-swiped")) closeSwipe();
+  });
+
+  /* Reordering starts on a long press anywhere on the row, so the six-dot grip
+     could go. A press that moves early, or ends early, is just a click. */
+  const LONG_PRESS_MS = 380;
+  let pressTimer = null;
+  let dragEndedAt = 0;
+
+  function armLongPress(row, listName) {
+    row.addEventListener("pointerdown", function (event) {
+      if (event.pointerType === "mouse" && event.button !== 0) return;
+      if (event.target.closest(".item__check, .row-acts, .unfold, .detail__titlerow")) return;
+      const from = { x: event.clientX, y: event.clientY };
+      clearTimeout(pressTimer);
+      pressTimer = setTimeout(function () {
+        startRowDrag(event, row, listName);
+      }, LONG_PRESS_MS);
+      const give = function (move) {
+        if (Math.abs(move.clientX - from.x) + Math.abs(move.clientY - from.y) > 8) drop();
+      };
+      const drop = function () {
+        clearTimeout(pressTimer);
+        document.removeEventListener("pointermove", give);
+        document.removeEventListener("pointerup", drop);
+        document.removeEventListener("pointercancel", drop);
+      };
+      document.addEventListener("pointermove", give);
+      document.addEventListener("pointerup", drop);
+      document.addEventListener("pointercancel", drop);
+    });
+  }
+
 
   /* pointer-based drag reorder (works on touch). Listens on document so the drag
      survives the row moving in the DOM, then persists the new order to state. */
   let rowDrag = null;
   function startRowDrag(event, row, listName) {
-    if (event.pointerType === "mouse" && event.button !== 0) return;
-    event.preventDefault();
     rowDrag = { row: row, listName: listName, listEl: row.parentNode };
     row.classList.add("is-dragging");
     document.addEventListener("pointermove", onRowDragMove, { passive: false });
@@ -1408,6 +2236,7 @@
     const drag = rowDrag;
     rowDrag = null;
     drag.row.classList.remove("is-dragging");
+    dragEndedAt = Date.now() + 350;   // swallow the click that ends the drag
     document.removeEventListener("pointermove", onRowDragMove);
     document.removeEventListener("pointerup", endRowDrag);
     document.removeEventListener("pointercancel", endRowDrag);
@@ -1435,9 +2264,7 @@
   }
 
   function addItem(listName, text, due, importance) {
-    const item = { id: Date.now().toString(), text: text }; // timestamp id
-    if (listName === "projects") item.icon = "folder";      // projects use an icon, no "done"
-    else item.done = false;
+    const item = { id: Date.now().toString(), text: text, done: false, projectId: null };
     if (due && due.date) {
       item.dueDate = due.date;
       item.dueTime = due.time || null;
@@ -1471,18 +2298,33 @@
 
   /* Find the item by id, drop it, redraw. */
   function removeItem(listName, id) {
-    removeWithUndo(listName, id, function () { renderList(listName); });
+    removeWithUndo(listName, id, function () {
+      renderList(listName);
+      // a project also owns a star, and Undo has to bring it back
+      if (listName === "projects" && !skyView.hidden) renderSky();
+    });
   }
 
   function toggleItem(listName, id) {
     const items = state[listName];
+    let now = false;
     for (let i = 0; i < items.length; i++) {
       if (items[i].id === id) {
         items[i].done = !items[i].done; // flip done state
+        now = items[i].done;
+        items[i].doneDate = now ? todayKey() : null;   // feeds the project's momentum
         break;
       }
     }
     saveState();
+    if (openHost) {
+      // the list is frozen: repaint just this row and the ring
+      const row = document.querySelector('.item[data-id="' + id + '"]');
+      if (row) row.classList.toggle("done", now);
+      renderTasksRing();
+      listsDirty[listName] = true;
+      return;
+    }
     renderList(listName);
   }
 
@@ -1520,7 +2362,7 @@
   /* Read date / time / pin out of a line. `ranges` are the character spans that
      were consumed, used both to strip them from the title and to highlight them. */
   function parseQuickAdd(text) {
-    const parsed = { date: null, time: null, pinned: false, ranges: [] };
+    const parsed = { date: null, time: null, flag: false, inferred: false, ranges: [] };
 
     const ampm = AMPM_RE.exec(text);
     const clock = ampm || COLON_RE.exec(text) || HOUR_RE.exec(text);
@@ -1570,7 +2412,7 @@
 
     const bang = BANG_RE.exec(text);
     if (bang) {
-      parsed.pinned = true;
+      parsed.flag = true;
       const start = bang.index + bang[0].length - bang[1].length;   // skip the leading space
       parsed.ranges.push([start, start + bang[1].length]);
     }
@@ -1580,6 +2422,7 @@
     if (parsed.time && !parsed.date) {
       const at = new Date(todayKey() + "T" + parsed.time).getTime();
       parsed.date = at >= Date.now() ? todayKey() : shiftDateKey(todayKey(), 1);
+      parsed.inferred = true;   // guessed, not read: a day view may override it
     }
 
     parsed.ranges.sort(function (a, b) { return a[0] - b[0]; });
@@ -1599,99 +2442,124 @@
     return title.replace(/\s+/g, " ").trim();
   }
 
-  const quickForm = document.getElementById("quickAdd");
-  const quickInput = document.getElementById("quickInput");
-  const quickMirror = document.getElementById("quickMirror");
-  const quickHint = document.getElementById("quickHint");
-  const addTaskBtn = document.getElementById("addTaskBtn");
+  /* One typed line, with the parts it recognises lit up underneath. Tasks and
+     events share it; only the day it falls back on, the word the "!" stands for
+     and what submit does are different. `config.resolveDate` lets a caller have
+     the last word on the day, so the hint and the object always agree. */
+  function wireQuickAdd(config) {
+    const form = document.getElementById(config.form);
+    const input = document.getElementById(config.input);
+    const mirror = document.getElementById(config.mirror);
+    const hint = document.getElementById(config.hint);
+    const button = document.getElementById(config.button);
 
-  /* the mirror sits under the transparent input and only paints the highlights,
-     so the recognised words light up exactly beneath what's typed */
-  function renderQuickFeedback() {
-    const text = quickInput.value;
-    const parsed = parseQuickAdd(text);
-    quickMirror.innerHTML = "";
-    let at = 0;
-    for (let i = 0; i < parsed.ranges.length; i++) {
-      if (parsed.ranges[i][0] < at) continue;
-      quickMirror.appendChild(document.createTextNode(text.slice(at, parsed.ranges[i][0])));
-      const hit = document.createElement("span");
-      hit.className = "quick__hit";
-      hit.textContent = text.slice(parsed.ranges[i][0], parsed.ranges[i][1]);
-      quickMirror.appendChild(hit);
-      at = parsed.ranges[i][1];
+    function dayOf(parsed) {
+      return config.resolveDate ? config.resolveDate(parsed) : parsed.date;
     }
-    quickMirror.appendChild(document.createTextNode(text.slice(at)));
-    quickMirror.scrollLeft = quickInput.scrollLeft;
 
-    const bits = [];
-    if (parsed.date) bits.push(dueLabel({ dueDate: parsed.date, dueTime: parsed.time }));
-    if (parsed.pinned) bits.push(translate("pinLabel"));
-    quickHint.hidden = bits.length === 0;
-    if (bits.length) {
-      quickHint.textContent = (quickTitle(text, parsed.ranges) || translate("newTaskName"))
-        + " · " + bits.join(" · ");
+    // the mirror sits under the transparent input and only paints the
+    // highlights, so the recognised words light up beneath what's typed
+    function render() {
+      const text = input.value;
+      const parsed = parseQuickAdd(text);
+      mirror.innerHTML = "";
+      let at = 0;
+      for (let i = 0; i < parsed.ranges.length; i++) {
+        if (parsed.ranges[i][0] < at) continue;
+        mirror.appendChild(document.createTextNode(text.slice(at, parsed.ranges[i][0])));
+        const hit = document.createElement("span");
+        hit.className = "quick__hit";
+        hit.textContent = text.slice(parsed.ranges[i][0], parsed.ranges[i][1]);
+        mirror.appendChild(hit);
+        at = parsed.ranges[i][1];
+      }
+      mirror.appendChild(document.createTextNode(text.slice(at)));
+      mirror.scrollLeft = input.scrollLeft;
+
+      const bits = [];
+      const day = dayOf(parsed);
+      if (day) bits.push(dueLabel({ dueDate: day, dueTime: parsed.time }));
+      if (parsed.flag) bits.push(translate(config.flagLabel));
+      hint.hidden = bits.length === 0;
+      if (bits.length) {
+        hint.textContent = (quickTitle(text, parsed.ranges) || translate(config.fallbackName))
+          + " · " + bits.join(" · ");
+      }
+      return parsed;
     }
-    return parsed;
+
+    function open() {
+      button.hidden = true;
+      form.hidden = false;
+      input.focus();
+      render();
+    }
+    function close() {
+      input.value = "";
+      form.hidden = true;
+      button.hidden = false;
+      render();
+    }
+
+    button.addEventListener("click", open);
+    input.addEventListener("input", render);
+    input.addEventListener("scroll", function () { mirror.scrollLeft = input.scrollLeft; });
+    input.addEventListener("blur", function () {
+      if (!input.value.trim()) close();   // keep a half-typed line alive
+    });
+    input.addEventListener("keydown", function (event) {
+      if (event.key === "Escape") { event.stopPropagation(); close(); }
+    });
+
+    form.addEventListener("submit", function (event) {
+      event.preventDefault();
+      const text = input.value;
+      const parsed = parseQuickAdd(text);
+      const title = quickTitle(text, parsed.ranges);
+      if (!title && !parsed.date) return;
+      config.submit(parsed, title || translate(config.fallbackName), dayOf(parsed));
+      if (parsed.time) ensureNotifyPermission();
+      input.value = "";
+      render();
+      input.focus();   // ready for the next line
+    });
   }
 
-  function openQuickAdd() {
-    addTaskBtn.hidden = true;
-    quickForm.hidden = false;
-    quickInput.focus();
-    renderQuickFeedback();
-  }
-  function closeQuickAdd() {
-    quickInput.value = "";
-    quickForm.hidden = true;
-    addTaskBtn.hidden = false;
-    renderQuickFeedback();
-  }
-
-  addTaskBtn.addEventListener("click", openQuickAdd);
-  quickInput.addEventListener("input", renderQuickFeedback);
-  quickInput.addEventListener("scroll", function () {
-    quickMirror.scrollLeft = quickInput.scrollLeft;
-  });
-  quickInput.addEventListener("blur", function () {
-    if (!quickInput.value.trim()) closeQuickAdd();   // keep a half-typed line alive
-  });
-  quickInput.addEventListener("keydown", function (event) {
-    if (event.key === "Escape") { event.stopPropagation(); closeQuickAdd(); }
-  });
-
-  quickForm.addEventListener("submit", function (event) {
-    event.preventDefault();
-    const text = quickInput.value;
-    const parsed = parseQuickAdd(text);
-    const title = quickTitle(text, parsed.ranges);
-    if (!title && !parsed.date) return;
-    addItem("tasks", title || translate("newTaskName"),
-      parsed.date ? { date: parsed.date, time: parsed.time } : null);
-    if (parsed.pinned) {
-      state.tasks[state.tasks.length - 1].pinned = true;
-      saveState();
-      renderList("tasks");
+  wireQuickAdd({
+    form: "quickAdd", input: "quickInput", mirror: "quickMirror",
+    hint: "quickHint", button: "addTaskBtn",
+    flagLabel: "pinLabel", fallbackName: "newTaskName",
+    submit: function (parsed, title, day) {
+      addItem("tasks", title, day ? { date: day, time: parsed.time } : null);
+      if (parsed.flag) {
+        state.tasks[state.tasks.length - 1].pinned = true;
+        saveState();
+        renderList("tasks");
+      }
     }
-    if (parsed.time) ensureNotifyPermission();
-    quickInput.value = "";
-    renderQuickFeedback();
-    quickInput.focus();   // ready for the next line
   });
 
-  /* a project works the same way: it opens straight into its detail view */
-  document.getElementById("addProjectBtn").addEventListener("click", function () {
-    const project = { id: Date.now().toString(), text: translate("addProjectAria"), icon: "folder" };
+  /* a new project lands in the sky and opens straight into its workspace */
+  function newProject() {
+    const project = {
+      id: Date.now().toString(), text: translate("addProjectAria"), icon: "folder",
+      sky: freeSkySpot(state.projects.length), why: "", outcome: "", targetDate: null,
+      journal: [], dream: []
+    };
     state.projects.push(project);
     saveState();
     renderList("projects");
-    openDetail("projects", project.id);
-    detailName.focus();
-    detailName.select();
+    return project;
+  }
+
+  document.getElementById("addProjectBtn").addEventListener("click", function () {
+    const project = newProject();
+    openProjectView(project.id);
+    pviewName.focus();
+    pviewName.select();
   });
 
   /* HABITS */
-  const HABIT_SLOTS = 5;
 
   /* line-art icon catalog (same stroke style as the rest of the app) */
   const HABIT_ICONS = {
@@ -1753,13 +2621,70 @@
   }
 
   /* Draw the 5 slots: a tile per habit, an empty "+" slot for the rest. */
+  /* THE HABIT FOLD — one panel, moved under whichever tile is open, the way the
+     editor card travels between task rows. It spans the whole grid row, so on a
+     wrapped grid it opens under the right rank. */
+  const HFOLD_MS = 380;
+  let habitOpen = null;
+  let hfoldTimer = null;
+
+  function habitFoldEl() {
+    let fold = document.getElementById("habitFold");
+    if (fold) return fold;
+    fold = document.createElement("div");
+    fold.id = "habitFold";
+    fold.className = "hfold";
+    fold.appendChild(document.createElement("div")).className = "hfold__inner";
+    return fold;
+  }
+
+  function closeHabitFold() {
+    const fold = document.getElementById("habitFold");
+    habitOpen = null;
+    if (!fold) return;
+    clearTimeout(hfoldTimer);
+    fold.style.height = fold.getBoundingClientRect().height + "px";
+    fold.offsetWidth;
+    fold.style.height = "0px";
+    hfoldTimer = setTimeout(function () { fold.remove(); }, HFOLD_MS);
+  }
+
+  /* `silent` true keeps the height as it is (a redraw), null closes */
+  function mountHabitFold(id, silent) {
+    if (silent === null) { closeHabitFold(); return; }
+    const tile = habitsGrid.querySelector('[data-habit="' + id + '"]');
+    const habit = habitById(id);
+    if (!tile || !habit) { habitOpen = null; return; }
+    const fold = habitFoldEl();
+    clearTimeout(hfoldTimer);
+    const inner = fold.firstChild;
+    inner.innerHTML = "";
+    inner.appendChild(createHabitPanel(habit));
+    tile.after(fold);
+    habitOpen = id;
+    fold.style.height = silent ? "auto" : inner.getBoundingClientRect().height + "px";
+    if (!silent) {
+      hfoldTimer = setTimeout(function () { fold.style.height = "auto"; }, HFOLD_MS);
+    }
+  }
+
+  function habitById(id) {
+    for (let i = 0; i < state.habits.length; i++) {
+      if (state.habits[i].id === id) return state.habits[i];
+    }
+    return null;
+  }
+
   function renderHabits() {
     const today = todayKey();
+    const openId = habitOpen;
     habitsGrid.innerHTML = "";
-    for (let i = 0; i < HABIT_SLOTS; i++) {
-      const habit = state.habits[i];
-      habitsGrid.appendChild(habit ? createHabitTile(habit, today) : createEmptySlot());
+    for (let i = 0; i < state.habits.length; i++) {
+      habitsGrid.appendChild(createHabitTile(state.habits[i], today));
     }
+    habitsGrid.appendChild(createEmptySlot());
+    if (openId) mountHabitFold(openId, true);   // survive a redraw
+    renderHabitsRule();
   }
 
   /* A filled habit: icon, rising water. Sleep/exercise are special (their own tile). */
@@ -1781,9 +2706,31 @@
       icon.innerHTML = habitSvg(habit.icon);
     }
 
-    tile.addEventListener("click", function () { toggleHabit(habit.id, tile); });
-    tile.append(water, icon);
+    tile.addEventListener("click", function (event) {
+      if (event.target.closest(".habit__more")) return;
+      toggleHabit(habit.id, tile);
+    });
+    tile.dataset.habit = habit.id;
+    tile.append(water, icon, createHabitMore(habit.id));
     return tile;
+  }
+
+  /* Ticking is what a tile is for, so opening its detail needs its own mark:
+     a corner button that only shows on hover, as the row actions do. */
+  function createHabitMore(id) {
+    const more = document.createElement("button");
+    more.type = "button";
+    more.className = "habit__more";
+    more.setAttribute("aria-label", translate("habitEditAria"));
+    more.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" '
+      + 'stroke-width="2.4" stroke-linecap="round" aria-hidden="true">'
+      + '<circle cx="5" cy="12" r=".6"/><circle cx="12" cy="12" r=".6"/>'
+      + '<circle cx="19" cy="12" r=".6"/></svg>';
+    more.addEventListener("click", function (event) {
+      event.stopPropagation();
+      mountHabitFold(id, habitOpen === id ? null : false);
+    });
+    return more;
   }
 
   /* Sleep tile: water fills to last night's hours, hours label, opens the sleep view. */
@@ -1921,12 +2868,13 @@
     else habit.completedDates.splice(at, 1);
     tile.classList.toggle("done", nowDone);
     saveState();
+    renderHabitsRule();
   }
 
   function removeHabit(id) {
     removeWithUndo("habits", id, function () {
       renderHabits();
-      renderHabitsView();
+      renderHabits();
     });
   }
 
@@ -1946,17 +2894,26 @@
     }
   }
 
-  let iconPickerMode = { kind: "habit-new" };   // habit-new | habit-edit | detail
+  let iconPickerMode = { kind: "habit-new" };   // habit-new | habit-edit | detail | project
 
-  /* Apply a picked icon: create a habit, update a habit's icon, or the open detail item's. */
+  /* Apply a picked icon: create a habit, update a habit's icon, or the open item's. */
   function chooseIcon(iconKey) {
-    if (iconPickerMode.kind === "detail") {   // the open event/project detail
+    if (iconPickerMode.kind === "detail") {   // the open event detail
       const item = currentDetailItem();
       if (item) item.icon = iconKey;
       saveState();
       iconPicker.hidden = true;
       detailIcon.innerHTML = habitSvg(iconKey);   // update the square button
-      refreshDetailSource();   // update rows / calendar / timeline
+      refreshDetailSource();   // update rows / calendar
+      return;
+    }
+    if (iconPickerMode.kind === "project") {
+      const project = currentProject();
+      if (project) project.icon = iconKey;
+      saveState();
+      iconPicker.hidden = true;
+      pviewIcon.innerHTML = habitSvg(iconKey);
+      renderList("projects");
       return;
     }
     if (iconPickerMode.kind === "habit-new") {
@@ -1976,7 +2933,7 @@
     saveState();
     iconPicker.hidden = true;
     renderHabits();
-    renderHabitsView();   // reflect an icon change on the well-being page
+    renderHabits();   // reflect an icon change on the well-being page
   }
 
   /* open to create a new habit (name field shown) */
@@ -1996,9 +2953,17 @@
     iconPicker.hidden = false;
   }
 
-  /* open to change the icon of the item in the detail view (event or project) */
+  /* open to change the icon of the event in the detail view */
   function openIconPickerForDetail() {
     iconPickerMode = { kind: "detail" };
+    document.getElementById("habitNameField").hidden = true;
+    document.getElementById("iconPresets").hidden = true;
+    iconPicker.hidden = false;
+  }
+
+  /* same, for the project on screen in its workspace */
+  function openIconPickerForProject() {
+    iconPickerMode = { kind: "project" };
     document.getElementById("habitNameField").hidden = true;
     document.getElementById("iconPresets").hidden = true;
     iconPicker.hidden = false;
@@ -2519,8 +3484,8 @@
 
   /* AGENDA — date/time picker, reused for a task's due date and an event's reschedule */
   const calendarModal = document.getElementById("calendar");
-  let pickerContext = "new";                      // "new" or an existing task/event id
-  let pickerKind = "tasks";                        // "tasks" or "events"
+  let pickerContext = "new";                      // an id, or {projectId, milestoneId}
+  let pickerKind = "tasks";                        // tasks | events | project | milestone
   let pickerSelected = null;                      // "YYYY-MM-DD" chosen in the grid
   let pickerYear = 0;
   let pickerMonth = 0;
@@ -2670,7 +3635,8 @@
     }
   }
 
-  /* Open the calendar to edit a task's date (context = task id). */
+  /* Open the calendar on a task, an event, a project horizon or a milestone
+     target. The context is an id, except for a milestone which needs both. */
   function openCalendar(context, kind) {
     pickerContext = context;
     pickerKind = kind || "tasks";
@@ -2679,6 +3645,13 @@
     if (pickerKind === "events") {
       const event = findItem("events", context);
       if (event) { date = event.date || null; time = event.time || ""; }
+    } else if (pickerKind === "project") {
+      const project = findItem("projects", context);
+      if (project) date = project.targetDate || null;
+    } else if (pickerKind === "milestone") {
+      const project = findItem("projects", context.projectId);
+      const milestone = project && findMilestone(project, context.milestoneId);
+      if (milestone) date = milestone.targetDate || null;
     } else {
       const task = findTask(context);
       if (task) { date = task.dueDate || null; time = task.dueTime || ""; }
@@ -2688,12 +3661,16 @@
     pickerYear = base.getFullYear();
     pickerMonth = base.getMonth();
     setPickerTime(time);
+    // a horizon and a milestone target are dates only; setPickerTime already
+    // shut the sliders since they were loaded with no time
+    document.getElementById("calTimeRow").hidden =
+      pickerKind === "project" || pickerKind === "milestone";
     document.getElementById("calClear").hidden = pickerKind === "events";   // an event always has a date
     renderCalendar();
     calendarModal.hidden = false;
   }
 
-  /* Write the chosen (or cleared) date to the edited task or rescheduled event. */
+  /* Write the chosen (or cleared) date to whatever the picker was opened on. */
   function applyDue(date, time) {
     if (pickerKind === "events") {
       const event = findItem("events", pickerContext);
@@ -2703,8 +3680,29 @@
         saveState();
         renderEventCal();
         renderDailyTimeline();
-        if (!dayView.hidden) renderDayList();
-        refreshDetailIfOpen();
+      }
+      calendarModal.hidden = true;
+      return;
+    }
+    // a project horizon and a milestone target are dates only, no time
+    if (pickerKind === "project") {
+      const project = findItem("projects", pickerContext);
+      if (project) {
+        project.targetDate = date;
+        saveState();
+        fillProjectView(project);
+        renderList("projects");
+      }
+      calendarModal.hidden = true;
+      return;
+    }
+    if (pickerKind === "milestone") {
+      const project = findItem("projects", pickerContext.projectId);
+      const milestone = project && findMilestone(project, pickerContext.milestoneId);
+      if (milestone) {
+        milestone.targetDate = date;
+        saveState();
+        renderTimeline(project);
       }
       calendarModal.hidden = true;
       return;
@@ -2716,7 +3714,7 @@
       task.notified = false;   // re-arm the reminder
       saveState();
       renderList("tasks");
-      refreshDetailIfOpen();
+      if (task.projectId) renderProjectSteps(findItem("projects", task.projectId));
     }
     if (date && time) ensureNotifyPermission();
     calendarModal.hidden = true;
@@ -2861,6 +3859,23 @@
     return null;
   }
 
+  /* which star a task came from, shown quietly at the end of its row */
+  function createStarMark(projectId) {
+    const project = findItem("projects", projectId);
+    if (!project) return null;
+    const mark = document.createElement("span");
+    mark.className = "item__star";
+    mark.innerHTML = iconSvg('<path d="M12 4 13.4 9 18.2 10.1 14.5 12.9 15.3 17.8 12 15.4 8.7 17.8 9.5 12.9 5.8 10.1 10.6 9 Z"/>');
+    const name = document.createElement("span");
+    name.textContent = project.text;
+    mark.appendChild(name);
+    mark.addEventListener("click", function (event) {
+      event.stopPropagation();
+      openProjectView(project.id);
+    });
+    return mark;
+  }
+
   /* floral marker on a pinned task/project */
   function createPinMarker() {
     const pin = document.createElement("span");
@@ -2870,24 +3885,135 @@
   }
 
   /* HABITS VIEW — manage all habits (rename / icon / delete) + completion history */
-  const habitsViewBody = document.getElementById("habitsViewBody");
+  /* THE THRESHOLD'S HABITS — the day's rings, under the drifting rule. Ticking
+     one must not open the app, so the click stops where it lands. */
+  const welcomeHabits = document.getElementById("welcomeHabits");
 
-  function renderHabitsView() {
-    habitsViewBody.innerHTML = "";
-    if (state.habits.length === 0) {
-      const empty = document.createElement("p");
-      empty.className = "detail__empty";
-      empty.textContent = translate("emptyList");
-      habitsViewBody.appendChild(empty);
-      return;
-    }
+  function renderWelcomeHabits() {
+    if (!welcomeHabits) return;
+    welcomeHabits.innerHTML = "";
+    const today = todayKey();
     for (let i = 0; i < state.habits.length; i++) {
-      habitsViewBody.appendChild(createHabitCard(state.habits[i]));
+      const habit = state.habits[i];
+      if (habit.type === "sleep" || habit.type === "exercise") continue;   // not a yes or no
+      welcomeHabits.appendChild(welcomeRing(habit, today));
     }
   }
 
-  /* one habit: icon (tap to change), name, delete, streak, history heatmap */
-  function createHabitCard(habit) {
+  function welcomeRing(habit, today) {
+    const done = !!(habit.completedDates && habit.completedDates.indexOf(today) !== -1);
+    const ring = document.createElement("button");
+    ring.type = "button";
+    ring.className = done ? "welcome__ring is-done" : "welcome__ring";
+    ring.setAttribute("aria-label", habit.name || translate("habitToggleAria"));
+    ring.setAttribute("aria-pressed", done ? "true" : "false");
+    if (HABIT_ICONS[habit.icon]) ring.innerHTML = habitSvg(habit.icon);
+    ring.addEventListener("click", function (event) {
+      event.stopPropagation();          // tick it, do not walk in
+      toggleHabit(habit.id, ring);      // flips a "done" class on what it is given
+      const on = ring.classList.contains("done");
+      ring.classList.remove("done");
+      ring.classList.toggle("is-done", on);
+      ring.setAttribute("aria-pressed", on ? "true" : "false");
+    });
+    return ring;
+  }
+
+  /* THE HABIT RULE — every habit on one chart, days running left to right and a
+     lane each, the way the day rule reads. One lane tells you an the habit, one
+     column tells you a day: that second reading is what a stack of separate
+     heatmaps could never give. */
+  const RULE_DAYS = 70;
+  const habitsRule = document.getElementById("habitsRule");
+
+  function renderHabitsRule() {
+    habitsRule.innerHTML = "";
+    if (!state.habits.length) return;
+
+    const today = new Date();
+    const days = [];
+    for (let i = RULE_DAYS - 1; i >= 0; i--) {
+      const day = new Date(today);
+      day.setDate(today.getDate() - i);
+      days.push(day);
+    }
+
+    const lanes = document.createElement("div");
+    lanes.className = "hrule__lanes";
+    for (let h = 0; h < state.habits.length; h++) {
+      lanes.appendChild(habitLane(state.habits[h], days));
+    }
+    habitsRule.append(lanes, ruleAxis(days));
+    habitsRule.scrollLeft = habitsRule.scrollWidth;   // today, at the right edge
+  }
+
+  function habitLane(habit, days) {
+    const lane = document.createElement("div");
+    lane.className = "hrule__lane";
+
+    const tag = document.createElement("span");
+    tag.className = "hrule__tag";
+    tag.title = habit.name || "";
+    if (HABIT_ICONS[habit.icon]) tag.innerHTML = habitSvg(habit.icon);
+    lane.appendChild(tag);
+
+    const done = laneDays(habit);
+    const todayK = todayKey();
+    for (let i = 0; i < days.length; i++) {
+      const key = dateKeyOf(days[i]);
+      const mark = document.createElement("span");
+      mark.className = "hrule__day";
+      if (done[key]) mark.classList.add("is-on");
+      if (key === todayK) mark.classList.add("is-today");
+      mark.title = (habit.name || "") + " · " + key;
+      lane.appendChild(mark);
+    }
+    return lane;
+  }
+
+  /* one lookup per habit kind: a plain tick, a night in range, a full session */
+  function laneDays(habit) {
+    if (habit.type === "sleep") {
+      const cfg = habit.config || {};
+      const log = habit.sleepLog || {};
+      const out = {};
+      for (const key in log) {
+        const hours = log[key];
+        out[key] = hours >= (cfg.min || 0) && (cfg.max == null || hours <= cfg.max);
+      }
+      return out;
+    }
+    if (habit.type === "exercise") {
+      const out = {};
+      const log = habit.exerciseLog || {};
+      for (const key in log) out[key] = exerciseAllDone(habit, key);
+      return out;
+    }
+    return completedSet(habit);
+  }
+
+  /* the months underneath, written once where each one starts */
+  function ruleAxis(days) {
+    const axis = document.createElement("div");
+    axis.className = "hrule__axis";
+    const locale = state.settings.language === "fr" ? "fr-FR" : "en-US";
+    axis.appendChild(document.createElement("span")).className = "hrule__tag";
+    let lastMonth = -1;
+    for (let i = 0; i < days.length; i++) {
+      const slot = document.createElement("span");
+      slot.className = "hrule__stamp";
+      if (days[i].getMonth() !== lastMonth) {
+        lastMonth = days[i].getMonth();
+        slot.textContent = days[i].toLocaleDateString(locale, { month: "short" });
+        slot.classList.add("is-start");
+      }
+      axis.appendChild(slot);
+    }
+    return axis;
+  }
+
+  /* one habit, unfolded under its tile: icon, name, delete, its own numbers */
+  function createHabitPanel(habit) {
     const card = document.createElement("div");
     card.className = "hcard";
 
@@ -2927,14 +4053,12 @@
 
     const stats = document.createElement("div");
     stats.className = "hcard__stats";
-    const histLabel = document.createElement("span");
-    histLabel.textContent = translate("historyLabel");
     const streak = document.createElement("span");
     streak.className = "hcard__streak";
     streak.textContent = translate("streakLabel") + " " + habitStreak(habit);
-    stats.append(histLabel, streak);
+    stats.appendChild(streak);
 
-    card.append(stats, createHeatmap(habit));
+    card.appendChild(stats);
     return card;
   }
 
@@ -3032,68 +4156,33 @@
   }
 
   /* contribution grid: 13 weeks x 7 days, filled on completed days */
-  function createHeatmap(habit) {
-    const set = completedSet(habit);
-    const today = new Date();
-    const todayK = todayKey();
-    const grid = document.createElement("div");
-    grid.className = "heat";
-
-    const weeks = 13;
-    const start = new Date(today);
-    start.setDate(today.getDate() - (weeks - 1) * 7 - ((today.getDay() + 6) % 7));   // back to a Monday
-    for (let w = 0; w < weeks; w++) {
-      const col = document.createElement("div");
-      col.className = "heat__col";
-      for (let d = 0; d < 7; d++) {
-        const day = new Date(start);
-        day.setDate(start.getDate() + w * 7 + d);
-        const key = dateKey(day.getFullYear(), day.getMonth(), day.getDate());
-        const cell = document.createElement("span");
-        cell.className = "heat__cell";
-        if (day > today) cell.classList.add("is-future");
-        else if (set[key]) cell.classList.add("is-on");
-        if (key === todayK) cell.classList.add("is-today");
-        col.appendChild(cell);
-      }
-      grid.appendChild(col);
-    }
-    return grid;
-  }
 
 
-  /* DETAIL — full-screen view of a task/project: rename, props, notes, subtasks */
+  /* DETAIL — the inline editor for a task or an event: rename, notes, subtasks.
+     Projects left this card for their own workspace, see PROJECT VIEW below. */
   const detail = document.getElementById("detail");
   const detailName = document.getElementById("detailName");
   const detailIcon = document.getElementById("detailIcon");
-  const detailDate = document.getElementById("detailDate");
-  const detailProps = document.getElementById("detailProps");
+  const detailBell = document.getElementById("detailBell");
+  const detailWhen = document.getElementById("detailWhen");
   const detailPin = document.getElementById("detailPin");
   const detailNotes = document.getElementById("detailNotes");
   const subtaskList = document.getElementById("subtaskList");
   const subtaskSection = document.getElementById("subtaskSection");
-  const timelineSection = document.getElementById("timelineSection");
   const timeline = document.getElementById("timeline");
-  // kind: "tasks" | "projects" | "milestone" (a milestone lives inside a project)
-  let detailTarget = { kind: null, id: null, projectId: null };
-  let detailReturn = null;   // project to reopen after closing a milestone detail
+  // kind: "tasks" | "events"
+  let detailTarget = { kind: null, id: null };
 
   /* the object the detail view currently edits */
   function currentDetailItem() {
-    if (detailTarget.kind === "milestone") {
-      const project = findItem("projects", detailTarget.projectId);
-      return project ? findMilestone(project, detailTarget.id) : null;
-    }
     return findItem(detailTarget.kind, detailTarget.id);
   }
 
   /* refresh whatever list the edited item belongs to (row badges / marks) */
   function refreshDetailSource() {
-    if (detailTarget.kind === "milestone") renderList("projects");
-    else if (detailTarget.kind === "events") {
+    if (detailTarget.kind === "events") {
       renderEventCal();
       renderDailyTimeline();
-      if (!dayView.hidden) renderDayList();
     } else renderList(detailTarget.kind);
   }
 
@@ -3120,32 +4209,14 @@
     return badge;
   }
 
-  /* milestone progress badge on a project row, as a percentage.
-     The start milestone is the origin and is not counted. */
+  /* milestone progress badge on a project row, as a percentage */
   function createMilestoneBadge(item) {
-    const milestones = item.milestones;
-    let done = 0;
-    let total = 0;
-    for (let i = 1; i < milestones.length; i++) {   // skip the start milestone
-      total++;
-      if (milestones[i].completedDate) done++;
-    }
     const badge = document.createElement("span");
     badge.className = "item__sub";
-    badge.textContent = (total ? Math.round(done / total * 100) : 0) + "%";
+    badge.textContent = Math.round(milestoneProgress(item) * 100) + "%";
     return badge;
   }
 
-  /* label + control wrapper (reuses the .field look); modifier for a row layout */
-  function detailField(labelText, control, modifier) {
-    const field = document.createElement("div");
-    field.className = modifier ? "field " + modifier : "field";
-    const label = document.createElement("span");
-    label.className = "field__label";
-    label.textContent = labelText;
-    field.append(label, control);
-    return field;
-  }
 
   /* an on/off switch with a sliding, animated knob */
   function createToggle(isOn, onChange) {
@@ -3166,145 +4237,116 @@
     return btn;
   }
 
-  /* a bordered clickable property: leading icon (inner paths) + text */
-  function propButton(innerIcon, text, onClick) {
-    const btn = document.createElement("button");
-    btn.type = "button";
-    btn.className = "edit-prop";
-    const ico = document.createElement("span");
-    ico.className = "edit-prop__ico";
-    ico.innerHTML = iconSvg(innerIcon);
-    const label = document.createElement("span");
-    label.className = "edit-prop__text";
-    label.textContent = text;
-    btn.append(ico, label);
-    btn.addEventListener("click", onClick);
-    return btn;
-  }
-  function dayArrow(glyph, aria, onClick) {
-    const btn = document.createElement("button");
-    btn.type = "button";
-    btn.className = "date-nav__arrow";
-    btn.textContent = glyph;
-    btn.setAttribute("aria-label", aria);
-    btn.addEventListener("click", onClick);
-    return btn;
-  }
 
-  /* type-specific controls — add per-type fields here (modular) */
-  function renderDetailProps(item, list) {
-    detailProps.innerHTML = "";
-    if (list === "projects") {
-      const bars = createImportanceBars(item.importance || 0, function (level) {
-        item.importance = item.importance === level ? 0 : level;
-        saveState();
-        renderList("projects");
-        renderDetailProps(item, "projects");
-      });
-      detailProps.appendChild(detailField(translate("importanceAria"), bars));
-    } else if (list === "events") {
-      // the date itself opens the calendar to reschedule; the < > jump one day
-      const dateNav = document.createElement("div");
-      dateNav.className = "date-nav";
-      const dateBtn = propButton(HABIT_ICONS.calendar,
-        fullDateLabel(item.date) + (item.time ? " · " + item.time : ""),
-        function () { openCalendar(item.id, "events"); });
-      dateNav.append(
-        dayArrow("‹", translate("prevDayAria"), function () { shiftEventDay(item, -1); }),
-        dateBtn,
-        dayArrow("›", translate("nextDayAria"), function () { shiftEventDay(item, 1); })
-      );
-      detailProps.appendChild(detailField(translate("eventDateLabel"), dateNav));
-
-      const toggle = createToggle(!!item.important, function (on) {
-        item.important = on;
-        saveState();
-        refreshDetailSource();   // calendar bell / row highlight
-      });
-      toggle.setAttribute("aria-label", translate("importantAria"));
-      detailProps.appendChild(detailField(translate("importantLabel"), toggle, "field--row"));
-    }
-  }
-
-  /* move an event one day back/forward from its detail view */
-  function shiftEventDay(event, delta) {
-    event.date = shiftDateKey(event.date, delta);
-    saveState();
-    renderDetailProps(event, "events");   // refresh the date label
-    refreshDetailSource();                // calendar / timeline / day list
-  }
-
-  /* top-level task or project */
-  function openDetail(list, id) {
+  /* a task or an event, opened inside its own row */
+  function openDetail(list, id, host) {
     const item = findItem(list, id);
     if (!item) return;
-    detailTarget = { kind: list, id: id, projectId: null };
+    detailTarget = { kind: list, id: id };
+    const mounted = host ? mountEditor(host) : false;
     fillDetail(item);
-  }
-
-  /* a milestone, edited like a task but stored inside its project */
-  function openMilestoneDetail(project, milestone) {
-    detailReturn = project.id;   // back returns to the project timeline
-    detailTarget = { kind: "milestone", id: milestone.id, projectId: project.id };
-    fillDetail(milestone);
+    if (mounted) openFold(host);
   }
 
   /* populate and show the detail view for the current target */
   function fillDetail(item) {
     const kind = detailTarget.kind;
     detailName.value = item.text || "";
-    detailPin.hidden = kind === "milestone" || kind === "events";   // not pinnable
+    detailBell.hidden = kind !== "events";
+    if (kind === "events") {
+      detailBell.classList.toggle("is-on", !!item.important);
+      detailBell.setAttribute("aria-pressed", item.important ? "true" : "false");
+    }
+    detailPin.hidden = kind === "events";   // an event is not pinnable
     if (!detailPin.hidden) detailPin.classList.toggle("is-on", !!item.pinned);
-    // events and projects carry an icon, shown as a square button left of the title
-    const hasIcon = kind === "events" || kind === "projects";
-    detailIcon.hidden = !hasIcon;
-    if (hasIcon) detailIcon.innerHTML = habitSvg(item.icon || (kind === "events" ? "calendar" : "folder"));
-    syncTaskDate(item);
-    renderDetailProps(item, kind);
+    // an event carries an icon, shown as a square button left of the title
+    detailIcon.hidden = kind !== "events";
+    if (kind === "events") detailIcon.innerHTML = habitSvg(item.icon || "calendar");
     detailNotes.value = item.notes || "";
+    fitNotes();
 
-    // projects show the milestone timeline, everything else shows subtasks
-    const isProject = kind === "projects";
-    subtaskSection.hidden = isProject;
-    timelineSection.hidden = !isProject;
-    if (isProject) renderTimeline(item);
-    else renderSubtasks(item);
+    subtaskSection.hidden = kind === "events";   // an event just has notes
+    if (kind !== "events") renderSubtasks(item);
+    detailBody.scrollTop = 0;
+  }
 
-    openFloating(detail, function () {
-      if (isProject) layoutTimeline();   // measure once the view has settled
-    });
-    detail.querySelector(".detail__body").scrollTop = 0;   // always open at the top
+  /* INLINE EDITING — one editor card, moved into whichever row is open rather
+     than a window opening over the page. Clicking a task unfolds the task
+     itself, the way the calendar unfolds its month. */
+  const UNFOLD_MS = 420;
+  const detailCard = detail.querySelector(".detail__card");
+  const detailBody = detail.querySelector(".detail__body");
+  const detailHead = document.getElementById("detailHead");
+  let openHost = null;   // the .unfold__inner currently holding the editor
+
+  function hostRow(host) { return host.closest(".item, .day-event"); }
+
+  /* returns true when the editor has just moved in, so the caller can unfold
+     the row once the card is filled — measuring before that opens the fold on
+     the previous object's height and it visibly snaps back */
+  function mountEditor(host) {
+    if (openHost === host) return false;
+    if (openHost) releaseHost(openHost);
+    const row = hostRow(host);
+    host.appendChild(detailCard);
+    // the identity line takes the place of the row's static label, so the title,
+    // the date, the pin and the importance stay exactly where they were
+    if (row) {
+      row.querySelector(".item__slot, .day-event__slot").appendChild(detailHead);
+      row.classList.add("is-open");
+    }
+    openHost = host;
+    return true;
+  }
+
+  /* the fold's height is measured rather than left to the grid: a flexible row
+     resolves to nothing here, which left the editor clipped to a sliver */
+  let foldTimer = null;
+  function openFold(host) {
+    fieldWake();                 // everything below is about to move
+    const fold = host.parentNode;
+    clearTimeout(foldTimer);
+    fold.style.height = host.getBoundingClientRect().height + "px";
+    foldTimer = setTimeout(function () { fold.style.height = "auto"; }, UNFOLD_MS);
+  }
+  function shutFold(host) {
+    fieldWake();
+    const fold = host.parentNode;
+    clearTimeout(foldTimer);
+    fold.style.height = fold.getBoundingClientRect().height + "px";
+    fold.offsetWidth;                       // commit the start height
+    fold.style.height = "0px";
+  }
+
+  /* fold the row shut, then park the editor back out of the way */
+  function releaseHost(host) {
+    const row = hostRow(host);
+    shutFold(host);
+    if (row) row.classList.remove("is-open");
+    setTimeout(function () {
+      if (detailCard.parentNode === host) {
+        detailCard.insertBefore(detailHead, detailCard.firstChild);
+        detail.appendChild(detailCard);
+      }
+      flushLists();
+    }, UNFOLD_MS);
   }
 
   function closeDetail() {
-    // a milestone detail steps back to its project timeline, not out to the app
-    if (detailTarget.kind === "milestone" && detailReturn) {
-      const projectId = detailReturn;
-      detailReturn = null;
-      openDetail("projects", projectId);
-      return;
-    }
-    detail.classList.remove("is-open");
-    setTimeout(function () { detail.hidden = true; }, 300);   // after the slide out
+    if (!openHost) return;
+    releaseHost(openHost);
+    openHost = null;
+    detailTarget = { kind: null, id: null };
   }
 
-  /* a task's due date is a discreet calendar button to the right of the title */
-  function syncTaskDate(item) {
-    const isTask = detailTarget.kind === "tasks";
-    detailDate.hidden = !isTask;
-    if (!isTask) return;
-    detailDate.classList.toggle("is-set", !!item.dueDate);
-    const label = item.dueDate ? dueLabel(item) : translate("editDateNone");
-    detailDate.setAttribute("aria-label", label);
-    detailDate.title = label;
-  }
+  /* a click anywhere outside the open object folds it back */
+  document.addEventListener("click", function (event) {
+    if (!openHost || !event.target.closest) return;
+    if (event.target.closest(".item.is-open, .day-event.is-open")) return;
+    if (event.target.closest(".modal, .detail")) return;   // pickers the editor opens
+    closeDetail();
+  });
 
-  /* refresh the type-specific controls after the calendar edits a date */
-  function refreshDetailIfOpen() {
-    if (detail.hidden) return;
-    const item = currentDetailItem();
-    if (item) { renderDetailProps(item, detailTarget.kind); syncTaskDate(item); }
-  }
 
   /* SUBTASKS */
   function renderSubtasks(item) {
@@ -3319,10 +4361,7 @@
     const row = document.createElement("li");
     row.className = sub.done ? "item done" : "item";
 
-    const checkbox = document.createElement("span");
-    checkbox.className = "item__check";
-    checkbox.textContent = sub.done ? "✓" : "";
-    checkbox.addEventListener("click", function () { toggleSubtask(item, sub.id); });
+    const checkbox = createCheckbox(function () { toggleSubtask(item, sub.id); });
 
     const label = document.createElement("span");
     label.className = "item__text";
@@ -3368,6 +4407,8 @@
      a gauge that fills down to the last completed dot, and a "+" node to extend it.
      A milestone behaves like a task (its own detail view) but lives inside a project.
      First and last dots are unnamed start/finish anchors; the "+" sits before finish. */
+  let openMilestone = null;   // the milestone unfolded in the timeline, if any
+
   function renderTimeline(project) {
     if (!project.milestones || project.milestones.length === 0) {
       project.milestones = [
@@ -3398,7 +4439,7 @@
   }
 
   /* one dot on the line. Anchors are just a highlighted dot; a named milestone
-     also shows its title (and completion date), and opens a task-like detail.
+     shows its title and its date, and unfolds a small editor when clicked.
      role: "start" (origin, not clickable), "finish", or "" (a normal milestone). */
   function createMilestoneRow(project, milestone, role) {
     const isAnchor = role === "start" || role === "finish";
@@ -3417,7 +4458,7 @@
     } else {
       dot.setAttribute("aria-label", translate("habitToggleAria"));
       dot.addEventListener("click", function (event) {
-        event.stopPropagation();   // the dot toggles; the row opens the detail
+        event.stopPropagation();   // the dot toggles; the row unfolds the editor
         toggleMilestone(project, milestone.id);
       });
     }
@@ -3432,21 +4473,90 @@
       title.textContent = milestone.text || translate("milestonePlaceholder");
       content.appendChild(title);
 
-      if (done) {
-        const date = document.createElement("span");
-        date.className = "tl-date";
-        date.textContent = milestoneDateLabel(milestone.completedDate);
-        content.appendChild(date);
-      }
+      const when = milestoneWhen(milestone);
+      if (when) content.appendChild(when);
+      if (openMilestone === milestone.id) content.appendChild(createMilestoneEditor(project, milestone));
 
       row.appendChild(content);
       row.classList.add("tl-row--clickable");
-      row.addEventListener("click", function () { openMilestoneDetail(project, milestone); });
+      if (openMilestone === milestone.id) row.classList.add("is-open");
+      row.addEventListener("click", function (event) {
+        if (event.target.closest(".tl-edit")) return;   // clicks inside the editor stay there
+        openMilestone = openMilestone === milestone.id ? null : milestone.id;
+        renderTimeline(project);
+      });
     }
     return row;
   }
 
-  /* "12 juil." — localized short completion date */
+  /* the date shown on a milestone: when it was reached, or when it is aimed at.
+     A target already gone by and still not reached reads as late. */
+  function milestoneWhen(milestone) {
+    if (milestone.completedDate) {
+      const date = document.createElement("span");
+      date.className = "tl-date";
+      date.textContent = milestoneDateLabel(milestone.completedDate);
+      return date;
+    }
+    if (!milestone.targetDate) return null;
+    const date = document.createElement("span");
+    date.className = "tl-date tl-date--target";
+    date.textContent = milestoneDateLabel(milestone.targetDate);
+    if (milestone.targetDate < todayKey()) {
+      date.classList.add("is-late");
+      date.textContent += " · " + translate("lateLabel");
+    }
+    return date;
+  }
+
+  /* rename, aim at a date, delete — the whole milestone in one strip */
+  function createMilestoneEditor(project, milestone) {
+    const edit = document.createElement("div");
+    edit.className = "tl-edit";
+
+    const input = document.createElement("input");
+    input.type = "text";
+    input.className = "tl-edit__name";
+    input.maxLength = 120;
+    input.value = milestone.text || "";
+    input.placeholder = translate("milestonePlaceholder");
+    input.addEventListener("input", function () {
+      milestone.text = input.value;
+      saveState();
+      const title = edit.parentNode.querySelector(".tl-title");
+      title.textContent = milestone.text || translate("milestonePlaceholder");
+      title.classList.toggle("is-empty", !milestone.text);
+    });
+
+    const when = document.createElement("button");
+    when.type = "button";
+    when.className = "tl-edit__btn";
+    when.textContent = milestone.targetDate
+      ? milestoneDateLabel(milestone.targetDate) : translate("milestoneTarget");
+    when.addEventListener("click", function () {
+      openCalendar({ projectId: project.id, milestoneId: milestone.id }, "milestone");
+    });
+
+    // a milestone can need several steps to be reached, so this one never locks
+    const promote = createPromoteButton("tl-edit__btn", function () {
+      promoteToStep(project, milestone.text || translate("milestonePlaceholder"));
+    });
+
+    const del = document.createElement("button");
+    del.type = "button";
+    del.className = "tl-edit__btn tl-edit__btn--del";
+    del.setAttribute("aria-label", translate("deleteAria"));
+    del.innerHTML = iconSvg('<polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>');
+    del.addEventListener("click", function () {
+      openMilestone = null;
+      removeMilestone(project, milestone.id);
+    });
+
+    edit.append(input, when, promote, del);
+    return edit;
+  }
+
+  /* "12 juil." — localized short date */
   function milestoneDateLabel(isoDate) {
     const locale = state.settings.language === "fr" ? "fr-FR" : "en-US";
     return new Date(isoDate + "T00:00").toLocaleDateString(locale, { day: "numeric", month: "short" });
@@ -3481,7 +4591,8 @@
   function addMilestone(project, text) {
     if (!project.milestones) project.milestones = [];
     const at = Math.max(0, project.milestones.length - 1);
-    project.milestones.splice(at, 0, { id: Date.now().toString(), text: text, completedDate: null });
+    project.milestones.splice(at, 0,
+      { id: Date.now().toString(), text: text, completedDate: null, targetDate: null });
     saveState();
     renderTimeline(project);
     renderList("projects");
@@ -3505,6 +4616,7 @@
       if (milestones[i].id === id) { milestones.splice(i, 1); break; }
     }
     saveState();
+    renderTimeline(project);
     renderList("projects");
   }
 
@@ -3594,6 +4706,813 @@
     }
   }
 
+  /* PROJECT VIEW — the workspace a star opens into. A project is not a task with
+     extra fields: it gets a heading, a dated trajectory, its own steps, a wall to
+     think on and a journal. The dashboard list stays a reminder; work happens here. */
+  const projectView = document.getElementById("projectView");
+  const pviewName = document.getElementById("pviewName");
+  const pviewIcon = document.getElementById("pviewIcon");
+  const pviewImp = document.getElementById("pviewImp");
+  const pviewWhy = document.getElementById("pviewWhy");
+  const pviewOutcome = document.getElementById("pviewOutcome");
+  const pviewDone = document.getElementById("pviewDone");
+  const pviewHorizonLabel = document.getElementById("pviewHorizonLabel");
+  const pviewSteps = document.getElementById("pviewSteps");
+  const pviewJournal = document.getElementById("pviewJournal");
+  const pviewWall = document.getElementById("pviewWall");
+  const PVIEW_MS = 340;
+  let openProject = null;   // id of the project on screen, if any
+
+  function currentProject() {
+    return openProject ? findItem("projects", openProject) : null;
+  }
+
+  /* The workspace always opens beside its star, never over it: coming from the
+     dashboard the sky is raised first, then the camera dives to the right one. */
+  function openProjectView(id) {
+    const project = findItem("projects", id);
+    if (!project) return;
+    if (openProject === id) return;   // already dived on this one
+    if (skyView.hidden) openSky();
+    openProject = id;
+    openMilestone = null;
+    projectView.hidden = false;
+    fillProjectView(project);
+    requestAnimationFrame(function () {
+      projectView.classList.add("is-open");
+      focusStar(project);
+    });
+    setTimeout(layoutTimeline, PVIEW_MS);   // the line can only be measured once settled
+  }
+
+  function closeProjectView() {
+    openProject = null;
+    projectView.classList.remove("is-open");
+    setTimeout(function () { projectView.hidden = true; }, PVIEW_MS);
+    resetCamera();
+    renderList("projects");
+    if (!skyView.hidden) renderSky();
+  }
+
+  function fillProjectView(project) {
+    pviewName.value = project.text || "";
+    pviewIcon.innerHTML = habitSvg(project.icon || "folder");
+    pviewImp.innerHTML = "";
+    pviewImp.appendChild(createImportanceBars(project.importance || 0, function (level) {
+      project.importance = project.importance === level ? 0 : level;
+      saveState();
+      fillProjectView(project);
+    }));
+    pviewWhy.value = project.why || "";
+    pviewOutcome.value = project.outcome || "";
+    fitLine(pviewWhy);
+    fitLine(pviewOutcome);
+    pviewHorizonLabel.textContent = project.targetDate
+      ? horizonLabel(project.targetDate) : translate("horizonNone");
+    pviewDone.classList.toggle("is-on", !!project.done);
+    document.getElementById("pviewDoneLabel").textContent =
+      translate(project.done ? "reopenLabel" : "completeLabel");
+    renderTimeline(project);
+    renderProjectSteps(project);
+    renderJournal(project);
+    renderWall(project);
+  }
+
+  /* "12 juil. · dans 34 j" — the date and how far off it still is */
+  function horizonLabel(isoDate) {
+    const locale = state.settings.language === "fr" ? "fr-FR" : "en-US";
+    const text = new Date(isoDate + "T00:00").toLocaleDateString(locale,
+      { day: "numeric", month: "short", year: "numeric" });
+    const days = daysUntil(isoDate);
+    if (days < 0) return text + " · " + translate("lateLabel");
+    return text + " · " + days + " " + translate("daysShort");
+  }
+
+  function daysUntil(isoDate) {
+    const target = new Date(isoDate + "T00:00").getTime();
+    const today = new Date(todayKey() + "T00:00").getTime();
+    return Math.round((target - today) / 86400000);
+  }
+
+  /* a one-line field that grows with what is typed into it */
+  function fitLine(field) {
+    field.style.height = "auto";
+    field.style.height = field.scrollHeight + "px";
+  }
+
+  /* NEXT STEPS — real tasks, tagged with the project. A dated one shows up in the
+     day like any other: this is what stops a project from being a decoration. */
+  function renderProjectSteps(project) {
+    if (!project) return;
+    pviewSteps.innerHTML = "";
+    const steps = projectTasks(project.id);
+    if (steps.length === 0) {
+      const empty = document.createElement("p");
+      empty.className = "detail__empty";
+      empty.textContent = translate("stepsEmpty");
+      pviewSteps.appendChild(empty);
+      return;
+    }
+    for (let i = 0; i < steps.length; i++) {
+      pviewSteps.appendChild(createStepRow(project, steps[i]));
+    }
+  }
+
+  function projectTasks(projectId) {
+    const found = [];
+    for (let i = 0; i < state.tasks.length; i++) {
+      if (state.tasks[i].projectId === projectId) found.push(state.tasks[i]);
+    }
+    return found;
+  }
+
+  function createStepRow(project, task) {
+    const row = document.createElement("div");
+    row.className = task.done ? "step is-done" : "step";
+
+    row.appendChild(createCheckbox(function () {
+      task.done = !task.done;
+      task.doneDate = task.done ? todayKey() : null;
+      saveState();
+      renderProjectSteps(project);
+      renderList("tasks");
+    }));
+
+    const label = document.createElement("input");
+    label.type = "text";
+    label.className = "step__text";
+    label.value = task.text;
+    label.maxLength = 200;
+    label.addEventListener("input", function () {
+      task.text = label.value;
+      saveState();
+      renderList("tasks");
+    });
+    row.appendChild(label);
+
+    const when = document.createElement("button");
+    when.type = "button";
+    when.className = task.dueDate ? "step__when is-set" : "step__when";
+    when.innerHTML = iconSvg('<rect x="3" y="4" width="18" height="18" rx="2"/>'
+      + '<line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/>'
+      + '<line x1="3" y1="10" x2="21" y2="10"/>');
+    if (task.dueDate) {
+      const tag = document.createElement("span");
+      tag.textContent = dueLabel(task);
+      when.appendChild(tag);
+    }
+    when.addEventListener("click", function () { openCalendar(task.id, "tasks"); });
+    row.appendChild(when);
+
+    const del = document.createElement("button");
+    del.type = "button";
+    del.className = "step__del";
+    del.setAttribute("aria-label", translate("deleteAria"));
+    del.textContent = "×";
+    del.addEventListener("click", function () {
+      removeItem("tasks", task.id);
+      renderProjectSteps(project);
+    });
+    row.appendChild(del);
+    return row;
+  }
+
+  /* PROMOTION — an idea in the journal and a milestone on the line are both things
+     you can only act on once they become a step. One button turns either into one,
+     without leaving the workspace. */
+  const ICON_PROMOTE = '<polyline points="4 12 8.5 16.5 20 5"/><line x1="4" y1="19" x2="14" y2="19"/>';
+
+  function promoteToStep(project, text) {
+    const step = {
+      id: Date.now().toString(), text: text, done: false,
+      dueDate: null, dueTime: null, projectId: project.id
+    };
+    state.tasks.push(step);
+    saveState();
+    renderProjectSteps(project);
+    renderList("tasks");
+    showToast(translate("stepCreated"));
+    return step;
+  }
+
+  function createPromoteButton(className, onRun) {
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = className;
+    button.setAttribute("aria-label", translate("promoteStep"));
+    button.title = translate("promoteStep");
+    button.innerHTML = iconSvg(ICON_PROMOTE);
+    button.addEventListener("click", function (event) {
+      event.stopPropagation();
+      onRun();
+    });
+    return button;
+  }
+
+  document.getElementById("pviewStepForm").addEventListener("submit", function (event) {
+    event.preventDefault();
+    const input = document.getElementById("pviewStepInput");
+    const text = input.value.trim();
+    const project = currentProject();
+    if (!text || !project) return;
+    state.tasks.push({
+      id: Date.now().toString(), text: text, done: false,
+      dueDate: null, dueTime: null, projectId: project.id
+    });
+    saveState();
+    input.value = "";
+    input.focus();
+    renderProjectSteps(project);
+    renderList("tasks");
+  });
+
+  /* JOURNAL — dated lines, newest first. It is both a log of what moved and the
+     place ideas land before they become steps; it also feeds the star's glow. */
+  function renderJournal(project) {
+    pviewJournal.innerHTML = "";
+    const entries = project.journal;
+    if (entries.length === 0) {
+      const empty = document.createElement("p");
+      empty.className = "detail__empty";
+      empty.textContent = translate("journalEmpty");
+      pviewJournal.appendChild(empty);
+      return;
+    }
+    for (let i = entries.length - 1; i >= 0; i--) {
+      pviewJournal.appendChild(createJournalRow(project, entries[i]));
+    }
+  }
+
+  function createJournalRow(project, entry) {
+    const row = document.createElement("div");
+    row.className = "jrn__row";
+
+    const date = document.createElement("span");
+    date.className = "jrn__date";
+    date.textContent = milestoneDateLabel(entry.date);
+
+    const text = document.createElement("p");
+    text.className = "jrn__text";
+    text.textContent = entry.text;
+
+    // an idea already acted on shows the mark instead of the button; if its step
+    // was deleted since, it becomes promotable again
+    const promoted = entry.stepId && findTask(entry.stepId);
+    const tail = document.createElement("span");
+    tail.className = "jrn__tail";
+    if (promoted) {
+      const mark = document.createElement("span");
+      mark.className = "jrn__done";
+      mark.title = translate("promotedLabel");
+      mark.innerHTML = iconSvg(ICON_PROMOTE);
+      tail.appendChild(mark);
+    } else {
+      tail.appendChild(createPromoteButton("jrn__step", function () {
+        entry.stepId = promoteToStep(project, entry.text).id;
+        saveState();
+        renderJournal(project);
+      }));
+    }
+
+    const del = document.createElement("button");
+    del.type = "button";
+    del.className = "jrn__del";
+    del.setAttribute("aria-label", translate("deleteAria"));
+    del.textContent = "×";
+    del.addEventListener("click", function () {
+      for (let i = 0; i < project.journal.length; i++) {
+        if (project.journal[i].id === entry.id) { project.journal.splice(i, 1); break; }
+      }
+      saveState();
+      renderJournal(project);
+    });
+
+    tail.appendChild(del);
+    row.append(date, text, tail);
+    return row;
+  }
+
+  document.getElementById("pviewJournalForm").addEventListener("submit", function (event) {
+    event.preventDefault();
+    const input = document.getElementById("pviewJournalInput");
+    const text = input.value.trim();
+    const project = currentProject();
+    if (!text || !project) return;
+    project.journal.push({ id: Date.now().toString(), date: todayKey(), text: text });
+    saveState();
+    input.value = "";
+    renderJournal(project);
+  });
+
+  /* DREAM WALL — free canvas of text cards. Nothing is arranged for you: the
+     layout is the thought. Cards are dragged around and edited in place. */
+  function renderWall(project) {
+    pviewWall.innerHTML = "";
+    for (let i = 0; i < project.dream.length; i++) {
+      pviewWall.appendChild(createDreamCard(project, project.dream[i]));
+    }
+  }
+
+  function createDreamCard(project, card) {
+    const el = document.createElement("div");
+    el.className = "wall__card";
+    el.style.left = card.x + "%";
+    el.style.top = card.y + "%";
+
+    const text = document.createElement("textarea");
+    text.className = "wall__text";
+    text.value = card.text || "";
+    text.placeholder = translate("dreamPlaceholder");
+    text.addEventListener("input", function () {
+      card.text = text.value;
+      saveState();
+    });
+
+    const grip = document.createElement("span");
+    grip.className = "wall__grip";
+    armWallDrag(grip, el, card);
+
+    const del = document.createElement("button");
+    del.type = "button";
+    del.className = "wall__del";
+    del.setAttribute("aria-label", translate("deleteAria"));
+    del.textContent = "×";
+    del.addEventListener("click", function () {
+      for (let i = 0; i < project.dream.length; i++) {
+        if (project.dream[i].id === card.id) { project.dream.splice(i, 1); break; }
+      }
+      saveState();
+      renderWall(project);
+    });
+
+    el.append(grip, del, text);
+    return el;
+  }
+
+  /* drag by the grip only, so the textarea keeps its own pointer behaviour */
+  function armWallDrag(grip, el, card) {
+    grip.addEventListener("pointerdown", function (event) {
+      event.preventDefault();
+      grip.setPointerCapture(event.pointerId);
+      const area = pviewWall.getBoundingClientRect();
+      const start = { x: event.clientX, y: event.clientY, cx: card.x, cy: card.y };
+      el.classList.add("is-dragging");
+
+      const move = function (moveEvent) {
+        const dx = (moveEvent.clientX - start.x) / area.width * 100;
+        const dy = (moveEvent.clientY - start.y) / area.height * 100;
+        card.x = Math.max(0, Math.min(88, start.cx + dx));
+        card.y = Math.max(0, Math.min(84, start.cy + dy));
+        el.style.left = card.x + "%";
+        el.style.top = card.y + "%";
+      };
+      const up = function () {
+        grip.removeEventListener("pointermove", move);
+        grip.removeEventListener("pointerup", up);
+        el.classList.remove("is-dragging");
+        saveState();
+      };
+      grip.addEventListener("pointermove", move);
+      grip.addEventListener("pointerup", up);
+    });
+  }
+
+  document.getElementById("pviewDreamAdd").addEventListener("click", function () {
+    const project = currentProject();
+    if (!project) return;
+    // drop new cards down a gentle diagonal rather than all in the same corner
+    const step = project.dream.length;
+    project.dream.push({
+      id: Date.now().toString(), text: "",
+      x: 4 + (step * 17) % 70, y: 6 + (step * 13) % 60
+    });
+    saveState();
+    renderWall(project);
+    const last = pviewWall.lastChild.querySelector(".wall__text");
+    if (last) last.focus();
+  });
+
+  pviewName.addEventListener("input", function () {
+    const project = currentProject();
+    if (!project) return;
+    project.text = pviewName.value;
+    saveState();
+  });
+
+  pviewWhy.addEventListener("input", function () {
+    const project = currentProject();
+    if (!project) return;
+    project.why = pviewWhy.value;
+    fitLine(pviewWhy);
+    saveState();
+  });
+
+  pviewOutcome.addEventListener("input", function () {
+    const project = currentProject();
+    if (!project) return;
+    project.outcome = pviewOutcome.value;
+    fitLine(pviewOutcome);
+    saveState();
+  });
+
+  document.getElementById("pviewHorizon").addEventListener("click", function () {
+    if (openProject) openCalendar(openProject, "project");
+  });
+
+  pviewIcon.addEventListener("click", openIconPickerForProject);
+
+  pviewDone.addEventListener("click", function () {
+    const project = currentProject();
+    if (!project) return;
+    project.done = !project.done;
+    saveState();
+    fillProjectView(project);
+  });
+
+  document.getElementById("pviewDelete").addEventListener("click", function () {
+    const project = currentProject();
+    if (!project) return;
+    removeItem("projects", project.id);
+    closeProjectView();
+  });
+
+  document.getElementById("pviewBack").addEventListener("click", closeProjectView);
+
+  /* THE SKY — one star per project, read at a glance on four channels: its size is
+     ambition, its glow is momentum, its ring is how far the trajectory has come and
+     its colour walks the palette with that same progress. Stars are placed by hand.
+     "Rangé" drops them onto axes instead — time to the horizon across, ambition up —
+     and under the horizon line lie the projects nothing has happened on in a month. */
+  const skyView = document.getElementById("skyView");
+  const skyField = document.getElementById("skyField");
+  const skyCamera = document.getElementById("skyCamera");
+  const skyLinks = document.getElementById("skyLinks");
+  const skyEmptyMsg = document.getElementById("skyEmpty");
+  const skyHint = document.getElementById("skyHint");
+  const DORMANT_DAYS = 30;
+  let skyAligned = false;
+  let starDragEnd = 0;   // a drag must not read as a click on the star
+  let linkMode = false;
+  let linkFrom = null;   // the star waiting for its pair
+
+  function openSky() {
+    skyView.hidden = false;
+    renderSky();
+    requestAnimationFrame(function () { skyView.classList.add("is-open"); });
+  }
+
+  function closeSky() {
+    if (openProject) closeProjectView();   // the panel cannot outlive the sky it sits in
+    if (linkMode) setLinkMode(false);
+    skyView.classList.remove("is-open");
+    setTimeout(function () { skyView.hidden = true; }, PVIEW_MS);
+  }
+
+  function renderSky() {
+    const stars = skyCamera.querySelectorAll(".pstar");
+    for (let i = 0; i < stars.length; i++) stars[i].remove();
+    skyEmptyMsg.hidden = state.projects.length > 0;
+    syncSkyMode();
+    const stops = paletteStops();
+    const spots = {};
+    for (let i = 0; i < state.projects.length; i++) {
+      const project = state.projects[i];
+      const star = createStar(project, stops, i);
+      spots[project.id] = { x: parseFloat(star.style.left), y: parseFloat(star.style.top) };
+      skyCamera.appendChild(star);
+    }
+    renderLinks(spots);
+    if (openProject) markFocusedStar(openProject);   // a redraw must not lose the dive
+  }
+
+  /* CONSTELLATIONS — a line between two stars, and nothing else. It carries no
+     rule and blocks nothing; it is there to say that these two belong together.
+     The SVG spans the field in a 0-100 box, so a star's percent spot is its
+     coordinate; non-scaling-stroke keeps the line thin under the camera zoom. */
+  function renderLinks(spots) {
+    let markup = "";
+    for (let i = 0; i < state.links.length; i++) {
+      const from = spots[state.links[i].a];
+      const to = spots[state.links[i].b];
+      if (!from || !to) continue;   // one end is deleted and waiting on Undo
+      markup += '<line x1="' + from.x + '" y1="' + from.y + '" x2="' + to.x + '" y2="' + to.y
+        + '" vector-effect="non-scaling-stroke"/>';
+    }
+    skyLinks.innerHTML = markup;
+  }
+
+  function syncSkyMode() {
+    document.getElementById("skyAxes").hidden = !skyAligned;
+    document.getElementById("skyModeLabel").textContent =
+      translate(skyAligned ? "skyAligned" : "skyFree");
+  }
+
+  /* Tidying the sky moves the stars that are already there rather than drawing
+     new ones: the rearrangement is the whole point, and it has to be watchable. */
+  function layoutStars() {
+    const stars = skyCamera.querySelectorAll(".pstar");
+    const spots = {};
+    for (let i = 0; i < stars.length; i++) {
+      const project = findItem("projects", stars[i].dataset.id);
+      if (!project) continue;
+      const spot = starSpot(project, i, stars[i].classList.contains("is-dormant"));
+      stars[i].style.left = spot.x + "%";
+      stars[i].style.top = spot.y + "%";
+      spots[project.id] = spot;
+    }
+    renderLinks(spots);   // the constellations follow the stars they join
+  }
+
+  function createStar(project, stops, index) {
+    const progress = milestoneProgress(project);
+    const momentum = projectMomentum(project);
+    const silence = projectSilence(project);
+    const dormant = silence >= DORMANT_DAYS && !project.done;
+    const color = paletteColorAt(stops, progress);
+    const spot = starSpot(project, index, dormant);
+
+    const star = document.createElement("button");
+    star.type = "button";
+    star.className = "pstar";
+    if (dormant) star.classList.add("is-dormant");
+    if (project.done) star.classList.add("is-done");
+    star.setAttribute("aria-label", translate("skyOpenAria") + " " + project.text);
+    star.dataset.id = project.id;
+    star.style.left = spot.x + "%";
+    star.style.top = spot.y + "%";
+    star.style.setProperty("--star-color", color);
+    star.style.setProperty("--star-size", (11 + (project.importance || 0) * 3.4) + "px");
+    star.style.setProperty("--star-glow", momentum.toFixed(2));
+    star.style.animationDuration = (7 - momentum * 4).toFixed(1) + "s";
+
+    star.innerHTML = STAR_MARKUP;
+    star.querySelector(".pstar__arc").setAttribute("stroke-dashoffset",
+      (STAR_RING_LENGTH * (1 - progress)).toFixed(1));
+
+    const name = document.createElement("span");
+    name.className = "pstar__name";
+    name.textContent = project.text;
+    star.appendChild(name);
+
+    if (dormant) {
+      const since = document.createElement("span");
+      since.className = "pstar__since";
+      since.textContent = translate("dormantFor") + " " + silence + " " + translate("daysShort");
+      star.appendChild(since);
+    }
+
+    armStarDrag(star, project);
+    // diving in leaves the sky open underneath, so going back surfaces into it
+    star.addEventListener("click", function () {
+      if (Date.now() < starDragEnd) return;   // the click that ends a drag
+      if (linkMode) { pickForLink(project.id); return; }
+      openProjectView(project.id);
+    });
+    return star;
+  }
+
+  /* halo, ring and core; JS only writes the arc offset and the custom properties */
+  const STAR_RING_LENGTH = 100.5;   // 2 * PI * 16
+  const STAR_MARKUP = '<span class="pstar__glow"></span>'
+    + '<svg class="pstar__ring" viewBox="0 0 36 36" aria-hidden="true">'
+    + '<circle class="pstar__track" cx="18" cy="18" r="16"/>'
+    + '<circle class="pstar__arc" cx="18" cy="18" r="16" stroke-dasharray="'
+    + STAR_RING_LENGTH + '"/></svg>'
+    + '<span class="pstar__core"></span>';
+
+  /* share of the trajectory reached, the start anchor not counting as a step */
+  function milestoneProgress(project) {
+    const milestones = project.milestones || [];
+    let done = 0;
+    let total = 0;
+    for (let i = 1; i < milestones.length; i++) {
+      total++;
+      if (milestones[i].completedDate) done++;
+    }
+    return total ? done / total : 0;
+  }
+
+  /* Where a star is drawn. Placed by hand normally; on the axes when the sky is
+     tidied; and pulled down to the dormant band when nothing has happened for a
+     month — the stored spot is left alone, so reviving it puts it back. */
+  function starSpot(project, index, dormant) {
+    if (dormant) return { x: project.sky.x, y: 87 + (index % 3) * 2 };
+    if (!skyAligned) return project.sky;
+    let x;
+    if (!project.targetDate) x = 92;                 // no horizon: parked at "someday"
+    else {
+      const days = Math.max(0, daysUntil(project.targetDate));
+      x = 9 + Math.min(1, Math.log(days + 1) / Math.log(366)) * 74;
+    }
+    // same importance and no date would stack them, so fan them out slightly
+    return { x: x, y: 64 - (project.importance || 0) * 9 + (index % 3 - 1) * 4 };
+  }
+
+  /* how alive a project is: what happened over the last three weeks, the most
+     recent days weighing most. 0 is dead quiet, 1 is a project moving daily. */
+  function projectMomentum(project) {
+    const dates = activityDates(project);
+    let score = 0;
+    for (let i = 0; i < dates.length; i++) {
+      const age = daysSince(dates[i]);
+      if (age < 0 || age > 21) continue;
+      score += 1 - age / 21;
+    }
+    return Math.min(1, score / 3);
+  }
+
+  /* every dated trace a project leaves: milestones reached, journal lines, steps ticked */
+  function activityDates(project) {
+    const dates = [];
+    const milestones = project.milestones || [];
+    for (let i = 0; i < milestones.length; i++) {
+      if (milestones[i].completedDate) dates.push(milestones[i].completedDate);
+    }
+    for (let i = 0; i < project.journal.length; i++) dates.push(project.journal[i].date);
+    const steps = projectTasks(project.id);
+    for (let i = 0; i < steps.length; i++) {
+      if (steps[i].doneDate) dates.push(steps[i].doneDate);
+    }
+    return dates;
+  }
+
+  function daysSince(isoDate) { return -daysUntil(isoDate); }
+
+  /* days since the last trace. A project that never had one falls back on its own
+     age, so a brand new star doesn't start out under the horizon. */
+  function projectSilence(project) {
+    const dates = activityDates(project);
+    let quietest = null;
+    for (let i = 0; i < dates.length; i++) {
+      const age = daysSince(dates[i]);
+      if (quietest === null || age < quietest) quietest = age;
+    }
+    if (quietest !== null) return Math.max(0, quietest);
+    const born = Number(project.id);
+    if (!born) return 0;
+    return Math.max(0, Math.floor((Date.now() - born) / 86400000));
+  }
+
+  /* THE CAMERA — opening a project must not cover the sky with a new page. The
+     whole starfield slides instead, until the chosen star sits on the left (up top
+     on a narrow screen) with the workspace opening in the space it just left. The
+     star stays on screen the whole time, so nothing is ever lost sight of. */
+  const STAR_ZOOM = 1.18;
+
+  function focusStar(project) {
+    markFocusedStar(project.id);
+    const star = skyCamera.querySelector('.pstar[data-id="' + project.id + '"]');
+    if (!star) return;
+    const area = skyField.getBoundingClientRect();
+    const x = parseFloat(star.style.left) / 100 * area.width;
+    const y = parseFloat(star.style.top) / 100 * area.height;
+    // the panel takes the right half, or the bottom of a narrow screen
+    const narrow = window.matchMedia("(max-width: 860px)").matches;
+    const restX = narrow ? area.width * 0.5 : area.width * 0.2;
+    const restY = narrow ? area.height * 0.17 : area.height * 0.42;
+    skyCamera.style.transform = "translate(" + Math.round(restX - x * STAR_ZOOM) + "px, "
+      + Math.round(restY - y * STAR_ZOOM) + "px) scale(" + STAR_ZOOM + ")";
+  }
+
+  function markFocusedStar(projectId) {
+    const stars = skyCamera.querySelectorAll(".pstar");
+    for (let i = 0; i < stars.length; i++) {
+      stars[i].classList.toggle("is-focused", stars[i].dataset.id === projectId);
+    }
+    skyView.classList.add("is-diving");
+  }
+
+  function resetCamera() {
+    skyCamera.style.transform = "";
+    skyView.classList.remove("is-diving");
+    const stars = skyCamera.querySelectorAll(".pstar");
+    for (let i = 0; i < stars.length; i++) stars[i].classList.remove("is-focused");
+  }
+
+  // the frame changed size, so the star is no longer where it was aimed at
+  window.addEventListener("resize", function () {
+    const project = currentProject();
+    if (project && !skyView.hidden) focusStar(project);
+  });
+
+  // clicking the empty sky drops the pending link, or surfaces back out of the project
+  skyField.addEventListener("click", function (event) {
+    if (event.target.closest(".pstar")) return;
+    if (linkFrom) { linkFrom = null; markLinkPending(); return; }
+    if (openProject) closeProjectView();
+  });
+
+  /* Drag a star anywhere in the free sky; the tidied sky is arranged, not moved. */
+  function armStarDrag(star, project) {
+    star.addEventListener("pointerdown", function (event) {
+      // the tidied sky is arranged, a sunk star is not where it was put, and a
+      // dive has the camera moving under us
+      if (skyAligned || openProject || star.classList.contains("is-dormant")) return;
+      star.setPointerCapture(event.pointerId);
+      const area = skyField.getBoundingClientRect();
+      const start = { x: event.clientX, y: event.clientY, sx: project.sky.x, sy: project.sky.y };
+      let moved = false;
+
+      const move = function (moveEvent) {
+        const dx = moveEvent.clientX - start.x;
+        const dy = moveEvent.clientY - start.y;
+        if (!moved && Math.abs(dx) + Math.abs(dy) < 4) return;   // a plain click stays a click
+        moved = true;
+        star.classList.add("is-dragging");
+        project.sky.x = Math.max(3, Math.min(97, start.sx + dx / area.width * 100));
+        project.sky.y = Math.max(4, Math.min(80, start.sy + dy / area.height * 100));
+        star.style.left = project.sky.x + "%";
+        star.style.top = project.sky.y + "%";
+      };
+      const up = function () {
+        star.removeEventListener("pointermove", move);
+        star.removeEventListener("pointerup", up);
+        star.classList.remove("is-dragging");
+        if (!moved) return;
+        starDragEnd = Date.now() + 250;
+        saveState();
+      };
+      star.addEventListener("pointermove", move);
+      star.addEventListener("pointerup", up);
+    });
+  }
+
+  /* Two clicks make a constellation, and a third pass on the same pair breaks it.
+     The lines are hidden while the stars travel, otherwise they would snap to the
+     arrival before the stars get there. */
+  const STAR_MOVE_MS = 560;   // matches the left/top transition on .pstar
+
+  function pickForLink(projectId) {
+    if (!linkFrom || linkFrom === projectId) {
+      linkFrom = linkFrom === projectId ? null : projectId;
+      markLinkPending();
+      return;
+    }
+    toggleLink(linkFrom, projectId);
+    linkFrom = null;
+    renderSky();
+  }
+
+  function toggleLink(a, b) {
+    for (let i = 0; i < state.links.length; i++) {
+      const link = state.links[i];
+      if ((link.a === a && link.b === b) || (link.a === b && link.b === a)) {
+        state.links.splice(i, 1);
+        saveState();
+        return;
+      }
+    }
+    state.links.push({ a: a, b: b });
+    saveState();
+  }
+
+  function markLinkPending() {
+    const stars = skyCamera.querySelectorAll(".pstar");
+    for (let i = 0; i < stars.length; i++) {
+      stars[i].classList.toggle("is-linking", stars[i].dataset.id === linkFrom);
+    }
+  }
+
+  function setLinkMode(on) {
+    linkMode = on;
+    linkFrom = null;
+    skyView.classList.toggle("is-linking", on);
+    skyHint.hidden = !on;
+    const button = document.getElementById("skyLink");
+    button.classList.toggle("is-on", on);
+    button.setAttribute("aria-pressed", on ? "true" : "false");
+    markLinkPending();
+  }
+
+  document.getElementById("skyLink").addEventListener("click", function () {
+    setLinkMode(!linkMode);
+  });
+
+  document.getElementById("skyMode").addEventListener("click", function () {
+    skyAligned = !skyAligned;
+    syncSkyMode();
+    skyLinks.style.opacity = "0";
+    layoutStars();
+    setTimeout(function () { skyLinks.style.opacity = ""; }, STAR_MOVE_MS);
+  });
+
+  document.getElementById("skyAdd").addEventListener("click", function () {
+    const project = newProject();
+    openProjectView(project.id);
+    pviewName.focus();
+    pviewName.select();
+  });
+
+  document.getElementById("skyBack").addEventListener("click", closeSky);
+  document.getElementById("skyBtn").addEventListener("click", openSky);
+
+  document.addEventListener("keydown", function (event) {
+    if (event.key !== "Escape") return;
+    if (linkMode) setLinkMode(false);
+    else if (!projectView.hidden) closeProjectView();
+    else if (!skyView.hidden) closeSky();
+  });
+
   /* live rename */
   detailName.addEventListener("input", function () {
     const item = currentDetailItem();
@@ -3604,7 +5523,14 @@
   });
 
   /* auto-saved notes */
+  /* grow the notes field to its content: empty notes cost a single line */
+  function fitNotes() {
+    detailNotes.style.height = "auto";
+    detailNotes.style.height = detailNotes.scrollHeight + "px";
+  }
+
   detailNotes.addEventListener("input", function () {
+    fitNotes();
     const item = currentDetailItem();
     if (!item) return;
     item.notes = detailNotes.value;
@@ -3621,11 +5547,20 @@
     detailPin.classList.toggle("is-on", !!item.pinned);
   });
 
-  detailIcon.addEventListener("click", openIconPickerForDetail);
-  detailDate.addEventListener("click", function () {
+  detailBell.addEventListener("click", function () {
     const item = currentDetailItem();
-    if (item) openCalendar(item.id);
+    if (!item) return;
+    item.important = !item.important;
+    saveState();
+    detailBell.classList.toggle("is-on", !!item.important);
+    detailBell.setAttribute("aria-pressed", item.important ? "true" : "false");
+    refreshDetailSource();   // calendar bell and row highlight
   });
+  detailWhen.addEventListener("click", function () {
+    const item = currentDetailItem();
+    if (item) openCalendar(item.id, detailTarget.kind === "events" ? "events" : "tasks");
+  });
+  detailIcon.addEventListener("click", openIconPickerForDetail);
 
   document.getElementById("subtaskForm").addEventListener("submit", function (event) {
     event.preventDefault();
@@ -3643,32 +5578,24 @@
     refreshDetailSource();
   });
 
-  document.getElementById("detailBack").addEventListener("click", closeDetail);
   document.getElementById("detailDelete").addEventListener("click", function () {
-    if (detailTarget.kind === "milestone") {
-      const project = findItem("projects", detailTarget.projectId);
-      if (project) removeMilestone(project, detailTarget.id);
-    } else if (detailTarget.kind === "events") {
-      removeEvent(detailTarget.id);
-    } else {
-      removeItem(detailTarget.kind, detailTarget.id);
-    }
-    closeDetail();   // milestone/event deletion steps back to its source view
+    if (detailTarget.kind === "events") removeEvent(detailTarget.id);
+    else removeItem(detailTarget.kind, detailTarget.id);
+    closeDetail();   // deleting steps back out of the row
   });
   document.addEventListener("keydown", function (event) {
-    if (event.key === "Escape" && !detail.hidden) closeDetail();
+    if (event.key === "Escape" && openHost) closeDetail();
   });
 
   /* EVENTS — a calendar in the main view. Clicking a day opens that day's
      events (add + list); each event is a task-like item with its own detail. */
-  const dayView = document.getElementById("dayView");
   const ecalGrid = document.getElementById("ecalGrid");
   const ecalViewport = document.getElementById("ecalViewport");
   const ecalToggle = document.getElementById("ecalToggle");
   let ecalYear = new Date().getFullYear();
   let ecalMonth = new Date().getMonth();
   let calExpanded = false;   // folded to a single week by default
-  let dayViewKey = null;
+  let weekStart = mondayOf(new Date());   // Monday of the week on show
 
   function eventsOnDay(key) {
     const found = [];
@@ -3694,10 +5621,12 @@
 
   /* Draw the month: label, weekday row, leading blanks, day cells with event dots. */
   /* one day cell, shared by the week strip and the month grid */
-  function createCalDay(key, dayNumber) {
+  function createCalDay(key, dayNumber, row) {
     const cell = document.createElement("button");
     cell.type = "button";
     cell.className = key === todayKey() ? "ecal__day is-today" : "ecal__day";
+    cell.dataset.key = key;
+    cell.dataset.row = row;
 
     const num = document.createElement("span");
     num.textContent = String(dayNumber);
@@ -3705,21 +5634,20 @@
 
     const dayEvents = eventsOnDay(key);
     if (dayEvents.length) {
-      const icons = document.createElement("span");   // event icons along the bottom
-      icons.className = "ecal__icons";
+      const dots = document.createElement("span");   // one dot per event, along the bottom
+      dots.className = "ecal__dots";
       const shown = Math.min(dayEvents.length, 3);
       let hasImportant = false;
       for (let k = 0; k < dayEvents.length; k++) {
         if (dayEvents[k].important) { hasImportant = true; break; }
       }
       for (let k = 0; k < shown; k++) {
-        const ico = document.createElement("span");
-        ico.className = "ecal__ico";
-        ico.innerHTML = habitSvg(dayEvents[k].icon || "calendar");
-        icons.appendChild(ico);
+        const dot = document.createElement("span");
+        dot.className = "ecal__dot";
+        dots.appendChild(dot);
       }
-      cell.appendChild(icons);
-      if (hasImportant) {   // a red bell in the top-right corner, away from the icons
+      cell.appendChild(dots);
+      if (hasImportant) {   // a red bell in the top-right corner, away from the dots
         const bell = document.createElement("span");
         bell.className = "ecal__bell";
         bell.innerHTML = iconSvg(ICON_BELL);
@@ -3727,7 +5655,7 @@
       }
       cell.appendChild(eventPreview(dayEvents));
     }
-    cell.addEventListener("click", function () { openDayView(key); });
+    cell.addEventListener("click", function () { showDay(key); });
     return cell;
   }
 
@@ -3744,28 +5672,43 @@
 
   /* folded, the calendar shows one week: the one holding today when we're on the
      current month, otherwise the month's opening week */
-  function foldedWeekStart() {
+  /* The two views navigate on their own axis: folded you walk week by week,
+     unfolded month by month. Each keeps the other in step, so folding and
+     unfolding always lands on the period you were looking at. */
+  function mondayOf(date) {
+    const day = new Date(date);
+    day.setDate(day.getDate() - ((day.getDay() + 6) % 7));
+    return dateKey(day.getFullYear(), day.getMonth(), day.getDate());
+  }
+  /* a week belongs to the month of its Thursday, so a split week reads as one */
+  function weekAnchorKey() { return shiftDateKey(weekStart, 3); }
+
+  function syncMonthToWeek() {
+    const anchor = new Date(weekAnchorKey() + "T00:00");
+    ecalYear = anchor.getFullYear();
+    ecalMonth = anchor.getMonth();
+  }
+  function syncWeekToMonth() {
     const now = new Date();
     const onThisMonth = now.getFullYear() === ecalYear && now.getMonth() === ecalMonth;
-    const anchor = onThisMonth ? new Date(now) : new Date(ecalYear, ecalMonth, 1);
-    anchor.setDate(anchor.getDate() - ((anchor.getDay() + 6) % 7));
-    return anchor;
+    weekStart = mondayOf(onThisMonth ? now : new Date(ecalYear, ecalMonth, 1));
   }
 
   function renderEventCal() {
     const locale = state.settings.language === "fr" ? "fr-FR" : "en-US";
+    const shown = calExpanded ? new Date(ecalYear, ecalMonth, 1) : new Date(weekAnchorKey() + "T00:00");
     document.getElementById("ecalMonth").textContent =
-      new Date(ecalYear, ecalMonth, 1).toLocaleDateString(locale, { month: "long", year: "numeric" });
+      shown.toLocaleDateString(locale, { month: "long", year: "numeric" });
 
     ecalGrid.innerHTML = "";
     appendWeekdayHeads(ecalGrid);
 
     if (!calExpanded) {
-      const monday = foldedWeekStart();
+      const monday = new Date(weekStart + "T00:00");
       for (let i = 0; i < 7; i++) {
         const day = new Date(monday);
         day.setDate(monday.getDate() + i);
-        ecalGrid.appendChild(createCalDay(dateKey(day.getFullYear(), day.getMonth(), day.getDate()), day.getDate()));
+        ecalGrid.appendChild(createCalDay(dateKey(day.getFullYear(), day.getMonth(), day.getDate()), day.getDate(), 0));
       }
       return;
     }
@@ -3778,28 +5721,57 @@
     }
     const daysInMonth = new Date(ecalYear, ecalMonth + 1, 0).getDate();
     for (let d = 1; d <= daysInMonth; d++) {
-      ecalGrid.appendChild(createCalDay(dateKey(ecalYear, ecalMonth, d), d));
+      ecalGrid.appendChild(createCalDay(dateKey(ecalYear, ecalMonth, d), d, Math.floor((lead + d - 1) / 7)));
     }
   }
 
-  /* Unfold or fold the month in place. The viewport is clipped and its height
-     animated only for the length of the move, so hover previews stay free to
-     overflow the rest of the time. */
-  const CAL_MS = 450;
+  /* Unfold or fold the month in place. Three things move together: the viewport
+     grows, the grid slides so the week you were already looking at travels to
+     its real row instead of teleporting, and the other rows drop in one after
+     another from the top. The viewport is only clipped for the length of the
+     move, so hover previews stay free to overflow the rest of the time. */
+  const CAL_MS = 480;
   let calTimer = null;
+
+  function cellTop(key) {
+    const cell = ecalGrid.querySelector('[data-key="' + key + '"]');
+    return cell ? cell.getBoundingClientRect().top : null;
+  }
+
   function toggleCalendar() {
-    const from = ecalViewport.getBoundingClientRect().height;
+    const anchor = weekAnchorKey();          // the day both views have in common
+    const fromHeight = ecalViewport.getBoundingClientRect().height;
+    const fromTop = cellTop(anchor);
+
     calExpanded = !calExpanded;
+    if (calExpanded) syncMonthToWeek();
+    else syncWeekToMonth();
     renderEventCal();
 
+    const toTop = cellTop(anchor);
+    const slide = (fromTop != null && toTop != null) ? fromTop - toTop : 0;
+
     ecalViewport.style.overflow = "hidden";
-    ecalViewport.style.height = from + "px";
-    ecalViewport.offsetWidth;                       // commit the start height
+    ecalViewport.style.height = fromHeight + "px";
+    ecalGrid.style.transition = "none";
+    ecalGrid.style.transform = "translateY(" + slide.toFixed(1) + "px)";
+    ecalGrid.offsetWidth;                    // commit both start states
+    ecalGrid.style.transition = "";
     ecalViewport.style.height = ecalGrid.getBoundingClientRect().height + "px";
 
-    ecalGrid.classList.remove("is-morph");
-    ecalGrid.offsetWidth;
-    ecalGrid.classList.add("is-morph");
+    // the shared row is already in place; the rest unfolds behind it
+    if (calExpanded) {
+      const cells = ecalGrid.querySelectorAll(".ecal__day");
+      const anchorRow = ecalGrid.querySelector('[data-key="' + anchor + '"]');
+      const skip = anchorRow ? anchorRow.dataset.row : null;
+      for (let i = 0; i < cells.length; i++) {
+        if (cells[i].dataset.row === skip) continue;
+        cells[i].classList.add("is-unfolding");
+        cells[i].style.animationDelay = (Number(cells[i].dataset.row) * 45) + "ms";
+      }
+    }
+
+    requestAnimationFrame(function () { ecalGrid.style.transform = ""; });
 
     ecalToggle.classList.toggle("is-open", calExpanded);
     ecalToggle.setAttribute("aria-expanded", calExpanded ? "true" : "false");
@@ -3808,9 +5780,10 @@
     calTimer = setTimeout(function () {
       ecalViewport.style.height = "";
       ecalViewport.style.overflow = "";
-    }, CAL_MS + 20);
+    }, CAL_MS + 260);
   }
   ecalToggle.addEventListener("click", toggleCalendar);
+  document.getElementById("dayToday").addEventListener("click", function () { showDay(todayKey()); });
 
   /* hover card listing a day's events (up to four, then a "+N" line) */
   function eventPreview(dayEvents) {
@@ -3838,166 +5811,54 @@
     return card;
   }
 
-  document.getElementById("ecalPrev").addEventListener("click", function () {
-    ecalMonth--;
-    if (ecalMonth < 0) { ecalMonth = 11; ecalYear--; }
+  /* folded, the arrows walk a week at a time; unfolded, a month at a time */
+  function stepCalendar(direction) {
+    if (calExpanded) {
+      ecalMonth += direction;
+      if (ecalMonth < 0) { ecalMonth = 11; ecalYear--; }
+      if (ecalMonth > 11) { ecalMonth = 0; ecalYear++; }
+      syncWeekToMonth();
+    } else {
+      weekStart = shiftDateKey(weekStart, direction * 7);
+      syncMonthToWeek();
+    }
     renderEventCal();
-  });
-  document.getElementById("ecalNext").addEventListener("click", function () {
-    ecalMonth++;
-    if (ecalMonth > 11) { ecalMonth = 0; ecalYear++; }
-    renderEventCal();
-  });
-
-
-  /* DAY VIEW */
-  function setDayViewDate(key) {
-    dayViewKey = key;
-    document.getElementById("dayTitle").textContent = fullDateLabel(key);
-    renderDayList();
   }
-  function openDayView(key) {
-    setDayViewDate(key);
-    openFloating(dayView, function () {
-      document.getElementById("dayAddInput").focus();
-    });
-  }
-  document.getElementById("dayPrev").addEventListener("click", function () {
-    setDayViewDate(shiftDateKey(dayViewKey, -1));
-  });
-  document.getElementById("dayNext").addEventListener("click", function () {
-    setDayViewDate(shiftDateKey(dayViewKey, 1));
-  });
+  document.getElementById("ecalPrev").addEventListener("click", function () { stepCalendar(-1); });
+  document.getElementById("ecalNext").addEventListener("click", function () { stepCalendar(1); });
 
-  /* swipe left/right on the day view to change day (mobile-friendly) */
-  let daySwipeStart = null;
-  let daySwipeUntil = 0;   // suppress the click that ends a swipe
-  dayView.addEventListener("pointerdown", function (event) {
-    daySwipeStart = (event.pointerType === "mouse" && event.button !== 0)
-      ? null : { x: event.clientX, y: event.clientY };
-  });
-  dayView.addEventListener("pointerup", function (event) {
-    if (!daySwipeStart) return;
-    const dx = event.clientX - daySwipeStart.x;
-    const dy = event.clientY - daySwipeStart.y;
-    daySwipeStart = null;
-    if (Math.abs(dx) >= 55 && Math.abs(dx) > Math.abs(dy) * 1.4) {   // clearly horizontal
-      daySwipeUntil = Date.now() + 350;
-      setDayViewDate(shiftDateKey(dayViewKey, dx < 0 ? 1 : -1));   // left = next day
-    }
-  });
-  dayView.addEventListener("click", function (event) {
-    if (Date.now() < daySwipeUntil) { event.stopPropagation(); event.preventDefault(); }
-  }, true);
-  function closeDayView() {
-    dayView.classList.remove("is-open");
-    setTimeout(function () { dayView.hidden = true; }, 300);
-  }
 
-  function renderDayList() {
-    const list = document.getElementById("dayList");
-    list.innerHTML = "";
-    const dayEvents = eventsOnDay(dayViewKey);
-    if (dayEvents.length === 0) {
-      const empty = document.createElement("li");
-      empty.className = "empty";
-      empty.textContent = translate("emptyList");
-      list.appendChild(empty);
-      return;
-    }
-    for (let i = 0; i < dayEvents.length; i++) {
-      list.appendChild(createEventRow(dayEvents[i]));
-    }
-  }
-
-  /* one event row: rectangular, time on the left; a click opens the detail.
-     No checkbox — an event is past or pending, never "completed". */
-  function createEventRow(event) {
-    const status = eventStatus(event);
-    const row = document.createElement("li");
-    row.className = "event-row is-" + status + (event.important ? " is-important" : "");
-    row.addEventListener("click", function () { openEventDetail(event); });
-
-    const icon = document.createElement("span");
-    icon.className = "event-row__icon";
-    icon.innerHTML = habitSvg(event.icon || "calendar");
-    row.appendChild(icon);
-
-    const time = document.createElement("span");
-    time.className = "event-row__time";
-    time.textContent = event.time || "—";
-    row.appendChild(time);
-
-    const main = document.createElement("div");
-    main.className = "event-row__main";
-
-    const title = document.createElement("span");
-    title.className = "event-row__title";
-    title.textContent = event.text;
-    main.appendChild(title);
-
-    const meta = document.createElement("span");
-    meta.className = "event-row__meta";
-    const statusEl = document.createElement("span");
-    statusEl.className = "event-row__status";
-    statusEl.textContent = translate(status === "past" ? "eventStatusPast" : "eventStatusPending");
-    meta.appendChild(statusEl);
-    if (event.notes && event.notes.trim()) meta.appendChild(createNoteMark());
-    if (event.subtasks && event.subtasks.length) meta.appendChild(createSubBadge(event));
-    main.appendChild(meta);
-
-    row.appendChild(main);
-    if (event.important) {
-      const alert = document.createElement("span");
-      alert.className = "event-row__alert";
-      alert.innerHTML = iconSvg(ICON_BELL);
-      row.appendChild(alert);
-    }
-    return row;
-  }
-
-  function openEventDetail(event) {
-    detailReturn = null;   // the day view stays open underneath
-    detailTarget = { kind: "events", id: event.id, projectId: null };
+  function openEventDetail(event, host) {
+    detailTarget = { kind: "events", id: event.id };
+    const mounted = host ? mountEditor(host) : false;
     fillDetail(event);
+    if (mounted) openFold(host);
   }
 
-  function addEvent(key, text) {
-    state.events.push({ id: Date.now().toString(), text: text, important: false, icon: "calendar", date: key });
+  function addEvent(key, text, time, important) {
+    state.events.push({
+      id: Date.now().toString(), text: text, important: !!important,
+      icon: "calendar", date: key, time: time || ""
+    });
     saveState();
-    renderDayList();
     renderEventCal();
     renderDailyTimeline();
   }
 
   function removeEvent(id) {
     removeWithUndo("events", id, function () {
-      if (!dayView.hidden) renderDayList();
       renderEventCal();
       renderDailyTimeline();
     });
   }
 
-  document.getElementById("dayAddForm").addEventListener("submit", function (event) {
-    event.preventDefault();
-    const input = document.getElementById("dayAddInput");
-    const text = input.value.trim();
-    if (!text) return;
-    addEvent(dayViewKey, text);
-    input.value = "";
-    input.focus();
-  });
-  document.getElementById("dayBack").addEventListener("click", closeDayView);
-  document.addEventListener("keydown", function (event) {
-    if (event.key === "Escape" && detail.hidden && !dayView.hidden) closeDayView();
-  });
 
   /* DAILY TIMELINE — a 24h window that rides the clock instead of framing the
      calendar day: the present is pinned a third of the way in, and the rule
      slides underneath it. Everything on the rule is placed by its position in
      that window, so the view crosses midnight without a seam. */
   const DAY_MS = 86400000;
-  const SPAN_MS = DAY_MS;          // how much time the rule shows
+  const SPAN_MS = 16 * 3600000;    // how much time the rule shows
   const NOW_ANCHOR = 1 / 3;        // where "now" sits: a third in, so more future than past
 
   /* the moment the rule is drawn around — the clock, unless the user is
@@ -4020,12 +5881,57 @@
     return (state.sun && state.sun.date === todayKey() && state.sun.sunrise) ? state.sun : null;
   }
 
-  /* gradient that follows the real daylight window when we have it */
+  /* THE SKY RAMP — minutes from the horizon crossing, and the colour the sky is
+     then. Negative is below the horizon. Twilight genuinely runs through indigo
+     and rose before it turns blue; fading straight from orange to night was what
+     made the rule pass through mud. The same table colours the strip and lights
+     the cursor, so the two can never disagree. */
+  const SKY_RAMP = [
+    [-75, [23, 30, 56]],      // night
+    [-52, [40, 47, 92]],      // nautical twilight
+    [-32, [86, 62, 118]],     // the violet band
+    [-16, [173, 92, 122]],    // the rose that follows it
+    [-6,  [225, 121, 106]],   // the horizon catches fire
+    [0,   [246, 150, 88]],    // the disc clears it
+    [22,  [255, 186, 116]],
+    [60,  [255, 214, 158]],
+    [105, [255, 227, 178]]    // full day
+  ];
+
+  function rgbText(rgb) { return "rgb(" + rgb[0] + " " + rgb[1] + " " + rgb[2] + ")"; }
+  function mixRgb(a, b, t) {
+    return [Math.round(a[0] + (b[0] - a[0]) * t),
+            Math.round(a[1] + (b[1] - a[1]) * t),
+            Math.round(a[2] + (b[2] - a[2]) * t)];
+  }
+
+  /* the sky at `offset` minutes from the nearest horizon crossing. Straight sRGB
+     is honest here: the ramp is fine enough that no segment spans a hue jump. */
+  function rampColor(offset) {
+    if (offset <= SKY_RAMP[0][0]) return SKY_RAMP[0][1];
+    const last = SKY_RAMP[SKY_RAMP.length - 1];
+    if (offset >= last[0]) return last[1];
+    for (let i = 1; i < SKY_RAMP.length; i++) {
+      if (offset > SKY_RAMP[i][0]) continue;
+      const from = SKY_RAMP[i - 1];
+      const to = SKY_RAMP[i];
+      return mixRgb(from[1], to[1], (offset - from[0]) / (to[0] - from[0]));
+    }
+    return last[1];
+  }
+
+  /* how far a moment sits from the horizon: positive above it, negative below */
+  function sunOffset(nowMin, srMin, ssMin) {
+    if (nowMin < srMin) return nowMin - srMin;
+    if (nowMin > ssMin) return ssMin - nowMin;
+    return Math.min(nowMin - srMin, ssMin - nowMin);
+  }
+
   /* the daylight colours laid over the window; the window can straddle midnight,
      so the stops are generated day by day. Sunrise and sunset move about a
      minute a day, so reusing today's times for the neighbours is invisible. */
   function stripGradient(sun, windowStart) {
-    if (!sun) return "linear-gradient(90deg, var(--dtl-night), var(--dtl-day) 50%, var(--dtl-night))";
+    if (!sun) return "linear-gradient(90deg in oklab, var(--dtl-night), var(--dtl-day) 50%, var(--dtl-night))";
     const srMin = toMinutes(sun.sunrise);
     const ssMin = toMinutes(sun.sunset);
     const midday = (srMin + ssMin) / 2;
@@ -4038,13 +5944,15 @@
       const at = function (minutes) {
         return ((base + minutes * 60000 - windowStart) / SPAN_MS * 100).toFixed(2) + "%";
       };
-      parts.push("var(--dtl-night) " + at(srMin - 50));
-      parts.push("var(--dtl-dawn) " + at(srMin));
-      parts.push("var(--dtl-day) " + at(midday));
-      parts.push("var(--dtl-dusk) " + at(ssMin));
-      parts.push("var(--dtl-night) " + at(ssMin + 50));
+      for (let i = 0; i < SKY_RAMP.length; i++) {
+        parts.push(rgbText(SKY_RAMP[i][1]) + " " + at(srMin + SKY_RAMP[i][0]));
+      }
+      parts.push(rgbText(SKY_RAMP[SKY_RAMP.length - 1][1]) + " " + at(midday));
+      for (let i = SKY_RAMP.length - 1; i >= 0; i--) {   // the same ramp, mirrored
+        parts.push(rgbText(SKY_RAMP[i][1]) + " " + at(ssMin - SKY_RAMP[i][0]));
+      }
     }
-    return "linear-gradient(90deg, " + parts.join(", ") + ")";
+    return "linear-gradient(90deg in oklab, " + parts.join(", ") + ")";
   }
 
   /* a sunrise/sunset marker: a dot on the rule, a stem, the reading above it */
@@ -4083,7 +5991,7 @@
       const h = hour.getHours();
       const left = timePct(hour.getTime(), windowStart).toFixed(2) + "%";
       const midnight = h === 0;
-      const major = midnight || h % 3 === 0;
+      const major = midnight || h % 2 === 0;   // a shorter window can label more often
 
       const tick = document.createElement("span");
       tick.className = midnight ? "dtl__tick is-day-break" : (major ? "dtl__tick is-major" : "dtl__tick");
@@ -4133,6 +6041,7 @@
     }
 
     renderEventTicks(windowStart);
+    fieldWake();   // the block field carries the sun's light, so it repaints too
   }
 
   function renderDailyTimeline() {
@@ -4234,21 +6143,25 @@
   dtlEl.addEventListener("pointerup", endScrub);
   dtlEl.addEventListener("pointercancel", endScrub);
 
-  /* place the cursor at the current time on the bar: sun by day (halo fading
-     within an hour of sunrise/sunset), moon with a white halo by night */
+  /* Place the cursor on the bar and light it with the sky it stands in: gold at
+     noon, rose as it nears the horizon, pale moonlight once under it. Close to
+     the crossing the halo stretches sideways, the way a low sun smears along a
+     sea horizon; high or deep in the night it draws back to a round bloom. */
   function updateCursor(cursor, srMin, ssMin) {
     const at = new Date(refTime());
     const nowMin = at.getHours() * 60 + at.getMinutes();
     cursor.style.left = (NOW_ANCHOR * 100) + "%";   // the present never moves
-    const isDay = nowMin >= srMin && nowMin <= ssMin;
-    cursor.classList.toggle("is-day", isDay);
-    cursor.classList.toggle("is-night", !isDay);
-    let halo = 0.9;
-    if (isDay) {
-      const edge = Math.min(nowMin - srMin, ssMin - nowMin);   // minutes to nearest edge
-      halo = edge >= 60 ? 1 : Math.max(0.45, edge / 60);       // softens, never goes out
-    }
-    cursor.style.setProperty("--halo", halo.toFixed(2));
+
+    const offset = sunOffset(nowMin, srMin, ssMin);
+    const sky = rampColor(offset);
+    // a dark sky would give a halo nobody can see, so lift it to a steady glow
+    const lum = (sky[0] * .2126 + sky[1] * .7152 + sky[2] * .0722) / 255;
+    const core = mixRgb(sky, [255, 251, 242], Math.max(0, .8 - lum));
+
+    // one colour for the whole halo: tinting the tail towards the sky made it
+    // vanish at night, leaving a round disc where the day had a long smear
+    cursor.style.setProperty("--sun-core", rgbText(core));
+    cursor.style.setProperty("--flare", Math.max(0, 1 - Math.abs(offset) / 75).toFixed(2));
   }
 
   /* one tick per timed event, placed on the bar at its hour (hover shows it) */
@@ -4287,32 +6200,69 @@
     return ta < tb ? -1 : ta > tb ? 1 : 0;
   }
 
-  function renderTodayEvents() {
-    const box = document.getElementById("todayEvents");
-    box.innerHTML = "";
-    const today = todayKey();
-    const list = eventsOnDay(today).slice().sort(eventTimeSort);
-    for (let i = 0; i < list.length; i++) box.appendChild(todayEventRow(list[i]));
+  /* The section under the calendar is the day view. Clicking a day in the grid
+     retitles it instead of opening a window: the answer appears where the eye
+     is already travelling. */
+  let sectionDay = null;   // null means today
 
-    const add = document.createElement("button");
-    add.type = "button";
-    add.className = "add-card";
-    const plus = document.createElement("span");
-    plus.className = "add-card__plus";
-    plus.textContent = "+";
-    const label = document.createElement("span");
-    label.textContent = translate("addEventTitle");
-    add.append(plus, label);
-    add.addEventListener("click", function () { openDayView(today); });
-    box.appendChild(add);
+  function showDay(key) {
+    sectionDay = key === todayKey() ? null : key;
+    renderTodayEvents();
+  }
+
+  function renderTodayEvents() {
+    if (listsLocked("events")) return;
+    const box = document.getElementById("todayEvents");
+    const key = sectionDay || todayKey();
+    box.innerHTML = "";
+
+    document.getElementById("dayTitle").textContent =
+      sectionDay ? fullDateLabel(key) : translate("todayTitle");
+    document.getElementById("dayToday").hidden = !sectionDay;
+
+    const list = eventsOnDay(key).slice().sort(eventTimeSort);
+    for (let i = 0; i < list.length; i++) box.appendChild(todayEventRow(list[i]));
+  }
+
+  /* the day on show has the last word: a bare time belongs to it, not to today */
+  function quickEventDay(parsed) {
+    return !parsed.date || parsed.inferred ? (sectionDay || todayKey()) : parsed.date;
+  }
+
+  wireQuickAdd({
+    form: "quickEvent", input: "quickEventInput", mirror: "quickEventMirror",
+    hint: "quickEventHint", button: "addEventBtn",
+    flagLabel: "importantLabel", fallbackName: "newEventName",
+    resolveDate: quickEventDay,
+    submit: function (parsed, title, day) {
+      addEvent(day, title, parsed.time, parsed.flag);
+      goToDay(day);   // follow the day it landed on rather than lose it from view
+    }
+  });
+
+  /* bring both the grid and the day view onto a day */
+  function goToDay(key) {
+    const day = new Date(key + "T00:00");
+    ecalYear = day.getFullYear();
+    ecalMonth = day.getMonth();
+    weekStart = mondayOf(day);
+    renderEventCal();
+    showDay(key);
   }
 
   /* an event under the gauge: a rectangle with icon, title, and time on the right */
   function todayEventRow(event) {
-    const row = document.createElement("button");
-    row.type = "button";
+    // a row that holds an editor cannot be a <button>: it would swallow the fields
+    const row = document.createElement("div");
     row.className = "day-event is-" + eventStatus(event) + (event.important ? " is-important" : "");
-    row.addEventListener("click", function () { openEventDetail(event); });
+    row.dataset.event = event.id;
+    const fold = createUnfold();
+    row.addEventListener("click", function (click) {
+      if (click.target.closest(".unfold, .detail__titlerow")) return;
+      if (Date.now() < dragEndedAt) return;          // the click that ends a swipe
+      if (row.classList.contains("is-open")) { closeDetail(); return; }
+      openEventDetail(event, fold.firstChild);
+    });
 
     const icon = document.createElement("span");
     icon.className = "day-event__ico";
@@ -4322,7 +6272,9 @@
     const title = document.createElement("span");
     title.className = "day-event__title";
     title.textContent = event.text;
-    row.appendChild(title);
+    const slot = document.createElement("span");
+    slot.className = "day-event__slot";
+    row.append(title, slot);
 
     if (event.important) {
       const bell = document.createElement("span");
@@ -4336,6 +6288,16 @@
       time.textContent = event.time;
       row.appendChild(time);
     }
+
+    row.appendChild(createRowActions([
+      rowAction("when", ICON_WHEN, "rescheduleLabel", function () {
+        openCalendar(event.id, "events");
+      }),
+      rowAction("del", ICON_TRASH, "deleteAria", function () { removeEvent(event.id); })
+    ]));
+    armSwipe(row);
+
+    row.appendChild(fold);
     return row;
   }
 
@@ -4796,7 +6758,6 @@
 
   /* every floating view closes on its backdrop, the way the habit dialogs do */
   const detailClosers = {
-    detail: closeDetail, dayView: closeDayView,
     notes: closeNotes, noteEditor: closeNoteEditor
   };
   const detailBackdrops = document.querySelectorAll(".detail__backdrop");
@@ -4814,9 +6775,16 @@
   const pageFlip = document.getElementById("pageFlip");
   let wellOpen = false;
 
-  /* the rail is as tall as the space on show */
-  function syncPagesHeight() {
-    pagesEl.style.height = (wellOpen ? wellPage.offsetHeight : workPage.offsetHeight) + "px";
+  /* The rail is as tall as the space on show. Switching spaces animates it;
+     content merely growing must not, or the page trails half a second behind
+     the fold that caused it. */
+  function syncPagesHeight(animate) {
+    const height = (wellOpen ? wellPage.offsetHeight : workPage.offsetHeight) + "px";
+    if (animate) { pagesEl.style.height = height; return; }
+    pagesEl.style.transition = "none";
+    pagesEl.style.height = height;
+    pagesEl.offsetHeight;                 // commit before the transition returns
+    pagesEl.style.transition = "";
   }
 
   function setWellOpen(open) {
@@ -4824,11 +6792,14 @@
     pagesTrack.style.transform = "translateX(" + (open ? -50 : 0) + "%)";
     pageFlip.classList.toggle("is-open", open);
     pageFlip.setAttribute("aria-expanded", open ? "true" : "false");
-    syncPagesHeight();
+    document.body.classList.toggle("is-well", open);   // the room's light
+    // the field sweeps the way the pages went, from the edge they came from
+    startFieldFlash(open ? innerWidth : 0, innerHeight * .4);
+    syncPagesHeight(true);
   }
 
   pageFlip.addEventListener("click", function () { setWellOpen(!wellOpen); });
-  window.addEventListener("resize", syncPagesHeight);
+  window.addEventListener("resize", function () { syncPagesHeight(false); });
 
   /* touch only: a horizontal swipe crosses between the two spaces. Mouse drags
      are left alone so they never fight the row reordering. */
@@ -4852,7 +6823,7 @@
 
   // content grows and shrinks all the time; the rail follows without bookkeeping
   if (window.ResizeObserver) {
-    const pageWatcher = new ResizeObserver(syncPagesHeight);
+    const pageWatcher = new ResizeObserver(function () { syncPagesHeight(false); });
     pageWatcher.observe(workPage);
     pageWatcher.observe(wellPage);
   }
@@ -4868,9 +6839,11 @@
     if (!settingsModal.hidden) { settingsModal.hidden = true; return true; }
     if (!noteEditor.hidden) { closeNoteEditor(); return true; }
     if (!notesView.hidden) { closeNotes(); return true; }
+    if (linkMode) { setLinkMode(false); return true; }
+    if (!projectView.hidden) { closeProjectView(); return true; }
+    if (!skyView.hidden) { closeSky(); return true; }
     if (!focusOverlay.hidden) { closeFocus(); return true; }
-    if (!detail.hidden) { closeDetail(); return true; }   // milestone steps back to its project
-    if (!dayView.hidden) { closeDayView(); return true; }
+    if (openHost) { closeDetail(); return true; }   // fold the open object back
     return false;
   }
   window.addEventListener("popstate", function () {
@@ -4885,16 +6858,16 @@
   renderList("projects");
   renderHabits();
   renderEventCal();
-  renderHabitsView();
   renderDailyTimeline();
   buildIconPicker();
   checkReminders();
   checkSleepReminder();
   setInterval(function () { checkReminders(); checkSleepReminder(); }, 30000);
   renderGreeting();
+  renderWelcomeHabits();
   initSky();
-  buildRosace();
   applyDecorations();
+  setFieldWelcome(true);   // the threshold is standing
   document.getElementById("dtl").classList.toggle("is-scrubbable", state.settings.timeScrub);
   setWellOpen(false);
   requestAnimationFrame(function () { pagesEl.classList.add("is-live"); });

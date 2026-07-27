@@ -1,191 +1,221 @@
 /* COLOUR ARCHITECTURE
-   A theme declares source colours only — nine slots and an optional sky. Every
-   other variable in the app is derived from them once, in the DERIVED block
-   below. That means the whole interface can be recoloured by writing nine
-   values, which is exactly what the brush editor does: it sets these same
-   custom properties inline on <html>.
+   A theme declares source colours only — eight slots and a sky. Every other
+   variable is derived from them once, in the DERIVED block below, so the whole
+   interface can be recoloured by writing eight values. That is exactly what the
+   brush editor does: it sets these same custom properties inline on <html>.
 
      BASE       --c-bg  --c-surface  --c-line
      INK        --c-text  --c-muted
-     SIGNAL     --c-accent  --c-danger
-     SIGNATURE  --c-sig                     the theme's own colour
-     SKY        --c-sky-1/2/3               omit them for a flat background
-     --c-shade  how heavy the shadows are (0 to 1)
+     SIGNAL     --c-accent  --c-danger  --c-sig
+     SKY        --c-sky-1 (horizon) --c-sky-2 --c-sky-3 (zenith)
+     --c-shade  how heavy the shadows are
+     --c-veil   how solid the surfaces are; below 1 they let the sky through
 
-   The importance palette lives apart, under [data-palette], because it belongs
-   to the user's choice rather than to the hour. */
+   Depth comes from the sky showing through translucent surfaces, not from a
+   value step between two near-white greys — which is what made the light
+   themes look flat. Every theme therefore has a sky. */
 
 :root,
 [data-theme="light"] {
-  --c-bg: #f7f3f0;
+  --c-bg: #f4f1ee;
   --c-surface: #ffffff;
-  --c-line: #eee6df;
-  --c-text: #3a3632;
-  --c-muted: #9a938c;
-  --c-accent: #b8a4e3;          /* pastel lavender */
-  --c-danger: #e6a6a6;
-  --c-sig: #9fb4ec;
-  --c-shade: 0.06;
+  --c-line: #e2dbd3;
+  --c-text: #33302c;
+  --c-muted: #8b847c;
+  --c-accent: #7a5cd8;          /* saturated enough to hold its own on paper */
+  --c-danger: #d9534f;
+  --c-sig: #c3b0f5;
+  --c-shade: 0.10;
+  --c-veil: 0.74;
+  --c-sky-1: #fdf7f0;
+  --c-sky-2: #f1eef6;
+  --c-sky-3: #e7ecf5;
+  --c-sky-mid: 50%;
 }
 
 [data-theme="dark"] {
-  --c-bg: #1e1c22;
-  --c-surface: #2a2730;
-  --c-line: #3a3542;
-  --c-text: #e7e3ea;
-  --c-muted: #8f8a97;
-  --c-accent: #b8a4e3;
-  --c-danger: #e6a6a6;
-  --c-sig: #9fb4ec;
-  --c-shade: 0.30;
+  --c-bg: #16151b;
+  --c-surface: #262330;
+  --c-line: #383343;
+  --c-text: #e9e6ee;
+  --c-muted: #918b9c;
+  --c-accent: #a78bfa;
+  --c-danger: #e8756f;
+  --c-sig: #c4b1fb;
+  --c-shade: 0.45;
+  --c-veil: 0.70;
+  --c-sky-1: #221d2e;
+  --c-sky-2: #17151f;
+  --c-sky-3: #101017;
+  --c-sky-mid: 45%;
 }
 
 [data-theme="rose"] {
-  --c-bg: #fbf1f2;
+  --c-bg: #faf0f1;
   --c-surface: #ffffff;
-  --c-line: #f3e2e5;
-  --c-text: #4a3a3d;
-  --c-muted: #b09297;
-  --c-accent: #eba5b8;          /* pastel rose */
-  --c-danger: #e08a8a;
-  --c-sig: #f0a5b0;
-  --c-shade: 0.06;
+  --c-line: #efdcdf;
+  --c-text: #433336;
+  --c-muted: #a6868c;
+  --c-accent: #d8547d;
+  --c-danger: #d9534f;
+  --c-sig: #f3aac2;
+  --c-shade: 0.10;
+  --c-veil: 0.74;
+  --c-sky-1: #fff2f2;
+  --c-sky-2: #fbedf3;
+  --c-sky-3: #f2eaf7;
+  --c-sky-mid: 45%;
 }
 
-/* time-of-day themes: same nine slots, plus a sky */
+/* time-of-day themes */
 [data-theme="dawn"] {
-  --c-bg: #f7e8ec;
-  --c-surface: #fffafc;
-  --c-line: #f1dfe7;
-  --c-text: #4a3a45;
-  --c-muted: #a68d99;
-  --c-accent: #e39ab2;
-  --c-danger: #e08a8a;
-  --c-sig: #f5a8c0;
-  --c-shade: 0.06;
-  --c-sky-1: #ffd9c0;
-  --c-sky-2: #ffc9d8;
-  --c-sky-3: #d7c0ea;
-  --c-sky-mid: 35%;
+  --c-bg: #f3ecf2;
+  --c-surface: #fffbfd;
+  --c-line: #e8dbe6;
+  --c-text: #40303f;
+  --c-muted: #9c8496;
+  --c-accent: #c65f8e;
+  --c-danger: #d9534f;
+  --c-sig: #f6b490;
+  --c-shade: 0.10;
+  --c-veil: 0.70;
+  --c-sky-1: #ffd9bd;
+  --c-sky-2: #f6c3d5;
+  --c-sky-3: #cdb6e6;
+  --c-sky-mid: 42%;
 }
 [data-theme="day"] {
-  --c-bg: #eaf3fc;
+  --c-bg: #e9f0f8;
   --c-surface: #ffffff;
-  --c-line: #dceaf5;
-  --c-text: #2f3a44;
-  --c-muted: #8a97a3;
-  --c-accent: #4f9fe0;
-  --c-danger: #e6a6a6;
-  --c-sig: #ffd93b;
-  --c-shade: 0.06;
-  --c-sky-1: #eaf4ff;
-  --c-sky-2: #d0e6ff;
-  --c-sky-3: #bcd9fb;
-  --c-sky-mid: 55%;
+  --c-line: #d5e2ef;
+  --c-text: #26333f;
+  --c-muted: #7d8c9b;
+  --c-accent: #1f7ad1;
+  --c-danger: #d9534f;
+  --c-sig: #a8cdf5;
+  --c-shade: 0.10;
+  --c-veil: 0.72;
+  --c-sky-1: #eaf5ff;
+  --c-sky-2: #cfe4fa;
+  --c-sky-3: #a9c8ee;
+  --c-sky-mid: 50%;
 }
 [data-theme="dusk"] {
-  --c-bg: #2a2140;
-  --c-surface: #372c4d;
-  --c-line: #453a5c;
-  --c-text: #f1e7ec;
-  --c-muted: #b09ab2;
-  --c-accent: #f0956e;
-  --c-danger: #e6928a;
-  --c-sig: #ef7fa0;
-  --c-shade: 0.30;
-  --c-sky-1: #ff9e6d;
-  --c-sky-2: #e97ba0;
-  --c-sky-3: #5c4488;
-  --c-sky-mid: 38%;
+  --c-bg: #221a33;
+  --c-surface: #332748;
+  --c-line: #46375f;
+  --c-text: #f2e8ef;
+  --c-muted: #ab93b4;
+  --c-accent: #f4845f;
+  --c-danger: #ef7168;
+  --c-sig: #f3a0b8;
+  --c-shade: 0.45;
+  --c-veil: 0.68;
+  --c-sky-1: #ff8f66;
+  --c-sky-2: #d96f96;
+  --c-sky-3: #4a3572;
+  --c-sky-mid: 36%;
 }
 [data-theme="night"] {
-  --c-bg: #10131f;
-  --c-surface: #1b2036;
-  --c-line: #2a3048;
-  --c-text: #e6e8f4;
-  --c-muted: #8b90ad;
-  --c-accent: #8aa0e6;
+  --c-bg: #0e1120;
+  --c-surface: #1b2038;
+  --c-line: #2b3252;
+  --c-text: #e6e9f6;
+  --c-muted: #8a90b0;
+  --c-accent: #8fa6ee;
   --c-danger: #e6a6a6;
-  --c-sig: #eef1fb;
-  --c-shade: 0.40;
-  --c-sky-1: #0c0f1a;
-  --c-sky-2: #141830;
-  --c-sky-3: #0a0d18;
-  --c-sky-mid: 55%;
+  --c-sig: #c2cbef;
+  --c-shade: 0.50;
+  --c-veil: 0.72;
+  --c-sky-1: #131a33;
+  --c-sky-2: #0d1120;
+  --c-sky-3: #080b14;
+  --c-sky-mid: 45%;
 }
-/* rainy overcast theme: grey enough that the rain streaks stay visible */
+/* rainy overcast: grey enough that the rain streaks stay visible */
 [data-theme="rain"] {
-  --c-bg: #39414c;
-  --c-surface: #454e5b;
-  --c-line: #515b6a;
-  --c-text: #e8ecf2;
-  --c-muted: #9aa4b2;
-  --c-accent: #8fb0cc;
+  --c-bg: #333a44;
+  --c-surface: #444d59;
+  --c-line: #55606f;
+  --c-text: #e9edf3;
+  --c-muted: #9ba5b3;
+  --c-accent: #85b3d6;
   --c-danger: #e6a6a6;
-  --c-sig: #a9bccf;
-  --c-shade: 0.35;
-  --c-sky-1: #2e353f;
-  --c-sky-2: #3b434f;
-  --c-sky-3: #333a44;
-  --c-sky-mid: 55%;
+  --c-sig: #b6cadb;
+  --c-shade: 0.42;
+  --c-veil: 0.70;
+  --c-sky-1: #3d4552;
+  --c-sky-2: #333a45;
+  --c-sky-3: #272d36;
+  --c-sky-mid: 45%;
 }
 
 /* IMPORTANCE PALETTE — five stops, the user's choice, independent of the hour */
 :root,
 [data-palette="aurora"] {
-  --c-imp-1: #b8a4e3;
-  --c-imp-2: #8aa0e6;
-  --c-imp-3: #6baae6;
-  --c-imp-4: #63c3d6;
-  --c-imp-5: #e8c65c;
+  --c-imp-1: #8b6ee0;
+  --c-imp-2: #6b8ae6;
+  --c-imp-3: #4aa8dd;
+  --c-imp-4: #3fc0b8;
+  --c-imp-5: #e3b23c;
 }
 [data-palette="meadow"] {
-  --c-imp-1: #a7cf9a;
-  --c-imp-2: #b9d67f;
-  --c-imp-3: #cdd96e;
-  --c-imp-4: #e0cf63;
-  --c-imp-5: #ebbf54;
+  --c-imp-1: #5fa855;
+  --c-imp-2: #8cbb4d;
+  --c-imp-3: #b7c748;
+  --c-imp-4: #d8c249;
+  --c-imp-5: #e0a53c;
 }
 [data-palette="sunset"] {
-  --c-imp-1: #e6a3cf;
-  --c-imp-2: #ef9fb0;
-  --c-imp-3: #f2a98a;
-  --c-imp-4: #f0bd6e;
-  --c-imp-5: #ecc457;
+  --c-imp-1: #cf5f9e;
+  --c-imp-2: #e2657f;
+  --c-imp-3: #ee7f63;
+  --c-imp-4: #f0a04b;
+  --c-imp-5: #e6bf42;
 }
 
 /* DERIVED — everything the interface actually uses. Nothing below is ever
    written by hand in a theme; change a source colour and it all follows. */
 :root {
   --bg: var(--c-bg);
-  --surface: var(--c-surface);
+  /* the veil is what gives depth: cards float on the sky instead of sitting on
+     a second flat colour barely distinguishable from the first */
+  --surface: color-mix(in srgb, var(--c-surface) calc(var(--c-veil) * 100%), transparent);
+  --surface-solid: var(--c-surface);
   --text: var(--c-text);
   --muted: var(--c-muted);
   --accent: var(--c-accent);
   --danger: var(--c-danger);
-  --border: var(--c-line);
-  --item-border: color-mix(in oklab, var(--c-line) 55%, var(--c-bg));
-  --input-bg: color-mix(in oklab, var(--c-surface) 45%, var(--c-bg));
-  --accent-soft: color-mix(in oklab, var(--c-accent) 16%, var(--c-bg));
-  --accent-hover: color-mix(in oklab, var(--c-accent) 28%, var(--c-bg));
+  --border: color-mix(in srgb, var(--c-line) 70%, transparent);
+  --item-border: color-mix(in srgb, var(--c-line) 45%, transparent);
+  --input-bg: color-mix(in oklab, var(--c-surface) 55%, var(--c-bg));
+  --accent-soft: color-mix(in oklab, var(--c-accent) 15%, var(--c-bg));
+  --accent-hover: color-mix(in oklab, var(--c-accent) 26%, var(--c-bg));
   --welcome-title: var(--c-text);
-  --shadow: 0 6px 20px rgba(0, 0, 0, var(--c-shade));
+  /* two layers, tinted with the backdrop rather than pure black */
+  --shadow:
+    0 1px 2px color-mix(in srgb, var(--c-sky-3) calc(var(--c-shade) * 60%), transparent),
+    0 10px 30px color-mix(in srgb, var(--c-sky-3) calc(var(--c-shade) * 100%), transparent);
 
-  /* the theme's glow: today cells, the progress ring, habit halos */
+  /* the theme's own colour: today cells, the progress ring, halos */
   --sig: var(--c-sig);
   --sig-line: var(--c-sig);
-  --sig-ink: var(--c-bg);
+  /* every signature is a light tint, so its ink is a dark version of itself */
+  --sig-ink: color-mix(in oklab, var(--c-sig) 20%, #101017);
   --sig-glow: color-mix(in srgb, var(--c-sig) 42%, transparent);
 
-  /* a theme without sky stops falls back to transparent, so nothing shows */
-  --sky: linear-gradient(to top,
+  --sky-raw: linear-gradient(to top,
     var(--c-sky-1, transparent) 0%,
     var(--c-sky-2, transparent) var(--c-sky-mid, 45%),
     var(--c-sky-3, transparent) 100%);
-  --welcome-bg: linear-gradient(to top,
-    var(--c-sky-1, var(--c-bg)) 0%,
-    var(--c-sky-2, var(--c-surface)) var(--c-sky-mid, 45%),
-    var(--c-sky-3, var(--c-bg)) 100%);
+  /* the sky is vivid behind the day line and settles into the page colour lower
+     down, so quiet text never has to sit on a bright horizon */
+  --sky: linear-gradient(to bottom,
+      transparent 0%,
+      color-mix(in srgb, var(--c-bg) 78%, transparent) 52%,
+      var(--c-bg) 100%),
+    var(--sky-raw);
+  --welcome-bg: var(--sky-raw);
 
   --imp-1: var(--c-imp-1);
   --imp-2: var(--c-imp-2);
@@ -198,21 +228,29 @@
     color-mix(in srgb, var(--c-imp-3) 44%, transparent),
     color-mix(in srgb, var(--c-imp-5) 36%, transparent));
 
-  /* daily sun-timeline colours (shared across themes) */
-  --dtl-night: #545f86;
-  --dtl-dawn: #f3c9a6;
-  --dtl-day: #ffe1a8;
-  --dtl-dusk: #eaa079;
+  /* daily sun-timeline colours, the same under every theme. The strip itself is
+     drawn from SKY_RAMP in the script; these two only cover the case where we
+     have no sunrise time yet, so they match the ends of that ramp. */
+  --dtl-night: #171e38;
+  --dtl-day: #ffe3b2;
   --dtl-arc: #e0ac6a;
-  --radius: 16px;
-  /* numeric values are read as instrument readings, not as prose */
+  /* one shape scale instead of a dozen ad-hoc radii */
+  --r-sm: 10px;
+  --r-md: 14px;
+  --radius: 20px;
   --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
 }
 
 * { box-sizing: border-box; margin: 0; padding: 0; }
 
-/* no horizontal scroll: keep the app centered on the viewport (mobile especially) */
-html { overflow-x: hidden; }
+/* No horizontal scroll: keep the app centered on the viewport (mobile especially).
+   The stable gutter is what stops the whole page jolting sideways when unfolding
+   an object makes the page long enough for a scrollbar to appear. Platforms with
+   overlay scrollbars reserve nothing, so nothing changes there. */
+html {
+  overflow-x: hidden;
+  scrollbar-gutter: stable;
+}
 
 body {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
@@ -247,6 +285,59 @@ body {
   50%      { opacity: .9; }
 }
 
+/* GRAIN — one fixed layer of very fine noise. Flat colour fields read as
+   deliberate rather than default, and it costs a single element. */
+/* The well-being space is a cooler room. Rather than invent a colour, the sky's
+   own zenith — its coldest stop — is laid over everything and cross-faded. */
+#wellLight {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity .45s ease;
+  background: linear-gradient(to bottom,
+    color-mix(in srgb, var(--c-sky-3) 62%, transparent),
+    color-mix(in srgb, var(--c-sky-3) 26%, transparent) 60%,
+    transparent);
+}
+body.is-well #wellLight { opacity: 1; }
+
+/* the day's habits, tickable before ever entering */
+.welcome__habits {
+  display: flex;
+  gap: 14px;
+  justify-content: center;
+  animation: fadeUp 1.4s ease both .6s;
+}
+.welcome__ring {
+  width: 30px; height: 30px;
+  border: 1.5px solid color-mix(in srgb, var(--c-line) 55%, transparent);
+  border-radius: 50%;
+  background: none;
+  color: var(--muted);
+  cursor: pointer;
+  display: grid; place-items: center;
+  transition: border-color .2s ease, background .2s ease, color .2s ease;
+}
+.welcome__ring svg { width: 15px; height: 15px; }
+.welcome__ring:hover { border-color: var(--accent); color: var(--accent); }
+.welcome__ring.is-done {
+  background: color-mix(in srgb, var(--accent) 22%, transparent);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+#grain {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  opacity: .038;
+  mix-blend-mode: overlay;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='160' height='160'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.85' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
 /* DECORATIONS — activatable ambient effects */
 #decor {
   position: fixed;
@@ -255,6 +346,18 @@ body {
   overflow: hidden;
   pointer-events: none;
 }
+/* The block field, painted in the script. `color` is the whole point: the theme
+   sets it, the browser resolves it, and the canvas reads it back — so the field
+   can never hold a colour the palette does not already own. */
+#field {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  width: 100%; height: 100%;
+  pointer-events: none;
+  color: var(--accent);
+}
+#field[hidden] { display: none; }
 /* particles */
 .dp {
   position: absolute;
@@ -385,23 +488,6 @@ body {
 .decor-opt.is-active { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); font-weight: 600; }
 
 /* COLOUR WORKSHOP */
-.paint-btn {
-  position: fixed;
-  top: calc(16px + env(safe-area-inset-top));
-  left: calc(16px + env(safe-area-inset-left));
-  z-index: 20;
-  width: 42px; height: 42px;
-  border: none;
-  border-radius: 50%;
-  background: var(--surface);
-  color: var(--muted);
-  cursor: pointer;
-  box-shadow: var(--shadow);
-  display: grid; place-items: center;
-  transition: color .2s ease, transform .2s ease;
-}
-.paint-btn:hover { color: var(--accent); transform: translateY(-1px); }
-.paint-btn svg { width: 19px; height: 19px; }
 
 .modal__card.paint { max-width: 460px; max-height: 86vh; overflow-y: auto; }
 .paint__group { margin-bottom: 18px; }
@@ -453,50 +539,60 @@ body {
 .paint__undo:hover { color: var(--accent); }
 
 /* TOP BAR — the weather reading sits with the tools, out of the day line */
+/* The tools sit at the top of the page, not of the screen: scroll into your
+   work and they leave. They share one invisible baseline — no bar is drawn,
+   the matching heights are what line them up. */
 .topbar {
-  position: fixed;
-  top: calc(16px + env(safe-area-inset-top));
-  right: calc(16px + env(safe-area-inset-right));
+  position: absolute;
+  top: calc(6px + env(safe-area-inset-top));   /* tucked up against the edge */
+  right: calc(12px + env(safe-area-inset-right));
   z-index: 20;
   display: flex;
   align-items: center;
-  gap: 10px;
+  gap: 0;   /* no gap: the hairlines below set the spacing */
 }
+/* No capsules: bare icons, told apart by a hairline between them. Nothing is
+   drawn around a tool, so the bar reads as a row of marks rather than a widget. */
 .topbar__btn {
-  width: 42px; height: 42px;
-  border: none;
-  border-radius: 50%;
-  background: var(--surface);
+  width: 44px; height: 26px;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
   color: var(--muted);
-  font-size: 1.2rem;
+  font-size: 1rem;
   cursor: pointer;
-  box-shadow: var(--shadow);
   display: grid; place-items: center;
-  transition: transform .3s ease, color .2s ease;
+  transition: color .2s ease;
 }
-.topbar__btn:hover { color: var(--accent); transform: translateY(-1px); }
+.topbar__btn:hover { color: var(--accent); }
 .topbar__btn--gear:hover { transform: rotate(40deg); }
-.topbar__btn svg { width: 20px; height: 20px; }
+.topbar__btn svg { width: 17px; height: 17px; }
 
 .topbar__weather {
   display: inline-flex;
   align-items: center;
-  gap: 7px;
-  height: 42px;
-  padding: 0 15px;
-  border: none;
-  border-radius: 999px;
-  background: var(--surface);
-  box-shadow: var(--shadow);
+  gap: 6px;
+  height: 26px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 0;
+  background: none;
   font: inherit;
-  font-size: .85rem;
+  font-size: .8rem;
   font-weight: 600;
   color: var(--muted);
   cursor: default;
   transition: color .2s ease;
 }
 .topbar__weather[hidden] { display: none; }
-.topbar__weather svg { width: 17px; height: 17px; }
+/* one hairline between neighbours — and none leading the row when the weather
+   pill is away, since a hidden element is still a sibling */
+.topbar > * + * {
+  border-left: 1px solid color-mix(in srgb, var(--c-line) 30%, transparent);
+}
+.topbar__weather[hidden] + * { border-left: 0; }
+.topbar__weather svg { width: 15px; height: 15px; }
 .topbar__wico { display: inline-flex; }
 .topbar__place { color: var(--muted); }
 .topbar__temp { color: var(--text); }
@@ -504,98 +600,71 @@ body {
 .topbar__weather.is-clickable:hover { color: var(--accent); }
 
 /* WELCOME */
+/* THE THRESHOLD — the sky at full bleed, the day rule across the middle, the
+   block field underneath. Nothing to aim at: the whole screen is the door. */
 .welcome {
   position: fixed;
   inset: 0;
-  display: grid;
-  place-items: center;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  gap: 4vh;
+  cursor: pointer;
   padding: 24px;
-  background: var(--welcome-bg);
+  /* no ground of its own: the sky below carries it, so the block field — which
+     sits between the two — is not buried under an opaque layer */
+  background: none;
   z-index: 10;
-  overflow: hidden;   /* clip the oversized rosace instead of scrolling */
+  overflow: hidden;
   transition: opacity .55s ease;
 }
-.welcome.is-leaving { opacity: 0; }   /* fade out as the rosace flies off */
+.welcome.is-leaving { opacity: 0; }
 
 .welcome__inner {
   text-align: center;
   max-width: 520px;
   position: relative;
-  z-index: 1;   /* content sits above the screen-centered rosace */
+  z-index: 1;   /* the greeting sits above the field */
   animation: fadeUp .9s ease both;
 }
+.welcome__slot {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+}
+/* blown up on the threshold, and flown back down to 1 on entering */
+.welcome__slot .day-line {
+  width: 100%;
+  transform: scale(1.35);
+  will-change: transform;
+}
+.welcome__hint {
+  font-size: .8rem;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--muted);
+  opacity: .55;
+  animation: fadeUp 1.6s ease both .8s;
+}
+/* the sky wears the raw gradient while the threshold is up, and cross-fades
+   back to the veiled one on entering */
+body:has(.welcome:not(.is-leaving)) #sky { background: var(--welcome-bg); }
+
+/* nothing of the app has business on the threshold */
+body:has(.welcome:not(.is-leaving)) .topbar,
+body:has(.welcome:not(.is-leaving)) .pageflip { opacity: 0; pointer-events: none; }
+
 .welcome__title {
   font-size: clamp(1.6rem, 5vw, 2.4rem);
   font-weight: 600;
   line-height: 1.4;
   color: var(--welcome-title);
-  margin: 0 auto 40px;
+  margin: 0 auto;
   max-width: 600px;
 }
 #welcomeGreeting { display: block; white-space: nowrap; }
 .welcome__q { display: block; font-size: .78em; font-weight: 500; opacity: .8; margin-top: 10px; }
-
-.enter {
-  width: 100%;
-  height: 54px;
-  border: none;
-  border-radius: 16px;
-  background: var(--surface);
-  color: var(--accent);
-  font-size: 1.6rem;
-  cursor: pointer;
-  box-shadow: var(--shadow);
-  display: grid; place-items: center;
-  animation: float 2.4s ease-in-out infinite;
-  transition: transform .2s ease;
-}
-.enter:hover  { transform: scale(1.08); }
-.enter:active { transform: scale(0.96); }
-.enter__arrow { display: block; line-height: 1; }
-
-/* WELCOME ROSACE — a Bezier rose whose center is hidden by a radial mask,
-   spins while the arrow is hovered, and flies outward on click */
-.rosace {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  /* translate centers it on screen even when larger than the viewport
-     (margin:auto would pin an oversized box to the left) */
-  transform: translate(-50%, -50%);
-  width: 190vmax;
-  height: 190vmax;
-  color: var(--accent);
-  transform-origin: center;
-  transition: transform .55s cubic-bezier(.2, .85, .25, 1);
-  -webkit-mask: radial-gradient(circle at center, transparent 0 30%, #000 44%);
-          mask: radial-gradient(circle at center, transparent 0 30%, #000 44%);
-}
-/* inner layer carries the continuous spin so the outer stays free for recoil/launch */
-.rosace__spin {
-  width: 100%; height: 100%;
-  transform-origin: center;
-  animation: rosaceSpin 400s linear infinite;
-}
-.rosace svg { display: block; width: 100%; height: 100%; overflow: visible; }
-.rosace path { fill: none; stroke: currentColor; stroke-width: 1; opacity: .42; }
-
-/* hovering the arrow stops the spin with a small reverse recoil
-   (transforms keep the centering translate so it stays screen-centered) */
-.rosace.is-recoil { transform: translate(-50%, -50%) rotate(-14deg); }
-.rosace.is-recoil .rosace__spin { animation-play-state: paused; }
-/* drop the costly mask during the launch and let the GPU composite it */
-.rosace.is-launching {
-  animation: rosaceLaunch .55s ease-out forwards;
-  will-change: transform, opacity;
-
-  -webkit-mask: none;
-  mask: none;
-}
-
-@keyframes rosaceSpin { to { transform: rotate(360deg); } }
-@keyframes rosaceLaunch {
-  to { transform: translate(-50%, -50%) rotate(150deg) scale(1.9); opacity: 0; }
-}
 
 @keyframes fadeUp {
   from { opacity: 0; transform: translateY(16px); }
@@ -661,6 +730,16 @@ body {
 
 /* backup buttons in settings */
 .data-actions { display: flex; gap: 8px; }
+/* full-width row button, for a setting that opens a panel of its own */
+.data-btn--wide {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+}
+.data-btn--wide svg { width: 17px; height: 17px; }
+
 .data-btn {
   flex: 1;
   padding: 10px 12px;
@@ -726,7 +805,7 @@ body {
   text-align: left;
   padding: 13px 16px;
   border: 1px dashed color-mix(in srgb, var(--muted) 42%, transparent);
-  border-radius: 14px;
+  border-radius: var(--r-md);
   background: none;
   color: var(--muted);
   font: inherit;
@@ -743,7 +822,7 @@ body {
 .add-card__plus { flex: 0 0 auto; width: 22px; text-align: center; font-size: 1.35rem; line-height: 1; }
 /* flex/inline-flex boxes need this: a display rule beats the hidden attribute */
 .add-card[hidden],
-.toast[hidden],
+.toast[hidden] { display: none; }
 
 .add__input {
   flex: 1;
@@ -777,6 +856,9 @@ body {
 .list--cards + .add-card,
 .tasks + .add-card,
 .tasks + .add-card + .quick { margin-top: 12px; }
+/* the day's events are spaced 8px apart, so the add line follows that rhythm */
+.day-events + .add-card,
+.day-events + .add-card + .quick { margin-top: 8px; }
 
 /* TASK GROUPS — the list splits itself by due date */
 .tasks { display: flex; flex-direction: column; gap: 16px; }
@@ -882,9 +964,12 @@ body {
 .quick__hint[hidden] { display: none; }
 .item {
   display: flex;
+  position: relative;   /* the action group is laid over the right end */
+  flex-wrap: wrap;   /* so the fold drops onto its own line under the row */
   align-items: center;
-  gap: 12px;
+  gap: 0 12px;       /* no row gap: the shut fold must not pad the row's bottom */
   padding: 12px 4px;
+  touch-action: pan-y;   /* the sideways gesture is ours, the vertical one scrolls */
   border-bottom: 1px solid var(--item-border);
   animation: fadeUp .3s ease both;
 }
@@ -896,34 +981,117 @@ body {
   box-shadow: var(--shadow);
   border-bottom-color: transparent;
 }
-.item__grip {
-  flex: 0 0 auto;
-  width: 20px; height: 22px;
-  margin: -4px -6px -4px -2px;   /* tuck in tight to the left */
-  color: var(--muted);
-  opacity: .5;
-  cursor: grab;
-  touch-action: none;   /* drag instead of scrolling the page on touch */
-  display: grid; place-items: center;
-}
-.item__grip:empty { cursor: default; }   /* pinned rows: spacer only */
-.item__grip:active { cursor: grabbing; opacity: .9; }
-.item__grip svg { width: 16px; height: 16px; }
-
+/* COMPLETION — a small rounded box whose tick is stroked, not typed. Kept
+   light: a quiet outline until it matters, filled only once it is done. */
 .item__check {
-  width: 20px; height: 20px;
-  border: 2px solid var(--accent);
-  border-radius: 6px;
-  cursor: pointer;
   flex: 0 0 auto;
-  display: grid; place-items: center;
-  color: #fff;
-  font-size: .75rem;
-  font-weight: 700;
-  transition: background .2s ease;
+  width: 18px; height: 18px;
+  padding: 0;
+  border: 1.5px solid color-mix(in srgb, var(--muted) 45%, transparent);
+  border-radius: 50%;   /* a ring, not a box: it asks for the click far less loudly */
+  background: none;
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  transition: border-color .18s ease, background .18s ease;
 }
-.item.done .item__check { background: var(--accent); }
-.item.done .item__text  { text-decoration: line-through; color: var(--muted); }
+/* the ring wakes up with the row, then fills under the pointer */
+.item:hover > .item__check { border-color: color-mix(in srgb, var(--accent) 60%, transparent); }
+.item__check:hover {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+}
+.item__check svg { width: 12px; height: 12px; display: block; }
+.item__check polyline {
+  fill: none;
+  stroke: var(--bg);
+  stroke-width: 2.4;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  stroke-dasharray: 16;
+  stroke-dashoffset: 16;   /* the tick draws itself when the box fills */
+  transition: stroke-dashoffset .24s ease .04s;
+}
+.item.done .item__check {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+.item.done .item__check polyline { stroke-dashoffset: 0; }
+
+/* ROW ACTIONS — the rarer moves wait on the right: reschedule and delete, plus
+   completing a project, which has no ring. They are laid over the row so that
+   uncovering them never reflows the line; what sits at the right end fades
+   under them for as long as they show. */
+.row-acts {
+  position: absolute;
+  right: 8px;   /* the cards are padded 14-16px: sit just inside that */
+  top: 50%;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  opacity: 0;
+  transform: translate(6px, -50%);
+  pointer-events: none;
+  transition: opacity .16s ease, transform .16s ease;
+}
+.item:hover > .row-acts,
+.item:focus-within > .row-acts,
+.item.is-swiped > .row-acts,
+.day-event:hover > .row-acts,
+.day-event:focus-within > .row-acts,
+.day-event.is-swiped > .row-acts {
+  opacity: 1;
+  transform: translate(0, -50%);
+  pointer-events: auto;
+}
+/* unfolded, the editor carries its own buttons */
+.item.is-open > .row-acts,
+.day-event.is-open > .row-acts { display: none; }
+
+/* while a finger is on the row the group follows it instead of snapping */
+.is-swiping > .row-acts {
+  transition: none;
+  opacity: var(--swipe, 0);
+  transform: translate(calc(6px - var(--swipe, 0) * 6px), -50%);
+  pointer-events: none;
+}
+
+.row-act {
+  width: 27px; height: 27px;
+  padding: 0;
+  border: none;
+  border-radius: 8px;
+  background: none;
+  color: var(--muted);
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+  transition: background .16s ease, color .16s ease;
+}
+.row-act svg { width: 15px; height: 15px; display: block; }
+.row-act:hover { background: var(--accent-soft); color: var(--accent); }
+.row-act--del:hover {
+  background: color-mix(in srgb, var(--danger) 15%, transparent);
+  color: var(--danger);
+}
+
+/* the right end of the row steps aside for the actions */
+.item__due,
+.imp,
+.day-event__time,
+.day-event__bell { transition: opacity .16s ease; }
+.item:hover > .item__due,
+.item:hover > .imp,
+.item.is-swiped > .item__due,
+.item.is-swiped > .imp,
+.day-event:hover > .day-event__time,
+.day-event:hover > .day-event__bell,
+.day-event.is-swiped > .day-event__time,
+.day-event.is-swiped > .day-event__bell { opacity: 0; }
+.is-swiping > .item__due,
+.is-swiping > .imp,
+.is-swiping > .day-event__time,
+.is-swiping > .day-event__bell { transition: none; opacity: calc(1 - var(--swipe, 0)); }
 
 .item__text {
   flex: 1;
@@ -957,7 +1125,7 @@ body {
 .item--task:last-child {   /* beats the ruled-list rule that drops the last border */
   padding: 14px 16px;
   border: 1px solid var(--item-border);
-  border-radius: 14px;
+  border-radius: var(--r-md);
   background: var(--surface);
   transition: border-color .2s ease, background .2s ease;
 }
@@ -969,7 +1137,7 @@ body {
 .item--project {
   padding: 16px;
   border: 1px solid var(--item-border);
-  border-radius: 16px;
+  border-radius: var(--radius);
   background: var(--surface);
   transition: border-color .2s ease;
 }
@@ -1010,6 +1178,7 @@ body {
 }
 .modal__card {
   position: relative;
+  backdrop-filter: blur(18px) saturate(130%);
   background: var(--surface);
   border-radius: var(--radius);
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.18);
@@ -1173,16 +1342,88 @@ body {
 .scuba-gif[hidden] { display: none; }
 
 /* HABITS */
+/* as many tiles as there are habits, flowing onto whatever rows they need */
 .habits {
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 92px));
+  grid-template-columns: repeat(auto-fill, minmax(84px, 92px));
   gap: 12px;
   margin-bottom: 26px;
 }
+/* THE HABIT RULE — days left to right, one lane per habit. The tags stay put
+   while the days scroll under them, so a lane never loses its name. */
+.hrule {
+  overflow-x: auto;
+  overflow-y: hidden;
+  padding-bottom: 4px;
+  scrollbar-width: thin;
+}
+.hrule__lanes { display: flex; flex-direction: column; gap: 3px; }
+.hrule__lane,
+.hrule__axis { display: flex; align-items: center; gap: 2px; }
+.hrule__axis { margin-top: 6px; }
+.hrule__tag {
+  position: sticky;
+  left: 0;
+  z-index: 1;
+  flex: 0 0 auto;
+  width: 26px; height: 14px;
+  margin-right: 6px;
+  display: grid; place-items: center;
+  color: var(--muted);
+  background: var(--bg);
+}
+.hrule__tag svg { width: 13px; height: 13px; }
+.hrule__day {
+  flex: 0 0 auto;
+  width: 8px; height: 14px;
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--c-line) 22%, transparent);
+}
+.hrule__day.is-on { background: color-mix(in srgb, var(--accent) 62%, transparent); }
+.hrule__day.is-today { outline: 1px solid var(--accent); outline-offset: 1px; }
+.hrule__stamp {
+  flex: 0 0 auto;
+  width: 8px;
+  font-size: .6rem;
+  letter-spacing: .04em;
+  text-transform: uppercase;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.hrule__stamp.is-start { opacity: .8; }
+
+/* the fold is a grid item spanning every column, so it opens under its own rank */
+.hfold {
+  grid-column: 1 / -1;
+  height: 0;
+  overflow: hidden;
+  transition: height .38s cubic-bezier(.22, .8, .25, 1);
+}
+.hfold__inner { padding-top: 12px; }
+
+/* the tile is for ticking; this corner mark is the way into its detail */
+.habit__more {
+  position: absolute;
+  top: 2px; right: 2px;
+  width: 24px; height: 22px;
+  border: 0;
+  padding: 0;
+  background: none;
+  color: var(--muted);
+  cursor: pointer;
+  opacity: 0;
+  display: grid; place-items: center;
+  transition: opacity .16s ease, color .16s ease;
+}
+.habit:hover .habit__more,
+.habit__more:focus-visible { opacity: .75; }
+.habit__more:hover { opacity: 1; color: var(--accent); }
+.habit__more svg { width: 16px; height: 16px; }
 
 
 /* the only visible way between the two spaces: a slim arrow on the right edge */
 .pageflip {
+  backdrop-filter: blur(14px) saturate(130%);
   position: fixed;
   top: 50%; right: 0;
   transform: translateY(-50%);
@@ -1220,7 +1461,7 @@ body {
   position: relative;
   aspect-ratio: 1;
   border: none;
-  border-radius: 14px;
+  border-radius: var(--r-md);
   background: var(--surface);
   cursor: pointer;
   overflow: hidden;
@@ -1842,7 +2083,7 @@ body {
 .edit-pin__flower { width: 20px; height: 20px; display: grid; place-items: center; }
 .edit-pin__flower svg { width: 20px; height: 20px; }
 
-/* DETAIL VIEW — a floating card over the app, like the habit dialogs */
+/* FLOATING VIEWS — still used by the notes list and the note editor */
 .detail {
   position: fixed;
   inset: 0;
@@ -1850,10 +2091,9 @@ body {
   display: grid;
   place-items: center;
   padding: 28px 24px;
-  overflow: hidden;   /* the sheet slides out below the fold without growing the page */
+  overflow: hidden;
 }
 .detail[hidden] { display: none; }
-
 .detail__backdrop {
   position: absolute;
   inset: 0;
@@ -1863,33 +2103,109 @@ body {
   transition: opacity .25s ease;
 }
 .detail.is-open .detail__backdrop { opacity: 1; }
-
-.detail__card {
+.detail .detail__card {
   position: relative;
   z-index: 1;
+  backdrop-filter: blur(18px) saturate(130%);
   display: flex;
   flex-direction: column;
   width: 100%;
   max-width: 580px;
   max-height: min(88vh, 880px);
   background: var(--surface);
-  border-radius: 20px;
-  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.26);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
   opacity: 0;
   transform: translateY(18px) scale(.985);
   transition: opacity .25s ease, transform .25s cubic-bezier(.2, .8, .3, 1);
 }
 .detail.is-open .detail__card { opacity: 1; transform: none; }
-/* notes, the note editor and the habit history need more room */
 .detail--wide .detail__card { max-width: 840px; }
-
-.detail__bar {
+.detail .detail__bar {
   flex: 0 0 auto;
   display: flex;
   align-items: center;
   justify-content: space-between;
   padding: 14px 22px 8px;
 }
+.detail .detail__body {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: 4px 22px 26px;
+}
+
+/* THE EDITOR — one card, moved into whichever object is unfolded. #detail-park
+   is only where it waits when nothing is open. */
+.detail-park { display: none; }
+
+/* the pocket an object unfolds into. Its height is set in JS and released to
+   auto once the fold has played out, so the editor can grow afterwards. */
+.unfold {
+  flex: 0 0 100%;
+  height: 0;
+  overflow: hidden;
+  transition: height .42s cubic-bezier(.22, .8, .25, 1);
+}
+
+/* an unfolded object reads as one piece, its editor sitting inside it */
+.item.is-open,
+.day-event.is-open { border-color: color-mix(in srgb, var(--accent) 55%, transparent); }
+/* Open, the row header becomes the editor's identity line: the static label and
+   every badge that the line already carries step aside, so nothing is written
+   twice and the top strip becomes editable. */
+.item__slot,
+.day-event__slot { display: none; }
+.item.is-open > .item__slot,
+.day-event.is-open > .day-event__slot { display: block; flex: 1; min-width: 0; }
+.item.is-open > .item__text,
+.item.is-open > .item__ico,
+.item.is-open > .item__due,
+.item.is-open > .item__pin,
+.item.is-open > .item__note,
+.item.is-open > .item__sub,
+.item.is-open > .imp,
+.day-event.is-open > .day-event__title,
+.day-event.is-open > .day-event__ico,
+.day-event.is-open > .day-event__time,
+.day-event.is-open > .day-event__bell { display: none; }
+
+/* the identity line, sized for a row rather than for a dialog header */
+.item__slot .detail__titlerow,
+.day-event__slot .detail__titlerow { gap: 10px; }
+.unfold__inner ~ * .detail__name,
+.item__slot .detail__name,
+.day-event__slot .detail__name {
+  font-size: 1rem;
+  padding: 2px 0;
+  border-bottom-width: 1px;
+}
+.item__slot .detail__icon,
+.day-event__slot .detail__icon { width: 30px; height: 30px; border-radius: 9px; }
+.item__slot .detail__icon svg,
+.day-event__slot .detail__icon svg { width: 18px; height: 18px; }
+.item__slot .detail__date,
+.item__slot .detail__pin,
+.item__slot .detail__back,
+.day-event__slot .detail__date,
+.day-event__slot .detail__pin,
+.day-event__slot .detail__back { width: 30px; height: 30px; border-radius: 9px; }
+.item__slot .detail__date svg,
+.item__slot .detail__pin svg,
+.item__slot .detail__back svg,
+.day-event__slot .detail__date svg,
+.day-event__slot .detail__pin svg,
+.day-event__slot .detail__back svg { width: 17px; height: 17px; }
+.detail__imp { display: inline-flex; flex: 0 0 auto; }
+.detail__imp:empty { display: none; }
+.detail__back[hidden] { display: none; }
+
+.unfold__inner .detail__body { padding: 12px 0 6px; }
+/* the first section on show sits straight under the title strip. A section only
+   keeps its top margin when a visible one comes before it. */
+.unfold__inner .detail__section { margin-top: 0; }
+.unfold__inner .detail__section:not([hidden]) ~ .detail__section { margin-top: 22px; }
+.unfold__inner .detail__delete { margin-top: 20px; }
 .detail__back {
   width: 40px; height: 40px;
   border: none;
@@ -1917,6 +2233,9 @@ body {
 .detail__pin[hidden] { display: none; }
 .detail__pin:hover { background: var(--input-bg); color: var(--accent); opacity: 1; }
 .detail__pin.is-on { color: var(--accent); opacity: 1; }
+.detail__bell[hidden] { display: none; }
+.detail__bell.is-on { color: var(--danger); opacity: 1; }
+.detail__bell.is-on:hover { color: var(--danger); }
 .detail__pin svg { width: 20px; height: 20px; }
 
 /* on/off switch (event "important" flag) */
@@ -2002,12 +2321,6 @@ body {
 }
 .time-picker__slider::-moz-range-track { height: 8px; border-radius: 999px; background: var(--border); }
 
-.detail__body {
-  flex: 1 1 auto;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  padding: 4px 22px 26px;
-}
 /* title row: a square icon button (events/projects) left of the name */
 .detail__titlerow { display: flex; align-items: center; gap: 12px; }
 .detail__icon {
@@ -2060,12 +2373,14 @@ body {
 .detail__section { margin-top: 22px; }
 .detail__label {
   display: block;
-  font-size: .85rem;
+  font-size: .78rem;
   color: var(--muted);
-  margin-bottom: 8px;
+  margin-bottom: 7px;
 }
 .detail__notes {
   width: 100%;
+  resize: none;
+  overflow: hidden;
   border: 1px solid var(--border);
   background: var(--input-bg);
   border-radius: 12px;
@@ -2075,15 +2390,42 @@ body {
   color: var(--text);
   outline: none;
   resize: vertical;
-  min-height: 90px;
+  min-height: 0;
   transition: border-color .2s ease;
 }
 .detail__notes:focus { border-color: var(--accent); }
 
 .sub-add { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
 
+.detail__actions { display: flex; gap: 10px; margin-top: 24px; }
+.detail__delete[hidden] { display: none; }   /* display:flex would beat the attribute */
+.detail__actions .detail__delete { margin-top: 0; }
+/* three actions, three readings: completing affirms, rescheduling is neutral,
+   deleting warns. Same shape throughout, only the colour separates them. */
+.detail__delete.detail__done {
+  border-color: color-mix(in srgb, var(--accent) 45%, transparent);
+  color: var(--accent);
+}
+.detail__delete.detail__done:hover {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+.detail__delete.detail__done.is-on {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+}
+.detail__delete.detail__when {
+  border-color: var(--item-border);
+  color: var(--muted);
+}
+.detail__delete.detail__when:hover {
+  border-color: var(--muted);
+  color: var(--text);
+  background: color-mix(in srgb, var(--muted) 10%, transparent);
+}
 .detail__delete {
   margin-top: 30px;
+  flex: 1;
   width: 100%;
   display: flex;
   align-items: center;
@@ -2225,9 +2567,10 @@ body {
 
 /* DAILY SUN TIMELINE — no surface at all: the strip and its wording sit
    straight on the page, the strip itself running the full width */
+/* the rule is given room to itself: nothing crowds it from below */
 .day-line {
   padding: 4px 0 0;
-  margin-bottom: 48px;
+  margin-bottom: 84px;
 }
 
 
@@ -2320,33 +2663,77 @@ body {
   inset: 0;
   z-index: 1;
   border-radius: 50%;
+  background: var(--sun-core, #ffd67a);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--sun-core, #ffd67a) 22%, transparent);
+  transition: background .6s ease;
 }
-/* a slow breath, so the present reads as live without ever being loud */
+/* The halo is three lights over one another: this long tail, a compact bloom
+   that breathes, and the disc. --flare runs 0 to 1 as the sun nears the horizon
+   and stretches the tail the way a low sun does over water. Everything is
+   painted in --sun-core, sampled from the strip underneath. */
 .dtl__cursor-halo {
   position: absolute;
-  inset: -17px;
-  border-radius: 50%;
-  opacity: var(--halo, 1);
-  transition: opacity .4s ease;
+  left: 50%; top: 50%;
+  width: 580px; height: 74px;   /* fixed, and wider than any radius below */
+  transform: translate(-50%, -50%);
+  /* Both layers step down an exponential, roughly exp(-5r), instead of running
+     straight from one stop to the next. A linear ramp holds its brightness too
+     long and then falls off a cliff, which is what read as an oval mass with an
+     edge; this keeps a bright core and a long faint tail that never lands.
+     --gl is how much of that tail actually lights up: scrubbing the rule past a
+     sunset should be felt, so the flare gains brightness and not only length. */
+  --gl: calc(.62 + var(--flare, 0) * .38);
+  background:
+    /* the glow: far wider than tall, because time only runs one way here */
+    radial-gradient(ellipse calc(112px + var(--flare, 0) * 104px) calc(19px + var(--flare, 0) * 7px) at 50% 50%,
+      color-mix(in srgb, var(--sun-core, #ffd67a) calc(76% * var(--gl)), transparent) 0%,
+      color-mix(in srgb, var(--sun-core, #ffd67a) calc(50% * var(--gl)), transparent) 8%,
+      color-mix(in srgb, var(--sun-core, #ffd67a) calc(33% * var(--gl)), transparent) 16%,
+      color-mix(in srgb, var(--sun-core, #ffd67a) calc(21% * var(--gl)), transparent) 25%,
+      color-mix(in srgb, var(--sun-core, #ffd67a) calc(13% * var(--gl)), transparent) 35%,
+      color-mix(in srgb, var(--sun-core, #ffd67a) calc(8% * var(--gl)), transparent) 46%,
+      color-mix(in srgb, var(--sun-core, #ffd67a) calc(4.4% * var(--gl)), transparent) 58%,
+      color-mix(in srgb, var(--sun-core, #ffd67a) calc(2.2% * var(--gl)), transparent) 72%,
+      color-mix(in srgb, var(--sun-core, #ffd67a) calc(1% * var(--gl)), transparent) 86%,
+      transparent 100%),
+    /* the flare lying on the rule: brighter than the strip it covers, or it
+       simply disappears into it, and longer still than the glow */
+    radial-gradient(ellipse calc(146px + var(--flare, 0) * 124px) 3px at 50% 50%,
+      color-mix(in srgb, #fffaf0 calc(20% + var(--flare, 0) * 34%), var(--sun-core, #ffd67a)) 0%,
+      color-mix(in srgb, var(--sun-core, #ffd67a) calc(56% * var(--gl)), transparent) 7%,
+      color-mix(in srgb, var(--sun-core, #ffd67a) calc(37% * var(--gl)), transparent) 15%,
+      color-mix(in srgb, var(--sun-core, #ffd67a) calc(23% * var(--gl)), transparent) 25%,
+      color-mix(in srgb, var(--sun-core, #ffd67a) calc(13% * var(--gl)), transparent) 37%,
+      color-mix(in srgb, var(--sun-core, #ffd67a) calc(7% * var(--gl)), transparent) 51%,
+      color-mix(in srgb, var(--sun-core, #ffd67a) calc(3.4% * var(--gl)), transparent) 67%,
+      color-mix(in srgb, var(--sun-core, #ffd67a) calc(1.4% * var(--gl)), transparent) 84%,
+      transparent 100%);
+  transition: background .18s linear;   /* short enough to track a scrub */
+}
+
+/* The living part, kept separate: a compact bloom that breathes in size. The
+   long tail above must not, or a 500px smear would sweep the rule. */
+.dtl__cursor-core {
+  position: absolute;
+  left: 50%; top: 50%;
+  /* the box has to outrun the ellipse it holds, or it slices it off flat:
+     38% of 76 is 29px across, 46% of 62 is 29px down, both inside the box */
+  width: 76px; height: 62px;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+  background: radial-gradient(ellipse 38% 46% at 50% 50%,
+    color-mix(in srgb, var(--sun-core, #ffd67a) 66%, transparent) 0%,
+    color-mix(in srgb, var(--sun-core, #ffd67a) 38%, transparent) 18%,
+    color-mix(in srgb, var(--sun-core, #ffd67a) 20%, transparent) 36%,
+    color-mix(in srgb, var(--sun-core, #ffd67a) 9%, transparent) 58%,
+    color-mix(in srgb, var(--sun-core, #ffd67a) 3%, transparent) 80%,
+    transparent 100%);
+  transition: background .18s linear;
   animation: now-breathe 4.5s ease-in-out infinite;
 }
 @keyframes now-breathe {
-  0%, 100% { transform: scale(1); }
-  50%      { transform: scale(1.16); }
-}
-.dtl__cursor.is-day .dtl__cursor-ico {
-  background: #ffd67a;
-  box-shadow: 0 0 0 2px rgba(255, 214, 122, .22);
-}
-.dtl__cursor.is-day .dtl__cursor-halo {
-  background: radial-gradient(circle, rgba(255, 210, 115, .85), rgba(255, 195, 95, .24) 40%, transparent 70%);
-}
-.dtl__cursor.is-night .dtl__cursor-ico {
-  background: #eef2ff;
-  box-shadow: 0 0 0 2px rgba(226, 232, 255, .2);
-}
-.dtl__cursor.is-night .dtl__cursor-halo {
-  background: radial-gradient(circle, rgba(255, 255, 255, .8), rgba(226, 232, 255, .22) 45%, transparent 70%);
+  0%, 100% { transform: translate(-50%, -50%) scale(1); opacity: .9; }
+  50%      { transform: translate(-50%, -50%) scale(1.14); opacity: 1; }
 }
 
 /* events: short strokes standing on the rule, under the sunrise stems */
@@ -2431,7 +2818,6 @@ body {
 .dtl__marker-time,
 .dtl__tick-label,
 .day-event__time,
-.event-row__time,
 .item__due,
 .ring__label,
 .tgroup__count {
@@ -2457,15 +2843,19 @@ body {
 
 /* the day's events as rectangular rows under the gauge */
 .day-events { display: flex; flex-direction: column; gap: 8px; margin-top: 16px; }
+.day-events:empty { margin-top: 8px; }   /* the add line carries the other half */
 .day-event {
+  position: relative;
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: 12px;
+  gap: 0 12px;
   width: 100%;
+  touch-action: pan-y;
   text-align: left;
   padding: 12px 14px;
   border: 1px solid var(--item-border);
-  border-radius: 12px;
+  border-radius: var(--r-md);
   background: var(--input-bg);
   color: var(--text);
   cursor: pointer;
@@ -2485,6 +2875,16 @@ body {
 .day-event.is-important .day-event__ico { color: var(--danger); }
 
 /* EVENTS CALENDAR (main view) */
+/* Enough of a boundary to hold the grid together, far less than a panel: a
+   pane of glass rather than a surface. The cells get their own faint fill so
+   the grid reads as a grid instead of numbers floating in space. */
+.ecal {
+  padding: 14px 14px 6px;
+  border: 1px solid var(--item-border);
+  border-radius: var(--radius);
+  background: color-mix(in srgb, var(--c-surface) 18%, transparent);
+  backdrop-filter: blur(8px);
+}
 .ecal__head {
   display: flex;
   align-items: center;
@@ -2518,10 +2918,13 @@ body {
   grid-template-columns: repeat(7, 1fr);
   gap: 4px;
 }
-.ecal__grid.is-morph { animation: cal-morph .42s ease both; }
-@keyframes cal-morph {
-  from { opacity: .3; }
-  to   { opacity: 1; }
+/* the grid slides so the shared week travels to its row rather than jumping */
+.ecal__grid { transition: transform .48s cubic-bezier(.22, .8, .25, 1); }
+/* the other rows drop in behind it, one after another from the top */
+.ecal__day.is-unfolding { animation: cal-row-in .4s cubic-bezier(.22, .8, .25, 1) both; }
+@keyframes cal-row-in {
+  from { opacity: 0; transform: translateY(-10px) scale(.96); }
+  to   { opacity: 1; transform: none; }
 }
 
 /* the fold control, tucked in the bottom-right corner */
@@ -2556,10 +2959,10 @@ body {
   position: relative;
   aspect-ratio: 1;
   border: none;
-  background: none;
+  background: color-mix(in srgb, var(--c-surface) 26%, transparent);
   color: var(--text);
   font-size: .9rem;
-  border-radius: 12px;
+  border-radius: var(--r-sm);
   cursor: pointer;
   display: grid;
   place-items: center;
@@ -2571,20 +2974,25 @@ body {
   color: var(--sig-ink);
   font-weight: 600;
 }
-/* event icons along the bottom of the cell (kept small, even on mobile) */
-.ecal__icons {
+/* one dot per event along the bottom: the day number stays the thing you read,
+   the dots only say how full the day is */
+.ecal__dots {
   position: absolute;
-  bottom: 4px;
+  bottom: 5px;
   left: 2px; right: 2px;
   display: flex;
   justify-content: center;
-  gap: 2px;
+  gap: 3px;
   pointer-events: none;
   overflow: hidden;
 }
-.ecal__ico { flex: 0 0 auto; color: var(--accent); display: grid; place-items: center; }
-.ecal__ico svg { width: 12px; height: 12px; }
-.ecal__day.is-today .ecal__ico { color: var(--sig-ink); }
+.ecal__dot {
+  flex: 0 0 auto;
+  width: 4px; height: 4px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--accent) 65%, transparent);
+}
+.ecal__day.is-today .ecal__dot { background: color-mix(in srgb, var(--sig-ink) 65%, transparent); }
 /* an important event: just a red bell in the top-right corner (cell stays neutral) */
 .ecal__bell {
   position: absolute;
@@ -2648,68 +3056,6 @@ body {
 .ecal__prev-item.important .ecal__prev-ico { color: var(--danger); }
 .ecal__prev-more { display: block; font-size: .72rem; color: var(--muted); padding-top: 3px; }
 
-/* the day view stacks just under the event detail that opens above it */
-.day-view { z-index: 28; }
-.day-view .detail__card { touch-action: pan-y; }   /* keep vertical scroll, free horizontal for swipe */
-.day-view .sub-add { margin-top: 4px; margin-bottom: 14px; }
-.day-view #dayList { display: flex; flex-direction: column; gap: 10px; }
-
-/* EVENT ROW — a rectangular card, time on the left; no checkbox (past/pending, not done) */
-.event-row {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  padding: 14px 16px;
-  border: 1px solid var(--item-border);
-  border-radius: 14px;
-  background: var(--input-bg);
-  cursor: pointer;
-  transition: border-color .2s ease, background .2s ease;
-  animation: fadeUp .3s ease both;
-}
-.event-row:hover { border-color: var(--accent); }
-.event-row__icon {
-  flex: 0 0 auto;
-  width: 30px; height: 30px;
-  color: var(--accent);
-  display: grid; place-items: center;
-}
-.event-row__icon svg { width: 24px; height: 24px; }
-.event-row.is-important .event-row__icon { color: var(--danger); }
-.event-row.is-past .event-row__icon { color: var(--muted); }
-.event-row__time {
-  flex: 0 0 auto;
-  min-width: 48px;
-  font-size: .95rem;
-  font-weight: 700;
-  color: var(--text);
-  font-variant-numeric: tabular-nums;
-}
-.event-row__main {
-  flex: 1;
-  min-width: 0;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-}
-.event-row__title { font-size: .98rem; color: var(--text); word-break: break-word; }
-.event-row__meta { display: flex; align-items: center; gap: 8px; }
-.event-row__status {
-  font-size: .72rem;
-  font-weight: 700;
-  color: var(--accent);
-  text-transform: uppercase;
-  letter-spacing: .03em;
-}
-.event-row.is-past .event-row__time,
-.event-row.is-past .event-row__title,
-.event-row.is-past .event-row__status { color: var(--muted); }
-.event-row__alert { flex: 0 0 auto; color: var(--danger); display: flex; }
-.event-row__alert svg { width: 19px; height: 19px; }
-.event-row.is-important {
-  border-color: var(--danger);
-  background: color-mix(in srgb, var(--danger) 10%, var(--input-bg));
-}
 
 /* HABITS VIEW */
 .detail__viewtitle {
@@ -2738,23 +3084,6 @@ body {
 }
 .dayview__arrow:hover { border-color: var(--accent); color: var(--accent); }
 
-/* event detail: date framed by prev/next day arrows */
-.date-nav { display: flex; align-items: stretch; gap: 8px; }
-.date-nav .edit-prop { flex: 1; }
-.date-nav__arrow {
-  flex: 0 0 auto;
-  width: 44px;
-  border: 1px solid var(--border);
-  background: var(--input-bg);
-  color: var(--muted);
-  border-radius: 12px;
-  font-size: 1.3rem;
-  line-height: 1;
-  cursor: pointer;
-  display: grid; place-items: center;
-  transition: border-color .2s ease, color .2s ease;
-}
-.date-nav__arrow:hover { border-color: var(--accent); color: var(--accent); }
 
 /* the well-being page lays the habit cards out in columns instead of one
    full-width stack, which left the heatmaps floating in empty space */
@@ -2981,16 +3310,20 @@ body {
    spaces stack on the rail instead of sitting side by side */
 /* MOBILE — the desktop dialogs become bottom sheets, panels stay stacked */
 @media (max-width: 700px) {
+  /* the floating views become bottom sheets; scoped to .detail so the inline
+     editor, which shares the card class, is left alone */
   .detail { padding: 0; place-items: end stretch; }
-  .detail__card,
+  .detail .detail__card,
   .detail--wide .detail__card {
     max-width: none;
     max-height: 92vh;
     border-radius: 22px 22px 0 0;
+    /* the sheet sits at the bottom, so the tools above it stay clear */
     transform: translateY(100%);
     padding-bottom: env(safe-area-inset-bottom);
   }
-  .detail__card::before {   /* grab handle, the usual bottom-sheet affordance */
+  .detail.is-open .detail__card { transform: none; }
+  .detail .detail__card::before {   /* grab handle, the usual bottom-sheet affordance */
     content: "";
     flex: 0 0 auto;
     width: 38px; height: 4px;
@@ -2998,9 +3331,598 @@ body {
     border-radius: 999px;
     background: var(--border);
   }
-  .detail__bar { padding: 8px 16px 6px; }
-  .detail__body { padding: 4px 16px 22px; }
+  .detail .detail__bar { padding: 8px 16px 6px; }
+  .detail .detail__body { padding: 4px 16px 22px; }
   .app__grid { gap: 34px; }
   .app__col { gap: 34px; }
-  .day-line { margin-bottom: 34px; }
+  .day-line { margin-bottom: 58px; }
 }
+
+/* THE SKY — a full space rather than a card. The projects are not listed here,
+   they are placed: their position is the user's own map. What the app knows is
+   carried by the star itself (size, glow, ring, colour), so nothing has to be
+   read to be understood. */
+.sky-view {
+  position: fixed;
+  inset: 0;
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  background:
+    radial-gradient(120% 80% at 50% -10%, color-mix(in srgb, var(--c-sky-3) 90%, transparent), transparent 70%),
+    var(--sky-raw);
+  opacity: 0;
+  transition: opacity .3s ease;
+}
+.sky-view[hidden] { display: none; }
+.sky-view.is-open { opacity: 1; }
+
+.sky-view__bar {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 18px;
+  padding-top: max(14px, env(safe-area-inset-top));
+}
+.sky-view__title { font-size: 1.05rem; font-weight: 600; margin-right: auto; }
+.sky-view__mode {
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--muted);
+  font: inherit;
+  font-size: .82rem;
+  padding: 5px 14px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: color .2s, border-color .2s;
+}
+.sky-view__mode:hover { color: var(--accent); border-color: var(--accent); }
+.sky-view__add {
+  width: 34px; height: 34px;
+  display: grid; place-items: center;
+  border: 1px solid var(--border);
+  border-radius: 50%;
+  background: var(--surface);
+  color: var(--text);
+  cursor: pointer;
+}
+.sky-view__add svg { width: 17px; height: 17px; }
+.sky-view__add:hover { background: var(--accent-soft); color: var(--accent); }
+
+.sky-view__field {
+  position: relative;
+  flex: 1 1 auto;
+  margin: 0 8px 8px;
+  overflow: hidden;
+  touch-action: none;   /* stars are dragged, the space itself does not scroll */
+}
+
+/* THE CAMERA — the layer the whole starfield rides on. Opening a project moves
+   this, not the page: the sky travels, the star stays in sight. */
+.sky-view__camera {
+  position: absolute;
+  inset: 0;
+  transform-origin: 0 0;
+  transition: transform .62s cubic-bezier(.22,.61,.36,1);
+}
+/* while diving, everything but the chosen star steps back, and the tools move
+   off the panel's half so they stay reachable */
+.sky-view.is-diving .pstar { opacity: .28; }
+.sky-view.is-diving .pstar.is-focused { opacity: 1; }
+.sky-view.is-diving .sky-view__bar { padding-right: calc(min(660px, 56vw) + 18px); }
+.pstar.is-focused .pstar__glow { opacity: 1; }
+.pstar.is-focused { cursor: default; }
+
+/* CONSTELLATIONS — the lines sit under the stars and ride the same camera. They
+   fade out while the sky is being tidied: a line cannot travel with two stars at
+   once, so it is better not to watch it try. */
+.sky-links {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  transition: opacity .3s ease;
+}
+.sky-links line {
+  stroke: color-mix(in srgb, var(--text) 24%, transparent);
+  stroke-width: 1.1;
+  stroke-linecap: round;
+}
+.sky-view.is-diving .sky-links { opacity: .18; }
+
+/* wiring two stars together: the sky says so, and the first pick waits lit */
+.sky-view.is-linking .pstar { cursor: crosshair; }
+.pstar.is-linking .pstar__core {
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--star-color) 55%, transparent);
+}
+.sky-view__hint {
+  position: absolute;
+  left: 50%;
+  top: 12px;
+  transform: translateX(-50%);
+  font-size: .78rem;
+  color: var(--muted);
+  white-space: nowrap;
+}
+.sky-view__hint[hidden] { display: none; }
+.sky-view__add.is-on { color: var(--accent); border-color: var(--accent); }
+
+/* the line under which the forgotten projects settle */
+.sky-view__horizon {
+  position: absolute;
+  left: 0; right: 0;
+  top: 82%;
+  border-top: 1px dashed color-mix(in srgb, var(--text) 20%, transparent);
+}
+.sky-view__horizon span {
+  position: absolute;
+  right: 10px; top: 5px;
+  font-size: .72rem;
+  color: var(--muted);
+  letter-spacing: .04em;
+}
+
+/* the axes only appear once the sky is tidied: they are what it is tidied onto */
+.sky-view__axis {
+  position: absolute;
+  font-size: .72rem;
+  color: var(--muted);
+  letter-spacing: .04em;
+}
+.sky-view__axis--near { left: 10px; bottom: 20%; }
+.sky-view__axis--far { right: 10px; bottom: 20%; }
+.sky-view__axis--amb { left: 10px; top: 8px; }
+.sky-view__empty[hidden] { display: none; }
+.sky-view__empty {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: var(--muted);
+  font-size: .95rem;
+  padding: 0 24px;
+  text-align: center;
+}
+
+/* A STAR — the core carries the ambition (its size) and the progress (its colour),
+   the ring the trajectory, the halo the momentum. A quiet project keeps a faint
+   ember; a live one breathes. */
+.pstar {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  width: 44px; height: 44px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  background: none;
+  padding: 0;
+  cursor: grab;
+  animation: star-breathe 6s ease-in-out infinite;
+  transition: left .55s cubic-bezier(.22,.61,.36,1), top .55s cubic-bezier(.22,.61,.36,1);
+}
+.pstar.is-dragging { cursor: grabbing; transition: none; z-index: 3; }
+.pstar__core {
+  grid-area: 1 / 1;
+  width: var(--star-size, 14px);
+  height: var(--star-size, 14px);
+  border-radius: 50%;
+  background: var(--star-color, var(--accent));
+}
+.pstar__glow {
+  grid-area: 1 / 1;
+  width: 44px; height: 44px;
+  border-radius: 50%;
+  background: radial-gradient(circle,
+    color-mix(in srgb, var(--star-color, var(--accent)) 60%, transparent) 0%,
+    transparent 68%);
+  opacity: calc(.18 + var(--star-glow, 0) * .82);
+}
+.pstar__ring { grid-area: 1 / 1; width: 40px; height: 40px; transform: rotate(-90deg); }
+.pstar__track {
+  fill: none;
+  stroke: color-mix(in srgb, var(--text) 14%, transparent);
+  stroke-width: 2;
+}
+.pstar__arc {
+  fill: none;
+  stroke: var(--star-color, var(--accent));
+  stroke-width: 2;
+  stroke-linecap: round;
+  transition: stroke-dashoffset .5s ease;
+}
+.pstar__name {
+  position: absolute;
+  top: 46px;
+  left: 50%;
+  transform: translateX(-50%);
+  white-space: nowrap;
+  font-size: .8rem;
+  color: var(--text);
+  pointer-events: none;
+}
+.pstar__since {
+  position: absolute;
+  top: 63px;
+  left: 50%;
+  transform: translateX(-50%);
+  white-space: nowrap;
+  font-size: .68rem;
+  color: var(--muted);
+  pointer-events: none;
+}
+/* nothing has happened for a month: the star has sunk and barely burns. Its
+   labels flip above the core, which is the only room left down there. */
+.pstar.is-dormant { animation: none; opacity: .5; cursor: default; }
+.pstar.is-dormant .pstar__name { top: auto; bottom: 30px; }
+.pstar.is-dormant .pstar__since { top: auto; bottom: 16px; }
+.pstar.is-dormant .pstar__glow { opacity: .12; }
+.pstar.is-done .pstar__core { box-shadow: 0 0 0 2px color-mix(in srgb, var(--star-color) 40%, transparent); }
+.pstar:hover { z-index: 2; }
+.pstar:hover .pstar__glow { opacity: 1; }
+
+@keyframes star-breathe {
+  0%, 100% { transform: translate(-50%, -50%) scale(1); }
+  50% { transform: translate(-50%, -50%) scale(1.09); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .pstar { animation: none; }
+}
+
+/* THE PROJECT WORKSPACE — what a star opens into. Wide screens split the heading
+   and the trajectory from the steps and the journal; the wall runs underneath,
+   full width, because a wall needs room. */
+.pview {
+  position: fixed;
+  top: 0; right: 0; bottom: 0;
+  width: min(660px, 56vw);
+  z-index: 70;
+  display: flex;
+  flex-direction: column;
+  background: color-mix(in srgb, var(--c-bg) 88%, transparent);
+  backdrop-filter: blur(18px) saturate(130%);
+  border-left: 1px solid var(--border);
+  box-shadow: -18px 0 46px color-mix(in srgb, var(--c-sky-3) calc(var(--c-shade) * 90%), transparent);
+  opacity: 0;
+  transform: translateX(22px);
+  transition: opacity .34s ease, transform .34s cubic-bezier(.22,.61,.36,1);
+}
+.pview[hidden] { display: none; }
+.pview.is-open { opacity: 1; transform: none; transition-delay: .1s; }   /* the camera leads */
+
+.pview__bar {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 20px;
+  padding-top: max(14px, env(safe-area-inset-top));
+  border-bottom: 1px solid var(--border);
+}
+.pview__name {
+  flex: 1 1 auto;
+  min-width: 0;
+  border: 0;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  font-size: 1.1rem;
+  font-weight: 600;
+  padding: 4px 0;
+}
+.pview__name:focus { outline: none; }
+.pview__act {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--muted);
+  font: inherit;
+  font-size: .82rem;
+  padding: 6px 13px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: color .2s, border-color .2s;
+}
+.pview__act svg { width: 15px; height: 15px; }
+.pview__act:hover { color: var(--accent); border-color: var(--accent); }
+.pview__act.is-on { color: var(--accent); border-color: var(--accent); }
+.pview__act--del:hover { color: var(--danger); border-color: var(--danger); }
+
+.pview__body {
+  flex: 1 1 auto;
+  overflow-y: auto;
+  padding: 22px 22px 40px;
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+}
+.pview__cols { display: grid; grid-template-columns: 1fr; gap: 28px; }
+.pview__col { display: flex; flex-direction: column; gap: 30px; min-width: 0; }
+.pview__sec { min-width: 0; }
+
+/* the heading: two plain lines and a date. Nothing else, on purpose */
+.pview__line {
+  width: 100%;
+  resize: none;
+  overflow: hidden;
+  border: 0;
+  border-bottom: 1px solid var(--border);
+  background: none;
+  color: var(--text);
+  font: inherit;
+  font-size: .95rem;
+  padding: 6px 0;
+  margin-bottom: 6px;
+}
+.pview__line:focus { outline: none; border-bottom-color: var(--accent); }
+.pview__line::placeholder { color: var(--muted); }
+.pview__horizon {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 8px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--muted);
+  font: inherit;
+  font-size: .82rem;
+  padding: 6px 13px;
+  border-radius: 999px;
+  cursor: pointer;
+}
+.pview__horizon svg { width: 15px; height: 15px; }
+.pview__horizon:hover { color: var(--accent); border-color: var(--accent); }
+
+/* a milestone unfolds into its own strip: rename, aim at a date, drop it */
+.tl-edit {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 8px 0 4px;
+}
+.tl-edit__name {
+  flex: 1 1 auto;
+  min-width: 0;
+  border: 1px solid var(--border);
+  border-radius: var(--r-sm);
+  background: var(--input-bg);
+  color: var(--text);
+  font: inherit;
+  font-size: .88rem;
+  padding: 6px 10px;
+}
+.tl-edit__name:focus { outline: none; border-color: var(--accent); }
+.tl-edit__btn {
+  flex: 0 0 auto;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--muted);
+  font: inherit;
+  font-size: .78rem;
+  padding: 6px 11px;
+  border-radius: 999px;
+  cursor: pointer;
+}
+.tl-edit__btn svg { width: 14px; height: 14px; display: block; }
+.tl-edit__btn:hover { color: var(--accent); border-color: var(--accent); }
+.tl-edit__btn--del:hover { color: var(--danger); border-color: var(--danger); }
+.tl-date--target { font-style: italic; }
+.tl-date--target.is-late { color: var(--danger); font-style: normal; }
+
+/* NEXT STEPS — real tasks wearing a lighter row */
+.steps { display: flex; flex-direction: column; }
+.step {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 5px 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--c-line) 35%, transparent);
+}
+.step:last-child { border-bottom: 0; }
+.step__text {
+  flex: 1 1 auto;
+  min-width: 0;
+  border: 0;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  font-size: .92rem;
+  padding: 3px 0;
+}
+.step__text:focus { outline: none; }
+.step.is-done .step__text { color: var(--muted); text-decoration: line-through; }
+.step__when {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 0;
+  background: none;
+  color: var(--muted);
+  font: inherit;
+  font-size: .76rem;
+  padding: 3px 6px;
+  border-radius: var(--r-sm);
+  cursor: pointer;
+  opacity: .55;
+}
+.step__when svg { width: 14px; height: 14px; }
+.step__when.is-set, .step:hover .step__when { opacity: 1; }
+.step__when:hover { color: var(--accent); }
+.step__del {
+  border: 0;
+  background: none;
+  color: var(--muted);
+  font-size: 1.1rem;
+  line-height: 1;
+  padding: 2px 5px;
+  cursor: pointer;
+  opacity: 0;
+}
+.step:hover .step__del { opacity: .7; }
+.step__del:hover { color: var(--danger); opacity: 1; }
+
+/* JOURNAL — dated lines, the newest on top */
+.jrn { display: flex; flex-direction: column; gap: 10px; }
+.jrn__row {
+  display: grid;
+  grid-template-columns: 62px 1fr auto;
+  gap: 10px;
+  align-items: start;
+  padding-bottom: 9px;
+  border-bottom: 1px solid color-mix(in srgb, var(--c-line) 35%, transparent);
+}
+.jrn__date { font-size: .74rem; color: var(--muted); padding-top: 2px; }
+/* the two tail buttons share one slot so the row keeps three columns */
+.jrn__tail { display: inline-flex; align-items: center; gap: 2px; }
+.jrn__step, .jrn__done {
+  display: inline-flex;
+  border: 0;
+  background: none;
+  color: var(--muted);
+  padding: 2px 4px;
+  cursor: pointer;
+  opacity: 0;
+}
+.jrn__step svg, .jrn__done svg { width: 15px; height: 15px; }
+.jrn__done { cursor: default; opacity: .45; }   /* already acted on: a mark, not a button */
+.jrn__row:hover .jrn__step { opacity: .7; }
+.jrn__step:hover { color: var(--accent); opacity: 1; }
+.jrn__text { font-size: .9rem; line-height: 1.45; word-break: break-word; }
+.jrn__del {
+  border: 0;
+  background: none;
+  color: var(--muted);
+  font-size: 1.1rem;
+  line-height: 1;
+  padding: 0 4px;
+  cursor: pointer;
+  opacity: 0;
+}
+.jrn__row:hover .jrn__del { opacity: .7; }
+.jrn__del:hover { color: var(--danger); opacity: 1; }
+
+/* THE DREAM WALL — cards go where they are put; the layout is the thought */
+.pview__wallhead {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: 10px;
+}
+.pview__wallhead .detail__label { margin-bottom: 0; }
+.wall {
+  position: relative;
+  min-height: 340px;
+  border: 1px dashed var(--border);
+  border-radius: var(--radius);
+  background: color-mix(in srgb, var(--c-surface) 30%, transparent);
+  overflow: hidden;
+}
+.wall__card {
+  position: absolute;
+  width: 190px;
+  min-height: 92px;
+  display: flex;
+  border-radius: var(--r-md);
+  background: var(--surface-solid);
+  border: 1px solid var(--border);
+  box-shadow: var(--shadow);
+}
+.wall__card.is-dragging { z-index: 3; }
+.wall__grip {
+  position: absolute;
+  left: 0; right: 22px; top: 0;
+  height: 16px;
+  border-radius: var(--r-md) 0 0 0;
+  cursor: grab;
+  touch-action: none;   /* only the grip swallows the touch; the card scrolls with the page */
+  background: linear-gradient(color-mix(in srgb, var(--c-line) 45%, transparent), transparent);
+}
+.wall__card.is-dragging .wall__grip { cursor: grabbing; }
+.wall__del {
+  position: absolute;
+  right: 2px; top: 0;
+  border: 0;
+  background: none;
+  color: var(--muted);
+  font-size: 1rem;
+  line-height: 1;
+  padding: 3px 6px;
+  cursor: pointer;
+  opacity: 0;
+}
+.wall__card:hover .wall__del { opacity: .7; }
+.wall__del:hover { color: var(--danger); opacity: 1; }
+.wall__text {
+  flex: 1 1 auto;
+  resize: none;
+  border: 0;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  font-size: .86rem;
+  line-height: 1.45;
+  padding: 20px 11px 11px;
+}
+.wall__text:focus { outline: none; }
+.wall__text::placeholder { color: var(--muted); }
+
+/* which star a task belongs to, at the end of its dashboard row */
+.item__star {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: .72rem;
+  color: var(--muted);
+  max-width: 130px;
+  cursor: pointer;
+}
+.item__star svg { width: 12px; height: 12px; flex: 0 0 auto; }
+.item__star span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.item__star:hover { color: var(--accent); }
+
+/* NARROW — the panel becomes a bottom sheet and the camera lifts the star up top */
+@media (max-width: 860px) {
+  .pview {
+    top: auto; left: 0;
+    width: auto;
+    height: 66vh;
+    border-left: 0;
+    border-top: 1px solid var(--border);
+    border-radius: 22px 22px 0 0;
+    /* the sheet sits at the bottom, so the tools above it stay clear */
+    transform: translateY(26px);
+    box-shadow: 0 -18px 46px color-mix(in srgb, var(--c-sky-3) calc(var(--c-shade) * 90%), transparent);
+    padding-bottom: env(safe-area-inset-bottom);
+  }
+  .sky-view.is-diving .sky-view__bar { padding-right: 18px; }
+  .pview::before {   /* the grab handle every sheet in the app wears */
+    content: "";
+    flex: 0 0 auto;
+    width: 38px; height: 4px;
+    margin: 9px auto 2px;
+    border-radius: 999px;
+    background: var(--border);
+  }
+  /* the notch is at the top of the screen, not at the top of a sheet */
+  .pview__bar { padding-top: 10px; }
+}
+@media (max-width: 700px) {
+  .pview__body { padding: 18px 16px 34px; gap: 26px; }
+  .pview__bar { padding: 10px 14px; }
+  .pview__act span { display: none; }
+  .pview__act { padding: 7px 10px; }
+  .wall { min-height: 420px; }
+  .wall__card { width: 150px; }
+  .pstar__name { font-size: .74rem; max-width: 110px; overflow: hidden; text-overflow: ellipsis; }
+}
+
+/* The two spaces sit over the app, and the pickers they open sit over them.
+   Kept here rather than on .modal so the shared modal stays untouched. */
+#calendar, #iconPicker { z-index: 90; }
+.toast { z-index: 95; }
+
+/* the milestone whose editor is unfolded holds its title a little brighter */
+.tl-row.is-open .tl-title { color: var(--text); font-weight: 500; }
