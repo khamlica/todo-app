@@ -3711,21 +3711,26 @@
   }
 
   /* HABITS VIEW — manage all habits (rename / icon / delete) + completion history */
-  /* THE TREE — the well-being space is one drawing. Nothing here is an outline:
-     the trunk, the branches and the roots are all sheaves of faint filaments
-     piled up in "lighter" mode, and where they cross the values add and blow
-     out to white on their own. That is the whole of the glow, no blur involved.
-     Every limb is grown step by step — the heading drifts and is pulled back
-     toward a target, which is what bends it — from a seed of its own, so the
-     shape never moves between two draws and a tree that gains a branch keeps
-     the ones it already had. The habits own no branch: they hang on the
-     outermost flowers, and the tree's shape owes them nothing. */
+  /* THE TREE — the well-being space is one drawing, and it is not a fractal.
+     What the eye reads first are a dozen great strokes: the trunk running off
+     the top of the frame, the long branches leaving the heart almost flat, the
+     root plate under them. Each of those is a guide curve. Inside a guide run
+     three to seven sub-flows that leave together and part company on the way
+     out, and inside those run the filaments — bound to their sub-flow, never
+     finding their own way. Nothing is an outline: everything is faint strokes
+     piled up in "lighter" mode, and the white comes from them crossing.
+
+     The shape is built once for a given stage and kept: growing a habit does
+     not move a single line, it only reveals sub-flows, adds filaments and
+     lights them. Each habit owns one or two branches, so the tree fills in by
+     region rather than all over at once. */
   const treeCanvas = document.getElementById("treeCanvas");
   const treeNodes = document.getElementById("treeNodes");
-  const LIMB_STEPS = 22;
-  const LIMB_DEPTH = 5;
-  const TRUNK_STRANDS = 420;
-  const treeGeom = { w: 0, ground: 340 };     // last stage drawn, for the surge
+  const FLOW_STEP = 8;             // px between two samples of a guide
+  const TRUNK_CHANNELS = 9;
+  const BRANCH_COUNT = 13;
+  const treeGeom = { w: 0, heart: 340 };   // last stage drawn, for the surge
+  const treeCache = { key: "", tree: null };
 
   /* a small deterministic generator: same seed, same tree, every time */
   function seeded(seed) {
@@ -3754,14 +3759,7 @@
     return Math.max(540, Math.min(920, window.innerHeight - 200));
   }
 
-  /* headings, in the canvas's upside-down world: elevation is read up from the
-     horizon, out is the side the limb leans to */
-  function headingOf(out, elev) {
-    return out > 0 ? -elev : elev - Math.PI;
-  }
-  function elevOf(out, angle) {
-    return out > 0 ? -angle : angle + Math.PI;
-  }
+  function smoothen(t) { return t * t * (3 - 2 * t); }
 
   /* how faithfully a habit has been kept lately: 0 to 1 over eight weeks, with
      the recent days counting for more than the old ones */
@@ -3780,10 +3778,10 @@
     return total ? sum / total : 0;
   }
 
-  /* the tree burns on what was kept in the last week, all habits together */
+  /* the trunk burns on what was kept in the last week, all habits together */
   function trunkGlow() {
     if (state.settings.treeFull) return 1;
-    if (!state.habits.length) return 0;
+    if (!state.habits.length) return .12;
     const today = new Date();
     let hit = 0;
     for (let i = 0; i < 7; i++) {
@@ -3797,92 +3795,474 @@
     return Math.min(1, hit / (7 * state.habits.length));
   }
 
-  /* one filament, smoothed through its points */
-  function strand(ctx, pts, width, alpha, ink) {
-    ctx.strokeStyle = ink;
-    ctx.globalAlpha = alpha;
-    ctx.lineWidth = width;
-    ctx.beginPath();
-    ctx.moveTo(pts[0], pts[1]);
-    for (let i = 2; i < pts.length - 2; i += 2) {
-      ctx.quadraticCurveTo(pts[i], pts[i + 1],
-                           (pts[i] + pts[i + 2]) / 2, (pts[i + 1] + pts[i + 3]) / 2);
-    }
-    ctx.lineTo(pts[pts.length - 2], pts[pts.length - 1]);
-    ctx.stroke();
+  /* the roots answer to the long run rather than to this week */
+  function rootGlow() {
+    if (state.settings.treeFull) return 1;
+    if (!state.habits.length) return .12;
+    let sum = 0;
+    for (let i = 0; i < state.habits.length; i++) sum += habitVigour(state.habits[i]);
+    return Math.max(.1, sum / state.habits.length);
   }
 
-  /* A limb is not a line but a sheaf: its filaments share one skeleton, drift
-     apart as they travel and stop at their own length, which frays the tip. */
-  function sheaf(ctx, pts, limb, rnd, inks) {
-    const n = pts.length / 2;
-    for (let f = 0; f < limb.fibres; f++) {
-      const share = (rnd() - .5) * 2;
-      const wob = rnd() * 8;
-      const stop = n - Math.round(rnd() * rnd() * n * .3);
-      const path = [];
-      for (let i = 0; i < stop; i++) {
-        const j = i * 2;
-        const t = i / (n - 1);
-        const dx = i ? pts[j] - pts[j - 2] : pts[2] - pts[0];
-        const dy = i ? pts[j + 1] - pts[j - 1] : pts[3] - pts[1];
-        const len = Math.hypot(dx, dy) || 1;
-        const off = share * limb.spread * (.22 + t * t) +
-                    Math.sin(t * 6 + wob) * limb.spread * .16;
-        path.push(pts[j] - (dy / len) * off, pts[j + 1] + (dx / len) * off);
+  /* A stable, balanced order of the great branches: low-left, high-right,
+     low-right, high-left and round again. Habits are handed slots in that
+     order, so the first ones never pile up on one side, and adding a habit
+     never moves the branches the others already had. */
+  function branchOrder() {
+    const buckets = [[], [], [], []];        // low-left, low-right, high-left, high-right
+    for (let b = 0; b < BRANCH_COUNT; b++) buckets[(b < 6 ? 0 : 2) + (b % 2)].push(b);
+    const rota = [0, 3, 1, 2];
+    const order = [];
+    while (order.length < BRANCH_COUNT) {
+      for (let k = 0; k < 4; k++) {
+        const pick = buckets[rota[k]];
+        if (pick.length) order.push(pick.shift());
       }
-      if (path.length < 6) continue;
-      strand(ctx, path, limb.width * (.3 + rnd() * .8),
-             limb.alpha * (.3 + rnd() * .7), rnd() < .16 ? inks.core : inks.fiber);
+    }
+    return order;
+  }
+
+  /* which habits a branch answers to. Two branches each while there is room,
+     one apiece once there are many — never two habits owning one outright. */
+  function branchOwners() {
+    const order = branchOrder();
+    const owners = [];
+    for (let b = 0; b < BRANCH_COUNT; b++) owners.push([]);
+    const count = state.habits.length;
+    if (!count) return owners;
+    const each = count * 2 <= order.length ? 2 : 1;
+    for (let i = 0; i < count; i++) {
+      for (let k = 0; k < each; k++) owners[order[(i * each + k) % order.length]].push(i);
+    }
+    owners.single = each === 1;
+    return owners;
+  }
+
+  /* A smooth line through the given points, then resampled at a steady pace so
+     the noise, the widths and the particles all read the same along it. */
+  function guideThrough(controls) {
+    const dense = [];
+    for (let i = 0; i < controls.length - 1; i++) {
+      const p0 = controls[i - 1] || controls[i];
+      const p1 = controls[i];
+      const p2 = controls[i + 1];
+      const p3 = controls[i + 2] || p2;
+      for (let k = 0; k < 26; k++) {
+        const t = k / 26, t2 = t * t, t3 = t2 * t;
+        dense.push({
+          x: .5 * (2 * p1.x + (-p0.x + p2.x) * t +
+                   (2 * p0.x - 5 * p1.x + 4 * p2.x - p3.x) * t2 +
+                   (-p0.x + 3 * p1.x - 3 * p2.x + p3.x) * t3),
+          y: .5 * (2 * p1.y + (-p0.y + p2.y) * t +
+                   (2 * p0.y - 5 * p1.y + 4 * p2.y - p3.y) * t2 +
+                   (-p0.y + 3 * p1.y - 3 * p2.y + p3.y) * t3)
+        });
+      }
+    }
+    dense.push(controls[controls.length - 1]);
+
+    const out = [dense[0]];
+    let carry = 0;
+    for (let i = 1; i < dense.length; i++) {
+      const dx = dense[i].x - dense[i - 1].x;
+      const dy = dense[i].y - dense[i - 1].y;
+      const seg = Math.hypot(dx, dy);
+      if (seg < .001) continue;
+      let at = FLOW_STEP - carry;
+      while (at <= seg) {
+        out.push({ x: dense[i - 1].x + dx * (at / seg), y: dense[i - 1].y + dy * (at / seg) });
+        at += FLOW_STEP;
+      }
+      carry = seg - (at - FLOW_STEP);
+    }
+    return out;
+  }
+
+  function normalsOf(pts) {
+    const out = [];
+    for (let i = 0; i < pts.length; i++) {
+      const a = pts[i > 0 ? i - 1 : 0];
+      const b = pts[i < pts.length - 1 ? i + 1 : i];
+      const dx = b.x - a.x, dy = b.y - a.y;
+      const len = Math.hypot(dx, dy) || 1;
+      out.push({ x: -dy / len, y: dx / len, tx: dx / len, ty: dy / len });
+    }
+    return out;
+  }
+
+  /* a slow smooth wander in [-1, 1] — two sines, never a random walk, so a
+     filament drifts without ever losing its line */
+  function wobbler(rnd) {
+    const p1 = rnd() * 6.3, f1 = .03 + rnd() * .04;
+    const p2 = rnd() * 6.3, f2 = .1 + rnd() * .08;
+    return function (i) {
+      return Math.sin(p1 + i * f1) * .68 + Math.sin(p2 + i * f2) * .32;
+    };
+  }
+
+  function pathOf(px) {
+    const path = new Path2D();
+    path.moveTo(px[0], px[1]);
+    for (let i = 2; i < px.length - 2; i += 2) {
+      path.quadraticCurveTo(px[i], px[i + 1],
+                            (px[i] + px[i + 2]) / 2, (px[i + 1] + px[i + 3]) / 2);
+    }
+    path.lineTo(px[px.length - 2], px[px.length - 1]);
+    return path;
+  }
+
+  /* One sub-flow: the guide pushed sideways by an offset that opens up slowly.
+     They leave their parent together and separate on the way out, which is what
+     makes a branch look like a bundle rather than a bunch of lines. */
+  function subFlow(guide, norms, widths, rnd, base, from) {
+    const wob = wobbler(rnd);
+    const span = Math.max(8, (guide.length - from) * .35);
+    const pts = [];
+    for (let i = 0; i < guide.length; i++) {
+      const open = smoothen(Math.max(0, Math.min(1, (i - from) / span)));
+      const gain = widths[i] + open * open * 26;      // they keep parting once thin
+      const off = (base + wob(i) * .5) * open * gain;
+      pts.push({ x: guide[i].x + norms[i].x * off, y: guide[i].y + norms[i].y * off });
+    }
+    return pts;
+  }
+
+  /* The filaments of a sub-flow. Most are barely there and a handful burn: an
+     even spread of opacity reads flat. Each starts and stops at its own point,
+     which is what frays the ends of a branch. */
+  function addFilaments(zone, line, widths, rnd, opt) {
+    const norms = normalsOf(line);
+    const n = line.length;
+    for (let f = 0; f < opt.count; f++) {
+      const pick = (rnd() - .5) * 2;
+      const share = pick * (.45 + .55 * Math.abs(pick));
+      const wob = wobbler(rnd);
+      const stray = rnd() < .12;                  // a few leave the bundle
+      const from = rnd() < opt.throughRate
+        ? Math.round(rnd() * rnd() * opt.from)
+        : Math.max(0, opt.from - Math.round(rnd() * 16));
+      const to = n - Math.round(rnd() * rnd() * (n - opt.from) * .45);
+      if (to - from < 6) continue;
+      const px = [];
+      for (let i = from; i < to; i++) {
+        const off = (share * .85 + wob(i) * .45) * widths[i] * (stray ? 1.9 : 1);
+        px.push(line[i].x + norms[i].x * off, line[i].y + norms[i].y * off);
+      }
+      const roll = rnd();
+      const bright = roll > .95, mid = roll > .72;
+      // the bundle fills in first, then its core lights, then the strays
+      let reveal = opt.reveal + (1 - opt.reveal) * rnd() * rnd();
+      if (bright) reveal = Math.max(reveal, .62);
+      if (stray) reveal = Math.max(reveal, .72);
+      zone.fibres.push({
+        path: pathOf(px),
+        width: (bright ? 1.2 : .45) + rnd() * .7,
+        alpha: opt.alpha * (bright ? 2.4 : mid ? 1.1 : .55),
+        ink: bright ? "core" : mid ? opt.ink : opt.faint,
+        pass: bright ? 2 : mid ? 1 : 0,
+        reveal: reveal
+      });
     }
   }
 
-  /* The growth itself: walk, fork, walk again. What the limb chases is not a
-     fixed heading but one that keeps turning by its own curl, which is what
-     arcs it instead of letting it settle on a straight asymptote. Collects the
-     ends it leaves behind, which is where the flowers and the habits go. */
-  function grow(ctx, limb, rnd, inks, tips) {
-    const step = limb.len / LIMB_STEPS;
-    const pts = [limb.x, limb.y];
-    let angle = headingOf(limb.out, limb.elev);
-    let aim = limb.aim;
-    let x = limb.x, y = limb.y;
-    for (let s = 0; s < LIMB_STEPS; s++) {
-      aim = Math.max(limb.loElev, Math.min(limb.hiElev, aim + limb.curl));
-      angle += (headingOf(limb.out, aim) - angle) * .07 + (rnd() - .5) * .16;
-      x += Math.cos(angle) * step;
-      y += Math.sin(angle) * step;
-      pts.push(x, y);
+  /* The canopy is not leaves, it is dust: clusters strung along the last third
+     of a flow, stretched the way the flow runs. Gold close in, turquoise out at
+     the edge, with black left between the clusters. */
+  function addClouds(zone, line, widths, rnd, opt) {
+    const norms = normalsOf(line);
+    const n = line.length;
+    const clusters = 1 + Math.round(rnd() * 2);
+    for (let c = 0; c < clusters; c++) {
+      const at = Math.round(n * (.55 + .43 * rnd()));
+      if (at < 2 || at >= n) continue;
+      const spot = line[at], dir = norms[at];
+      const along = 22 + rnd() * 60;
+      const across = 14 + rnd() * 46 * (at / n);
+      const grains = Math.round(opt.grains * (.5 + rnd()));
+      for (let g = 0; g < grains; g++) {
+        const u = (rnd() + rnd() - 1);
+        const v = (rnd() + rnd() - 1);
+        const far = Math.abs(v);
+        const big = rnd() > .97;
+        zone.dots.push({
+          x: spot.x + dir.tx * u * along + dir.x * v * across,
+          y: spot.y + dir.ty * u * along + dir.y * v * across,
+          r: big ? 1.8 + rnd() * 1.8 : .3 + rnd() * rnd() * 1.5,
+          alpha: (.16 + rnd() * .4) * (1 - far * .45) * opt.alpha,
+          ink: far > .62 ? "dust" : rnd() > .93 ? "core" : "fiber",
+          reveal: big ? .8 + rnd() * .2 : opt.reveal + (1 - opt.reveal) * rnd()
+        });
+      }
     }
-    sheaf(ctx, pts, limb, rnd, inks);
-    tips.push({ x: x, y: y, depth: limb.depth, out: limb.out });
-    if (limb.depth >= LIMB_DEPTH || limb.len < 24) return;
+  }
 
-    // a fork now and then only carries on, which is what keeps it from looking combed
-    const kids = limb.depth ? (rnd() < .32 ? 1 : 2) : 2;
-    for (let k = 0; k < kids; k++) {
-      const at = Math.round((.3 + .64 * ((k + rnd() * .9) / kids)) * LIMB_STEPS);
-      const j = at * 2;
-      const lead = Math.atan2(pts[j + 1] - pts[j - 1], pts[j] - pts[j - 2]);
-      const side = k % 2 ? 1 : -1;
-      const spin = elevOf(limb.out, lead) + side * (.34 + rnd() * .7);
-      const elev = Math.max(limb.loElev, Math.min(limb.hiElev, spin));
-      grow(ctx, {
-        x: pts[j], y: pts[j + 1],
-        elev: elev,
-        aim: elev * .9,
-        curl: (rnd() - .45) * .05,
-        len: limb.len * (.52 + rnd() * .24),
-        width: limb.width * .78,
-        alpha: limb.alpha * .96,
-        spread: limb.spread * .55,
-        fibres: limb.depth >= 3 ? 1 : Math.max(2, Math.round(limb.fibres * .62)),
-        out: limb.out,
-        loElev: limb.loElev,
-        hiElev: limb.hiElev,
-        depth: limb.depth + 1
-      }, rnd, inks, tips);
+  function newZone(kind, habitIndex) {
+    return { kind: kind, habit: habitIndex, fibres: [], dots: [], tips: [] };
+  }
+
+  /* THE SKELETON — built once for a stage size, then only lit differently. */
+  function buildTree(w, h) {
+    const cx = w / 2;
+    const heart = h * .46;              // where the great branches leave
+    const collar = h * .66;             // where the trunk opens into the roots
+    const zones = [];
+
+    const trunk = buildTrunk(zones, cx, w, h, heart, collar);
+    buildBranches(zones, trunk, cx, w, h, heart);
+    buildRootPlate(zones, cx, w, h, collar);
+    buildDeepRoots(zones, cx, w, h, collar);
+    return { cx: cx, heart: heart, collar: collar, zones: zones, w: w, h: h };
+  }
+
+  /* The trunk: a column of nine inner channels that runs off the top of the
+     frame. It does not end in a crown — the energy goes through the tree. */
+  function buildTrunk(zones, cx, w, h, heart, collar) {
+    const rnd = seeded(seedOf("trunk"));
+    const guide = guideThrough([
+      { x: cx + 8, y: h * 1.02 },
+      { x: cx + 2, y: h * .8 },
+      { x: cx, y: collar },
+      { x: cx - w * .008, y: heart },
+      { x: cx + w * .01, y: h * .26 },
+      { x: cx - w * .004, y: -h * .05 },
+      { x: cx + w * .006, y: -h * .3 }
+    ]);
+    const norms = normalsOf(guide);
+    const widths = [];
+    for (let i = 0; i < guide.length; i++) {
+      const up = (collar - guide[i].y) / collar;
+      widths.push(w * (.018 * Math.exp(-Math.max(-.2, up) * 2.4) + .0075 +
+                       .004 * Math.max(0, up)));
     }
+
+    const zone = newZone("trunk", null);
+    for (let c = 0; c < TRUNK_CHANNELS; c++) {
+      const base = (c / (TRUNK_CHANNELS - 1) - .5) * 1.7;
+      const line = subFlow(guide, norms, widths, rnd, base, 0);
+      addFilaments(zone, line, widths, rnd, {
+        count: 55, from: 26, throughRate: .55, alpha: .075,
+        ink: "fiber", faint: c % 3 === 2 ? "sap" : "fiber",
+        reveal: c < 3 ? 0 : (c - 2) / TRUNK_CHANNELS
+      });
+    }
+    zones.push(zone);
+    return { guide: guide, norms: norms, widths: widths };
+  }
+
+  /* Thirteen great curves, in three tiers: the low ones almost flat and long
+     enough to leave the frame, the middle ones arching up, a few short ones
+     standing near the top. Each leaves the trunk along the trunk's own
+     direction, so there is no fork, only a parting. */
+  function buildBranches(zones, trunk, cx, w, h, heart) {
+    for (let b = 0; b < BRANCH_COUNT; b++) {
+      const rnd = seeded(seedOf("branch" + b));
+      const tier = b < 6 ? 0 : b < 10 ? 1 : 2;
+      const rank = tier === 0 ? b / 5 : tier === 1 ? (b - 6) / 3 : (b - 10) / 2;
+      const out = b % 2 ? 1 : -1;
+      const splitY = tier === 0 ? heart + h * (.04 - .1 * rank)
+                   : tier === 1 ? heart - h * (.04 + .1 * rank)
+                                : heart - h * (.16 + .12 * rank);
+      const elev = tier === 0 ? .02 + .14 * rank
+                 : tier === 1 ? .3 + .35 * rank
+                              : .75 + .35 * rank;
+      const reach = w * (tier === 0 ? .38 + .16 * rank
+                       : tier === 1 ? .26 + .1 * rank
+                                    : .14 + .06 * rank) * (.9 + rnd() * .2);
+
+      const at = indexAtY(trunk.guide, splitY);
+      // the branch's own curve starts back down the trunk, so it leaves along it
+      const head = Math.max(0, at - 9);
+      const back = Math.max(0, at - 4);
+      const controls = [trunk.guide[head], trunk.guide[back]];
+      const anchor = trunk.guide[at];
+      for (let k = 1; k <= 4; k++) {
+        const t = k / 4;
+        const wave = Math.sin(t * 3.4 + rnd() * 2) * h * .035 * (tier === 0 ? 1 : .6);
+        controls.push({
+          x: anchor.x + out * reach * Math.pow(t, .88),
+          y: anchor.y - reach * Math.sin(elev) * t * (tier === 0 ? .55 : 1) + wave
+        });
+      }
+      const own = guideThrough(controls);
+      const guide = trunk.guide.slice(indexAtY(trunk.guide, h * .74), head).concat(own);
+      const norms = normalsOf(guide);
+      const stem = guide.length - own.length;
+
+      const widths = [];
+      for (let i = 0; i < guide.length; i++) {
+        if (i < stem) { widths.push(trunk.widths[i] * .45); continue; }
+        const t = (i - stem) / Math.max(1, own.length);
+        widths.push(trunk.widths[at] * .62 * (1 - t * .86) + 3);
+      }
+
+      const zone = newZone("branch", b);
+      const subs = 3 + Math.round(rnd() * 4);
+      for (let s = 0; s < subs; s++) {
+        const base = (s / Math.max(1, subs - 1) - .5) * 1.9 + (rnd() - .5) * .3;
+        const line = subFlow(guide, norms, widths, rnd, base, stem);
+        const reveal = s === 0 ? 0 : .1 + .55 * (s / subs);
+        addFilaments(zone, line, widths, rnd, {
+          count: 14 + Math.round(rnd() * 20), from: stem, throughRate: .16,
+          alpha: tier === 0 ? .105 : .085,
+          ink: rnd() < .12 ? "ember" : "fiber", faint: rnd() < .4 ? "deep" : "fiber",
+          reveal: reveal
+        });
+        addClouds(zone, line, widths, rnd, {
+          grains: tier === 2 ? 20 : 30, alpha: 1, reveal: .45 + .45 * (s / subs)
+        });
+        zone.tips.push({ x: line[line.length - 1].x, y: line[line.length - 1].y, out: out });
+
+        // a terminal branchlet or two, leaving its sub-flow the way it runs
+        const kids = rnd() < .45 ? 1 : rnd() < .8 ? 2 : 0;
+        for (let k = 0; k < kids; k++) {
+          const off = Math.round(line.length * (.6 + .3 * rnd()));
+          if (off < stem + 4 || off > line.length - 6) continue;
+          buildBranchlet(zone, line, widths, off, out, elev, reach, rnd, tier);
+        }
+      }
+      zones.push(zone);
+    }
+  }
+
+  function buildBranchlet(zone, line, widths, at, out, elev, reach, rnd, tier) {
+    const head = Math.max(0, at - 6);
+    const lead = line[at], back = line[head];
+    const side = rnd() < .5 ? -1 : 1;
+    const turn = (.18 + rnd() * .4) * side;
+    const len = reach * (.18 + rnd() * .16);
+    const dx = lead.x - back.x, dy = lead.y - back.y;
+    const ang = Math.atan2(dy, dx) + turn;
+    const controls = [back, lead];
+    for (let k = 1; k <= 3; k++) {
+      const t = k / 3;
+      controls.push({
+        x: lead.x + Math.cos(ang) * len * t + out * len * t * t * .25,
+        y: lead.y + Math.sin(ang) * len * t - len * t * t * .18
+      });
+    }
+    const own = guideThrough(controls);
+    const guide = line.slice(0, head).concat(own);
+    const norms = normalsOf(guide);
+    const stem = head;
+    const kidWidths = [];
+    for (let i = 0; i < guide.length; i++) {
+      if (i < stem) { kidWidths.push(widths[i] * .7); continue; }
+      const t = (i - stem) / Math.max(1, own.length);
+      kidWidths.push(widths[Math.min(widths.length - 1, at)] * .5 * (1 - t * .8) + 2);
+    }
+    const subs = 2;
+    for (let s = 0; s < subs; s++) {
+      const kid = subFlow(guide, norms, kidWidths, rnd, (s - .5) * 1.4, stem);
+      addFilaments(zone, kid, kidWidths, rnd, {
+        count: 7 + Math.round(rnd() * 9), from: stem, throughRate: .3,
+        alpha: .075, ink: "fiber", faint: "deep",
+        reveal: .6 + .3 * rnd()
+      });
+      addClouds(zone, kid, kidWidths, rnd, {
+        grains: tier === 2 ? 16 : 22, alpha: 1, reveal: .62 + .3 * rnd()
+      });
+      zone.tips.push({ x: kid[kid.length - 1].x, y: kid[kid.length - 1].y, out: out });
+    }
+  }
+
+  /* The root plate: the near-horizon under the trunk. Calmer than the branches,
+     wider than deep, and it carries no dust. */
+  function buildRootPlate(zones, cx, w, h, collar) {
+    const zone = newZone("root", null);
+    for (let i = 0; i < 8; i++) {
+      const rnd = seeded(seedOf("plate" + i));
+      const out = i % 2 ? 1 : -1;
+      const rank = i / 7;
+      const drop = h * (.02 + .1 * rnd());
+      const reach = w * (.16 + .28 * rnd());
+      const startY = collar + h * (.005 + .07 * rnd());
+      const controls = [
+        { x: cx - out * 14, y: startY - 16 },
+        { x: cx + out * 10, y: startY }
+      ];
+      for (let k = 1; k <= 4; k++) {
+        const t = k / 4;
+        controls.push({
+          x: cx + out * reach * Math.pow(t, .8),
+          y: startY + drop * t + Math.sin(t * 4 + rnd()) * h * .012
+        });
+      }
+      const guide = guideThrough(controls);
+      const norms = normalsOf(guide);
+      const widths = [];
+      for (let k = 0; k < guide.length; k++) {
+        widths.push(w * .012 * (1 - (k / guide.length) * .7) + 2);
+      }
+      for (let s = 0; s < 3; s++) {
+        const line = subFlow(guide, norms, widths, rnd, (s - 1) * 1.1, 0);
+        addFilaments(zone, line, widths, rnd, {
+          count: 12 + Math.round(rnd() * 10), from: 14, throughRate: .6,
+          alpha: .05, ink: rnd() < .2 ? "ember" : "fiber", faint: "deep",
+          reveal: s * .3
+        });
+      }
+    }
+    zones.push(zone);
+  }
+
+  /* The deep roots: fewer flows, fewer filaments, and the light gives out
+     quickly with depth. The bottom of the stage stays black. */
+  function buildDeepRoots(zones, cx, w, h, collar) {
+    const zone = newZone("root", null);
+    for (let i = 0; i < 12; i++) {
+      const rnd = seeded(seedOf("deep" + i));
+      const out = i % 2 ? 1 : -1;
+      const u = (i * .6180339) % 1;
+      const lean = .1 + .8 * u;                    // centre plunges, sides slant
+      const reach = w * .04 + w * .16 * lean;
+      const dive = (h - collar) * (.42 + .38 * (1 - lean));
+      const controls = [{ x: cx, y: collar - 20 }, { x: cx + out * 8, y: collar + 6 }];
+      for (let k = 1; k <= 3; k++) {
+        const t = k / 3;
+        controls.push({
+          x: cx + out * reach * Math.pow(t, .75) + Math.sin(t * 5 + rnd()) * w * .012,
+          y: collar + dive * t
+        });
+      }
+      const guide = guideThrough(controls);
+      const norms = normalsOf(guide);
+      const widths = [];
+      for (let k = 0; k < guide.length; k++) {
+        widths.push(w * .009 * (1 - (k / guide.length) * .8) + 1.6);
+      }
+      for (let s = 0; s < 2; s++) {
+        const line = subFlow(guide, norms, widths, rnd, (s - .5) * 1.3, 0);
+        addFilaments(zone, line, widths, rnd, {
+          count: 9 + Math.round(rnd() * 9), from: 12, throughRate: .6,
+          alpha: .04, ink: "fiber", faint: "deep", reveal: s * .35
+        });
+      }
+    }
+    zones.push(zone);
+  }
+
+  function indexAtY(pts, y) {
+    let best = 0, gap = Infinity;
+    for (let i = 0; i < pts.length; i++) {
+      const d = Math.abs(pts[i].y - y);
+      if (d < gap) { gap = d; best = i; }
+    }
+    return best;
+  }
+
+  /* how lit a zone is: a branch answers to the habits that own it, the trunk
+     to the week, the roots to the long run */
+  function zoneEnergy(zone, owners, glow, roots) {
+    if (zone.kind === "root") return roots;
+    if (zone.kind !== "branch") return glow;
+    const mine = owners[zone.habit];
+    if (!mine || !mine.length) return Math.max(.08, glow * .4);
+    let best = 0;
+    for (let i = 0; i < mine.length; i++) {
+      best = Math.max(best, habitVigour(state.habits[mine[i]]));
+    }
+    // one branch apiece means it must show more of itself
+    return Math.max(.08, owners.single ? Math.min(1, best * 1.15) : best);
   }
 
   function drawTree() {
@@ -3895,6 +4275,15 @@
     treeCanvas.style.width = w + "px";
     treeCanvas.style.height = h + "px";
 
+    const key = w + "x" + h;
+    if (treeCache.key !== key) {
+      treeCache.tree = buildTree(w, h);
+      treeCache.key = key;
+    }
+    const tree = treeCache.tree;
+    treeGeom.w = w;
+    treeGeom.heart = tree.heart;
+
     const ctx = treeCanvas.getContext("2d");
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
     ctx.clearRect(0, 0, w, h);
@@ -3904,170 +4293,82 @@
     const inks = {
       fiber: treeInk("--tree-fiber", "#f5d76e"),
       core: treeInk("--tree-core", "#fffbe8"),
-      dust: treeInk("--tree-dust", "#4fd8d0")
+      dust: treeInk("--tree-dust", "#4fd8d0"),
+      sap: treeInk("--tree-sap", "#cfe86b"),
+      ember: treeInk("--tree-ember", "#e8913c"),
+      deep: treeInk("--tree-deep", "#2f5f8a")
     };
-    const cx = w / 2;
-    const ground = h * .56;          // where trunk meets root, the brightest point
-    const growth = trunkGlow();
-    treeGeom.w = w;
-    treeGeom.ground = ground;
+    const glow = trunkGlow();
+    const roots = rootGlow();
+    const owners = branchOwners();
 
-    const tips = [];
-    drawRoots(ctx, cx, ground, w, h, growth, inks);
-    drawTrunk(ctx, cx, ground, h, growth, inks);
-    drawCanopy(ctx, cx, ground, w, h, growth, inks, tips);
-    drawHeart(ctx, cx, ground, inks.core, growth);
-    scatterFlowers(ctx, tips, growth, inks);
+    for (let pass = 0; pass < 3; pass++) {
+      for (let z = 0; z < tree.zones.length; z++) {
+        const zone = tree.zones[z];
+        const energy = zoneEnergy(zone, owners, glow, roots);
+        const lift = .12 + .88 * energy;
+        for (let i = 0; i < zone.fibres.length; i++) {
+          const fibre = zone.fibres[i];
+          if (fibre.pass !== pass || fibre.reveal > energy) continue;
+          ctx.strokeStyle = inks[fibre.ink];
+          ctx.globalAlpha = fibre.alpha * lift;
+          ctx.lineWidth = fibre.width;
+          ctx.stroke(fibre.path);
+        }
+      }
+      if (pass === 1) drawHeart(ctx, tree, glow, inks.core);
+    }
+
+    for (let z = 0; z < tree.zones.length; z++) {
+      const zone = tree.zones[z];
+      const energy = zoneEnergy(zone, owners, glow, roots);
+      for (let i = 0; i < zone.dots.length; i++) {
+        const dot = zone.dots[i];
+        if (dot.reveal > energy) continue;
+        ctx.globalAlpha = dot.alpha * (.25 + .75 * energy);
+        ctx.fillStyle = inks[dot.ink];
+        ctx.beginPath();
+        ctx.arc(dot.x, dot.y, dot.r, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
 
     ctx.globalCompositeOperation = "source-over";
     ctx.globalAlpha = 1;
-    placeTreeNodes(tips);
+    placeTreeNodes(tree, owners);
   }
 
-  /* The trunk is a column of strands: wide at the foot where the roots take
-     over, necked at the waist, opening again into the crown. */
-  function drawTrunk(ctx, cx, ground, h, growth, inks) {
-    const trunkLen = ground - h * .14;
-    const rnd = seeded(seedOf("trunk"));
-    for (let i = 0; i < TRUNK_STRANDS; i++) {
-      const pick = (rnd() - .5) * 2;
-      const share = pick * (.4 + .6 * Math.abs(pick));   // packed at the core, thin at the edge
-      const reach = .45 + rnd() * .55;               // some strands stop short
-      const dip = rnd() * rnd() * .12;                // and each starts at its own depth
-      const wob = rnd() * 9;
-      const pts = [];
-      for (let s = 0; s <= 22; s++) {
-        const t = -dip + (s / 22) * (reach + dip);
-        const half = 60 * Math.pow(1 - t, 2.6) + 19 + 200 * Math.pow(Math.max(0, t), 3.6);
-        pts.push(cx + share * half + Math.sin(t * 6 + wob) * 4, ground - trunkLen * t);
-      }
-      strand(ctx, pts, .4 + rnd() * .9, (.075 + growth * .16) * (.35 + rnd() * .65),
-             rnd() < .2 ? inks.core : inks.fiber);
+  /* the two hot points: where the branches leave, and the root collar */
+  function drawHeart(ctx, tree, glow, coreInk) {
+    const spots = [{ y: tree.heart, r: 74, a: .5 }, { y: tree.collar, r: 52, a: .34 }];
+    for (let i = 0; i < spots.length; i++) {
+      const spot = spots[i];
+      const r = spot.r * (.7 + glow * .5);
+      const bloom = ctx.createRadialGradient(tree.cx, spot.y, 0, tree.cx, spot.y, r);
+      bloom.addColorStop(0, coreInk);
+      bloom.addColorStop(.3, "rgba(255,247,214,.4)");
+      bloom.addColorStop(1, "rgba(255,247,214,0)");
+      ctx.globalAlpha = spot.a * (.4 + glow * .6);
+      ctx.fillStyle = bloom;
+      ctx.beginPath();
+      ctx.arc(tree.cx, spot.y, r, 0, Math.PI * 2);
+      ctx.fill();
     }
   }
 
-  /* The branches leave the trunk on a golden walk, so any number of them spreads
-     evenly instead of stacking in rows: the low ones long and near-flat, the
-     high ones short and steep. Each keeps a seed of its own. */
-  function drawCanopy(ctx, cx, ground, w, h, growth, inks, tips) {
-    const trunkLen = ground - h * .14;
-    const count = Math.round(20 + 44 * growth);
-    for (let i = 0; i < count; i++) {
-      const rnd = seeded(seedOf("limb" + i));
-      const u = (i * .6180339) % 1;                  // any prefix spreads evenly
-      const out = i % 2 ? 1 : -1;
-      const elev = .05 + 1.0 * Math.pow(u, 1.4);
-      const span = w * (.17 + .11 * rnd()) * (.74 + .26 * growth);
-      grow(ctx, {
-        x: cx + out * (5 + rnd() * 14),
-        y: ground - trunkLen * (.1 + .62 * u),
-        elev: elev,
-        aim: elev * .7,
-        curl: (rnd() - .42) * .03,
-        len: span * (1.2 - .5 * u),
-        width: 2.3 - u * .9,
-        alpha: .03 + growth * .13,
-        spread: 10 - u * 4,
-        fibres: 16,
-        out: out,
-        loElev: -.5,
-        hiElev: .75,
-        depth: 0
-      }, rnd, inks, tips);
-    }
-  }
-
-  /* the same growth, upside down and dimmer */
-  function drawRoots(ctx, cx, ground, w, h, growth, inks) {
-    const sink = [];
-    const count = Math.round(11 + 21 * growth);
-    for (let i = 0; i < count; i++) {
-      const rnd = seeded(seedOf("root" + i));
-      const u = (i * .6180339) % 1;
-      const out = i % 2 ? 1 : -1;
-      grow(ctx, {
-        x: cx + out * (6 + u * 78), y: ground + 8,
-        elev: -(1.4 - 1.05 * u),
-        aim: -(1.25 - .8 * u),
-        curl: -(.008 + rnd() * .025),
-        len: (h - ground) * (.34 + .2 * rnd()),
-        width: 2.2,
-        alpha: .045 + growth * .08,
-        spread: 8,
-        fibres: 13,
-        out: out,
-        loElev: -1.5,
-        hiElev: -.1,
-        depth: 1
-      }, rnd, inks, sink);
-    }
-    const dust = seeded(seedOf("rootdust"));
-    for (let i = 0; i < sink.length; i++) {
-      if (sink[i].depth < 3 || dust() > .3) continue;
-      blossom(ctx, sink[i].x, sink[i].y, .6 + dust() * 1.2, .1 + growth * .2, inks.fiber);
-    }
-  }
-
-  /* the flowers: plain circles on the outer ends, with pollen drifting past */
-  function scatterFlowers(ctx, tips, growth, inks) {
-    const rnd = seeded(seedOf("bloom"));
-    for (let i = 0; i < tips.length; i++) {
-      const tip = tips[i];
-      if (tip.depth < 3) continue;
-      const big = rnd() < .12;
-      blossom(ctx, tip.x, tip.y, big ? 2 + rnd() * 2.4 : .5 + rnd() * rnd() * 1.8,
-              (big ? .3 : .12) + growth * .38, inks.core);
-      if (tip.depth >= 3 && rnd() < .14 + growth * .18) {
-        dustCloud(ctx, tip.x, tip.y, 22 + rnd() * 34, Math.round(6 + growth * 20),
-                  rnd, inks.fiber, inks.dust);
-      }
-    }
-  }
-
-  function blossom(ctx, x, y, r, alpha, colour) {
-    ctx.globalAlpha = alpha;
-    ctx.fillStyle = colour;
-    ctx.beginPath();
-    ctx.arc(x, y, r, 0, Math.PI * 2);
-    ctx.fill();
-  }
-
-  /* the pollen at the ends: gold close in, turquoise drifting further out */
-  function dustCloud(ctx, x, y, spread, grains, rnd, fiberInk, dustInk) {
-    for (let i = 0; i < grains; i++) {
-      const far = rnd() * rnd();                      // the cloud packs near the tip
-      const away = rnd() < .5 ? -far : far;
-      const px = x + away * spread * 2 + (rnd() - .5) * spread * .5;
-      const py = y + (rnd() + rnd() - 1) * spread;
-      blossom(ctx, px, py, .35 + rnd() * rnd() * 1.7, (.1 + rnd() * .28) * (1 - far * .4),
-              rnd() > .55 ? dustInk : fiberInk);
-    }
-  }
-
-  /* the incandescent knot where everything meets */
-  function drawHeart(ctx, cx, ground, coreInk, glow) {
-    const r = 34 + glow * 30;
-    const bloom = ctx.createRadialGradient(cx, ground, 0, cx, ground, r);
-    bloom.addColorStop(0, coreInk);
-    bloom.addColorStop(.3, "rgba(255,247,214,.45)");
-    bloom.addColorStop(1, "rgba(255,247,214,0)");
-    ctx.globalAlpha = .4 + glow * .45;
-    ctx.fillStyle = bloom;
-    ctx.beginPath();
-    ctx.arc(cx, ground, r, 0, Math.PI * 2);
-    ctx.fill();
-  }
-
-  /* The habit circles, laid over the canvas on the outermost flowers, left and
-     right in turn. They are real buttons: clicking one ticks the day, and a
-     wave of light runs back down to the trunk. */
-  function placeTreeNodes(tips) {
+  /* The habit circles, laid over the canvas on an end of one of the branches
+     that habit owns, so a circle sits on the part of the tree it lights. They
+     are real buttons: clicking one ticks the day, and a wave of light runs
+     back down to the heart. */
+  function placeTreeNodes(tree, owners) {
     treeNodes.innerHTML = "";
     const today = todayKey();
-    const anchors = habitAnchors(tips, state.habits.length);
-    for (let i = 0; i < anchors.length; i++) {
-      const spot = anchors[i];
+    const taken = [];
+    for (let i = 0; i < state.habits.length; i++) {
       const habit = state.habits[i];
+      const spot = habitSpot(tree, owners, i, taken);
+      if (!spot) continue;
+      taken.push(spot);
       const done = !!(habit.completedDates && habit.completedDates.indexOf(today) !== -1);
 
       const node = document.createElement("button");
@@ -4106,40 +4407,30 @@
     }
   }
 
-  /* Where the habits hang: out in the open canopy, and as far from each other
-     as the ends allow, which spreads them over the whole crown instead of
-     lining them up. */
-  function habitAnchors(tips, wanted) {
-    const cx = treeGeom.w / 2;
+  /* an end of one of the habit's own branches, inside the stage and clear of
+     the circles already placed */
+  function habitSpot(tree, owners, index, taken) {
     const pool = [];
-    for (let i = 0; i < tips.length; i++) {
-      const tip = tips[i];
-      if (tip.depth < 2) continue;
-      const reach = Math.abs(tip.x - cx);
-      if (reach < treeGeom.w * .18 || reach > treeGeom.w * .4) continue;
-      if (tip.y < 46 || tip.y > treeGeom.ground - 30) continue;
-      pool.push(tip);
-    }
-    if (!pool.length) return [];
-    let first = 0;
-    for (let i = 1; i < pool.length; i++) {          // start from the highest right-hand end
-      if (pool[i].x - pool[first].x > 0 || pool[i].y < pool[first].y - 60) first = i;
-    }
-    const picked = [pool[first]];
-    while (picked.length < wanted && picked.length < pool.length) {
-      let best = null, bestGap = -1;
-      for (let i = 0; i < pool.length; i++) {
-        let gap = Infinity;
-        for (let k = 0; k < picked.length; k++) {
-          const d = Math.hypot(pool[i].x - picked[k].x, pool[i].y - picked[k].y);
-          if (d < gap) gap = d;
-        }
-        if (gap > bestGap) { bestGap = gap; best = pool[i]; }
+    for (let z = 0; z < tree.zones.length; z++) {
+      const zone = tree.zones[z];
+      if (zone.kind !== "branch") continue;
+      if ((owners[zone.habit] || []).indexOf(index) === -1) continue;
+      for (let t = 0; t < zone.tips.length; t++) {
+        const tip = zone.tips[t];
+        if (tip.x < 80 || tip.x > tree.w - 80) continue;
+        if (tip.y < 46 || tip.y > tree.collar - 30) continue;
+        pool.push(tip);
       }
-      if (bestGap < 60) break;
-      picked.push(best);
     }
-    return picked;
+    let best = null, bestGap = -1;
+    for (let i = 0; i < pool.length; i++) {
+      let gap = Math.abs(pool[i].x - tree.cx);        // prefer well clear of the trunk
+      for (let k = 0; k < taken.length; k++) {
+        gap = Math.min(gap, Math.hypot(pool[i].x - taken[k].x, pool[i].y - taken[k].y) * 1.6);
+      }
+      if (gap > bestGap) { bestGap = gap; best = pool[i]; }
+    }
+    return best;
   }
 
   /* the light that runs back down the branch when a habit is ticked */
@@ -4149,7 +4440,7 @@
     spark.style.left = spot.x + "px";
     spark.style.top = spot.y + "px";
     spark.style.setProperty("--to-x", (treeCanvas.offsetWidth / 2 - spot.x) + "px");
-    spark.style.setProperty("--to-y", (treeGeom.ground - spot.y) + "px");
+    spark.style.setProperty("--to-y", (treeGeom.heart - spot.y) + "px");
     treeNodes.appendChild(spark);
     setTimeout(function () { spark.remove(); }, 760);
   }

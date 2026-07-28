@@ -1365,6 +1365,9 @@ body:has(.welcome:not(.is-leaving)) .pageflip { opacity: 0; pointer-events: none
   --tree-fiber: #f5d76e;
   --tree-core: #fffbe8;
   --tree-dust: #4fd8d0;
+  --tree-sap: #cfe86b;
+  --tree-ember: #e8913c;
+  --tree-deep: #2f5f8a;
 }
 .tree canvas { display: block; width: 100%; }
 .tree__nodes { position: absolute; inset: 0; pointer-events: none; }
