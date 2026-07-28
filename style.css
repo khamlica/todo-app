@@ -303,6 +303,20 @@ body {
 }
 body.is-well #wellLight { opacity: 1; }
 
+/* the tree stands on its own: no rule of time in this room */
+.day-line {
+  transition: opacity .4s ease, max-height .45s cubic-bezier(.2, .8, .25, 1),
+              margin-bottom .45s cubic-bezier(.2, .8, .25, 1);
+  max-height: 240px;
+}
+body.is-well .day-line {
+  opacity: 0;
+  max-height: 0;
+  margin-bottom: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
 /* the day's habits, tickable before ever entering */
 .welcome__habits {
   display: flex;
@@ -1342,13 +1356,91 @@ body:has(.welcome:not(.is-leaving)) .pageflip { opacity: 0; pointer-events: none
 .scuba-gif[hidden] { display: none; }
 
 /* HABITS */
-/* as many tiles as there are habits, flowing onto whatever rows they need */
-.habits {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(84px, 92px));
-  gap: 12px;
-  margin-bottom: 26px;
+/* THE TREE — the stage is a canvas with the habit circles laid over it. The
+   three inks are the reference's own; they sit here so a theme or the colour
+   workshop can take them over later without touching the drawing code. */
+.tree {
+  position: relative;
+  margin-inline: calc(50% - 50vw);      /* the tree takes the whole window */
+  --tree-fiber: #f5d76e;
+  --tree-core: #fffbe8;
+  --tree-dust: #4fd8d0;
 }
+.tree canvas { display: block; width: 100%; }
+.tree__nodes { position: absolute; inset: 0; pointer-events: none; }
+.tree__foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin: 6px 0 18px;
+}
+
+/* a habit, hung on its branch */
+.tnode {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  width: 34px; height: 34px;
+  padding: 0;
+  border: 1px solid color-mix(in srgb, var(--tree-fiber) 45%, transparent);
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--tree-fiber) 8%, transparent);
+  color: color-mix(in srgb, var(--tree-fiber) 70%, transparent);
+  cursor: pointer;
+  pointer-events: auto;
+  display: grid; place-items: center;
+  transition: background .25s ease, border-color .25s ease, color .25s ease;
+}
+.tnode svg { width: 16px; height: 16px; }
+.tnode:hover { border-color: var(--tree-core); color: var(--tree-core); }
+.tnode.is-done {
+  background: color-mix(in srgb, var(--tree-core) 26%, transparent);
+  border-color: var(--tree-core);
+  color: var(--tree-core);
+  box-shadow: 0 0 18px color-mix(in srgb, var(--tree-fiber) 45%, transparent);
+}
+.tnode__name {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: .7rem;
+  white-space: nowrap;
+  color: var(--muted);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .2s ease;
+}
+.tnode:hover .tnode__name { opacity: .85; }
+.tnode__edit {
+  position: absolute;
+  bottom: -4px; right: -6px;
+  width: 16px; height: 16px;
+  font-size: .6rem;
+  line-height: 14px;
+  text-align: center;
+  color: var(--muted);
+  opacity: 0;
+  transition: opacity .2s ease;
+}
+.tnode:hover .tnode__edit { opacity: .8; }
+.tnode__edit:hover { color: var(--accent); }
+
+/* the light that runs back down the branch when a habit is ticked */
+.tsurge {
+  position: absolute;
+  width: 7px; height: 7px;
+  margin: -3.5px 0 0 -3.5px;
+  border-radius: 50%;
+  background: var(--tree-core);
+  box-shadow: 0 0 14px 4px color-mix(in srgb, var(--tree-fiber) 70%, transparent);
+  pointer-events: none;
+  animation: surge-down .72s cubic-bezier(.4, 0, .3, 1) forwards;
+}
+@keyframes surge-down {
+  from { transform: translate(0, 0); opacity: 1; }
+  to   { transform: translate(var(--to-x), var(--to-y)) scale(2.2); opacity: 0; }
+}
+
 /* THE HABIT RULE — days left to right, one lane per habit. The tags stay put
    while the days scroll under them, so a lane never loses its name. */
 .hrule {

@@ -208,8 +208,19 @@
     <!-- well-being: the daily tiles and their tracking, away from the work -->
     <section class="page" id="wellPage">
       <div class="wrap">
-        <h2 class="zone__title" data-i18n="wellTitle">Bien-être</h2>
-        <div class="habits" id="habitsGrid"></div>
+        <!-- the tree is the view: one branch per habit, its circles are the
+             habits themselves. The numbers stay underneath for the precise read. -->
+        <div class="tree" id="tree">
+          <canvas id="treeCanvas" aria-hidden="true"></canvas>
+          <div class="tree__nodes" id="treeNodes"></div>
+        </div>
+        <div class="tree__foot">
+          <h2 class="zone__title" data-i18n="wellTitle">Bien-être</h2>
+          <button class="zone__action" id="addHabitBtn" type="button"
+                  data-i18n-aria="addHabitAria" aria-label="Ajouter une habitude">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          </button>
+        </div>
         <div class="hrule" id="habitsRule"></div>
       </div>
     </section>
@@ -354,6 +365,12 @@
           <span id="scrubToggleSlot"></span>
         </div>
         <p class="field__hint" data-i18n="scrubHint">Tirez la barre du temps pour voyager dans la journée</p>
+
+        <div class="field field--row">
+          <span class="field__label" data-i18n="treeFullLabel">Arbre au maximum</span>
+          <span id="treeFullSlot"></span>
+        </div>
+        <p class="field__hint" data-i18n="treeFullHint">Aperçu : l'arbre tel qu'il serait au mieux, toutes habitudes tenues</p>
 
         <div class="field">
           <span class="field__label" data-i18n="decorLabel">Décorations</span>

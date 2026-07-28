@@ -86,13 +86,14 @@
                                  saved.settings && saved.settings.fieldOn),
           fieldOn: true,   // once seen, the choice is the user's
           timeScrub: !!(saved.settings && saved.settings.timeScrub),
+          treeFull: !!(saved.settings && saved.settings.treeFull),
           themeEdits: (saved.settings && saved.settings.themeEdits) || {},
           paletteEdits: (saved.settings && saved.settings.paletteEdits) || {},
           themePalettes: (saved.settings && saved.settings.themePalettes) || {}
         }
       };
     } catch (err) {
-      return { tasks: [], projects: [], links: [], habits: [], notes: [], events: [], sun: null, settings: { name: "", theme: "auto", language: "fr", palette: "aurora", decorations: ["field"], fieldOn: true, timeScrub: false, themeEdits: {}, paletteEdits: {}, themePalettes: {} } };
+      return { tasks: [], projects: [], links: [], habits: [], notes: [], events: [], sun: null, settings: { name: "", theme: "auto", language: "fr", palette: "aurora", decorations: ["field"], fieldOn: true, timeScrub: false, treeFull: false, themeEdits: {}, paletteEdits: {}, themePalettes: {} } };
     }
   }
 
@@ -207,6 +208,8 @@
       decorStorm: "Orage",
       decorField: "Champ",
       enterHint: "Touchez pour entrer",
+      treeFullLabel: "Arbre au maximum",
+      treeFullHint: "Aper\u00e7u : l'arbre tel qu'il serait au mieux, toutes habitudes tenues",
       paintLabel: "Couleurs",
       paintOpen: "Ouvrir l'atelier",
       focusAria: "Passer en mode focus",
@@ -433,6 +436,8 @@
       decorStorm: "Storm",
       decorField: "Field",
       enterHint: "Tap to enter",
+      treeFullLabel: "Tree at its fullest",
+      treeFullHint: "Preview: the tree as it would be with every habit kept",
       paintLabel: "Colours",
       paintOpen: "Open the workshop",
       focusAria: "Enter focus mode",
@@ -1769,6 +1774,16 @@
   scrubToggle.setAttribute("aria-label", translate("scrubLabel"));
   document.getElementById("scrubToggleSlot").appendChild(scrubToggle);
 
+  /* a preview switch, to judge the tree at its best rather than at today's */
+  const treeFullToggle = createToggle(state.settings.treeFull, function (on) {
+    state.settings.treeFull = on;
+    saveState();
+    drawTree();
+  });
+  treeFullToggle.classList.add("toggle--accent");
+  treeFullToggle.setAttribute("aria-label", translate("treeFullLabel"));
+  document.getElementById("treeFullSlot").appendChild(treeFullToggle);
+
   const decorButtons = document.querySelectorAll(".decor-opt");
   for (let i = 0; i < decorButtons.length; i++) {
     decorButtons[i].addEventListener("click", function () {
@@ -2562,6 +2577,13 @@
   /* HABITS */
 
   /* line-art icon catalog (same stroke style as the rest of the app) */
+  /* an icon path wrapped in the stroke settings they all share */
+  function habitSvg(iconKey) {
+    return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" '
+      + 'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
+      + (HABIT_ICONS[iconKey] || "") + '</svg>';
+  }
+
   const HABIT_ICONS = {
     water: '<path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/>',
     book: '<path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>',
@@ -2604,70 +2626,6 @@
   function exerciseName(key) { return translate(EXERCISE_NAME_KEYS[key] || key); }
 
   const iconPicker = document.getElementById("iconPicker");
-  const habitsGrid = document.getElementById("habitsGrid");
-
-  /* today's date as YYYY-MM-DD in local time */
-  function todayKey() {
-    const now = new Date();
-    const month = String(now.getMonth() + 1).padStart(2, "0");
-    const day = String(now.getDate()).padStart(2, "0");
-    return now.getFullYear() + "-" + month + "-" + day;
-  }
-
-  /* wrap catalog markup in a styled svg (markup is trusted, not user text) */
-  function habitSvg(iconKey) {
-    return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" '
-         + 'stroke-linecap="round" stroke-linejoin="round">' + HABIT_ICONS[iconKey] + '</svg>';
-  }
-
-  /* Draw the 5 slots: a tile per habit, an empty "+" slot for the rest. */
-  /* THE HABIT FOLD — one panel, moved under whichever tile is open, the way the
-     editor card travels between task rows. It spans the whole grid row, so on a
-     wrapped grid it opens under the right rank. */
-  const HFOLD_MS = 380;
-  let habitOpen = null;
-  let hfoldTimer = null;
-
-  function habitFoldEl() {
-    let fold = document.getElementById("habitFold");
-    if (fold) return fold;
-    fold = document.createElement("div");
-    fold.id = "habitFold";
-    fold.className = "hfold";
-    fold.appendChild(document.createElement("div")).className = "hfold__inner";
-    return fold;
-  }
-
-  function closeHabitFold() {
-    const fold = document.getElementById("habitFold");
-    habitOpen = null;
-    if (!fold) return;
-    clearTimeout(hfoldTimer);
-    fold.style.height = fold.getBoundingClientRect().height + "px";
-    fold.offsetWidth;
-    fold.style.height = "0px";
-    hfoldTimer = setTimeout(function () { fold.remove(); }, HFOLD_MS);
-  }
-
-  /* `silent` true keeps the height as it is (a redraw), null closes */
-  function mountHabitFold(id, silent) {
-    if (silent === null) { closeHabitFold(); return; }
-    const tile = habitsGrid.querySelector('[data-habit="' + id + '"]');
-    const habit = habitById(id);
-    if (!tile || !habit) { habitOpen = null; return; }
-    const fold = habitFoldEl();
-    clearTimeout(hfoldTimer);
-    const inner = fold.firstChild;
-    inner.innerHTML = "";
-    inner.appendChild(createHabitPanel(habit));
-    tile.after(fold);
-    habitOpen = id;
-    fold.style.height = silent ? "auto" : inner.getBoundingClientRect().height + "px";
-    if (!silent) {
-      hfoldTimer = setTimeout(function () { fold.style.height = "auto"; }, HFOLD_MS);
-    }
-  }
-
   function habitById(id) {
     for (let i = 0; i < state.habits.length; i++) {
       if (state.habits[i].id === id) return state.habits[i];
@@ -2676,92 +2634,22 @@
   }
 
   function renderHabits() {
-    const today = todayKey();
-    const openId = habitOpen;
-    habitsGrid.innerHTML = "";
-    for (let i = 0; i < state.habits.length; i++) {
-      habitsGrid.appendChild(createHabitTile(state.habits[i], today));
-    }
-    habitsGrid.appendChild(createEmptySlot());
-    if (openId) mountHabitFold(openId, true);   // survive a redraw
+    drawTree();
     renderHabitsRule();
   }
 
-  /* A filled habit: icon, rising water. Sleep/exercise are special (their own tile). */
-  function createHabitTile(habit, today) {
-    if (habit.type === "sleep") return createSleepTile(habit, today);
-    if (habit.type === "exercise") return createExerciseTile(habit, today);
+  document.getElementById("addHabitBtn").addEventListener("click", openIconPicker);
+  let regrow = 0;
+  window.addEventListener("resize", function () {
+    clearTimeout(regrow);                    // thousands of strokes: once the drag stops
+    regrow = setTimeout(function () { if (wellOpen) drawTree(); }, 160);
+  });
 
-    const done = !!(habit.completedDates && habit.completedDates.indexOf(today) !== -1);
-    const tile = document.createElement("div");
-    tile.className = done ? "habit done" : "habit";
-    tile.setAttribute("aria-label", translate("habitToggleAria"));
-
-    const water = document.createElement("div");
-    water.className = "habit__water";
-
-    const icon = document.createElement("span");
-    icon.className = "habit__icon";
-    if (HABIT_ICONS[habit.icon]) {
-      icon.innerHTML = habitSvg(habit.icon);
-    }
-
-    tile.addEventListener("click", function (event) {
-      if (event.target.closest(".habit__more")) return;
-      toggleHabit(habit.id, tile);
-    });
-    tile.dataset.habit = habit.id;
-    tile.append(water, icon, createHabitMore(habit.id));
-    return tile;
-  }
-
-  /* Ticking is what a tile is for, so opening its detail needs its own mark:
-     a corner button that only shows on hover, as the row actions do. */
-  function createHabitMore(id) {
-    const more = document.createElement("button");
-    more.type = "button";
-    more.className = "habit__more";
-    more.setAttribute("aria-label", translate("habitEditAria"));
-    more.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" '
-      + 'stroke-width="2.4" stroke-linecap="round" aria-hidden="true">'
-      + '<circle cx="5" cy="12" r=".6"/><circle cx="12" cy="12" r=".6"/>'
-      + '<circle cx="19" cy="12" r=".6"/></svg>';
-    more.addEventListener("click", function (event) {
-      event.stopPropagation();
-      mountHabitFold(id, habitOpen === id ? null : false);
-    });
-    return more;
-  }
-
-  /* Sleep tile: water fills to last night's hours, hours label, opens the sleep view. */
-  function createSleepTile(habit, today) {
-    const cfg = habit.config || {};
-    const hours = (habit.sleepLog || {})[today];
-    const inRange = hours != null && hours >= (cfg.min || 0) && (cfg.max == null || hours <= cfg.max);
-    const tile = document.createElement("div");
-    tile.className = inRange ? "habit habit--sleep done" : "habit habit--sleep";
-    tile.setAttribute("aria-label", translate("sleepTitle"));
-
-    const water = document.createElement("div");
-    water.className = "habit__water";
-    if (hours != null) {
-      const ref = cfg.max || cfg.target || 8;
-      water.style.height = Math.max(6, Math.min(100, (hours / ref) * 100)) + "%";
-    }
-
-    const icon = document.createElement("span");
-    icon.className = "habit__icon";
-    icon.innerHTML = habitSvg(habit.icon || "sleep");
-
-    tile.append(water, icon);
-    if (hours != null) {
-      const hrs = document.createElement("span");
-      hrs.className = "habit__hours";
-      hrs.textContent = formatHours(hours);
-      tile.appendChild(hrs);
-    }
-    tile.addEventListener("click", function () { openSleepView(habit.id); });
-    return tile;
+  /* 7.5 -> "7h30", 8 -> "8h" */
+  function formatHours(value) {
+    const whole = Math.floor(value);
+    const mins = Math.round((value - whole) * 60);
+    return mins ? whole + "h" + String(mins).padStart(2, "0") : whole + "h";
   }
 
   /* reps logged today for one exercise; 0 if none */
@@ -2790,73 +2678,6 @@
   }
 
   /* Exercise tile: water fills to today's overall completion, "n/n done" label. */
-  function createExerciseTile(habit, today) {
-    const items = (habit.config && habit.config.items) || [];
-    const done = exerciseAllDone(habit, today);
-    const tile = document.createElement("div");
-    tile.className = done ? "habit habit--exercise done" : "habit habit--exercise";
-    tile.setAttribute("aria-label", translate("exerciseTitle"));
-
-    const water = document.createElement("div");
-    water.className = "habit__water";
-    if (items.length) water.style.height = Math.max(6, exerciseOverallFraction(habit, today) * 100) + "%";
-
-    const icon = document.createElement("span");
-    icon.className = "habit__icon";
-    icon.innerHTML = habitSvg(habit.icon || "sport");
-
-    tile.append(water, icon);
-    if (items.length) {
-      let metCount = 0;
-      for (let i = 0; i < items.length; i++) {
-        if (exerciseCount(habit, items[i].key, today) >= items[i].target) metCount++;
-      }
-      const label = document.createElement("span");
-      label.className = "habit__hours";
-      label.textContent = metCount + "/" + items.length;
-      tile.appendChild(label);
-    }
-    tile.addEventListener("click", function () { openExerciseView(habit.id); });
-    return tile;
-  }
-
-  /* "7.5" -> "7h30", "8" -> "8h" */
-  function formatHours(h) {
-    const whole = Math.floor(h);
-    const min = Math.round((h - whole) * 60);
-    return min ? whole + "h" + String(min).padStart(2, "0") : whole + "h";
-  }
-
-  /* scientifically-accepted nightly sleep range by age (National Sleep Foundation) */
-  function recommendedSleep(age) {
-    if (age == null || age === "" || isNaN(age)) return null;
-    const a = Number(age);
-    if (a < 1) return { min: 12, max: 16, label: "Nourrisson" };
-    if (a <= 2) return { min: 11, max: 14, label: "Tout-petit" };
-    if (a <= 5) return { min: 10, max: 13, label: "Préscolaire" };
-    if (a <= 13) return { min: 9, max: 12, label: "Enfant" };
-    if (a <= 17) return { min: 8, max: 10, label: "Adolescent" };
-    if (a <= 64) return { min: 7, max: 9, label: "Adulte" };
-    return { min: 7, max: 8, label: "Senior" };
-  }
-
-  /* An empty slot: a "+" with a soft blurred glow behind it. */
-  function createEmptySlot() {
-    const slot = document.createElement("button");
-    slot.type = "button";
-    slot.className = "habit habit--empty";
-    slot.setAttribute("aria-label", translate("addHabitAria"));
-
-    const plus = document.createElement("span");
-    plus.className = "habit__plus";
-    plus.textContent = "+";
-
-    slot.appendChild(plus);
-    slot.addEventListener("click", openIconPicker);
-    return slot;
-  }
-
-  /* Complete or un-complete for today. Toggling the class drives the water. */
   function toggleHabit(id, tile) {
     const today = todayKey();
     const habit = findItem("habits", id);
@@ -3536,6 +3357,11 @@
   }
 
   /* "YYYY-MM-DD" for a Date */
+  function todayKey() {
+    const now = new Date();
+    return dateKey(now.getFullYear(), now.getMonth(), now.getDate());
+  }
+
   function dateKeyOf(date) {
     return dateKey(date.getFullYear(), date.getMonth(), date.getDate());
   }
@@ -3885,6 +3711,461 @@
   }
 
   /* HABITS VIEW — manage all habits (rename / icon / delete) + completion history */
+  /* THE TREE — the well-being space is one drawing. Nothing here is an outline:
+     the trunk, the branches and the roots are all sheaves of faint filaments
+     piled up in "lighter" mode, and where they cross the values add and blow
+     out to white on their own. That is the whole of the glow, no blur involved.
+     Every limb is grown step by step — the heading drifts and is pulled back
+     toward a target, which is what bends it — from a seed of its own, so the
+     shape never moves between two draws and a tree that gains a branch keeps
+     the ones it already had. The habits own no branch: they hang on the
+     outermost flowers, and the tree's shape owes them nothing. */
+  const treeCanvas = document.getElementById("treeCanvas");
+  const treeNodes = document.getElementById("treeNodes");
+  const LIMB_STEPS = 22;
+  const LIMB_DEPTH = 5;
+  const TRUNK_STRANDS = 420;
+  const treeGeom = { w: 0, ground: 340 };     // last stage drawn, for the surge
+
+  /* a small deterministic generator: same seed, same tree, every time */
+  function seeded(seed) {
+    let s = seed >>> 0;
+    return function () {
+      s = (s * 1664525 + 1013904223) >>> 0;
+      return s / 4294967296;
+    };
+  }
+  function seedOf(text) {
+    let s = 2166136261;
+    for (let i = 0; i < text.length; i++) {
+      s ^= text.charCodeAt(i);
+      s = Math.imul(s, 16777619);
+    }
+    return s >>> 0;
+  }
+
+  function treeInk(name, fallback) {
+    const value = getComputedStyle(treeCanvas).getPropertyValue(name).trim();
+    return value || fallback;
+  }
+
+  /* the tree wants the room: the stage takes the window, within reason */
+  function stageHeight() {
+    return Math.max(540, Math.min(920, window.innerHeight - 200));
+  }
+
+  /* headings, in the canvas's upside-down world: elevation is read up from the
+     horizon, out is the side the limb leans to */
+  function headingOf(out, elev) {
+    return out > 0 ? -elev : elev - Math.PI;
+  }
+  function elevOf(out, angle) {
+    return out > 0 ? -angle : angle + Math.PI;
+  }
+
+  /* how faithfully a habit has been kept lately: 0 to 1 over eight weeks, with
+     the recent days counting for more than the old ones */
+  function habitVigour(habit) {
+    if (state.settings.treeFull) return 1;   // preview: as if never missed
+    const done = laneDays(habit);
+    const today = new Date();
+    let sum = 0, total = 0;
+    for (let i = 0; i < 56; i++) {
+      const day = new Date(today);
+      day.setDate(today.getDate() - i);
+      const weight = 1 - i / 70;               // today counts most
+      total += weight;
+      if (done[dateKeyOf(day)]) sum += weight;
+    }
+    return total ? sum / total : 0;
+  }
+
+  /* the tree burns on what was kept in the last week, all habits together */
+  function trunkGlow() {
+    if (state.settings.treeFull) return 1;
+    if (!state.habits.length) return 0;
+    const today = new Date();
+    let hit = 0;
+    for (let i = 0; i < 7; i++) {
+      const day = new Date(today);
+      day.setDate(today.getDate() - i);
+      const key = dateKeyOf(day);
+      for (let h = 0; h < state.habits.length; h++) {
+        if (laneDays(state.habits[h])[key]) hit++;
+      }
+    }
+    return Math.min(1, hit / (7 * state.habits.length));
+  }
+
+  /* one filament, smoothed through its points */
+  function strand(ctx, pts, width, alpha, ink) {
+    ctx.strokeStyle = ink;
+    ctx.globalAlpha = alpha;
+    ctx.lineWidth = width;
+    ctx.beginPath();
+    ctx.moveTo(pts[0], pts[1]);
+    for (let i = 2; i < pts.length - 2; i += 2) {
+      ctx.quadraticCurveTo(pts[i], pts[i + 1],
+                           (pts[i] + pts[i + 2]) / 2, (pts[i + 1] + pts[i + 3]) / 2);
+    }
+    ctx.lineTo(pts[pts.length - 2], pts[pts.length - 1]);
+    ctx.stroke();
+  }
+
+  /* A limb is not a line but a sheaf: its filaments share one skeleton, drift
+     apart as they travel and stop at their own length, which frays the tip. */
+  function sheaf(ctx, pts, limb, rnd, inks) {
+    const n = pts.length / 2;
+    for (let f = 0; f < limb.fibres; f++) {
+      const share = (rnd() - .5) * 2;
+      const wob = rnd() * 8;
+      const stop = n - Math.round(rnd() * rnd() * n * .3);
+      const path = [];
+      for (let i = 0; i < stop; i++) {
+        const j = i * 2;
+        const t = i / (n - 1);
+        const dx = i ? pts[j] - pts[j - 2] : pts[2] - pts[0];
+        const dy = i ? pts[j + 1] - pts[j - 1] : pts[3] - pts[1];
+        const len = Math.hypot(dx, dy) || 1;
+        const off = share * limb.spread * (.22 + t * t) +
+                    Math.sin(t * 6 + wob) * limb.spread * .16;
+        path.push(pts[j] - (dy / len) * off, pts[j + 1] + (dx / len) * off);
+      }
+      if (path.length < 6) continue;
+      strand(ctx, path, limb.width * (.3 + rnd() * .8),
+             limb.alpha * (.3 + rnd() * .7), rnd() < .16 ? inks.core : inks.fiber);
+    }
+  }
+
+  /* The growth itself: walk, fork, walk again. What the limb chases is not a
+     fixed heading but one that keeps turning by its own curl, which is what
+     arcs it instead of letting it settle on a straight asymptote. Collects the
+     ends it leaves behind, which is where the flowers and the habits go. */
+  function grow(ctx, limb, rnd, inks, tips) {
+    const step = limb.len / LIMB_STEPS;
+    const pts = [limb.x, limb.y];
+    let angle = headingOf(limb.out, limb.elev);
+    let aim = limb.aim;
+    let x = limb.x, y = limb.y;
+    for (let s = 0; s < LIMB_STEPS; s++) {
+      aim = Math.max(limb.loElev, Math.min(limb.hiElev, aim + limb.curl));
+      angle += (headingOf(limb.out, aim) - angle) * .07 + (rnd() - .5) * .16;
+      x += Math.cos(angle) * step;
+      y += Math.sin(angle) * step;
+      pts.push(x, y);
+    }
+    sheaf(ctx, pts, limb, rnd, inks);
+    tips.push({ x: x, y: y, depth: limb.depth, out: limb.out });
+    if (limb.depth >= LIMB_DEPTH || limb.len < 24) return;
+
+    // a fork now and then only carries on, which is what keeps it from looking combed
+    const kids = limb.depth ? (rnd() < .32 ? 1 : 2) : 2;
+    for (let k = 0; k < kids; k++) {
+      const at = Math.round((.3 + .64 * ((k + rnd() * .9) / kids)) * LIMB_STEPS);
+      const j = at * 2;
+      const lead = Math.atan2(pts[j + 1] - pts[j - 1], pts[j] - pts[j - 2]);
+      const side = k % 2 ? 1 : -1;
+      const spin = elevOf(limb.out, lead) + side * (.34 + rnd() * .7);
+      const elev = Math.max(limb.loElev, Math.min(limb.hiElev, spin));
+      grow(ctx, {
+        x: pts[j], y: pts[j + 1],
+        elev: elev,
+        aim: elev * .9,
+        curl: (rnd() - .45) * .05,
+        len: limb.len * (.52 + rnd() * .24),
+        width: limb.width * .78,
+        alpha: limb.alpha * .96,
+        spread: limb.spread * .55,
+        fibres: limb.depth >= 3 ? 1 : Math.max(2, Math.round(limb.fibres * .62)),
+        out: limb.out,
+        loElev: limb.loElev,
+        hiElev: limb.hiElev,
+        depth: limb.depth + 1
+      }, rnd, inks, tips);
+    }
+  }
+
+  function drawTree() {
+    if (!treeCanvas || !treeCanvas.parentNode.offsetWidth) return;
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const w = treeCanvas.parentNode.offsetWidth;
+    const h = stageHeight();
+    treeCanvas.width = Math.round(w * dpr);
+    treeCanvas.height = Math.round(h * dpr);
+    treeCanvas.style.width = w + "px";
+    treeCanvas.style.height = h + "px";
+
+    const ctx = treeCanvas.getContext("2d");
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    ctx.clearRect(0, 0, w, h);
+    ctx.globalCompositeOperation = "lighter";
+    ctx.lineCap = "round";
+
+    const inks = {
+      fiber: treeInk("--tree-fiber", "#f5d76e"),
+      core: treeInk("--tree-core", "#fffbe8"),
+      dust: treeInk("--tree-dust", "#4fd8d0")
+    };
+    const cx = w / 2;
+    const ground = h * .56;          // where trunk meets root, the brightest point
+    const growth = trunkGlow();
+    treeGeom.w = w;
+    treeGeom.ground = ground;
+
+    const tips = [];
+    drawRoots(ctx, cx, ground, w, h, growth, inks);
+    drawTrunk(ctx, cx, ground, h, growth, inks);
+    drawCanopy(ctx, cx, ground, w, h, growth, inks, tips);
+    drawHeart(ctx, cx, ground, inks.core, growth);
+    scatterFlowers(ctx, tips, growth, inks);
+
+    ctx.globalCompositeOperation = "source-over";
+    ctx.globalAlpha = 1;
+    placeTreeNodes(tips);
+  }
+
+  /* The trunk is a column of strands: wide at the foot where the roots take
+     over, necked at the waist, opening again into the crown. */
+  function drawTrunk(ctx, cx, ground, h, growth, inks) {
+    const trunkLen = ground - h * .14;
+    const rnd = seeded(seedOf("trunk"));
+    for (let i = 0; i < TRUNK_STRANDS; i++) {
+      const pick = (rnd() - .5) * 2;
+      const share = pick * (.4 + .6 * Math.abs(pick));   // packed at the core, thin at the edge
+      const reach = .45 + rnd() * .55;               // some strands stop short
+      const dip = rnd() * rnd() * .12;                // and each starts at its own depth
+      const wob = rnd() * 9;
+      const pts = [];
+      for (let s = 0; s <= 22; s++) {
+        const t = -dip + (s / 22) * (reach + dip);
+        const half = 60 * Math.pow(1 - t, 2.6) + 19 + 200 * Math.pow(Math.max(0, t), 3.6);
+        pts.push(cx + share * half + Math.sin(t * 6 + wob) * 4, ground - trunkLen * t);
+      }
+      strand(ctx, pts, .4 + rnd() * .9, (.075 + growth * .16) * (.35 + rnd() * .65),
+             rnd() < .2 ? inks.core : inks.fiber);
+    }
+  }
+
+  /* The branches leave the trunk on a golden walk, so any number of them spreads
+     evenly instead of stacking in rows: the low ones long and near-flat, the
+     high ones short and steep. Each keeps a seed of its own. */
+  function drawCanopy(ctx, cx, ground, w, h, growth, inks, tips) {
+    const trunkLen = ground - h * .14;
+    const count = Math.round(20 + 44 * growth);
+    for (let i = 0; i < count; i++) {
+      const rnd = seeded(seedOf("limb" + i));
+      const u = (i * .6180339) % 1;                  // any prefix spreads evenly
+      const out = i % 2 ? 1 : -1;
+      const elev = .05 + 1.0 * Math.pow(u, 1.4);
+      const span = w * (.17 + .11 * rnd()) * (.74 + .26 * growth);
+      grow(ctx, {
+        x: cx + out * (5 + rnd() * 14),
+        y: ground - trunkLen * (.1 + .62 * u),
+        elev: elev,
+        aim: elev * .7,
+        curl: (rnd() - .42) * .03,
+        len: span * (1.2 - .5 * u),
+        width: 2.3 - u * .9,
+        alpha: .03 + growth * .13,
+        spread: 10 - u * 4,
+        fibres: 16,
+        out: out,
+        loElev: -.5,
+        hiElev: .75,
+        depth: 0
+      }, rnd, inks, tips);
+    }
+  }
+
+  /* the same growth, upside down and dimmer */
+  function drawRoots(ctx, cx, ground, w, h, growth, inks) {
+    const sink = [];
+    const count = Math.round(11 + 21 * growth);
+    for (let i = 0; i < count; i++) {
+      const rnd = seeded(seedOf("root" + i));
+      const u = (i * .6180339) % 1;
+      const out = i % 2 ? 1 : -1;
+      grow(ctx, {
+        x: cx + out * (6 + u * 78), y: ground + 8,
+        elev: -(1.4 - 1.05 * u),
+        aim: -(1.25 - .8 * u),
+        curl: -(.008 + rnd() * .025),
+        len: (h - ground) * (.34 + .2 * rnd()),
+        width: 2.2,
+        alpha: .045 + growth * .08,
+        spread: 8,
+        fibres: 13,
+        out: out,
+        loElev: -1.5,
+        hiElev: -.1,
+        depth: 1
+      }, rnd, inks, sink);
+    }
+    const dust = seeded(seedOf("rootdust"));
+    for (let i = 0; i < sink.length; i++) {
+      if (sink[i].depth < 3 || dust() > .3) continue;
+      blossom(ctx, sink[i].x, sink[i].y, .6 + dust() * 1.2, .1 + growth * .2, inks.fiber);
+    }
+  }
+
+  /* the flowers: plain circles on the outer ends, with pollen drifting past */
+  function scatterFlowers(ctx, tips, growth, inks) {
+    const rnd = seeded(seedOf("bloom"));
+    for (let i = 0; i < tips.length; i++) {
+      const tip = tips[i];
+      if (tip.depth < 3) continue;
+      const big = rnd() < .12;
+      blossom(ctx, tip.x, tip.y, big ? 2 + rnd() * 2.4 : .5 + rnd() * rnd() * 1.8,
+              (big ? .3 : .12) + growth * .38, inks.core);
+      if (tip.depth >= 3 && rnd() < .14 + growth * .18) {
+        dustCloud(ctx, tip.x, tip.y, 22 + rnd() * 34, Math.round(6 + growth * 20),
+                  rnd, inks.fiber, inks.dust);
+      }
+    }
+  }
+
+  function blossom(ctx, x, y, r, alpha, colour) {
+    ctx.globalAlpha = alpha;
+    ctx.fillStyle = colour;
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  /* the pollen at the ends: gold close in, turquoise drifting further out */
+  function dustCloud(ctx, x, y, spread, grains, rnd, fiberInk, dustInk) {
+    for (let i = 0; i < grains; i++) {
+      const far = rnd() * rnd();                      // the cloud packs near the tip
+      const away = rnd() < .5 ? -far : far;
+      const px = x + away * spread * 2 + (rnd() - .5) * spread * .5;
+      const py = y + (rnd() + rnd() - 1) * spread;
+      blossom(ctx, px, py, .35 + rnd() * rnd() * 1.7, (.1 + rnd() * .28) * (1 - far * .4),
+              rnd() > .55 ? dustInk : fiberInk);
+    }
+  }
+
+  /* the incandescent knot where everything meets */
+  function drawHeart(ctx, cx, ground, coreInk, glow) {
+    const r = 34 + glow * 30;
+    const bloom = ctx.createRadialGradient(cx, ground, 0, cx, ground, r);
+    bloom.addColorStop(0, coreInk);
+    bloom.addColorStop(.3, "rgba(255,247,214,.45)");
+    bloom.addColorStop(1, "rgba(255,247,214,0)");
+    ctx.globalAlpha = .4 + glow * .45;
+    ctx.fillStyle = bloom;
+    ctx.beginPath();
+    ctx.arc(cx, ground, r, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  /* The habit circles, laid over the canvas on the outermost flowers, left and
+     right in turn. They are real buttons: clicking one ticks the day, and a
+     wave of light runs back down to the trunk. */
+  function placeTreeNodes(tips) {
+    treeNodes.innerHTML = "";
+    const today = todayKey();
+    const anchors = habitAnchors(tips, state.habits.length);
+    for (let i = 0; i < anchors.length; i++) {
+      const spot = anchors[i];
+      const habit = state.habits[i];
+      const done = !!(habit.completedDates && habit.completedDates.indexOf(today) !== -1);
+
+      const node = document.createElement("button");
+      node.type = "button";
+      node.className = done ? "tnode is-done" : "tnode";
+      node.style.left = spot.x + "px";
+      node.style.top = spot.y + "px";
+      node.style.setProperty("--vigour", habitVigour(habit).toFixed(2));
+      node.setAttribute("aria-label", habit.name || translate("habitToggleAria"));
+      node.setAttribute("aria-pressed", done ? "true" : "false");
+      if (HABIT_ICONS[habit.icon]) node.innerHTML = habitSvg(habit.icon);
+
+      const tag = document.createElement("span");
+      tag.className = "tnode__name";
+      tag.textContent = habit.name || "";
+      node.appendChild(tag);
+
+      const edit = document.createElement("span");
+      edit.className = "tnode__edit";
+      edit.textContent = "\u00b7\u00b7\u00b7";
+      edit.addEventListener("click", function (event) {
+        event.stopPropagation();
+        openTreeDetail(habit.id);
+      });
+      node.appendChild(edit);
+
+      node.addEventListener("click", function () {
+        if (habit.type === "sleep") { openSleepView(habit.id); return; }
+        if (habit.type === "exercise") { openExerciseView(habit.id); return; }
+        toggleHabit(habit.id, node);
+        node.classList.remove("done");
+        drawTree();                         // the tree answers straight away
+        surge(spot);
+      });
+      treeNodes.appendChild(node);
+    }
+  }
+
+  /* Where the habits hang: out in the open canopy, and as far from each other
+     as the ends allow, which spreads them over the whole crown instead of
+     lining them up. */
+  function habitAnchors(tips, wanted) {
+    const cx = treeGeom.w / 2;
+    const pool = [];
+    for (let i = 0; i < tips.length; i++) {
+      const tip = tips[i];
+      if (tip.depth < 2) continue;
+      const reach = Math.abs(tip.x - cx);
+      if (reach < treeGeom.w * .18 || reach > treeGeom.w * .4) continue;
+      if (tip.y < 46 || tip.y > treeGeom.ground - 30) continue;
+      pool.push(tip);
+    }
+    if (!pool.length) return [];
+    let first = 0;
+    for (let i = 1; i < pool.length; i++) {          // start from the highest right-hand end
+      if (pool[i].x - pool[first].x > 0 || pool[i].y < pool[first].y - 60) first = i;
+    }
+    const picked = [pool[first]];
+    while (picked.length < wanted && picked.length < pool.length) {
+      let best = null, bestGap = -1;
+      for (let i = 0; i < pool.length; i++) {
+        let gap = Infinity;
+        for (let k = 0; k < picked.length; k++) {
+          const d = Math.hypot(pool[i].x - picked[k].x, pool[i].y - picked[k].y);
+          if (d < gap) gap = d;
+        }
+        if (gap > bestGap) { bestGap = gap; best = pool[i]; }
+      }
+      if (bestGap < 60) break;
+      picked.push(best);
+    }
+    return picked;
+  }
+
+  /* the light that runs back down the branch when a habit is ticked */
+  function surge(spot) {
+    const spark = document.createElement("span");
+    spark.className = "tsurge";
+    spark.style.left = spot.x + "px";
+    spark.style.top = spot.y + "px";
+    spark.style.setProperty("--to-x", (treeCanvas.offsetWidth / 2 - spot.x) + "px");
+    spark.style.setProperty("--to-y", (treeGeom.ground - spot.y) + "px");
+    treeNodes.appendChild(spark);
+    setTimeout(function () { spark.remove(); }, 760);
+  }
+
+  function openTreeDetail(id) {
+    const habit = habitById(id);
+    if (!habit) return;
+    const foot = document.getElementById("treeDetail");
+    if (foot) foot.remove();
+    const box = document.createElement("div");
+    box.id = "treeDetail";
+    box.className = "hfold__inner";
+    box.appendChild(createHabitPanel(habit));
+    document.getElementById("tree").after(box);
+  }
+
   /* THE THRESHOLD'S HABITS — the day's rings, under the drifting rule. Ticking
      one must not open the app, so the click stops where it lands. */
   const welcomeHabits = document.getElementById("welcomeHabits");
@@ -6793,6 +7074,7 @@
     pageFlip.classList.toggle("is-open", open);
     pageFlip.setAttribute("aria-expanded", open ? "true" : "false");
     document.body.classList.toggle("is-well", open);   // the room's light
+    if (open) drawTree();                              // it needs a width to grow into
     // the field sweeps the way the pages went, from the edge they came from
     startFieldFlash(open ? innerWidth : 0, innerHeight * .4);
     syncPagesHeight(true);
