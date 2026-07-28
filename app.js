@@ -3728,7 +3728,26 @@
   const treeNodes = document.getElementById("treeNodes");
   const FLOW_STEP = 8;             // px between two samples of a guide
   const TRUNK_CHANNELS = 9;
-  const BRANCH_COUNT = 13;
+
+  /* The great curves, composed by eye rather than generated: dx is a share of
+     the stage width from the middle, y a share of its height, at the height on
+     the trunk where the curve parts from it. The first five carry the
+     silhouette; the rest fill between them and stay dimmer. */
+  const BRANCH_GUIDES = [
+    { at: .47, major: 1, pts: [[-.11, .488], [-.25, .506], [-.39, .487], [-.54, .451]] },
+    { at: .45, major: 1, pts: [[.12, .462], [.27, .481], [.41, .459], [.56, .418]] },
+    { at: .42, major: 1, pts: [[-.08, .383], [-.19, .303], [-.31, .247], [-.45, .228]] },
+    { at: .40, major: 1, pts: [[.07, .352], [.18, .272], [.30, .205], [.43, .188]] },
+    { at: .35, major: 1, pts: [[.05, .27], [.12, .166], [.23, .095], [.36, .07]] },
+    { at: .50, major: 0, pts: [[-.09, .527], [-.20, .548], [-.32, .534], [-.44, .503]] },
+    { at: .485, major: 0, pts: [[.09, .506], [.21, .491], [.34, .517], [.47, .494]] },
+    { at: .44, major: 0, pts: [[-.07, .427], [-.16, .377], [-.27, .347], [-.38, .338]] },
+    { at: .375, major: 0, pts: [[.06, .315], [.15, .238], [.25, .19], [.35, .175]] },
+    { at: .33, major: 1, pts: [[-.04, .25], [-.10, .155], [-.18, .088], [-.29, .062]] },
+    { at: .505, major: 0, pts: [[.10, .532], [.23, .557], [.36, .551], [.49, .527]] },
+    { at: .30, major: 0, pts: [[-.035, .225], [-.08, .148], [-.14, .095], [-.22, .075]] }
+  ];
+  const BRANCH_COUNT = BRANCH_GUIDES.length;
   const treeGeom = { w: 0, heart: 340 };   // last stage drawn, for the surge
   const treeCache = { key: "", tree: null };
 
@@ -3810,7 +3829,11 @@
      never moves the branches the others already had. */
   function branchOrder() {
     const buckets = [[], [], [], []];        // low-left, low-right, high-left, high-right
-    for (let b = 0; b < BRANCH_COUNT; b++) buckets[(b < 6 ? 0 : 2) + (b % 2)].push(b);
+    for (let b = 0; b < BRANCH_COUNT; b++) {
+      const spec = BRANCH_GUIDES[b];
+      const low = spec.at > .44 ? 0 : 2;
+      buckets[low + (spec.pts[spec.pts.length - 1][0] > 0 ? 1 : 0)].push(b);
+    }
     const rota = [0, 3, 1, 2];
     const order = [];
     while (order.length < BRANCH_COUNT) {
@@ -3911,20 +3934,42 @@
     return path;
   }
 
-  /* One sub-flow: the guide pushed sideways by an offset that opens up slowly.
-     They leave their parent together and separate on the way out, which is what
-     makes a branch look like a bundle rather than a bunch of lines. */
-  function subFlow(guide, norms, widths, rnd, base, from) {
+  /* A sub-flow is braided, not parallel: it is given three lateral marks along
+     the guide and eases from one to the next, so it may cross a neighbour, come
+     back and leave again. A few are also handed a neighbouring guide, and drift
+     part of the way over to it near the end — that is what ties two branches
+     together instead of leaving a comb. */
+  function subFlow(guide, norms, widths, rnd, base, from, other) {
     const wob = wobbler(rnd);
     const span = Math.max(8, (guide.length - from) * .35);
+    const run = Math.max(1, guide.length - from);
+    const marks = [base, base * (.2 + rnd() * .5) + (rnd() - .5) * 2.1,
+                   -base * (.4 + rnd() * 1.2), base * (.4 + rnd() * 1.3)];
     const pts = [];
     for (let i = 0; i < guide.length; i++) {
+      const t = Math.max(0, Math.min(1, (i - from) / run));
       const open = smoothen(Math.max(0, Math.min(1, (i - from) / span)));
       const gain = widths[i] + open * open * 26;      // they keep parting once thin
-      const off = (base + wob(i) * .5) * open * gain;
-      pts.push({ x: guide[i].x + norms[i].x * off, y: guide[i].y + norms[i].y * off });
+      const off = (lane(marks, t) + wob(i) * .5) * open * gain;
+      let x = guide[i].x + norms[i].x * off;
+      let y = guide[i].y + norms[i].y * off;
+      if (other) {
+        const near = other[Math.min(other.length - 1, Math.round(t * (other.length - 1)))];
+        const pull = smoothen(Math.max(0, Math.min(1, (t - .45) / .5))) * .5;
+        x += (near.x - x) * pull;
+        y += (near.y - y) * pull;
+      }
+      pts.push({ x: x, y: y });
     }
     return pts;
+  }
+
+  /* eases through the lateral marks of a braid */
+  function lane(marks, t) {
+    const seg = t * (marks.length - 1);
+    const i = Math.min(marks.length - 2, Math.floor(seg));
+    const k = smoothen(seg - i);
+    return marks[i] * (1 - k) + marks[i + 1] * k;
   }
 
   /* The filaments of a sub-flow. Most are barely there and a handful burn: an
@@ -3939,8 +3984,8 @@
       const wob = wobbler(rnd);
       const stray = rnd() < .12;                  // a few leave the bundle
       const from = rnd() < opt.throughRate
-        ? Math.round(rnd() * rnd() * opt.from)
-        : Math.max(0, opt.from - Math.round(rnd() * 16));
+        ? Math.round(rnd() * opt.from)          // spread, or they all start on one line
+        : Math.max(0, opt.from - Math.round(rnd() * 22));
       const to = n - Math.round(rnd() * rnd() * (n - opt.from) * .45);
       if (to - from < 6) continue;
       const px = [];
@@ -3949,15 +3994,20 @@
         px.push(line[i].x + norms[i].x * off, line[i].y + norms[i].y * off);
       }
       const roll = rnd();
-      const bright = roll > .95, mid = roll > .72;
+      const bright = roll > .985, mid = roll > .62;   // white is rare, gold carries
       // the bundle fills in first, then its core lights, then the strays
       let reveal = opt.reveal + (1 - opt.reveal) * rnd() * rnd();
       if (bright) reveal = Math.max(reveal, .62);
       if (stray) reveal = Math.max(reveal, .72);
+      let alpha = opt.alpha * (bright ? 1.7 : mid ? 1 : .5);
+      if (opt.fade) {                                  // roots give out with depth
+        const deep = Math.max(0, Math.min(1, (line[to - 1].y - opt.fade.from) / opt.fade.span));
+        alpha *= Math.exp(-3.6 * deep);
+      }
       zone.fibres.push({
         path: pathOf(px),
-        width: (bright ? 1.2 : .45) + rnd() * .7,
-        alpha: opt.alpha * (bright ? 2.4 : mid ? 1.1 : .55),
+        width: (bright ? .9 : .45) + rnd() * .6,
+        alpha: alpha,
         ink: bright ? "core" : mid ? opt.ink : opt.faint,
         pass: bright ? 2 : mid ? 1 : 0,
         reveal: reveal
@@ -4004,13 +4054,14 @@
   function buildTree(w, h) {
     const cx = w / 2;
     const heart = h * .46;              // where the great branches leave
-    const collar = h * .66;             // where the trunk opens into the roots
+    const collar = h * .58;             // where the trunk opens into the roots
     const zones = [];
 
     const trunk = buildTrunk(zones, cx, w, h, heart, collar);
-    buildBranches(zones, trunk, cx, w, h, heart);
+    const branches = buildBranches(zones, trunk, cx, w, h);
     buildRootPlate(zones, cx, w, h, collar);
     buildDeepRoots(zones, cx, w, h, collar);
+    buildCanopy(branches, cx, w, h);
     return { cx: cx, heart: heart, collar: collar, zones: zones, w: w, h: h };
   }
 
@@ -4031,16 +4082,16 @@
     const widths = [];
     for (let i = 0; i < guide.length; i++) {
       const up = (collar - guide[i].y) / collar;
-      widths.push(w * (.018 * Math.exp(-Math.max(-.2, up) * 2.4) + .0075 +
-                       .004 * Math.max(0, up)));
+      widths.push(w * (.016 * Math.exp(-Math.max(-.2, up) * 2.6) + .009 +
+                       .005 * Math.max(0, up)));
     }
 
     const zone = newZone("trunk", null);
     for (let c = 0; c < TRUNK_CHANNELS; c++) {
-      const base = (c / (TRUNK_CHANNELS - 1) - .5) * 1.7;
+      const base = (c / (TRUNK_CHANNELS - 1) - .5) * 2.5;
       const line = subFlow(guide, norms, widths, rnd, base, 0);
       addFilaments(zone, line, widths, rnd, {
-        count: 55, from: 26, throughRate: .55, alpha: .075,
+        count: 46, from: 34, throughRate: .8, alpha: .09,
         ink: "fiber", faint: c % 3 === 2 ? "sap" : "fiber",
         reveal: c < 3 ? 0 : (c - 2) / TRUNK_CHANNELS
       });
@@ -4049,174 +4100,173 @@
     return { guide: guide, norms: norms, widths: widths };
   }
 
-  /* Thirteen great curves, in three tiers: the low ones almost flat and long
-     enough to leave the frame, the middle ones arching up, a few short ones
-     standing near the top. Each leaves the trunk along the trunk's own
-     direction, so there is no fork, only a parting. */
-  function buildBranches(zones, trunk, cx, w, h, heart) {
+  /* The branches, from the table. Each parts from the trunk along the trunk's
+     own direction, so there is no fork, only a parting. Built in two passes:
+     the guides first, so a sub-flow can be handed the neighbour it will drift
+     towards. */
+  function buildBranches(zones, trunk, cx, w, h) {
+    const built = [];
     for (let b = 0; b < BRANCH_COUNT; b++) {
-      const rnd = seeded(seedOf("branch" + b));
-      const tier = b < 6 ? 0 : b < 10 ? 1 : 2;
-      const rank = tier === 0 ? b / 5 : tier === 1 ? (b - 6) / 3 : (b - 10) / 2;
-      const out = b % 2 ? 1 : -1;
-      const splitY = tier === 0 ? heart + h * (.04 - .1 * rank)
-                   : tier === 1 ? heart - h * (.04 + .1 * rank)
-                                : heart - h * (.16 + .12 * rank);
-      const elev = tier === 0 ? .02 + .14 * rank
-                 : tier === 1 ? .3 + .35 * rank
-                              : .75 + .35 * rank;
-      const reach = w * (tier === 0 ? .38 + .16 * rank
-                       : tier === 1 ? .26 + .1 * rank
-                                    : .14 + .06 * rank) * (.9 + rnd() * .2);
-
-      const at = indexAtY(trunk.guide, splitY);
-      // the branch's own curve starts back down the trunk, so it leaves along it
+      const spec = BRANCH_GUIDES[b];
+      const at = indexAtY(trunk.guide, spec.at * h);
       const head = Math.max(0, at - 9);
       const back = Math.max(0, at - 4);
       const controls = [trunk.guide[head], trunk.guide[back]];
-      const anchor = trunk.guide[at];
-      for (let k = 1; k <= 4; k++) {
-        const t = k / 4;
-        const wave = Math.sin(t * 3.4 + rnd() * 2) * h * .035 * (tier === 0 ? 1 : .6);
-        controls.push({
-          x: anchor.x + out * reach * Math.pow(t, .88),
-          y: anchor.y - reach * Math.sin(elev) * t * (tier === 0 ? .55 : 1) + wave
-        });
+      for (let k = 0; k < spec.pts.length; k++) {
+        controls.push({ x: cx + spec.pts[k][0] * w, y: spec.pts[k][1] * h });
       }
       const own = guideThrough(controls);
-      const guide = trunk.guide.slice(indexAtY(trunk.guide, h * .74), head).concat(own);
-      const norms = normalsOf(guide);
+      const foot = indexAtY(trunk.guide, h * (.58 + .18 * ((b * .618) % 1)));
+      const guide = trunk.guide.slice(foot, head).concat(own);
       const stem = guide.length - own.length;
-
       const widths = [];
+      const thick = spec.major ? .8 : .5;
       for (let i = 0; i < guide.length; i++) {
         if (i < stem) { widths.push(trunk.widths[i] * .45); continue; }
         const t = (i - stem) / Math.max(1, own.length);
-        widths.push(trunk.widths[at] * .62 * (1 - t * .86) + 3);
+        widths.push(trunk.widths[at] * thick * (1 - t * .86) + (spec.major ? 4 : 2.5));
       }
+      built.push({
+        spec: spec, guide: guide, norms: normalsOf(guide), widths: widths,
+        stem: stem, out: spec.pts[spec.pts.length - 1][0] > 0 ? 1 : -1,
+        zone: newZone("branch", b), flowPts: []
+      });
+    }
 
-      const zone = newZone("branch", b);
-      const subs = 3 + Math.round(rnd() * 4);
-      for (let s = 0; s < subs; s++) {
-        const base = (s / Math.max(1, subs - 1) - .5) * 1.9 + (rnd() - .5) * .3;
-        const line = subFlow(guide, norms, widths, rnd, base, stem);
-        const reveal = s === 0 ? 0 : .1 + .55 * (s / subs);
-        addFilaments(zone, line, widths, rnd, {
-          count: 14 + Math.round(rnd() * 20), from: stem, throughRate: .16,
-          alpha: tier === 0 ? .105 : .085,
-          ink: rnd() < .12 ? "ember" : "fiber", faint: rnd() < .4 ? "deep" : "fiber",
-          reveal: reveal
+    for (let b = 0; b < built.length; b++) {
+      const limb = built[b];
+      const rnd = seeded(seedOf("branch" + b));
+      const major = limb.spec.major;
+      const subs = major ? 5 + Math.round(rnd() * 2) : 3 + Math.round(rnd());
+      const mate = neighbourOf(built, b);
+      for (let sIndex = 0; sIndex < subs; sIndex++) {
+        const base = (sIndex / Math.max(1, subs - 1) - .5) * 1.9 + (rnd() - .5) * .3;
+        // one sub-flow in six goes visiting the branch next door
+        const other = mate && rnd() < .17 ? mate.guide : null;
+        const line = subFlow(limb.guide, limb.norms, limb.widths, rnd, base, limb.stem, other);
+        addFilaments(limb.zone, line, limb.widths, rnd, {
+          count: major ? 16 + Math.round(rnd() * 18) : 8 + Math.round(rnd() * 10),
+          from: limb.stem, throughRate: .07,
+          alpha: major ? .105 : .07,
+          ink: rnd() < .1 ? "ember" : "fiber", faint: rnd() < .45 ? "deep" : "fiber",
+          reveal: sIndex === 0 ? 0 : .1 + .55 * (sIndex / subs)
         });
-        addClouds(zone, line, widths, rnd, {
-          grains: tier === 2 ? 20 : 30, alpha: 1, reveal: .45 + .45 * (s / subs)
+        addClouds(limb.zone, line, limb.widths, rnd, {
+          grains: major ? 14 : 9, alpha: 1, reveal: .45 + .45 * (sIndex / subs)
         });
-        zone.tips.push({ x: line[line.length - 1].x, y: line[line.length - 1].y, out: out });
+        for (let i = limb.stem; i < line.length; i += 3) limb.flowPts.push(line[i]);
+        limb.zone.tips.push({
+          x: line[line.length - 1].x, y: line[line.length - 1].y, out: limb.out
+        });
 
-        // a terminal branchlet or two, leaving its sub-flow the way it runs
-        const kids = rnd() < .45 ? 1 : rnd() < .8 ? 2 : 0;
+        const kids = major ? (rnd() < .7 ? 2 : 1) : (rnd() < .5 ? 1 : 0);
         for (let k = 0; k < kids; k++) {
           const off = Math.round(line.length * (.6 + .3 * rnd()));
-          if (off < stem + 4 || off > line.length - 6) continue;
-          buildBranchlet(zone, line, widths, off, out, elev, reach, rnd, tier);
+          if (off < limb.stem + 4 || off > line.length - 6) continue;
+          buildBranchlet(limb, line, off, rnd);
         }
       }
-      zones.push(zone);
+      zones.push(limb.zone);
     }
+    return built;
   }
 
-  function buildBranchlet(zone, line, widths, at, out, elev, reach, rnd, tier) {
+  /* the next branch out on the same side, the one a sub-flow may drift to */
+  function neighbourOf(built, index) {
+    for (let i = index + 1; i < built.length; i++) {
+      if (built[i].out === built[index].out) return built[i];
+    }
+    for (let i = 0; i < index; i++) {
+      if (built[i].out === built[index].out) return built[i];
+    }
+    return null;
+  }
+
+  function buildBranchlet(limb, line, at, rnd) {
     const head = Math.max(0, at - 6);
     const lead = line[at], back = line[head];
     const side = rnd() < .5 ? -1 : 1;
-    const turn = (.18 + rnd() * .4) * side;
-    const len = reach * (.18 + rnd() * .16);
-    const dx = lead.x - back.x, dy = lead.y - back.y;
-    const ang = Math.atan2(dy, dx) + turn;
+    const len = (limb.spec.major ? 90 : 62) * (.7 + rnd() * .8);
+    const ang = Math.atan2(lead.y - back.y, lead.x - back.x) + (.18 + rnd() * .4) * side;
     const controls = [back, lead];
     for (let k = 1; k <= 3; k++) {
       const t = k / 3;
       controls.push({
-        x: lead.x + Math.cos(ang) * len * t + out * len * t * t * .25,
+        x: lead.x + Math.cos(ang) * len * t + limb.out * len * t * t * .25,
         y: lead.y + Math.sin(ang) * len * t - len * t * t * .18
       });
     }
     const own = guideThrough(controls);
     const guide = line.slice(0, head).concat(own);
     const norms = normalsOf(guide);
-    const stem = head;
-    const kidWidths = [];
+    const widths = [];
     for (let i = 0; i < guide.length; i++) {
-      if (i < stem) { kidWidths.push(widths[i] * .7); continue; }
-      const t = (i - stem) / Math.max(1, own.length);
-      kidWidths.push(widths[Math.min(widths.length - 1, at)] * .5 * (1 - t * .8) + 2);
+      if (i < head) { widths.push(limb.widths[i] * .7); continue; }
+      const t = (i - head) / Math.max(1, own.length);
+      widths.push(limb.widths[Math.min(limb.widths.length - 1, at)] * .5 * (1 - t * .8) + 2);
     }
-    const subs = 2;
-    for (let s = 0; s < subs; s++) {
-      const kid = subFlow(guide, norms, kidWidths, rnd, (s - .5) * 1.4, stem);
-      addFilaments(zone, kid, kidWidths, rnd, {
-        count: 7 + Math.round(rnd() * 9), from: stem, throughRate: .3,
-        alpha: .075, ink: "fiber", faint: "deep",
-        reveal: .6 + .3 * rnd()
+    for (let sIndex = 0; sIndex < 2; sIndex++) {
+      const kid = subFlow(guide, norms, widths, rnd, (sIndex - .5) * 1.4, head);
+      addFilaments(limb.zone, kid, widths, rnd, {
+        count: 6 + Math.round(rnd() * 8), from: head, throughRate: .12,
+        alpha: .07, ink: "fiber", faint: "deep", reveal: .6 + .3 * rnd()
       });
-      addClouds(zone, kid, kidWidths, rnd, {
-        grains: tier === 2 ? 16 : 22, alpha: 1, reveal: .62 + .3 * rnd()
+      for (let i = head; i < kid.length; i += 3) limb.flowPts.push(kid[i]);
+      limb.zone.tips.push({
+        x: kid[kid.length - 1].x, y: kid[kid.length - 1].y, out: limb.out
       });
-      zone.tips.push({ x: kid[kid.length - 1].x, y: kid[kid.length - 1].y, out: out });
     }
   }
 
-  /* The root plate: the near-horizon under the trunk. Calmer than the branches,
-     wider than deep, and it carries no dust. */
+  /* The root plate: a short apron just under the collar, not a mist across the
+     stage. It stays close in and carries no dust. */
   function buildRootPlate(zones, cx, w, h, collar) {
     const zone = newZone("root", null);
-    for (let i = 0; i < 8; i++) {
+    for (let i = 0; i < 5; i++) {
       const rnd = seeded(seedOf("plate" + i));
       const out = i % 2 ? 1 : -1;
-      const rank = i / 7;
-      const drop = h * (.02 + .1 * rnd());
-      const reach = w * (.16 + .28 * rnd());
-      const startY = collar + h * (.005 + .07 * rnd());
-      const controls = [
-        { x: cx - out * 14, y: startY - 16 },
-        { x: cx + out * 10, y: startY }
-      ];
+      const drop = h * (.02 + .05 * rnd());
+      const reach = w * (.1 + .12 * rnd());
+      const startY = collar + h * (.004 + .022 * rnd());
+      const controls = [{ x: cx - out * 14, y: startY - 16 }, { x: cx + out * 10, y: startY }];
       for (let k = 1; k <= 4; k++) {
         const t = k / 4;
         controls.push({
           x: cx + out * reach * Math.pow(t, .8),
-          y: startY + drop * t + Math.sin(t * 4 + rnd()) * h * .012
+          y: startY + drop * t + Math.sin(t * 4 + rnd()) * h * .008
         });
       }
       const guide = guideThrough(controls);
       const norms = normalsOf(guide);
       const widths = [];
       for (let k = 0; k < guide.length; k++) {
-        widths.push(w * .012 * (1 - (k / guide.length) * .7) + 2);
+        widths.push(w * .009 * (1 - (k / guide.length) * .7) + 2);
       }
-      for (let s = 0; s < 3; s++) {
-        const line = subFlow(guide, norms, widths, rnd, (s - 1) * 1.1, 0);
+      for (let sIndex = 0; sIndex < 2; sIndex++) {
+        const line = subFlow(guide, norms, widths, rnd, (sIndex - .5) * 1.4, 0);
         addFilaments(zone, line, widths, rnd, {
-          count: 12 + Math.round(rnd() * 10), from: 14, throughRate: .6,
-          alpha: .05, ink: rnd() < .2 ? "ember" : "fiber", faint: "deep",
-          reveal: s * .3
+          count: 8 + Math.round(rnd() * 7), from: 14, throughRate: .6,
+          alpha: .045, ink: "fiber", faint: "deep", reveal: sIndex * .3
         });
       }
     }
     zones.push(zone);
   }
 
-  /* The deep roots: fewer flows, fewer filaments, and the light gives out
-     quickly with depth. The bottom of the stage stays black. */
+  /* The deep roots: a dense plunge at the middle, long slanting ones at the
+     sides that stay faint, and the light giving out with depth so the last
+     quarter of the stage keeps to itself. */
   function buildDeepRoots(zones, cx, w, h, collar) {
     const zone = newZone("root", null);
-    for (let i = 0; i < 12; i++) {
+    const fade = { from: collar + (h - collar) * .35, span: (h - collar) * .7 };
+    for (let i = 0; i < 18; i++) {
       const rnd = seeded(seedOf("deep" + i));
       const out = i % 2 ? 1 : -1;
-      const u = (i * .6180339) % 1;
-      const lean = .1 + .8 * u;                    // centre plunges, sides slant
-      const reach = w * .04 + w * .16 * lean;
-      const dive = (h - collar) * (.42 + .38 * (1 - lean));
-      const controls = [{ x: cx, y: collar - 20 }, { x: cx + out * 8, y: collar + 6 }];
+      const middle = i < 9;                     // the ones that carry the plunge
+      const lean = middle ? .06 + .18 * rnd() : .45 + .5 * rnd();
+      const reach = w * .02 + w * .19 * lean;
+      const dive = (h - collar) * (middle ? .58 + .2 * rnd() : .26 + .26 * rnd());
+      const controls = [{ x: cx, y: collar - 24 }, { x: cx + out * 8, y: collar + 6 }];
       for (let k = 1; k <= 3; k++) {
         const t = k / 3;
         controls.push({
@@ -4228,17 +4278,102 @@
       const norms = normalsOf(guide);
       const widths = [];
       for (let k = 0; k < guide.length; k++) {
-        widths.push(w * .009 * (1 - (k / guide.length) * .8) + 1.6);
+        widths.push(w * (middle ? .008 : .006) * (1 - (k / guide.length) * .8) + 1.5);
       }
-      for (let s = 0; s < 2; s++) {
-        const line = subFlow(guide, norms, widths, rnd, (s - .5) * 1.3, 0);
+      for (let sIndex = 0; sIndex < 2; sIndex++) {
+        const line = subFlow(guide, norms, widths, rnd, (sIndex - .5) * 1.3, 0);
         addFilaments(zone, line, widths, rnd, {
-          count: 9 + Math.round(rnd() * 9), from: 12, throughRate: .6,
-          alpha: .04, ink: "fiber", faint: "deep", reveal: s * .35
+          count: middle ? 20 + Math.round(rnd() * 10) : 7 + Math.round(rnd() * 6),
+          from: 12, throughRate: .6, fade: fade,
+          alpha: middle ? .075 : .03, ink: "fiber", faint: "deep",
+          reveal: sIndex * .35
         });
       }
     }
     zones.push(zone);
+  }
+
+  /* THE CANOPY — lobes of dust hung over the branch ends, with the black
+     pockets between them kept on purpose. A grain only lives where a flow runs
+     near it, so the cloud follows the tree instead of floating over it, and it
+     joins the zone of the branch it found — it lights with that habit. */
+  const CANOPY_LOBES = [
+    { x: -.34, y: .30, rx: .12, ry: .13 },
+    { x: -.20, y: .19, rx: .09, ry: .09 },
+    { x: .24, y: .17, rx: .10, ry: .10 },
+    { x: .37, y: .28, rx: .12, ry: .12 },
+    { x: -.42, y: .45, rx: .10, ry: .07 },
+    { x: .45, y: .43, rx: .11, ry: .08 },
+    { x: .09, y: .12, rx: .07, ry: .08 },
+    { x: -.09, y: .34, rx: .06, ry: .07 }
+  ];
+  const CANOPY_VOIDS = [
+    { x: -.26, y: .40, rx: .08, ry: .07 },
+    { x: .17, y: .34, rx: .09, ry: .08 },
+    { x: -.05, y: .22, rx: .06, ry: .06 },
+    { x: .32, y: .09, rx: .07, ry: .05 }
+  ];
+
+  function buildCanopy(branches, cx, w, h) {
+    const rnd = seeded(seedOf("canopy"));
+    const cell = 48;
+    const grid = {};
+    for (let b = 0; b < branches.length; b++) {
+      const pts = branches[b].flowPts;
+      for (let i = 0; i < pts.length; i++) {
+        const key = Math.floor(pts[i].x / cell) + ":" + Math.floor(pts[i].y / cell);
+        if (grid[key] === undefined) grid[key] = b;
+      }
+    }
+    for (let l = 0; l < CANOPY_LOBES.length; l++) {
+      const lobe = CANOPY_LOBES[l];
+      const ox = cx + lobe.x * w, oy = lobe.y * h;
+      const rx = lobe.rx * w, ry = lobe.ry * h;
+      const knots = [];
+      for (let k = 0; k < 5 + Math.round(rnd() * 3); k++) {
+        knots.push({ u: (rnd() - .5) * 1.05, v: (rnd() - .5) * 1.05, s: .16 + rnd() * .2 });
+      }
+      for (let g = 0; g < 1500; g++) {
+        const knot = knots[Math.floor(rnd() * knots.length)];
+        const u = knot.u + (rnd() + rnd() - 1) * knot.s;
+        const v = knot.v + (rnd() + rnd() - 1) * knot.s;
+        const far = Math.hypot(u, v);
+        if (far > .55) continue;
+        const x = ox + u * rx * 2, y = oy + v * ry * 2;
+        if (inAny(CANOPY_VOIDS, x, y, cx, w, h)) continue;
+        const owner = nearFlow(grid, cell, x, y);
+        if (owner < 0) continue;
+        const cool = far / .55;
+        const big = rnd() > .985;
+        branches[owner].zone.dots.push({
+          x: x, y: y,
+          r: big ? 1.7 + rnd() * 1.7 : .3 + rnd() * rnd() * 1.4,
+          alpha: (.15 + rnd() * .38) * (1 - cool * .3),
+          ink: cool > .55 ? "dust" : rnd() > .95 ? "core" : "fiber",
+          reveal: big ? .8 + rnd() * .2 : .35 + rnd() * .6
+        });
+      }
+    }
+  }
+
+  function inAny(holes, x, y, cx, w, h) {
+    for (let i = 0; i < holes.length; i++) {
+      const dx = (x - (cx + holes[i].x * w)) / (holes[i].rx * w);
+      const dy = (y - holes[i].y * h) / (holes[i].ry * h);
+      if (dx * dx + dy * dy < 1) return true;
+    }
+    return false;
+  }
+
+  function nearFlow(grid, cell, x, y) {
+    const gx = Math.floor(x / cell), gy = Math.floor(y / cell);
+    for (let dx = -1; dx <= 1; dx++) {
+      for (let dy = -1; dy <= 1; dy++) {
+        const hit = grid[(gx + dx) + ":" + (gy + dy)];
+        if (hit !== undefined) return hit;
+      }
+    }
+    return -1;
   }
 
   function indexAtY(pts, y) {
@@ -4256,7 +4391,11 @@
     if (zone.kind === "root") return roots;
     if (zone.kind !== "branch") return glow;
     const mine = owners[zone.habit];
-    if (!mine || !mine.length) return Math.max(.08, glow * .4);
+    // a branch no habit has claimed only ghosts along — except in the preview,
+    // which owes you the whole tree
+    if (!mine || !mine.length) {
+      return state.settings.treeFull ? 1 : Math.max(.08, glow * .4);
+    }
     let best = 0;
     for (let i = 0; i < mine.length; i++) {
       best = Math.max(best, habitVigour(state.habits[mine[i]]));
@@ -4338,21 +4477,19 @@
     placeTreeNodes(tree, owners);
   }
 
-  /* the two hot points: where the branches leave, and the root collar */
+  /* No disc at the heart: a handful of wide, almost transparent strokes along
+     the column. The hot core has to come from the lines piling up. */
   function drawHeart(ctx, tree, glow, coreInk) {
-    const spots = [{ y: tree.heart, r: 74, a: .5 }, { y: tree.collar, r: 52, a: .34 }];
-    for (let i = 0; i < spots.length; i++) {
-      const spot = spots[i];
-      const r = spot.r * (.7 + glow * .5);
-      const bloom = ctx.createRadialGradient(tree.cx, spot.y, 0, tree.cx, spot.y, r);
-      bloom.addColorStop(0, coreInk);
-      bloom.addColorStop(.3, "rgba(255,247,214,.4)");
-      bloom.addColorStop(1, "rgba(255,247,214,0)");
-      ctx.globalAlpha = spot.a * (.4 + glow * .6);
-      ctx.fillStyle = bloom;
+    const span = tree.h * .17;
+    ctx.strokeStyle = coreInk;
+    ctx.lineCap = "round";
+    for (let i = 0; i < 4; i++) {
+      ctx.globalAlpha = (.014 + glow * .03) / (i + 1);
+      ctx.lineWidth = 12 + i * 16;
       ctx.beginPath();
-      ctx.arc(tree.cx, spot.y, r, 0, Math.PI * 2);
-      ctx.fill();
+      ctx.moveTo(tree.cx - 2, tree.heart + span * .8);
+      ctx.quadraticCurveTo(tree.cx + 3, tree.heart, tree.cx - 1, tree.heart - span);
+      ctx.stroke();
     }
   }
 
