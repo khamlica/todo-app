@@ -204,6 +204,45 @@
   --sig-ink: color-mix(in oklab, var(--c-sig) 20%, #101017);
   --sig-glow: color-mix(in srgb, var(--c-sig) 42%, transparent);
 
+  /* TODAY, CUT FROM THE ZELLIGE — the cell is a piece of the same mosaic as the
+     threshold, not a motif of its own. An amethyst druse was irregular by
+     definition and sat badly next to everything else in the app, which is built
+     on a lattice; this is the app's own geometry at cell scale.
+
+     The motifs and the lattice come straight from paintZellige() in app.js, all
+     four meshes and the same four passes. The cell frames exactly one period of
+     that lattice — 2a square, centred on a rosette — so it holds one whole motif:
+     the star in the middle, the bands round it, the corners cut through the
+     neighbours. Each motif carries its own opacity, one light from the upper left
+     plus scatter, and the facets withdraw almost entirely toward the middle so
+     the day number sits on flat tint whatever happens to overlap there.
+
+     Kept deliberately thin: the tint reads as stone because you see through it,
+     not because it is saturated.
+
+     The cut lives in --glass-cut / --glass-edges, swapped by data-glass. Both are
+     masks: the SVG carries the shape, the colour stays in the properties above. */
+  /* At rest a motif is exactly a plain day cell — same colour, same alpha. The
+     token is shared with .ecal__day so the two can never drift. Today is not a
+     different material, only the same one cut into the pattern. */
+  --cell-fill: color-mix(in srgb, var(--c-surface) 26%, transparent);
+  --glass-b: var(--cell-fill);
+  /* hover only thickens it: what used to be the resting value */
+  --glass-b-hover: color-mix(in srgb, var(--c-line) 34%, transparent);
+  /* The crevices between crystals cannot simply be dark: on a dark theme a dark
+     line on an already dark face is invisible (measured at 1/255). Some of the
+     text colour is folded in, so the line darkens on paper and lightens on a dark
+     page — and either way it separates from its own facet. Real crystal edges
+     glint rather than shade, so this is what the stone does anyway. */
+  /* opened, the stone glows with the accent — per crystal, at the same strength
+     as the stone itself, so it is a change of colour and not a border */
+  --glass-lead: color-mix(in srgb,
+    color-mix(in srgb, var(--c-line) 55%, var(--c-text)) 38%, transparent);
+
+  /* DRUSE — the fine crust: 26 crystals, as in a broken geode. */
+  --glass-cut: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' preserveAspectRatio='none'><g fill='white'><path fill-opacity='0.86' d='M50 0L38 12L4 12L0 16L-4 12L-38 12L-50 0L-38 -12L-4 -12L0 -16L4 -12L38 -12Z'/><path fill-opacity='0.73' d='M150 0L138 12L104 12L100 16L96 12L62 12L50 0L62 -12L96 -12L100 -16L104 -12L138 -12Z'/><path fill-opacity='0.82' d='M0 50L-12 38L-12 4L-16 0L-12 -4L-12 -38L0 -50L12 -38L12 -4L16 0L12 4L12 38Z'/><path fill-opacity='0.78' d='M100 50L88 38L88 4L84 0L88 -4L88 -38L100 -50L112 -38L112 -4L116 0L112 4L112 38Z'/><path fill-opacity='0.69' d='M50 100L38 112L4 112L0 116L-4 112L-38 112L-50 100L-38 88L-4 88L0 84L4 88L38 88Z'/><path fill-opacity='0.62' d='M150 100L138 112L104 112L100 116L96 112L62 112L50 100L62 88L96 88L100 84L104 88L138 88Z'/><path fill-opacity='0.78' d='M0 150L-12 138L-12 104L-16 100L-12 96L-12 62L0 50L12 62L12 96L16 100L12 104L12 138Z'/><path fill-opacity='0.57' d='M100 150L88 138L88 104L84 100L88 96L88 62L100 50L112 62L112 96L116 100L112 104L112 138Z'/><path fill-opacity='0.87' d='M-38 -62L-38 -55L-15 -31L-20 -26L-20 -20L-26 -20L-31 -15L-55 -38L-62 -38L-62 -45L-85 -69L-80 -74L-80 -80L-74 -80L-69 -85L-45 -62Z'/><path fill-opacity='0.87' d='M-62 -62L-55 -62L-31 -85L-26 -80L-20 -80L-20 -74L-15 -69L-38 -45L-38 -38L-45 -38L-69 -15L-74 -20L-80 -20L-80 -26L-85 -31L-62 -55Z'/><path fill-opacity='0.78' d='M62 -62L62 -55L85 -31L80 -26L80 -20L74 -20L69 -15L45 -38L38 -38L38 -45L15 -69L20 -74L20 -80L26 -80L31 -85L55 -62Z'/><path fill-opacity='0.81' d='M38 -62L45 -62L69 -85L74 -80L80 -80L80 -74L85 -69L62 -45L62 -38L55 -38L31 -15L26 -20L20 -20L20 -26L15 -31L38 -55Z'/><path fill-opacity='1.00' d='M50 -18L42 -26L42 -47L40 -50L42 -53L42 -74L50 -82L58 -74L58 -53L60 -50L58 -47L58 -26Z'/><path fill-opacity='0.73' d='M162 -62L162 -55L185 -31L180 -26L180 -20L174 -20L169 -15L145 -38L138 -38L138 -45L115 -69L120 -74L120 -80L126 -80L131 -85L155 -62Z'/><path fill-opacity='0.76' d='M138 -62L145 -62L169 -85L174 -80L180 -80L180 -74L185 -69L162 -45L162 -38L155 -38L131 -15L126 -20L120 -20L120 -26L115 -31L138 -55Z'/><path fill-opacity='0.79' d='M-38 38L-38 45L-15 69L-20 74L-20 80L-26 80L-31 85L-55 62L-62 62L-62 55L-85 31L-80 26L-80 20L-74 20L-69 15L-45 38Z'/><path fill-opacity='0.80' d='M-62 38L-55 38L-31 15L-26 20L-20 20L-20 26L-15 31L-38 55L-38 62L-45 62L-69 85L-74 80L-80 80L-80 74L-85 69L-62 45Z'/><path fill-opacity='0.92' d='M-18 50L-26 58L-47 58L-50 60L-53 58L-74 58L-82 50L-74 42L-53 42L-50 40L-47 42L-26 42Z'/><path fill-opacity='0.04' d='M62 38L62 45L85 69L80 74L80 80L74 80L69 85L45 62L38 62L38 55L15 31L20 26L20 20L26 20L31 15L55 38Z'/><path fill-opacity='0.05' d='M38 38L45 38L69 15L74 20L80 20L80 26L85 31L62 55L62 62L55 62L31 85L26 80L20 80L20 74L15 69L38 45Z'/><path fill-opacity='0.05' d='M58 42L58 47L73 62L70 65L70 70L65 70L62 73L47 58L42 58L42 53L27 38L30 35L30 30L35 30L38 27L53 42Z'/><path fill-opacity='0.05' d='M42 42L47 42L62 27L65 30L70 30L70 35L73 38L58 53L58 58L53 58L38 73L35 70L30 70L30 65L27 62L42 47Z'/><path fill-opacity='0.05' d='M82 50L74 58L53 58L50 60L47 58L26 58L18 50L26 42L47 42L50 40L53 42L74 42Z'/><path fill-opacity='0.05' d='M50 82L42 74L42 53L40 50L42 47L42 26L50 18L58 26L58 47L60 50L58 53L58 74Z'/><path fill-opacity='0.61' d='M162 38L162 45L185 69L180 74L180 80L174 80L169 85L145 62L138 62L138 55L115 31L120 26L120 20L126 20L131 15L155 38Z'/><path fill-opacity='0.63' d='M138 38L145 38L169 15L174 20L180 20L180 26L185 31L162 55L162 62L155 62L131 85L126 80L120 80L120 74L115 69L138 45Z'/><path fill-opacity='0.80' d='M182 50L174 58L153 58L150 60L147 58L126 58L118 50L126 42L147 42L150 40L153 42L174 42Z'/><path fill-opacity='0.76' d='M-38 138L-38 145L-15 169L-20 174L-20 180L-26 180L-31 185L-55 162L-62 162L-62 155L-85 131L-80 126L-80 120L-74 120L-69 115L-45 138Z'/><path fill-opacity='0.73' d='M-62 138L-55 138L-31 115L-26 120L-20 120L-20 126L-15 131L-38 155L-38 162L-45 162L-69 185L-74 180L-80 180L-80 174L-85 169L-62 145Z'/><path fill-opacity='0.61' d='M62 138L62 145L85 169L80 174L80 180L74 180L69 185L45 162L38 162L38 155L15 131L20 126L20 120L26 120L31 115L55 138Z'/><path fill-opacity='0.63' d='M38 138L45 138L69 115L74 120L80 120L80 126L85 131L62 155L62 162L55 162L31 185L26 180L20 180L20 174L15 169L38 145Z'/><path fill-opacity='0.74' d='M50 182L42 174L42 153L40 150L42 147L42 126L50 118L58 126L58 147L60 150L58 153L58 174Z'/><path fill-opacity='0.60' d='M162 138L162 145L185 169L180 174L180 180L174 180L169 185L145 162L138 162L138 155L115 131L120 126L120 120L126 120L131 115L155 138Z'/><path fill-opacity='0.65' d='M138 138L145 138L169 115L174 120L180 120L180 126L185 131L162 155L162 162L155 162L131 185L126 180L120 180L120 174L115 169L138 145Z'/></g></svg>");
+  --glass-edges: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' preserveAspectRatio='none'><g fill='none' stroke='white' stroke-width='0.7' stroke-linecap='round' stroke-opacity='.62'><path d='M50 0L38 12'/><path d='M38 12L4 12'/><path d='M4 12L0 16'/><path d='M0 16L-4 12'/><path d='M-4 12L-38 12'/><path d='M-38 -12L-4 -12'/><path d='M-4 -12L0 -16'/><path d='M0 -16L4 -12'/><path d='M4 -12L38 -12'/><path d='M38 -12L50 0'/><path d='M138 12L104 12'/><path d='M104 12L100 16'/><path d='M100 16L96 12'/><path d='M96 12L62 12'/><path d='M62 12L50 0'/><path d='M50 0L62 -12'/><path d='M62 -12L96 -12'/><path d='M96 -12L100 -16'/><path d='M100 -16L104 -12'/><path d='M104 -12L138 -12'/><path d='M0 50L-12 38'/><path d='M-12 38L-12 4'/><path d='M-12 4L-16 0'/><path d='M-16 0L-12 -4'/><path d='M-12 -4L-12 -38'/><path d='M12 -38L12 -4'/><path d='M12 -4L16 0'/><path d='M16 0L12 4'/><path stroke-opacity='0.62' d='M12 4L12 24'/><path stroke-opacity='0.6' d='M12 24L12 31'/><path stroke-opacity='0.57' d='M12 31L12 38'/><path stroke-opacity='0.62' d='M12 38L0 50'/><path stroke-opacity='0.62' d='M100 50L88 38'/><path stroke-opacity='0.57' d='M88 38L88 31'/><path stroke-opacity='0.6' d='M88 31L88 24'/><path stroke-opacity='0.62' d='M88 24L88 4'/><path d='M88 4L84 0'/><path d='M84 0L88 -4'/><path d='M88 -4L88 -38'/><path d='M112 -38L112 -4'/><path d='M112 -4L116 0'/><path d='M116 0L112 4'/><path d='M112 4L112 38'/><path d='M112 38L100 50'/><path d='M50 100L38 112'/><path d='M38 112L4 112'/><path d='M4 112L0 116'/><path d='M0 116L-4 112'/><path d='M-4 112L-38 112'/><path d='M-38 88L-4 88'/><path d='M-4 88L0 84'/><path d='M0 84L4 88'/><path d='M4 88L38 88'/><path d='M38 88L50 100'/><path d='M138 112L104 112'/><path d='M104 112L100 116'/><path d='M100 116L96 112'/><path d='M96 112L62 112'/><path d='M62 112L50 100'/><path d='M50 100L62 88'/><path d='M62 88L96 88'/><path d='M96 88L100 84'/><path d='M100 84L104 88'/><path d='M104 88L138 88'/><path d='M-12 138L-12 104'/><path d='M-12 104L-16 100'/><path d='M-16 100L-12 96'/><path d='M-12 96L-12 62'/><path d='M-12 62L0 50'/><path stroke-opacity='0.62' d='M0 50L12 62'/><path stroke-opacity='0.57' d='M12 62L12 69'/><path stroke-opacity='0.6' d='M12 69L12 76'/><path stroke-opacity='0.62' d='M12 76L12 96'/><path d='M12 96L16 100'/><path d='M16 100L12 104'/><path d='M12 104L12 138'/><path d='M88 138L88 104'/><path d='M88 104L84 100'/><path d='M84 100L88 96'/><path stroke-opacity='0.62' d='M88 96L88 76'/><path stroke-opacity='0.6' d='M88 76L88 69'/><path stroke-opacity='0.57' d='M88 69L88 62'/><path stroke-opacity='0.62' d='M88 62L100 50'/><path d='M100 50L112 62'/><path d='M112 62L112 96'/><path d='M112 96L116 100'/><path d='M116 100L112 104'/><path d='M112 104L112 138'/><path d='M-20 -26L-20 -20'/><path d='M-20 -20L-26 -20'/><path d='M80 -26L80 -20'/><path d='M80 -20L74 -20'/><path d='M74 -20L69 -15'/><path d='M69 -15L45 -38'/><path d='M55 -38L31 -15'/><path d='M31 -15L26 -20'/><path d='M26 -20L20 -20'/><path d='M20 -20L20 -26'/><path d='M50 -18L42 -26'/><path d='M58 -26L50 -18'/><path d='M126 -20L120 -20'/><path d='M120 -20L120 -26'/><path d='M-38 45L-15 69'/><path d='M-15 69L-20 74'/><path d='M-20 74L-20 80'/><path d='M-20 80L-26 80'/><path d='M-26 20L-20 20'/><path d='M-20 20L-20 26'/><path d='M-20 26L-15 31'/><path d='M-15 31L-38 55'/><path d='M-18 50L-26 58'/><path d='M-26 42L-18 50'/><path stroke-opacity='0.04' d='M62 38L62 45'/><path stroke-opacity='0.04' d='M62 45L76 59'/><path stroke-opacity='0.14' d='M76 59L81 64'/><path stroke-opacity='0.36' d='M81 64L85 69'/><path stroke-opacity='0.43' d='M85 69L80 74'/><path stroke-opacity='0.53' d='M80 74L80 80'/><path stroke-opacity='0.59' d='M80 80L74 80'/><path stroke-opacity='0.62' d='M74 80L69 85'/><path stroke-opacity='0.62' d='M69 85L64 81'/><path stroke-opacity='0.51' d='M64 81L59 76'/><path stroke-opacity='0.3' d='M59 76L55 71'/><path stroke-opacity='0.1' d='M55 71L50 67'/><path stroke-opacity='0.04' d='M50 67L45 62'/><path stroke-opacity='0.04' d='M45 62L38 62'/><path stroke-opacity='0.04' d='M38 62L38 55'/><path stroke-opacity='0.04' d='M38 55L24 41'/><path stroke-opacity='0.14' d='M24 41L19 36'/><path stroke-opacity='0.36' d='M19 36L15 31'/><path stroke-opacity='0.43' d='M15 31L20 26'/><path stroke-opacity='0.53' d='M20 26L20 20'/><path stroke-opacity='0.59' d='M20 20L26 20'/><path stroke-opacity='0.62' d='M26 20L31 15'/><path stroke-opacity='0.62' d='M31 15L36 19'/><path stroke-opacity='0.51' d='M36 19L41 24'/><path stroke-opacity='0.3' d='M41 24L45 29'/><path stroke-opacity='0.1' d='M45 29L50 33'/><path stroke-opacity='0.04' d='M50 33L55 38'/><path stroke-opacity='0.04' d='M55 38L62 38'/><path stroke-opacity='0.04' d='M38 38L45 38'/><path stroke-opacity='0.04' d='M45 38L50 33'/><path stroke-opacity='0.1' d='M50 33L55 29'/><path stroke-opacity='0.3' d='M55 29L59 24'/><path stroke-opacity='0.51' d='M59 24L64 19'/><path stroke-opacity='0.62' d='M64 19L69 15'/><path stroke-opacity='0.62' d='M69 15L74 20'/><path stroke-opacity='0.59' d='M74 20L80 20'/><path stroke-opacity='0.53' d='M80 20L80 26'/><path stroke-opacity='0.43' d='M80 26L85 31'/><path stroke-opacity='0.36' d='M85 31L81 36'/><path stroke-opacity='0.14' d='M81 36L76 41'/><path stroke-opacity='0.04' d='M76 41L62 55'/><path stroke-opacity='0.04' d='M62 55L62 62'/><path stroke-opacity='0.04' d='M62 62L55 62'/><path stroke-opacity='0.04' d='M55 62L50 67'/><path stroke-opacity='0.1' d='M50 67L45 71'/><path stroke-opacity='0.3' d='M45 71L41 76'/><path stroke-opacity='0.51' d='M41 76L36 81'/><path stroke-opacity='0.62' d='M36 81L31 85'/><path stroke-opacity='0.62' d='M31 85L26 80'/><path stroke-opacity='0.59' d='M26 80L20 80'/><path stroke-opacity='0.53' d='M20 80L20 74'/><path stroke-opacity='0.43' d='M20 74L15 69'/><path stroke-opacity='0.36' d='M15 69L19 64'/><path stroke-opacity='0.14' d='M19 64L24 59'/><path stroke-opacity='0.04' d='M24 59L38 45'/><path stroke-opacity='0.04' d='M38 45L38 38'/><path stroke-opacity='0.04' d='M58 42L58 47'/><path stroke-opacity='0.04' d='M58 47L73 62'/><path stroke-opacity='0.04' d='M73 62L70 65'/><path stroke-opacity='0.06' d='M70 65L70 70'/><path stroke-opacity='0.12' d='M70 70L65 70'/><path stroke-opacity='0.18' d='M65 70L62 73'/><path stroke-opacity='0.14' d='M62 73L57 68'/><path stroke-opacity='0.04' d='M57 68L47 58'/><path stroke-opacity='0.04' d='M47 58L42 58'/><path stroke-opacity='0.04' d='M42 58L42 53'/><path stroke-opacity='0.04' d='M42 53L27 38'/><path stroke-opacity='0.04' d='M27 38L30 35'/><path stroke-opacity='0.06' d='M30 35L30 30'/><path stroke-opacity='0.12' d='M30 30L35 30'/><path stroke-opacity='0.18' d='M35 30L38 27'/><path stroke-opacity='0.14' d='M38 27L43 32'/><path stroke-opacity='0.04' d='M43 32L53 42'/><path stroke-opacity='0.04' d='M53 42L58 42'/><path stroke-opacity='0.04' d='M42 42L47 42'/><path stroke-opacity='0.04' d='M47 42L57 32'/><path stroke-opacity='0.14' d='M57 32L62 27'/><path stroke-opacity='0.18' d='M62 27L65 30'/><path stroke-opacity='0.12' d='M65 30L70 30'/><path stroke-opacity='0.06' d='M70 30L70 35'/><path stroke-opacity='0.04' d='M70 35L73 38'/><path stroke-opacity='0.04' d='M73 38L58 53'/><path stroke-opacity='0.04' d='M58 53L58 58'/><path stroke-opacity='0.04' d='M58 58L53 58'/><path stroke-opacity='0.04' d='M53 58L43 68'/><path stroke-opacity='0.14' d='M43 68L38 73'/><path stroke-opacity='0.18' d='M38 73L35 70'/><path stroke-opacity='0.12' d='M35 70L30 70'/><path stroke-opacity='0.06' d='M30 70L30 65'/><path stroke-opacity='0.04' d='M30 65L27 62'/><path stroke-opacity='0.04' d='M27 62L42 47'/><path stroke-opacity='0.04' d='M42 47L42 42'/><path stroke-opacity='0.14' d='M82 50L74 58'/><path stroke-opacity='0.04' d='M74 58L53 58'/><path stroke-opacity='0.04' d='M53 58L50 60'/><path stroke-opacity='0.04' d='M50 60L47 58'/><path stroke-opacity='0.04' d='M47 58L26 58'/><path stroke-opacity='0.14' d='M26 58L18 50'/><path stroke-opacity='0.14' d='M18 50L26 42'/><path stroke-opacity='0.04' d='M26 42L47 42'/><path stroke-opacity='0.04' d='M47 42L50 40'/><path stroke-opacity='0.04' d='M50 40L53 42'/><path stroke-opacity='0.04' d='M53 42L74 42'/><path stroke-opacity='0.14' d='M74 42L82 50'/><path stroke-opacity='0.51' d='M50 82L42 74'/><path stroke-opacity='0.17' d='M42 74L42 67'/><path stroke-opacity='0.04' d='M42 67L42 53'/><path stroke-opacity='0.04' d='M42 53L40 50'/><path stroke-opacity='0.04' d='M40 50L42 47'/><path stroke-opacity='0.04' d='M42 47L42 33'/><path stroke-opacity='0.17' d='M42 33L42 26'/><path stroke-opacity='0.51' d='M42 26L50 18'/><path stroke-opacity='0.51' d='M50 18L58 26'/><path stroke-opacity='0.17' d='M58 26L58 33'/><path stroke-opacity='0.04' d='M58 33L58 47'/><path stroke-opacity='0.04' d='M58 47L60 50'/><path stroke-opacity='0.04' d='M60 50L58 53'/><path stroke-opacity='0.04' d='M58 53L58 67'/><path stroke-opacity='0.17' d='M58 67L58 74'/><path stroke-opacity='0.51' d='M58 74L50 82'/><path d='M138 55L115 31'/><path d='M115 31L120 26'/><path d='M120 26L120 20'/><path d='M120 20L126 20'/><path d='M126 80L120 80'/><path d='M120 80L120 74'/><path d='M120 74L115 69'/><path d='M115 69L138 45'/><path d='M126 58L118 50'/><path d='M118 50L126 42'/><path d='M-26 120L-20 120'/><path d='M-20 120L-20 126'/><path d='M20 126L20 120'/><path d='M20 120L26 120'/><path d='M26 120L31 115'/><path d='M31 115L55 138'/><path d='M45 138L69 115'/><path d='M69 115L74 120'/><path d='M74 120L80 120'/><path d='M80 120L80 126'/><path d='M42 126L50 118'/><path d='M50 118L58 126'/><path d='M120 126L120 120'/><path d='M120 120L126 120'/></g></svg>");
+
   --sky-raw: linear-gradient(to top,
     var(--c-sky-1, transparent) 0%,
     var(--c-sky-2, transparent) var(--c-sky-mid, 45%),
@@ -258,7 +297,9 @@ body {
   background: var(--bg);
   -webkit-font-smoothing: antialiased;
   min-height: 100vh;
-  overflow-x: hidden;
+  /* clip, not hidden: hidden would make the body a scroll box of its own and the
+     sticky day heads in the task flow would never engage */
+  overflow-x: clip;
   max-width: 100%;
   transition: background .3s ease, color .3s ease;
 }
@@ -287,34 +328,78 @@ body {
 
 /* GRAIN — one fixed layer of very fine noise. Flat colour fields read as
    deliberate rather than default, and it costs a single element. */
-/* The well-being space is a cooler room. Rather than invent a colour, the sky's
-   own zenith — its coldest stop — is laid over everything and cross-faded. */
-#wellLight {
+/* THE NIGHT ROOM — the tree is drawn by adding light, so it can only wash out on
+   a pale page: nothing it paints is ever darker than the paper. On the pale themes
+   its space therefore borrows the night palette outright. Scoping it to the view
+   is enough for the drawing to follow: the ink probe that resolves the tree's
+   colours sits inside .tree, so it inherits from here — no JS knows the difference. */
+[data-theme="light"] .well-view,
+[data-theme="day"] .well-view,
+[data-theme="dawn"] .well-view,
+[data-theme="rose"] .well-view {
+  --c-bg: #0e1120;
+  --c-surface: #1b2038;
+  --c-line: #2b3252;
+  --c-text: #e6e9f6;
+  --c-muted: #8a90b0;
+  --c-sig: #c2cbef;
+  --c-shade: 0.50;
+  --c-well: #080b14;
+  --c-sky-1: #131a33;                 /* the sky is painted behind everything */
+  --c-sky-2: #0d1120;
+  --c-sky-3: #080b14;
+  --c-sky-mid: 45%;
+  /* --sky is computed up on :root, where its colours are already substituted,
+     so overriding the stops alone would leave the pale gradient in place */
+  --sky-raw: linear-gradient(to top,
+    var(--c-sky-1) 0%, var(--c-sky-2) var(--c-sky-mid), var(--c-sky-3) 100%);
+  --sky: linear-gradient(to bottom,
+      transparent 0%,
+      color-mix(in srgb, var(--c-bg) 78%, transparent) 52%,
+      var(--c-bg) 100%),
+    var(--sky-raw);
+  color: var(--c-text);
+  background: var(--c-bg);
+}
+
+/* WELL-BEING — a space of its own again, reached by the tree in the top bar. The
+   sky's own zenith washes down it, as it did when it was a page. */
+.well-view {
   position: fixed;
   inset: 0;
-  z-index: 0;
-  pointer-events: none;
+  z-index: 60;
+  display: flex;
+  flex-direction: column;
+  overflow-y: auto;
+  color: var(--c-text);
+  background:
+    linear-gradient(to bottom,
+      color-mix(in srgb, var(--c-well, var(--c-sky-3)) 62%, transparent),
+      color-mix(in srgb, var(--c-well, var(--c-sky-3)) 26%, transparent) 60%,
+      transparent),
+    var(--c-bg);
   opacity: 0;
-  transition: opacity .45s ease;
-  background: linear-gradient(to bottom,
-    color-mix(in srgb, var(--c-sky-3) 62%, transparent),
-    color-mix(in srgb, var(--c-sky-3) 26%, transparent) 60%,
-    transparent);
+  transition: opacity .3s ease;
 }
-body.is-well #wellLight { opacity: 1; }
+.well-view[hidden] { display: none; }
+.well-view.is-open { opacity: 1; }
+.well-view__bar {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 18px;
+  padding-top: max(14px, env(safe-area-inset-top));
+}
+.well-view__title { font-size: 1.05rem; font-weight: 600; color: var(--c-text); }
+.well-view .tree { flex: 1 1 auto; min-height: 0; }
+.well-view .hrule { flex: 0 0 auto; padding: 0 18px 18px; }
 
-/* the tree stands on its own: no rule of time in this room */
 .day-line {
   transition: opacity .4s ease, max-height .45s cubic-bezier(.2, .8, .25, 1),
-              margin-bottom .45s cubic-bezier(.2, .8, .25, 1);
+              margin-bottom .45s cubic-bezier(.2, .8, .25, 1),
+              padding-top .45s cubic-bezier(.2, .8, .25, 1);
   max-height: 240px;
-}
-body.is-well .day-line {
-  opacity: 0;
-  max-height: 0;
-  margin-bottom: 0;
-  overflow: hidden;
-  pointer-events: none;
 }
 
 /* the day's habits, tickable before ever entering */
@@ -372,6 +457,43 @@ body.is-well .day-line {
   color: var(--accent);
 }
 #field[hidden] { display: none; }
+
+/* THE ZELLIGE — the threshold's ground. Same contract as #field: the theme
+   declares the colours here and the script only reads back what the browser
+   resolved, so a theme or palette change recolours the whole mosaic. The script
+   takes the hue of each of these and nothing else — a glaze is fired at one
+   strength whatever colour it is. The gold is the one colour the theme does not
+   own, because a zellige set in anything else stops being one; the script tints
+   it with the signature so it still belongs to the page. */
+#zellige {
+  position: fixed;
+  inset: 0;
+  z-index: 0;
+  width: 100%; height: 100%;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity 1.2s ease;
+  --zl-1: var(--c-imp-1);
+  --zl-2: var(--c-imp-2);
+  --zl-3: var(--c-imp-3);
+  --zl-4: var(--c-imp-4);
+  --zl-5: var(--c-imp-5);
+  --zl-6: var(--c-accent);
+  --zl-7: var(--c-sig);
+  --zl-8: var(--c-danger);
+  --zl-metal: #d8ab4f;
+  /* the greeting and the hint sit in the middle, so the mosaic is thinned there
+     to keep them legible. Only behind the text though, and never all the way
+     down: a wall that fades to a tenth in the middle is a wall with a hole in
+     it, and it was what read as pale. */
+  -webkit-mask-image: radial-gradient(ellipse 48% 42% at 50% 50%,
+    rgba(0, 0, 0, .30), rgba(0, 0, 0, .60) 44%, rgba(0, 0, 0, .88) 76%, #000 100%);
+  mask-image: radial-gradient(ellipse 48% 42% at 50% 50%,
+    rgba(0, 0, 0, .30), rgba(0, 0, 0, .60) 44%, rgba(0, 0, 0, .88) 76%, #000 100%);
+}
+/* the script sets --zl-lit off the page's own lightness */
+#zellige.is-lit { opacity: var(--zl-lit, .6); }
+#zellige[hidden] { display: none; }
 /* particles */
 .dp {
   position: absolute;
@@ -488,7 +610,9 @@ body.is-well .day-line {
 
 /* decoration toggles */
 .decors { display: flex; flex-wrap: wrap; gap: 8px; }
-.decor-opt {
+/* the bloom picker wears the same coat as the decoration one */
+.decor-opt,
+.bloom-opt {
   flex: 1 1 30%;
   border: 2px solid var(--border);
   background: var(--input-bg);
@@ -499,7 +623,8 @@ body.is-well .day-line {
   cursor: pointer;
   transition: border-color .2s ease, background .2s ease, color .2s ease;
 }
-.decor-opt.is-active { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); font-weight: 600; }
+.decor-opt.is-active,
+.bloom-opt.is-active { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); font-weight: 600; }
 
 /* COLOUR WORKSHOP */
 
@@ -552,7 +677,6 @@ body.is-well .day-line {
 }
 .paint__undo:hover { color: var(--accent); }
 
-/* TOP BAR — the weather reading sits with the tools, out of the day line */
 /* The tools sit at the top of the page, not of the screen: scroll into your
    work and they leave. They share one invisible baseline — no bar is drawn,
    the matching heights are what line them up. */
@@ -600,22 +724,28 @@ body.is-well .day-line {
   transition: color .2s ease;
 }
 .topbar__weather[hidden] { display: none; }
-/* one hairline between neighbours — and none leading the row when the weather
-   pill is away, since a hidden element is still a sibling */
-.topbar > * + * {
-  border-left: 1px solid color-mix(in srgb, var(--c-line) 30%, transparent);
-}
 .topbar__weather[hidden] + * { border-left: 0; }
 .topbar__weather svg { width: 15px; height: 15px; }
 .topbar__wico { display: inline-flex; }
-.topbar__place { color: var(--muted); }
+.topbar__place {
+  max-width: 92px;
+  overflow: hidden;
+  color: var(--muted);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .topbar__temp { color: var(--text); }
 .topbar__weather.is-clickable { cursor: pointer; }
 .topbar__weather.is-clickable:hover { color: var(--accent); }
 
+/* one hairline between neighbours */
+.topbar > * + * {
+  border-left: 1px solid color-mix(in srgb, var(--c-line) 30%, transparent);
+}
+
 /* WELCOME */
-/* THE THRESHOLD — the sky at full bleed, the day rule across the middle, the
-   block field underneath. Nothing to aim at: the whole screen is the door. */
+/* THE THRESHOLD — the sky at full bleed and the zellige over it, with only the
+   greeting on top. Nothing to aim at: the whole screen is the door. */
 .welcome {
   position: fixed;
   inset: 0;
@@ -641,17 +771,6 @@ body.is-well .day-line {
   position: relative;
   z-index: 1;   /* the greeting sits above the field */
   animation: fadeUp .9s ease both;
-}
-.welcome__slot {
-  width: 100%;
-  display: flex;
-  justify-content: center;
-}
-/* blown up on the threshold, and flown back down to 1 on entering */
-.welcome__slot .day-line {
-  width: 100%;
-  transform: scale(1.35);
-  will-change: transform;
 }
 .welcome__hint {
   font-size: .8rem;
@@ -700,23 +819,23 @@ body:has(.welcome:not(.is-leaving)) .pageflip { opacity: 0; pointer-events: none
   z-index: 1;
   /* top gap clears the fixed buttons; env() adds the notch/home-indicator safe areas */
   /* the top gap clears the fixed top bar, plus room for the sunrise readings */
-  padding: calc(80px + env(safe-area-inset-top)) 0 calc(70px + env(safe-area-inset-bottom));
+  /* Keep a permanent landing area below the content. A tall fold can then grow
+     into existing page space instead of moving the document's lower boundary
+     under the user's viewport, which is what caused the last small jolts. */
+  padding: calc(80px + env(safe-area-inset-top)) 0
+    calc(clamp(190px, 24vh, 320px) + env(safe-area-inset-bottom));
   animation: fadeUp .6s ease both;
+  transition: padding-top .45s cubic-bezier(.2, .8, .25, 1);
 }
+/* the well-being room gives that gap back: the tree starts at the very top of
+   the page and its trunk leaves by the edge, the top bar floating over it */
 .app[hidden] { display: none; }
 
-.wrap,
-.app__grid {
+.wrap {
   max-width: 1160px;
   margin: 0 auto;
   padding-left: 20px;
   padding-right: 20px;
-}
-.app__grid {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr);
-  gap: 44px;
-  align-items: start;
 }
 .app__col {
   display: flex;
@@ -725,20 +844,8 @@ body:has(.welcome:not(.is-leaving)) .pageflip { opacity: 0; pointer-events: none
   min-width: 0;
 }
 
-/* below the two-column breakpoint the stack stays a readable single column */
-@media (max-width: 999px) {
-  .wrap, .app__grid { max-width: 760px; }
-}
-
-@media (min-width: 1000px) {
-  .wrap, .app__grid { padding-left: 32px; padding-right: 32px; }
-  .app__grid { grid-template-columns: minmax(0, 1.32fr) minmax(0, 1fr); gap: 48px 52px; }
-}
-
-/* keep a narrow lane free so the arrow never sits on the content */
-@media (max-width: 1399px) {
-  .wrap, .app__grid { padding-right: 48px; }
-}
+/* the three-column layout lives with the rail it rides on, further down: media
+   queries carry no extra weight, so its overrides have to come after the base. */
 
 
 
@@ -834,6 +941,15 @@ body:has(.welcome:not(.is-leaving)) .pageflip { opacity: 0; pointer-events: none
   background: color-mix(in srgb, var(--accent) 7%, transparent);
 }
 .add-card__plus { flex: 0 0 auto; width: 22px; text-align: center; font-size: 1.35rem; line-height: 1; }
+/* the event line, inside the calendar band: quieter than a task's, on purpose —
+   adding an event must not compete with adding a task */
+.add-card--slim {
+  padding: 7px 11px;
+  font-size: .84rem;
+  font-weight: 500;
+  border-radius: 10px;
+}
+.add-card--slim .add-card__plus { width: 16px; font-size: 1.1rem; }
 /* flex/inline-flex boxes need this: a display rule beats the hidden attribute */
 .add-card[hidden],
 .toast[hidden] { display: none; }
@@ -870,19 +986,20 @@ body:has(.welcome:not(.is-leaving)) .pageflip { opacity: 0; pointer-events: none
 .list--cards + .add-card,
 .tasks + .add-card,
 .tasks + .add-card + .quick { margin-top: 12px; }
-/* the day's events are spaced 8px apart, so the add line follows that rhythm */
-.day-events + .add-card,
-.day-events + .add-card + .quick { margin-top: 8px; }
+/* the day's events only ever live in the calendar band now, and it spaces its own
+   children with a gap — so no margins here */
 
-/* TASK GROUPS — the list splits itself by due date */
-.tasks { display: flex; flex-direction: column; gap: 16px; }
+/* TASK GROUPS — the flow splits itself by due date. A head is a label, a hairline
+   running out to its count, and a chevron when the block folds. Same object for a
+   block and for a day: only its weight changes. */
+.tasks { display: flex; flex-direction: column; gap: 18px; }
 .tgroup { display: flex; flex-direction: column; gap: 10px; }
 .tgroup__head {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 10px;
   width: 100%;
-  padding: 0 4px;
+  padding: 0 2px;
   border: none;
   background: none;
   font: inherit;
@@ -891,29 +1008,114 @@ body:has(.welcome:not(.is-leaving)) .pageflip { opacity: 0; pointer-events: none
   letter-spacing: .07em;
   text-transform: uppercase;
   color: var(--muted);
+  text-align: left;
   cursor: pointer;
   transition: color .2s ease;
 }
-.tgroup__head:hover { color: var(--text); }
+/* today's head is a div, every other one a button: only what folds lights up */
+button.tgroup__head:hover { color: var(--text); }
+.tgroup__label { flex: 0 0 auto; }
+.tgroup__rule {
+  flex: 1;
+  height: 1px;
+  min-width: 12px;
+  background: linear-gradient(90deg, var(--item-border), transparent);
+}
 .tgroup__count {
+  flex: 0 0 auto;
   font-size: .68rem;
   font-weight: 700;
   letter-spacing: 0;
   color: var(--muted);
-  background: var(--surface);
-  border-radius: 999px;
-  padding: 1px 7px;
 }
 .tgroup__chev {
-  margin-left: auto;
-  font-size: .9rem;
-  line-height: 1;
-  transition: transform .2s ease;
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  width: 16px; height: 16px;
+  transition: transform .25s cubic-bezier(.4, 0, .2, 1);
 }
+.tgroup__chev svg { width: 14px; height: 14px; stroke-width: 2.2; }
 .tgroup.is-collapsed .tgroup__chev { transform: rotate(-90deg); }
 .tgroup.is-collapsed .list { display: none; }
-.tgroup--late .tgroup__label { color: var(--danger); }
 .tgroup--done .list { opacity: .62; }
+
+/* what is late is the one thing that shouts: a red label and a rail beside its
+   rows, so the block is read before it is even parsed */
+.tgroup--late .tgroup__label { color: var(--danger); }
+.tgroup--late .tgroup__rule { background: linear-gradient(90deg, color-mix(in srgb, var(--danger) 45%, transparent), transparent); }
+.tgroup--late .tgroup__count { color: var(--danger); }
+.tgroup--late > .list {
+  position: relative;
+  padding-left: 13px;
+}
+.tgroup--late > .list::before {
+  content: "";
+  position: absolute;
+  left: 2px; top: 3px; bottom: 3px;
+  width: 2px;
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--danger) 55%, transparent);
+}
+
+/* A DAY — lighter than a block head: sentence case, today's in the theme's own
+   signature. It is also the anchor: it holds at the top of the screen while its
+   rows scroll under it, and the whole band is the fold control, which is why it
+   is padded well past its text. */
+.tgroup--day { gap: 16px; }   /* the first row has to clear the band above it */
+.tgroup--day .tgroup__head {
+  position: sticky;
+  top: 0;
+  z-index: 2;
+  font-size: .74rem;
+  font-weight: 600;
+  letter-spacing: .02em;
+  text-transform: none;
+  /* the padding is cancelled by the margin, so the band grows around the label
+     without moving anything: it has to overlap the rows sliding under it. Width
+     goes back to auto or the negative margins would push it off to one side. */
+  width: auto;
+  padding: 8px;
+  margin: -8px;
+  border-radius: 10px;
+  /* a veil rather than a fill: the sky and the decorations stay readable under it */
+  background: color-mix(in srgb, var(--c-bg) 70%, transparent);
+  backdrop-filter: blur(10px);
+}
+/* a folded day is a bar and nothing else: it may be pressed anywhere along it */
+button.tgroup__head--day:hover {
+  background: color-mix(in srgb, var(--c-bg) 70%, var(--accent-soft));
+}
+/* today is the day being lived: it never folds, so it takes no pointer either */
+.tgroup--day.is-today .tgroup__head { cursor: default; }
+.tgroup--day.is-today .tgroup__label,
+.tgroup--day.is-today .tgroup__count { color: var(--sig-line); }
+.tgroup--day.is-today .tgroup__rule {
+  background: linear-gradient(90deg, color-mix(in srgb, var(--c-sig) 45%, transparent), transparent);
+}
+/* what is finished stops asking for attention, head included */
+.tgroup--done .tgroup__head { opacity: .7; }
+/* the dateless tails are not part of the run: give them room to detach */
+.tgroup--none {
+  margin-top: 6px;
+  padding: 7px;
+  margin-inline: -7px;
+  border: 1px dashed transparent;
+  border-radius: 13px;
+  transition: border-color .16s ease, background .16s ease, box-shadow .16s ease;
+}
+.tgroup--none > .list { min-height: 14px; }
+.tgroup--none.is-drop-available {
+  border-color: color-mix(in srgb, var(--accent) 24%, transparent);
+}
+.tgroup--none.is-drop-target {
+  border-color: color-mix(in srgb, var(--accent) 55%, transparent);
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+  box-shadow: 0 0 20px color-mix(in srgb, var(--accent) 12%, transparent);
+}
+.tgroup--none.is-drop-target > .tgroup__head,
+.tgroup--none.is-drop-target .tgroup__count { color: var(--accent); }
+.tgroup--none.is-drop-target > .list { min-height: 40px; }
 
 /* PROGRESS RING — the tasks panel's own indicator */
 .zone__count { display: inline-flex; align-items: center; gap: 7px; }
@@ -988,12 +1190,28 @@ body:has(.welcome:not(.is-leaving)) .pageflip { opacity: 0; pointer-events: none
   animation: fadeUp .3s ease both;
 }
 .item:last-child { border-bottom: none; }
+.item[data-schedulable="1"] { cursor: grab; }
 .item.is-dragging {
-  opacity: .9;
+  cursor: grabbing;
+  opacity: .34;
   background: var(--input-bg);
   border-radius: 10px;
   box-shadow: var(--shadow);
   border-bottom-color: transparent;
+}
+.task-drag-ghost {
+  position: fixed;
+  z-index: 1000;
+  margin: 0;
+  max-width: min(420px, calc(100vw - 24px));
+  pointer-events: none;
+  opacity: .94;
+  background: color-mix(in srgb, var(--surface) 92%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent) 28%, var(--border));
+  border-radius: 12px;
+  box-shadow: var(--shadow);
+  transform: rotate(-1deg) scale(1.015);
+  animation: none;
 }
 /* COMPLETION — a small rounded box whose tick is stroked, not typed. Kept
    light: a quiet outline until it matters, filled only once it is done. */
@@ -1051,19 +1269,24 @@ body:has(.welcome:not(.is-leaving)) .pageflip { opacity: 0; pointer-events: none
 .item:hover > .row-acts,
 .item:focus-within > .row-acts,
 .item.is-swiped > .row-acts,
-.day-event:hover > .row-acts,
-.day-event:focus-within > .row-acts,
-.day-event.is-swiped > .row-acts {
+.project-tab:hover > .row-acts,
+.project-tab:focus-within > .row-acts,
+.item.is-swiped > .project-tab > .row-acts {
   opacity: 1;
   transform: translate(0, -50%);
   pointer-events: auto;
 }
 /* unfolded, the editor carries its own buttons */
-.item.is-open > .row-acts,
-.day-event.is-open > .row-acts { display: none; }
+.item.is-open > .row-acts { display: none; }
 
 /* while a finger is on the row the group follows it instead of snapping */
 .is-swiping > .row-acts {
+  transition: none;
+  opacity: var(--swipe, 0);
+  transform: translate(calc(6px - var(--swipe, 0) * 6px), -50%);
+  pointer-events: none;
+}
+.is-swiping > .project-tab > .row-acts {
   transition: none;
   opacity: var(--swipe, 0);
   transform: translate(calc(6px - var(--swipe, 0) * 6px), -50%);
@@ -1089,23 +1312,28 @@ body:has(.welcome:not(.is-leaving)) .pageflip { opacity: 0; pointer-events: none
   color: var(--danger);
 }
 
-/* the right end of the row steps aside for the actions */
-.item__due,
-.imp,
-.day-event__time,
-.day-event__bell { transition: opacity .16s ease; }
-.item:hover > .item__due,
-.item:hover > .imp,
-.item.is-swiped > .item__due,
-.item.is-swiped > .imp,
-.day-event:hover > .day-event__time,
-.day-event:hover > .day-event__bell,
-.day-event.is-swiped > .day-event__time,
-.day-event.is-swiped > .day-event__bell { opacity: 0; }
-.is-swiping > .item__due,
-.is-swiping > .imp,
-.is-swiping > .day-event__time,
-.is-swiping > .day-event__bell { transition: none; opacity: calc(1 - var(--swipe, 0)); }
+/* THE ROW'S MARKS — notes, subtasks, star, pin, date: they travel as one cluster
+   at the right end, and step aside as one when the actions come over them. Held
+   together they also keep a constant gap, whichever marks a row happens to have. */
+.item__meta {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+  transition: opacity .16s ease;
+}
+.item:hover > .item__meta,
+.item:focus-within > .item__meta,
+.item.is-swiped > .item__meta,
+.project-tab:hover > .item__meta,
+.project-tab:focus-within > .item__meta,
+.item.is-swiped > .project-tab > .item__meta { opacity: 0; }
+.is-swiping > .item__meta { transition: none; opacity: calc(1 - var(--swipe, 0)); }
+.is-swiping > .project-tab > .item__meta {
+  transition: none;
+  opacity: calc(1 - var(--swipe, 0));
+}
 
 .item__text {
   flex: 1;
@@ -1147,16 +1375,53 @@ body:has(.welcome:not(.is-leaving)) .pageflip { opacity: 0; pointer-events: none
 .item--task.done { background: none; }
 .item--task .item__text { font-size: .98rem; }
 
+/* A task carried out of a milestone keeps a quiet trace of its source. The
+   colour is the dot's live palette colour, so it follows theme customisation. */
+.item--task.item--milestone-linked {
+  border-color: color-mix(in srgb, var(--task-milestone-color) 27%, var(--item-border));
+  background: linear-gradient(90deg,
+    color-mix(in srgb, var(--task-milestone-color) 9%, var(--surface)),
+    var(--surface) 42%);
+  box-shadow: inset 2px 0 0 color-mix(in srgb, var(--task-milestone-color) 56%, transparent);
+}
+.item--task.item--milestone-linked:hover {
+  border-color: color-mix(in srgb, var(--task-milestone-color) 58%, var(--accent));
+}
+.item--milestone-linked > .item__check {
+  border-color: color-mix(in srgb, var(--task-milestone-color) 58%, transparent);
+}
+.item--milestone-linked.done > .item__check {
+  border-color: var(--task-milestone-color);
+  background: var(--task-milestone-color);
+}
+.item--task.item--milestone-linked.done {
+  background: linear-gradient(90deg,
+    color-mix(in srgb, var(--task-milestone-color) 6%, transparent), transparent 42%);
+  box-shadow: inset 2px 0 0 color-mix(in srgb, var(--task-milestone-color) 38%, transparent);
+}
+
 /* same object language as a task, one size up */
 .item--project {
+  display: block;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: none;
+}
+.item--project:last-child { border-bottom: 0; }
+.project-tab {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0 12px;
+  width: 100%;
   padding: 16px;
   border: 1px solid var(--item-border);
   border-radius: var(--radius);
   background: var(--surface);
-  transition: border-color .2s ease;
+  transition: border-color .2s ease, background .2s ease;
 }
-.item--project:last-child { border-bottom: 1px solid var(--item-border); }
-.item--project:hover { border-color: var(--accent); }
+.item--project:hover > .project-tab { border-color: var(--accent); }
 .item--project .item__ico {
   width: 38px; height: 38px;
   border-radius: 11px;
@@ -1165,12 +1430,319 @@ body:has(.welcome:not(.is-leaving)) .pageflip { opacity: 0; pointer-events: none
 }
 .item--project .item__ico svg { width: 21px; height: 21px; }
 .item--project .item__text { font-size: 1.02rem; font-weight: 600; }
+.item--project.is-inline-open {
+  background: none;
+}
+.item--project.is-inline-open > .project-tab {
+  border-color: color-mix(in srgb, var(--accent) 48%, var(--item-border));
+  background: var(--surface);
+}
+.item--project.is-inline-open > .project-tab > .row-acts { display: none; }
+
+/* INLINE OBJECTIVE — a compact working surface inside the dashboard row. */
+.goal-inline {
+  display: flex;
+  flex-direction: column;
+  gap: 24px;
+  padding: 26px 2px 8px;
+}
+.goal-inline__name {
+  flex: 1 1 auto;
+  min-width: 0;
+  width: auto;
+  border: 0;
+  border-bottom: 1px solid var(--border);
+  background: none;
+  color: var(--text);
+  font: inherit;
+  font-size: 1.08rem;
+  font-weight: 650;
+  padding: 3px 0 8px;
+}
+.goal-inline__name:focus { outline: none; border-bottom-color: var(--accent); }
+.goal-inline__section { min-width: 0; }
+.goal-inline__section > .detail__label { display: block; margin-bottom: 12px; }
+
+/* HORIZONTAL MILESTONES — titles live in a small card below their point. The
+   card appears on hover/focus and remains there while that milestone is open. */
+.goal-roadmap {
+  width: 100%;
+  overflow-x: auto;
+  overflow-y: hidden;
+  overscroll-behavior-inline: contain;
+  scrollbar-width: thin;
+  /* The dot grows around its centre on hover. Keep a little air above it so its
+     halo and upper edge are not clipped by the horizontal scroll viewport. */
+  padding-top: 10px;
+  padding-bottom: 2px;
+}
+.goal-roadmap__canvas {
+  position: relative;
+  width: 100%;
+  height: 178px;
+}
+.goal-roadmap__track {
+  position: absolute;
+  top: 15px;
+  left: var(--goal-edge);
+  right: var(--goal-edge);
+  height: 2px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--text) 15%, transparent);
+  overflow: hidden;
+}
+.goal-roadmap__fill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--imp-1), var(--imp-3), var(--imp-5));
+  transition: width .42s cubic-bezier(.22, .8, .25, 1);
+}
+.goal-roadmap__nodes {
+  display: grid;
+  grid-template-columns: repeat(var(--goal-nodes), minmax(0, 1fr));
+  height: 100%;
+}
+.goal-ms {
+  position: relative;
+  z-index: 1;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start;
+  min-width: 0;
+}
+.goal-ms:hover,
+.goal-ms:focus-within,
+.goal-ms.is-open { z-index: 4; }
+.goal-ms__dot {
+  width: 30px;
+  height: 30px;
+  padding: 0;
+  border: 2px solid var(--goal-color);
+  border-radius: 50%;
+  background: var(--surface-solid);
+  color: var(--goal-color);
+  font: inherit;
+  font-size: 1rem;
+  cursor: pointer;
+  box-shadow: 0 0 0 5px color-mix(in srgb, var(--c-bg) 76%, transparent);
+  transition: transform .18s ease, background .18s ease, box-shadow .18s ease;
+}
+.goal-ms__dot:hover,
+.goal-ms__dot:focus-visible {
+  outline: none;
+  transform: scale(1.12);
+  box-shadow: 0 0 0 5px color-mix(in srgb, var(--goal-color) 12%, var(--c-bg));
+}
+.goal-ms__dot--milestone {
+  width: 24px;
+  height: 24px;
+  margin-top: 3px;
+  border-width: 1.5px;
+  background: color-mix(in srgb, var(--surface-solid) 92%, var(--goal-color) 8%);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--c-bg) 78%, transparent);
+  cursor: grab;
+  touch-action: none;
+  display: grid;
+  place-items: center;
+}
+.goal-ms__dot--milestone::after {
+  content: "";
+  width: 5px;
+  height: 5px;
+  border-radius: 50%;
+  background: var(--goal-color);
+  transition: transform .18s ease, background .18s ease;
+}
+.goal-ms__dot--milestone:hover,
+.goal-ms__dot--milestone:focus-visible {
+  box-shadow: 0 0 0 5px color-mix(in srgb, var(--goal-color) 11%, var(--c-bg));
+}
+.goal-ms.is-done .goal-ms__dot--milestone { background: var(--goal-color); }
+.goal-ms.is-done .goal-ms__dot--milestone::after { background: var(--surface-solid); }
+.goal-ms.is-dragging .goal-ms__dot--milestone { opacity: .28; cursor: grabbing; }
+.goal-ms.is-dragging .goal-ms__panel {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+.milestone-drag-ghost {
+  position: fixed;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: min(300px, calc(100vw - 28px));
+  padding: 7px 11px 7px 7px;
+  border: 1px solid color-mix(in srgb, var(--goal-color, var(--accent)) 42%, var(--border));
+  border-radius: 13px;
+  background: color-mix(in srgb, var(--surface-solid) 94%, transparent);
+  color: var(--text);
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(10px);
+  pointer-events: none;
+  font-size: .82rem;
+  font-weight: 600;
+}
+.milestone-drag-ghost__dot {
+  flex: 0 0 auto;
+  width: 22px;
+  height: 22px;
+  border: 1.5px solid var(--goal-color);
+  border-radius: 50%;
+  background: radial-gradient(circle,
+    var(--goal-color) 0 2.5px,
+    color-mix(in srgb, var(--surface-solid) 92%, var(--goal-color) 8%) 3px);
+}
+.milestone-drag-ghost > span:last-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.goal-ms.is-done .goal-ms__dot,
+.goal-ms.is-start .goal-ms__dot {
+  background: var(--goal-color);
+}
+.goal-ms.is-start .goal-ms__dot { cursor: default; }
+.goal-ms--add { --goal-color: var(--muted); }
+.goal-ms__dot--add {
+  border-style: dashed;
+  display: grid;
+  place-items: center;
+  line-height: 1;
+}
+.goal-ms__panel {
+  position: absolute;
+  top: 42px;
+  left: 50%;
+  width: 230px;
+  max-width: calc(100vw - 48px);
+  min-height: 48px;
+  padding: 10px 12px;
+  border: 1px solid color-mix(in srgb, var(--goal-color, var(--accent)) 32%, var(--border));
+  border-radius: 13px;
+  background: color-mix(in srgb, var(--surface-solid) 94%, transparent);
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(12px);
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transform: translate(-50%, 6px);
+  transition: opacity .16s ease, visibility .16s ease, transform .2s ease;
+}
+.goal-ms:hover .goal-ms__panel,
+.goal-ms:focus-within .goal-ms__panel,
+.goal-ms.is-open .goal-ms__panel {
+  opacity: 1;
+  visibility: visible;
+  pointer-events: auto;
+  transform: translate(-50%, 0);
+}
+.goal-ms__title {
+  display: block;
+  color: var(--text);
+  font-size: .86rem;
+  font-weight: 650;
+  line-height: 1.25;
+  overflow-wrap: anywhere;
+}
+.goal-ms__panel .tl-date { display: block; margin-top: 4px; }
+.goal-ms__editor { display: flex; flex-direction: column; gap: 9px; }
+.goal-ms__editor-top { display: flex; align-items: center; gap: 8px; }
+.goal-ms__check {
+  flex: 0 0 auto;
+  width: 20px;
+  height: 20px;
+  padding: 0;
+  border: 1.5px solid var(--goal-color, var(--accent));
+  border-radius: 50%;
+  background: none;
+  color: var(--surface-solid);
+  cursor: pointer;
+  display: grid;
+  place-items: center;
+}
+.goal-ms__check.is-on { background: var(--goal-color, var(--accent)); }
+.goal-ms__check svg { width: 13px; height: 13px; }
+.goal-ms__name {
+  flex: 1 1 auto;
+  min-width: 0;
+  border: 0;
+  border-bottom: 1px solid var(--border);
+  background: none;
+  color: var(--text);
+  font: inherit;
+  font-size: .86rem;
+  font-weight: 600;
+  padding: 3px 1px;
+}
+.goal-ms__name:focus { outline: none; border-bottom-color: var(--accent); }
+.goal-ms__actions { display: flex; align-items: center; gap: 6px; }
+.goal-ms__action {
+  min-width: 0;
+  min-height: 27px;
+  padding: 5px 8px;
+  border: 1px solid var(--border);
+  border-radius: 9px;
+  background: var(--input-bg);
+  color: var(--muted);
+  font: inherit;
+  font-size: .7rem;
+  cursor: pointer;
+}
+.goal-ms__action:hover { color: var(--accent); border-color: var(--accent); }
+.goal-ms__action--icon {
+  flex: 0 0 auto;
+  width: 28px;
+  padding: 5px;
+  display: grid;
+  place-items: center;
+}
+.goal-ms__action--icon svg { width: 14px; height: 14px; }
+.goal-ms__action--del:hover { color: var(--danger); border-color: var(--danger); }
+.goal-ms__add-form { display: flex; gap: 7px; }
+.goal-ms__add-form input {
+  min-width: 0;
+  flex: 1;
+  border: 0;
+  border-bottom: 1px solid var(--border);
+  background: none;
+  color: var(--text);
+  font: inherit;
+  font-size: .82rem;
+  outline: none;
+}
+.goal-ms__add-form input:focus { border-bottom-color: var(--accent); }
+.goal-ms__add-form button {
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  cursor: pointer;
+}
+.step.is-done .item__check {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+.step.is-done .item__check polyline { stroke-dashoffset: 0; }
 
 .empty {
   color: var(--muted);
   font-size: .92rem;
   padding: 8px 4px;
 }
+/* the tasks panel is the one place worth two lines: the second points at the
+   add line right below, so an empty list still shows the way on */
+.empty--tasks {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding: 4px 4px 2px;
+}
+.empty__hint { font-size: .85rem; opacity: .72; }
 
 /* SETTINGS DIALOG */
 .modal {
@@ -1359,17 +1931,32 @@ body:has(.welcome:not(.is-leaving)) .pageflip { opacity: 0; pointer-events: none
 /* THE TREE — the stage is a canvas with the habit circles laid over it. The
    three inks are the reference's own; they sit here so a theme or the colour
    workshop can take them over later without touching the drawing code. */
+/* The tree keeps its own warm identity and leans towards the theme's signature
+   by one knob, --tree-pull. Night is the tree as it was drawn and validated, so
+   it pulls nothing; the greyer and cooler rooms pull harder to keep their bite.
+   A theme edited in the colour workshop carries the tree with it for free. */
 .tree {
   position: relative;
   margin-inline: calc(50% - 50vw);      /* the tree takes the whole window */
-  --tree-fiber: #f5d76e;
-  --tree-core: #fffbe8;
-  --tree-dust: #4fd8d0;
-  --tree-sap: #cfe86b;
-  --tree-ember: #e8913c;
-  --tree-deep: #2f5f8a;
+  --tree-tint: var(--c-sig);
+  --tree-pull: 0%;
+  /* fiber to blaze is the ramp a vein cools along, so the steps between them
+     have to be wide: mixed additively, neighbouring warm tones wash out */
+  --tree-fiber: color-mix(in srgb, var(--tree-tint) var(--tree-pull), #ffe27a);
+  --tree-core: color-mix(in srgb, var(--tree-tint) var(--tree-pull), #fffbe8);
+  --tree-dust: color-mix(in srgb, var(--tree-tint) var(--tree-pull), #4fd8d0);
+  --tree-sap: color-mix(in srgb, var(--tree-tint) var(--tree-pull), #cfe86b);
+  --tree-amber: color-mix(in srgb, var(--tree-tint) var(--tree-pull), #ffa832);
+  --tree-ember: color-mix(in srgb, var(--tree-tint) var(--tree-pull), #f2661a);
+  --tree-blaze: color-mix(in srgb, var(--tree-tint) var(--tree-pull), #e8431a);
+  --tree-deep: color-mix(in srgb, var(--tree-tint) var(--tree-pull), #2f5f8a);
 }
+/* the paler the room, the further the tree leans on the theme to stay legible */
+[data-theme="rain"] .tree { --tree-pull: 24%; }
+[data-theme="dusk"] .tree { --tree-pull: 16%; }
+[data-theme="dark"] .tree { --tree-pull: 8%; }
 .tree canvas { display: block; width: 100%; }
+.tree__sap { position: absolute; inset: 0; pointer-events: none; }
 .tree__nodes { position: absolute; inset: 0; pointer-events: none; }
 .tree__foot {
   display: flex;
@@ -1379,9 +1966,15 @@ body:has(.welcome:not(.is-leaving)) .pageflip { opacity: 0; pointer-events: none
 }
 
 /* a habit, hung on its branch */
+/* the circles come up with the branch they hang on, not in one block */
+@keyframes tnodeIn {
+  from { opacity: 0; transform: translate(-50%, -50%) scale(.6); }
+  to   { opacity: 1; transform: translate(-50%, -50%) scale(1); }
+}
 .tnode {
   position: absolute;
   transform: translate(-50%, -50%);
+  animation: tnodeIn .5s cubic-bezier(.2, .8, .25, 1) both;
   width: 34px; height: 34px;
   padding: 0;
   border: 1px solid color-mix(in srgb, var(--tree-fiber) 45%, transparent);
@@ -1516,42 +2109,229 @@ body:has(.welcome:not(.is-leaving)) .pageflip { opacity: 0; pointer-events: none
 .habit__more svg { width: 16px; height: 16px; }
 
 
-/* the only visible way between the two spaces: a slim arrow on the right edge */
-.pageflip {
-  backdrop-filter: blur(14px) saturate(130%);
-  position: fixed;
-  top: 50%; right: 0;
-  transform: translateY(-50%);
-  z-index: 15;
-  width: 26px; height: 74px;
-  border: none;
-  border-radius: 13px 0 0 13px;
-  background: var(--surface);
-  box-shadow: var(--shadow);
-  color: var(--muted);
-  cursor: pointer;
-  display: grid; place-items: center;
-  opacity: .72;
-  transition: opacity .2s ease, color .2s ease;
-}
-.pageflip:hover { opacity: 1; color: var(--accent); }
-.pageflip svg {
-  width: 17px; height: 17px;
-  transition: transform .45s cubic-bezier(.2, .8, .25, 1);
-}
-.pageflip.is-open svg { transform: rotate(180deg); }
-
-/* THE TWO SPACES — side by side on a rail that slides under the day line */
-.pages { overflow: hidden; touch-action: pan-y; }
+/* THE RAIL — the three columns sit on it. Wide, it is a grid and never moves;
+   narrow, it is three full-width panes that slide under the day line. */
+/* clip for the same reason as the body: it hides the pane next door without
+   becoming a scroll box, so sticky still reads the window */
+.pages { overflow: clip; touch-action: pan-y; }
 .pages.is-live { transition: height .45s cubic-bezier(.2, .8, .25, 1); }
 .pages__track {
   display: flex;
   align-items: flex-start;
-  width: 200%;
-  transition: transform .45s cubic-bezier(.2, .8, .25, 1);
+  transition: transform .45s cubic-bezier(.2, .8, .25, 1),
+              max-width .52s cubic-bezier(.2, .8, .25, 1),
+              grid-template-columns .52s cubic-bezier(.2, .8, .25, 1);
 }
 .pages__track.is-dragging { transition: none; }
-.page { flex: 0 0 50%; min-width: 0; }
+
+/* THE TWO COLUMNS — tasks and planning, under the rule of time. Wide, they are a
+   row; narrow, a rail of full-width panes. One layout to reason about, not two. */
+.pages__track {
+  max-width: 1160px;
+  margin: 0 auto;
+  padding: 0 20px;
+}
+@media (min-width: 1000px) {
+  .pages__track {
+    display: grid;
+    grid-template-columns: minmax(0, 1.12fr) minmax(0, 1fr);
+    gap: 48px 52px;
+    align-items: start;
+    width: auto;
+    padding: 0 32px;
+    transform: none;   /* the rail only slides where the panes are stacked */
+  }
+  /* An objective is a two-column workspace beside the single task column. The
+     overall rail consequently grows from two column-units to three. */
+  .pages__track.is-goal-open {
+    max-width: 1680px;
+    grid-template-columns: minmax(300px, 1fr) minmax(0, 2fr);
+  }
+}
+/* narrow: one pane at a time, swiped left and right */
+@media (max-width: 999px) {
+  .pages__track { width: 200%; max-width: none; padding: 0; }
+  .app__col {
+    flex: 0 0 50%;
+    max-width: 50%;
+    padding: 0 20px;
+  }
+}
+
+/* THE DAY, ABOVE THE RULE — the calendar stands alone in the centre. */
+.day-column {
+  max-width: 1160px;
+  margin: 0 auto 26px;
+  padding: 0 20px;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+@media (min-width: 1000px) {
+  .day-column {
+    max-width: 1320px;
+    padding: 0 32px;
+    margin-bottom: 36px;
+  }
+  .day-column .day-row { grid-template-columns: minmax(720px, 900px); }
+}
+.day-row {
+  display: grid;
+  grid-template-columns: minmax(0, 340px);
+  justify-content: center;
+  min-width: 0;
+}
+.day-row__cal { width: 100%; max-width: 100%; }
+
+/* An event's editor puts the ring beside the notes and the buttons rather than
+   under them: the room is already there, and stacking it would make the panel
+   taller for a control that is only a circle. */
+.detail__body.has-dial {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  column-gap: 20px;
+  align-items: start;
+}
+.detail__body.has-dial > .detail__section,
+.detail__body.has-dial > .detail__actions { grid-column: 1; margin-top: 0; }
+.detail__body.has-dial > .detail__actions { margin-top: 18px; }
+/* span 2, not 1/-1: with no explicit rows declared, -1 resolves to the start of
+   the grid and the ring would span nothing. An event shows notes then actions. */
+.detail__body.has-dial > #timeSection {
+  grid-column: 2;
+  grid-row: 1 / span 2;
+  align-self: center;
+  margin-top: 0;
+}
+
+/* THE DIAL — the hour is turned, not typed. Twenty-four marks like everything
+   else here, so noon sits at the bottom and the day reads round once. The readout
+   above is the control: the half you press is the half the ring is turning. */
+.dial { display: flex; flex-direction: column; align-items: center; gap: 10px; }
+/* the day the ring belongs to, above the hour it sets */
+.dial__date {
+  font-size: .8rem;
+  font-weight: 600;
+  color: var(--muted);
+  text-align: center;
+  line-height: 1.2;
+}
+.dial__readout {
+  display: flex;
+  align-items: baseline;
+  gap: 2px;
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+  font-size: 1.6rem;
+  font-weight: 600;
+  letter-spacing: -.03em;
+  line-height: 1;
+}
+.dial__unit {
+  border: none;
+  background: none;
+  font: inherit;
+  color: var(--muted);
+  padding: 2px 4px;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: color .2s ease, background .2s ease, text-shadow .3s ease;
+}
+.dial__unit.is-on {
+  color: var(--sig-line);
+  background: color-mix(in srgb, var(--c-sig) 12%, transparent);
+  text-shadow: 0 0 16px var(--sig-glow);
+}
+.dial__colon { color: var(--muted); opacity: .5; }
+
+.dial__face {
+  width: 150px;
+  max-width: 100%;
+  aspect-ratio: 1;
+  touch-action: none;   /* the ring takes the drag, the page does not scroll under it */
+  cursor: pointer;
+  overflow: visible;
+}
+.dial__track {
+  fill: color-mix(in srgb, var(--c-surface) 30%, transparent);
+  stroke: var(--item-border);
+  stroke-width: 1;
+}
+.dial__num {
+  font-family: var(--mono);
+  font-size: 11px;
+  font-weight: 600;
+  fill: var(--muted);
+  text-anchor: middle;
+  dominant-baseline: central;
+  pointer-events: none;
+  transition: fill .2s ease;
+}
+.dial__num.is-on { fill: var(--sig-ink); }
+.dial__dot { fill: color-mix(in srgb, var(--muted) 45%, transparent); pointer-events: none; }
+.dial__hand {
+  stroke: var(--sig-line);
+  stroke-width: 2;
+  stroke-linecap: round;
+  opacity: .55;
+  pointer-events: none;
+}
+.dial__knob {
+  fill: var(--sig-line);
+  filter: drop-shadow(0 0 8px var(--sig-glow));
+  pointer-events: none;
+}
+.dial__arm {
+  pointer-events: none;
+  transition: transform .2s cubic-bezier(.3, 0, .2, 1);
+}
+.dial__pivot { fill: var(--muted); opacity: .6; pointer-events: none; }
+
+/* the editor opened from a timeline event */
+.day-fold:empty { display: none; }
+.day-fold .unfold__inner { padding-top: 4px; }
+
+/* narrow: the grid takes the width back and the squares run under it */
+@media (max-width: 720px) {
+  .day-row { grid-template-columns: minmax(0, 1fr); }
+  .day-row__cal { width: 100%; }
+}
+
+/* which pane is on show, for a thumb that has nothing else to go by */
+.pane-dots {
+  position: fixed;
+  left: 50%;
+  bottom: calc(14px + env(safe-area-inset-bottom));
+  transform: translateX(-50%);
+  z-index: 15;
+  display: flex;
+  gap: 7px;
+  padding: 7px 11px;
+  border-radius: 999px;
+  background: var(--surface);
+  backdrop-filter: blur(14px) saturate(130%);
+  box-shadow: var(--shadow);
+}
+.pane-dot {
+  width: 7px; height: 7px;
+  padding: 0;
+  border: none;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--muted) 45%, transparent);
+  cursor: pointer;
+  transition: background .2s ease, transform .2s ease;
+}
+.pane-dot.is-on { background: var(--accent); transform: scale(1.25); }
+@media (min-width: 1000px) { .pane-dots { display: none; } }
+body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: none; }
+
+/* the habit tiles in the planning column: square, as many per row as fit, the
+   empty "+" slot always last */
+.habit-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(74px, 1fr));
+  gap: 10px;
+}
 .habit {
   position: relative;
   aspect-ratio: 1;
@@ -1948,6 +2728,16 @@ body:has(.welcome:not(.is-leaving)) .pageflip { opacity: 0; pointer-events: none
   white-space: nowrap;
 }
 .item__due.is-overdue { background: rgba(210, 120, 120, 0.18); color: #d08a8a; }
+/* under a head that already names the day, the badge is a bare hour: it reads
+   as a time on the row rather than as another label */
+.item__due--time {
+  background: none;
+  color: var(--muted);
+  padding: 3px 2px;
+  font-size: .78rem;
+}
+.item__due--time:hover { color: var(--accent); }
+.item__due--time.is-overdue { background: none; color: #d08a8a; }
 
 /* calendar picker */
 .cal__head {
@@ -2244,53 +3034,32 @@ body:has(.welcome:not(.is-leaving)) .pageflip { opacity: 0; pointer-events: none
 }
 
 /* an unfolded object reads as one piece, its editor sitting inside it */
-.item.is-open,
-.day-event.is-open { border-color: color-mix(in srgb, var(--accent) 55%, transparent); }
+.item.is-open { border-color: color-mix(in srgb, var(--accent) 55%, transparent); }
 /* Open, the row header becomes the editor's identity line: the static label and
    every badge that the line already carries step aside, so nothing is written
    twice and the top strip becomes editable. */
-.item__slot,
-.day-event__slot { display: none; }
-.item.is-open > .item__slot,
-.day-event.is-open > .day-event__slot { display: block; flex: 1; min-width: 0; }
+.item__slot { display: none; }
+.item.is-open > .item__slot { display: block; flex: 1; min-width: 0; }
 .item.is-open > .item__text,
 .item.is-open > .item__ico,
-.item.is-open > .item__due,
-.item.is-open > .item__pin,
-.item.is-open > .item__note,
-.item.is-open > .item__sub,
-.item.is-open > .imp,
-.day-event.is-open > .day-event__title,
-.day-event.is-open > .day-event__ico,
-.day-event.is-open > .day-event__time,
-.day-event.is-open > .day-event__bell { display: none; }
+.item.is-open > .item__meta { display: none; }
 
 /* the identity line, sized for a row rather than for a dialog header */
-.item__slot .detail__titlerow,
-.day-event__slot .detail__titlerow { gap: 10px; }
+.item__slot .detail__titlerow { gap: 10px; }
 .unfold__inner ~ * .detail__name,
-.item__slot .detail__name,
-.day-event__slot .detail__name {
+.item__slot .detail__name {
   font-size: 1rem;
   padding: 2px 0;
   border-bottom-width: 1px;
 }
-.item__slot .detail__icon,
-.day-event__slot .detail__icon { width: 30px; height: 30px; border-radius: 9px; }
-.item__slot .detail__icon svg,
-.day-event__slot .detail__icon svg { width: 18px; height: 18px; }
+.item__slot .detail__icon { width: 30px; height: 30px; border-radius: 9px; }
+.item__slot .detail__icon svg { width: 18px; height: 18px; }
 .item__slot .detail__date,
 .item__slot .detail__pin,
-.item__slot .detail__back,
-.day-event__slot .detail__date,
-.day-event__slot .detail__pin,
-.day-event__slot .detail__back { width: 30px; height: 30px; border-radius: 9px; }
+.item__slot .detail__back { width: 30px; height: 30px; border-radius: 9px; }
 .item__slot .detail__date svg,
 .item__slot .detail__pin svg,
-.item__slot .detail__back svg,
-.day-event__slot .detail__date svg,
-.day-event__slot .detail__pin svg,
-.day-event__slot .detail__back svg { width: 17px; height: 17px; }
+.item__slot .detail__back svg { width: 17px; height: 17px; }
 .detail__imp { display: inline-flex; flex: 0 0 auto; }
 .detail__imp:empty { display: none; }
 .detail__back[hidden] { display: none; }
@@ -2451,9 +3220,13 @@ body:has(.welcome:not(.is-leaving)) .pageflip { opacity: 0; pointer-events: none
 .detail__date.is-set { color: var(--accent); opacity: 1; }
 .detail__date svg { width: 22px; height: 22px; }
 .detail__name {
-  flex: 1;
+  /* Keep the editable title compact: the rest of the identity row remains a
+     clear target for closing the fold instead of becoming one large input. */
+  flex: 0 1 clamp(132px, 38vw, 300px);
   min-width: 0;
-  width: 100%;
+  width: clamp(132px, 38vw, 300px);
+  max-width: 100%;
+  margin-right: auto;
   border: none;
   border-bottom: 2px solid transparent;
   background: none;
@@ -2667,6 +3440,26 @@ body:has(.welcome:not(.is-leaving)) .pageflip { opacity: 0; pointer-events: none
   padding: 4px 0 0;
   margin-bottom: 84px;
 }
+.day-line__stage { position: relative; }
+.day-line__stage.is-day-sliding {
+  overflow: hidden;
+  pointer-events: none;
+}
+.day-line__stage.is-day-dragging { overflow: hidden; }
+.day-line__rail {
+  transition: transform .48s cubic-bezier(.22, .8, .25, 1);
+}
+.day-line__rail--ghost {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  pointer-events: none;
+}
+.quick--event {
+  max-width: 620px;
+  margin: 18px auto 0;
+  padding: 0 20px;
+}
 
 
 /* WEATHER GRAPH (modal) */
@@ -2696,7 +3489,14 @@ body:has(.welcome:not(.is-leaving)) .pageflip { opacity: 0; pointer-events: none
 .wx-cross { stroke: var(--muted); stroke-width: 1; vector-effect: non-scaling-stroke; }
 .wx-cross-dot { fill: var(--accent); stroke: var(--surface); stroke-width: 2; }
 
-.dtl { position: relative; height: 62px; }
+.dtl {
+  position: relative;
+  height: 78px;
+  transition: filter .16s ease;
+}
+.dtl.is-task-target {
+  filter: drop-shadow(0 0 10px color-mix(in srgb, var(--accent) 42%, transparent));
+}
 /* dragging the rule is opt-in, from Settings > Personalisation */
 .dtl.is-scrubbable { cursor: grab; touch-action: pan-y; }
 .dtl.is-scrubbable.is-scrubbing { cursor: grabbing; }
@@ -2709,6 +3509,18 @@ body:has(.welcome:not(.is-leaving)) .pageflip { opacity: 0; pointer-events: none
   border-radius: 2px;
   -webkit-mask-image: linear-gradient(90deg, transparent, #000 6%, #000 94%, transparent);
           mask-image: linear-gradient(90deg, transparent, #000 6%, #000 94%, transparent);
+}
+/* the rule sheds a little of its own light downwards, in its own colours: the
+   gradient is set inline from the sky ramp, so the bloom inherits it */
+.dtl__strip::after {
+  content: "";
+  position: absolute;
+  inset: -5px 0 -7px;
+  border-radius: 8px;
+  background: inherit;
+  filter: blur(7px);
+  opacity: .5;
+  z-index: -1;
 }
 .dtl__markers { position: absolute; inset: 0; z-index: 1; pointer-events: none; }
 /* sunrise / sunset: a dot on the rule, a hairline stem, the reading above it */
@@ -2741,6 +3553,7 @@ body:has(.welcome:not(.is-leaving)) .pageflip { opacity: 0; pointer-events: none
   margin-bottom: -1.5px;   /* sits centred on the 2px rule */
   border-radius: 50%;
   background: var(--dtl-arc);
+  box-shadow: 0 0 6px color-mix(in srgb, var(--dtl-arc) 70%, transparent);
 }
 
 /* THE ONE LIGHT SOURCE — the present moment. Everything else on the rule is
@@ -2831,31 +3644,168 @@ body:has(.welcome:not(.is-leaving)) .pageflip { opacity: 0; pointer-events: none
   50%      { transform: translate(-50%, -50%) scale(1.14); opacity: 1; }
 }
 
-/* events: short strokes standing on the rule, under the sunrise stems */
-.dtl__eticks { position: absolute; left: 0; right: 0; bottom: 0; height: 16px; z-index: 2; pointer-events: none; }
-.dtl__etick {
+/* EVENTS — their icons float above the exact minute, tied down by the old
+   cubic filament and its lit foot. */
+.dtl__events {
+  position: absolute;
+  inset: 0;
+  z-index: 4;
+  pointer-events: none;
+}
+.dtl__event {
   position: absolute;
   bottom: 0;
   transform: translateX(-50%);
-  width: 12px; height: 14px;
-  border: none; background: none; padding: 0;
-  cursor: pointer;
+  width: 80px;
+  height: 74px;
+  border: none;
+  background: none;
+  padding: 0;
+  color: var(--sig-line);
+  cursor: grab;
   pointer-events: auto;
-  display: flex; align-items: flex-end; justify-content: center;
+  overflow: visible;
+  touch-action: none;
 }
-.dtl__etick-line {
-  width: 1.5px; height: 10px;
-  border-radius: 1px;
-  background: var(--text);
-  opacity: .6;
-  transition: opacity .15s ease, background .15s ease, height .15s ease;
-}
-.dtl__etick:hover .dtl__etick-line { opacity: 1; height: 13px; background: var(--accent); }
-.dtl__etick-tip {
+.dtl__event-filament {
   position: absolute;
-  bottom: calc(100% + 4px);
-  left: 50%;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+}
+.dtl__event-path {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  opacity: .55;
+  filter: drop-shadow(0 0 5px var(--sig-glow));
+  transition: opacity .18s ease, stroke-width .18s ease;
+}
+.dtl__event-foot {
+  fill: currentColor;
+  filter: drop-shadow(0 0 6px var(--sig-glow));
+}
+.dtl__event-icon {
+  position: absolute;
+  top: 0;
+  left: calc(50% + var(--event-shift, 0px));
   transform: translateX(-50%);
+  width: 32px;
+  height: 32px;
+  display: grid;
+  place-items: center;
+  border: 1px solid color-mix(in srgb, currentColor 48%, transparent);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--c-surface) 86%, transparent);
+  backdrop-filter: blur(8px);
+  box-shadow: 0 6px 18px -12px var(--sig-glow);
+  transition: transform .18s ease, border-color .18s ease, background .18s ease;
+}
+.dtl__event-icon svg { width: 18px; height: 18px; }
+.dtl__task { color: var(--accent); }
+.dtl__task--milestone-linked { color: var(--task-milestone-color); }
+.dtl__task--milestone-linked .dtl__event-icon {
+  border-color: color-mix(in srgb, var(--task-milestone-color) 58%, transparent);
+  background: color-mix(in srgb, var(--c-surface) 90%, var(--task-milestone-color) 10%);
+}
+.dtl__task.is-done:not(.is-dragging) {
+  color: var(--muted);
+  opacity: .5;
+}
+.dtl__task.dtl__task--milestone-linked.is-done:not(.is-dragging) {
+  color: color-mix(in srgb, var(--task-milestone-color) 46%, var(--muted));
+  opacity: .58;
+}
+.dtl__task.is-done .dtl__event-icon {
+  background: color-mix(in srgb, var(--accent-soft) 42%, var(--c-surface));
+}
+.dtl__drop-preview {
+  z-index: 9;
+  pointer-events: none;
+  color: var(--accent);
+  opacity: 1;
+  transition: left .08s linear;
+}
+.dtl__drop-preview .dtl__event-icon {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  transform: translateX(-50%) translateY(-4px) scale(1.06);
+}
+.dtl__drop-preview .dtl__event-path {
+  opacity: 1;
+  stroke-width: 1.8;
+}
+.dtl__drop-preview .dtl__event-tip {
+  opacity: 1;
+  visibility: visible;
+  transform: translateX(-50%) translateY(0);
+}
+.dtl__trash {
+  position: absolute;
+  left: 50%;
+  top: calc(100% + 55px);
+  z-index: 14;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  min-height: 38px;
+  padding: 8px 13px;
+  color: var(--muted);
+  background: color-mix(in srgb, var(--surface) 91%, transparent);
+  border: 1px dashed color-mix(in srgb, var(--muted) 48%, transparent);
+  border-radius: 12px;
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(10px);
+  pointer-events: none;
+  transform: translate(-50%, -50%) scale(.92);
+  animation: timeline-trash-in .16s ease forwards;
+  transition: color .14s ease, border-color .14s ease, background .14s ease,
+              box-shadow .14s ease;
+}
+.dtl__trash[hidden] { display: none; }
+.dtl__trash svg { width: 17px; height: 17px; }
+.dtl__trash span {
+  font-size: .72rem;
+  font-weight: 600;
+  white-space: nowrap;
+}
+.dtl__trash.is-active {
+  color: var(--danger);
+  border-color: var(--danger);
+  background: color-mix(in srgb, var(--danger) 13%, var(--surface));
+  box-shadow: 0 0 22px color-mix(in srgb, var(--danger) 28%, transparent);
+}
+@keyframes timeline-trash-in {
+  to { transform: translate(-50%, -50%) scale(1); }
+}
+.dtl__add {
+  z-index: 5;
+  color: var(--muted);
+  cursor: pointer;
+  transition: left .28s cubic-bezier(.22, .8, .25, 1);
+}
+.dtl__add .dtl__event-icon {
+  border-style: dashed;
+  background: color-mix(in srgb, var(--c-surface) 68%, transparent);
+}
+.dtl__add-icon {
+  font: inherit;
+  font-size: 1.25rem;
+  font-weight: 500;
+  line-height: 1;
+}
+.dtl__add .dtl__event-path {
+  stroke-dasharray: 3 3;
+  opacity: .42;
+}
+.dtl__event-tip {
+  position: absolute;
+  top: -30px;
+  left: calc(50% + var(--event-shift, 0px));
+  transform: translateX(-50%) translateY(3px);
   white-space: nowrap;
   background: var(--surface);
   color: var(--text);
@@ -2866,10 +3816,71 @@ body:has(.welcome:not(.is-leaving)) .pageflip { opacity: 0; pointer-events: none
   font-size: .72rem;
   opacity: 0;
   visibility: hidden;
-  transition: opacity .15s ease;
+  transition: opacity .15s ease, transform .15s ease;
   z-index: 6;
 }
-.dtl__etick:hover .dtl__etick-tip { opacity: 1; visibility: visible; }
+.dtl__event:hover .dtl__event-icon,
+.dtl__event:focus-visible .dtl__event-icon {
+  transform: translateX(-50%) translateY(-2px);
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+.dtl__event:hover .dtl__event-path,
+.dtl__event:focus-visible .dtl__event-path { opacity: .9; stroke-width: 1.8; }
+.dtl__event:hover .dtl__event-tip,
+.dtl__event:focus-visible .dtl__event-tip {
+  opacity: 1;
+  visibility: visible;
+  transform: translateX(-50%) translateY(0);
+}
+.dtl__event.is-dragging {
+  cursor: grabbing;
+  opacity: 1;
+  z-index: 8;
+}
+.dtl__event.is-dragging .dtl__event-icon {
+  transform: translateX(-50%) translateY(-4px) scale(1.06);
+  border-color: var(--accent);
+  background: var(--accent-soft);
+}
+.dtl__event.is-dragging .dtl__event-path {
+  opacity: 1;
+  stroke-width: 1.8;
+}
+.dtl__event.is-dragging .dtl__event-tip {
+  display: block;
+  opacity: 1;
+  visibility: visible;
+  transform: translateX(-50%) translateY(0);
+}
+.dtl__event.is-delete-target {
+  color: var(--danger);
+  z-index: 16;
+}
+.dtl__event.is-delete-target .dtl__event-icon {
+  transform: translateX(-50%) translateY(-4px) scale(.88);
+  border-color: var(--danger);
+  background: color-mix(in srgb, var(--danger) 14%, var(--surface));
+}
+.dtl__event.is-delete-target .dtl__event-path {
+  opacity: .22;
+  stroke-dasharray: 3 4;
+}
+.dtl__event.is-undate-target .dtl__event-icon {
+  border-color: var(--accent);
+  background: var(--accent-soft);
+  transform: translateX(-50%) translateY(-4px) scale(.92);
+}
+.dtl__event.is-undate-target .dtl__event-path {
+  opacity: .24;
+  stroke-dasharray: 2 4;
+}
+.dtl__event.is-important { color: var(--danger); }
+.dtl__event.is-past:not(.is-dragging) { opacity: .48; }
+
+@media (max-width: 720px) {
+  .dtl__event-tip { display: none; }
+}
 
 /* the rule below the line: a tick every hour, taller and labelled every three.
    Positions are absolute so they stay true across the full-width strip. */
@@ -2883,17 +3894,19 @@ body:has(.welcome:not(.is-leaving)) .pageflip { opacity: 0; pointer-events: none
 .dtl__tick {
   position: absolute;
   top: 0;
-  width: 1px; height: 3px;
+  width: 1px; height: 4px;
   transform: translateX(-50%);
-  background: var(--muted);
-  opacity: .3;
+  /* hanging hairlines rather than printed bars: they fade out downwards */
+  background: linear-gradient(to bottom, var(--muted), transparent);
+  opacity: .34;
 }
-.dtl__tick.is-major { height: 6px; opacity: .5; }
+.dtl__tick.is-major { height: 8px; opacity: .55; }
 /* midnight: a taller mark carrying the date of the day that starts there */
 .dtl__tick.is-day-break {
-  height: 10px;
-  opacity: .75;
-  background: var(--accent);
+  height: 12px;
+  opacity: .9;
+  background: linear-gradient(to bottom, var(--sig), transparent);
+  box-shadow: 0 0 7px var(--sig-glow);
 }
 .dtl__tick-label.is-day-break {
   color: var(--accent);
@@ -2902,7 +3915,7 @@ body:has(.welcome:not(.is-leaving)) .pageflip { opacity: 0; pointer-events: none
 }
 .dtl__tick-label {
   position: absolute;
-  top: 11px;
+  top: 13px;
   transform: translateX(-50%);
   font-size: .64rem;
   color: var(--muted);
@@ -2912,7 +3925,6 @@ body:has(.welcome:not(.is-leaving)) .pageflip { opacity: 0; pointer-events: none
 /* numbers read as instrument values, words stay in the reading face */
 .dtl__marker-time,
 .dtl__tick-label,
-.day-event__time,
 .item__due,
 .ring__label,
 .tgroup__count {
@@ -2936,49 +3948,61 @@ body:has(.welcome:not(.is-leaving)) .pageflip { opacity: 0; pointer-events: none
 }
 .city-result:hover { border-color: var(--accent); background: var(--accent-soft); }
 
-/* the day's events as rectangular rows under the gauge */
-.day-events { display: flex; flex-direction: column; gap: 8px; margin-top: 16px; }
-.day-events:empty { margin-top: 8px; }   /* the add line carries the other half */
-.day-event {
-  position: relative;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 0 12px;
-  width: 100%;
-  touch-action: pan-y;
-  text-align: left;
-  padding: 12px 14px;
-  border: 1px solid var(--item-border);
-  border-radius: var(--r-md);
-  background: var(--input-bg);
-  color: var(--text);
-  cursor: pointer;
-  transition: border-color .2s ease, background .2s ease;
-}
-.day-event:hover { border-color: var(--accent); }
-.day-event__ico { flex: 0 0 auto; width: 24px; height: 24px; color: var(--accent); display: grid; place-items: center; }
-.day-event__ico svg { width: 22px; height: 22px; }
-.day-event__title { flex: 1; min-width: 0; font-size: .95rem; word-break: break-word; }
-.day-event__time { flex: 0 0 auto; font-size: .82rem; color: var(--muted); font-variant-numeric: tabular-nums; }
-.day-event__bell { flex: 0 0 auto; color: var(--danger); display: flex; }
-.day-event__bell svg { width: 16px; height: 16px; }
-.day-event.is-past .day-event__ico,
-.day-event.is-past .day-event__title,
-.day-event.is-past .day-event__time { color: var(--muted); }
-.day-event.is-important { border-color: var(--danger); background: color-mix(in srgb, var(--danger) 10%, var(--input-bg)); }
-.day-event.is-important .day-event__ico { color: var(--danger); }
-
 /* EVENTS CALENDAR (main view) */
-/* Enough of a boundary to hold the grid together, far less than a panel: a
-   pane of glass rather than a surface. The cells get their own faint fill so
-   the grid reads as a grid instead of numbers floating in space. */
+/* THE PANE — a sheet of glass lit from above, not a panel. Four layers, and none
+   of them is a flat border: a wash that thins out downward, the theme's signature
+   pooled in the top corner, a hairline contour that dissolves before it reaches
+   the bottom, and one specular glint across the top edge. Every colour comes from
+   the theme's own sources, so the pane belongs to whatever hour is set. */
 .ecal {
+  position: relative;
   padding: 14px 14px 6px;
-  border: 1px solid var(--item-border);
+  border: none;
   border-radius: var(--radius);
-  background: color-mix(in srgb, var(--c-surface) 18%, transparent);
-  backdrop-filter: blur(8px);
+  background:
+    radial-gradient(120% 88% at 14% -12%,
+      color-mix(in srgb, var(--c-sig) 13%, transparent), transparent 62%),
+    linear-gradient(180deg,
+      color-mix(in srgb, var(--c-surface) 30%, transparent) 0%,
+      color-mix(in srgb, var(--c-surface) 17%, transparent) 46%,
+      color-mix(in srgb, var(--c-surface) 7%, transparent) 100%);
+  backdrop-filter: blur(10px) saturate(115%);
+  /* a pool rather than a card shadow: wide, offset, almost gone */
+  box-shadow: 0 12px 28px -18px
+    color-mix(in srgb, var(--c-sky-3) calc(var(--c-shade) * 90%), transparent);
+}
+/* The contour, drawn as a real 1px ring so it can carry a gradient and still
+   follow the corner radius — a border cannot do both. Brightest where the light
+   lands, faded to nothing by the bottom right. */
+.ecal::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  padding: 1px;
+  background: linear-gradient(158deg,
+    color-mix(in srgb, var(--c-line) 92%, transparent) 0%,
+    color-mix(in srgb, var(--c-line) 54%, transparent) 24%,
+    color-mix(in srgb, var(--c-line) 22%, transparent) 56%,
+    transparent 86%);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor;
+  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  mask-composite: exclude;
+  pointer-events: none;
+}
+/* the glint: one bright hairline along the top, gone at both corners. This is
+   what reads as an edge of glass instead of the top side of a box. */
+.ecal::after {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 14%; right: 14%;
+  height: 1px;
+  background: linear-gradient(90deg, transparent,
+    color-mix(in srgb, var(--c-sig) 60%, transparent) 50%, transparent);
+  opacity: .55;
+  pointer-events: none;
 }
 .ecal__head {
   display: flex;
@@ -2986,12 +4010,34 @@ body:has(.welcome:not(.is-leaving)) .pageflip { opacity: 0; pointer-events: none
   justify-content: space-between;
   margin-bottom: 12px;
 }
+.ecal__title {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-width: 0;
+}
 .ecal__month {
   font-size: 1.05rem;
   font-weight: 600;
   color: var(--text);
   text-transform: capitalize;
 }
+/* the way back to today, next to the month it left */
+.ecal__back {
+  flex: 0 0 auto;
+  width: 26px; height: 26px;
+  border: none;
+  border-radius: 8px;
+  background: var(--accent-soft);
+  color: var(--accent);
+  cursor: pointer;
+  display: grid; place-items: center;
+  animation: fadeUp .25s ease both;
+  transition: background .2s ease;
+}
+.ecal__back:hover { background: var(--accent-hover); }
+.ecal__back svg { width: 15px; height: 15px; }
+.ecal__back[hidden] { display: none; }
 .ecal__nav {
   width: 34px; height: 34px;
   border: none;
@@ -3005,9 +4051,8 @@ body:has(.welcome:not(.is-leaving)) .pageflip { opacity: 0; pointer-events: none
   transition: background .2s ease, color .2s ease;
 }
 .ecal__nav:hover { background: var(--accent-soft); color: var(--accent); }
-/* the viewport is only clipped while the month unfolds, so the hover previews
-   can overflow freely once it has settled */
 .ecal__viewport { transition: height .45s cubic-bezier(.2, .8, .25, 1); }
+.ecal__viewport.is-week-sliding { position: relative; }
 .ecal__grid {
   display: grid;
   grid-template-columns: repeat(7, 1fr);
@@ -3015,6 +4060,12 @@ body:has(.welcome:not(.is-leaving)) .pageflip { opacity: 0; pointer-events: none
 }
 /* the grid slides so the shared week travels to its row rather than jumping */
 .ecal__grid { transition: transform .48s cubic-bezier(.22, .8, .25, 1); }
+.ecal__grid--ghost {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  pointer-events: none;
+}
 /* the other rows drop in behind it, one after another from the top */
 .ecal__day.is-unfolding { animation: cal-row-in .4s cubic-bezier(.22, .8, .25, 1) both; }
 @keyframes cal-row-in {
@@ -3049,26 +4100,67 @@ body:has(.welcome:not(.is-leaving)) .pageflip { opacity: 0; pointer-events: none
   color: var(--muted);
   padding-bottom: 6px;
 }
-.ecal__pad { aspect-ratio: 1; }
 .ecal__day {
   position: relative;
   aspect-ratio: 1;
   border: none;
-  background: color-mix(in srgb, var(--c-surface) 26%, transparent);
+  background: var(--cell-fill);
   color: var(--text);
   font-size: .9rem;
   border-radius: var(--r-sm);
   cursor: pointer;
   display: grid;
   place-items: center;
-  transition: background .18s ease, color .18s ease;
+  transition: background .18s ease, color .18s ease, opacity .3s ease,
+              transform .44s cubic-bezier(.22, .8, .25, 1);
 }
 .ecal__day:hover { background: var(--accent-soft); }
+/* TODAY — the earlier translucent centre tint, now reserved for the real day.
+   It keeps identifying today after another date has moved into the large centre
+   position, without bringing the mosaic back. */
 .ecal__day.is-today {
-  background: var(--sig);
-  color: var(--sig-ink);
+  background: color-mix(in srgb, var(--accent) 10%, var(--cell-fill));
+  color: var(--text);
+  font-weight: 700;
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--c-line) 38%, transparent),
+    0 15px 34px -24px var(--sig-glow);
+  z-index: 2;
+}
+.ecal__day.is-today:hover {
+  background: color-mix(in srgb, var(--accent) 18%, var(--cell-fill));
+}
+.ecal__day.is-today::before,
+.ecal__day.is-today::after {
+  content: none;
+}
+
+/* ETOILE — the same frame pulled in to two thirds of a period, so the star fills
+   the cell and the surrounding bands are cropped. */
+[data-glass="etoile"] {
+  --glass-cut: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' preserveAspectRatio='none'><g fill='white'><path fill-opacity='0.86' d='M50 -24L33 -6L-18 -6L-24 -0L-29 -6L-80 -6L-97 -24L-80 -41L-29 -41L-24 -47L-18 -41L33 -41Z'/><path fill-opacity='0.73' d='M197 -24L180 -6L129 -6L124 -0L118 -6L67 -6L50 -24L67 -41L118 -41L124 -47L129 -41L180 -41Z'/><path fill-opacity='0.82' d='M-24 50L-41 33L-41 -18L-47 -24L-41 -29L-41 -80L-24 -97L-6 -80L-6 -29L-0 -24L-6 -18L-6 33Z'/><path fill-opacity='0.78' d='M124 50L106 33L106 -18L100 -24L106 -29L106 -80L124 -97L141 -80L141 -29L147 -24L141 -18L141 33Z'/><path fill-opacity='0.69' d='M50 124L33 141L-18 141L-24 147L-29 141L-80 141L-97 124L-80 106L-29 106L-24 100L-18 106L33 106Z'/><path fill-opacity='0.62' d='M197 124L180 141L129 141L124 147L118 141L67 141L50 124L67 106L118 106L124 100L129 106L180 106Z'/><path fill-opacity='0.78' d='M-24 197L-41 180L-41 129L-47 124L-41 118L-41 67L-24 50L-6 67L-6 118L-0 124L-6 129L-6 180Z'/><path fill-opacity='0.57' d='M124 197L106 180L106 129L100 124L106 118L106 67L124 50L141 67L141 118L147 124L141 129L141 180Z'/><path fill-opacity='0.04' d='M67 33L67 43L102 77L95 85L95 95L85 95L77 102L43 67L33 67L33 57L-2 23L5 15L5 5L15 5L23 -2L57 33Z'/><path fill-opacity='0.05' d='M33 33L43 33L77 -2L85 5L95 5L95 15L102 23L67 57L67 67L57 67L23 102L15 95L5 95L5 85L-2 77L33 43Z'/><path fill-opacity='0.05' d='M61 39L61 45L83 68L79 72L79 79L72 79L68 83L45 61L39 61L39 55L17 32L21 28L21 21L28 21L32 17L55 39Z'/><path fill-opacity='0.05' d='M39 39L45 39L68 17L72 21L79 21L79 28L83 32L61 55L61 61L55 61L32 83L28 79L21 79L21 72L17 68L39 45Z'/><path fill-opacity='0.05' d='M97 50L86 61L54 61L50 65L46 61L14 61L3 50L14 39L46 39L50 35L54 39L86 39Z'/><path fill-opacity='0.05' d='M50 97L39 86L39 54L35 50L39 46L39 14L50 3L61 14L61 46L65 50L61 54L61 86Z'/></g></svg>");
+  --glass-edges: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' preserveAspectRatio='none'><g fill='none' stroke='white' stroke-width='0.7' stroke-linecap='round' stroke-opacity='.62'><path d='M50 -24L33 -6'/><path d='M33 -6L-18 -6'/><path d='M-18 -6L-24 -0'/><path d='M124 -0L118 -6'/><path d='M118 -6L67 -6'/><path d='M67 -6L50 -24'/><path d='M-0 -24L-6 -18'/><path d='M-6 -18L-6 33'/><path d='M-6 33L-24 50'/><path d='M124 50L106 33'/><path d='M106 33L106 -18'/><path d='M106 -18L100 -24'/><path d='M-24 100L-18 106'/><path d='M-18 106L33 106'/><path d='M33 106L50 124'/><path d='M50 124L67 106'/><path d='M67 106L118 106'/><path d='M118 106L124 100'/><path d='M-24 50L-6 67'/><path d='M-6 67L-6 118'/><path d='M-6 118L-0 124'/><path d='M100 124L106 118'/><path d='M106 118L106 67'/><path d='M106 67L124 50'/><path stroke-opacity='0.04' d='M67 33L67 43'/><path stroke-opacity='0.04' d='M67 43L76 51'/><path stroke-opacity='0.14' d='M76 51L80 56'/><path stroke-opacity='0.33' d='M80 56L85 60'/><path stroke-opacity='0.52' d='M85 60L89 64'/><path stroke-opacity='0.62' d='M89 64L102 77'/><path d='M102 77L95 85'/><path d='M95 85L95 95'/><path d='M95 95L85 95'/><path d='M85 95L77 102'/><path stroke-opacity='0.62' d='M77 102L56 80'/><path stroke-opacity='0.51' d='M56 80L51 76'/><path stroke-opacity='0.31' d='M51 76L47 72'/><path stroke-opacity='0.12' d='M47 72L43 67'/><path stroke-opacity='0.06' d='M43 67L33 67'/><path stroke-opacity='0.04' d='M33 67L33 57'/><path stroke-opacity='0.04' d='M33 57L24 49'/><path stroke-opacity='0.14' d='M24 49L20 44'/><path stroke-opacity='0.33' d='M20 44L15 40'/><path stroke-opacity='0.52' d='M15 40L11 36'/><path stroke-opacity='0.62' d='M11 36L-2 23'/><path d='M-2 23L5 15'/><path d='M5 15L5 5'/><path d='M5 5L15 5'/><path d='M15 5L23 -2'/><path stroke-opacity='0.62' d='M23 -2L44 20'/><path stroke-opacity='0.51' d='M44 20L49 24'/><path stroke-opacity='0.31' d='M49 24L53 28'/><path stroke-opacity='0.12' d='M53 28L57 33'/><path stroke-opacity='0.06' d='M57 33L67 33'/><path stroke-opacity='0.06' d='M33 33L43 33'/><path stroke-opacity='0.12' d='M43 33L47 28'/><path stroke-opacity='0.31' d='M47 28L51 24'/><path stroke-opacity='0.51' d='M51 24L56 20'/><path stroke-opacity='0.62' d='M56 20L77 -2'/><path d='M77 -2L85 5'/><path d='M85 5L95 5'/><path d='M95 5L95 15'/><path d='M95 15L102 23'/><path stroke-opacity='0.62' d='M102 23L89 36'/><path stroke-opacity='0.52' d='M89 36L85 40'/><path stroke-opacity='0.33' d='M85 40L80 44'/><path stroke-opacity='0.14' d='M80 44L76 49'/><path stroke-opacity='0.04' d='M76 49L67 57'/><path stroke-opacity='0.04' d='M67 57L67 67'/><path stroke-opacity='0.06' d='M67 67L57 67'/><path stroke-opacity='0.12' d='M57 67L53 72'/><path stroke-opacity='0.31' d='M53 72L49 76'/><path stroke-opacity='0.51' d='M49 76L44 80'/><path stroke-opacity='0.62' d='M44 80L23 102'/><path d='M23 102L15 95'/><path d='M15 95L5 95'/><path d='M5 95L5 85'/><path d='M5 85L-2 77'/><path stroke-opacity='0.62' d='M-2 77L11 64'/><path stroke-opacity='0.52' d='M11 64L15 60'/><path stroke-opacity='0.33' d='M15 60L20 56'/><path stroke-opacity='0.14' d='M20 56L24 51'/><path stroke-opacity='0.04' d='M24 51L33 43'/><path stroke-opacity='0.04' d='M33 43L33 33'/><path stroke-opacity='0.04' d='M61 39L61 45'/><path stroke-opacity='0.04' d='M61 45L74 59'/><path stroke-opacity='0.09' d='M74 59L79 63'/><path stroke-opacity='0.26' d='M79 63L83 68'/><path stroke-opacity='0.32' d='M83 68L79 72'/><path stroke-opacity='0.44' d='M79 72L79 79'/><path stroke-opacity='0.53' d='M79 79L72 79'/><path stroke-opacity='0.59' d='M72 79L68 83'/><path stroke-opacity='0.6' d='M68 83L63 79'/><path stroke-opacity='0.44' d='M63 79L59 74'/><path stroke-opacity='0.23' d='M59 74L54 70'/><path stroke-opacity='0.07' d='M54 70L50 66'/><path stroke-opacity='0.04' d='M50 66L45 61'/><path stroke-opacity='0.04' d='M45 61L39 61'/><path stroke-opacity='0.04' d='M39 61L39 55'/><path stroke-opacity='0.04' d='M39 55L26 41'/><path stroke-opacity='0.09' d='M26 41L21 37'/><path stroke-opacity='0.26' d='M21 37L17 32'/><path stroke-opacity='0.32' d='M17 32L21 28'/><path stroke-opacity='0.44' d='M21 28L21 21'/><path stroke-opacity='0.53' d='M21 21L28 21'/><path stroke-opacity='0.59' d='M28 21L32 17'/><path stroke-opacity='0.6' d='M32 17L37 21'/><path stroke-opacity='0.44' d='M37 21L41 26'/><path stroke-opacity='0.23' d='M41 26L46 30'/><path stroke-opacity='0.07' d='M46 30L50 34'/><path stroke-opacity='0.04' d='M50 34L55 39'/><path stroke-opacity='0.04' d='M55 39L61 39'/><path stroke-opacity='0.04' d='M39 39L45 39'/><path stroke-opacity='0.04' d='M45 39L50 34'/><path stroke-opacity='0.07' d='M50 34L54 30'/><path stroke-opacity='0.23' d='M54 30L59 26'/><path stroke-opacity='0.44' d='M59 26L63 21'/><path stroke-opacity='0.6' d='M63 21L68 17'/><path stroke-opacity='0.59' d='M68 17L72 21'/><path stroke-opacity='0.53' d='M72 21L79 21'/><path stroke-opacity='0.44' d='M79 21L79 28'/><path stroke-opacity='0.32' d='M79 28L83 32'/><path stroke-opacity='0.26' d='M83 32L79 37'/><path stroke-opacity='0.09' d='M79 37L74 41'/><path stroke-opacity='0.04' d='M74 41L61 55'/><path stroke-opacity='0.04' d='M61 55L61 61'/><path stroke-opacity='0.04' d='M61 61L55 61'/><path stroke-opacity='0.04' d='M55 61L50 66'/><path stroke-opacity='0.07' d='M50 66L46 70'/><path stroke-opacity='0.23' d='M46 70L41 74'/><path stroke-opacity='0.44' d='M41 74L37 79'/><path stroke-opacity='0.6' d='M37 79L32 83'/><path stroke-opacity='0.59' d='M32 83L28 79'/><path stroke-opacity='0.53' d='M28 79L21 79'/><path stroke-opacity='0.44' d='M21 79L21 72'/><path stroke-opacity='0.32' d='M21 72L17 68'/><path stroke-opacity='0.26' d='M17 68L21 63'/><path stroke-opacity='0.09' d='M21 63L26 59'/><path stroke-opacity='0.04' d='M26 59L39 45'/><path stroke-opacity='0.04' d='M39 45L39 39'/><path stroke-opacity='0.62' d='M97 50L92 56'/><path stroke-opacity='0.58' d='M92 56L86 61'/><path stroke-opacity='0.34' d='M86 61L80 61'/><path stroke-opacity='0.08' d='M80 61L73 61'/><path stroke-opacity='0.04' d='M73 61L54 61'/><path stroke-opacity='0.04' d='M54 61L50 65'/><path stroke-opacity='0.04' d='M50 65L46 61'/><path stroke-opacity='0.04' d='M46 61L27 61'/><path stroke-opacity='0.08' d='M27 61L20 61'/><path stroke-opacity='0.34' d='M20 61L14 61'/><path stroke-opacity='0.58' d='M14 61L8 56'/><path stroke-opacity='0.62' d='M8 56L3 50'/><path stroke-opacity='0.62' d='M3 50L8 44'/><path stroke-opacity='0.58' d='M8 44L14 39'/><path stroke-opacity='0.34' d='M14 39L20 39'/><path stroke-opacity='0.08' d='M20 39L27 39'/><path stroke-opacity='0.04' d='M27 39L46 39'/><path stroke-opacity='0.04' d='M46 39L50 35'/><path stroke-opacity='0.04' d='M50 35L54 39'/><path stroke-opacity='0.04' d='M54 39L73 39'/><path stroke-opacity='0.08' d='M73 39L80 39'/><path stroke-opacity='0.34' d='M80 39L86 39'/><path stroke-opacity='0.58' d='M86 39L92 44'/><path stroke-opacity='0.62' d='M92 44L97 50'/><path d='M50 97L39 86'/><path stroke-opacity='0.62' d='M39 86L39 80'/><path stroke-opacity='0.43' d='M39 80L39 73'/><path stroke-opacity='0.13' d='M39 73L39 67'/><path stroke-opacity='0.04' d='M39 67L39 54'/><path stroke-opacity='0.04' d='M39 54L35 50'/><path stroke-opacity='0.04' d='M35 50L39 46'/><path stroke-opacity='0.04' d='M39 46L39 33'/><path stroke-opacity='0.13' d='M39 33L39 27'/><path stroke-opacity='0.43' d='M39 27L39 20'/><path stroke-opacity='0.62' d='M39 20L39 14'/><path d='M39 14L50 3'/><path d='M50 3L61 14'/><path stroke-opacity='0.62' d='M61 14L61 20'/><path stroke-opacity='0.43' d='M61 20L61 27'/><path stroke-opacity='0.13' d='M61 27L61 33'/><path stroke-opacity='0.04' d='M61 33L61 46'/><path stroke-opacity='0.04' d='M61 46L65 50'/><path stroke-opacity='0.04' d='M65 50L61 54'/><path stroke-opacity='0.04' d='M61 54L61 67'/><path stroke-opacity='0.13' d='M61 67L61 73'/><path stroke-opacity='0.43' d='M61 73L61 80'/><path stroke-opacity='0.62' d='M61 80L61 86'/><path d='M61 86L50 97'/></g></svg>");
+}
+/* THE PICKED DAY — the one displayed by the timeline. A ring and nothing else:
+   selecting a day must not light it, that is the hover's job alone. Today is
+   left out, its own motif already says where it is. */
+.ecal__day.is-picked:not(.is-today) {
+  box-shadow: inset 0 0 0 2px var(--accent);
   font-weight: 600;
 }
+/* In the ribbon, position and size already identify the chosen day. Colour is
+   reserved for today; the ring remains useful only in the full month. */
+.ecal__grid.is-week .ecal__day.is-picked:not(.is-today) { box-shadow: none; }
+.ecal__grid.is-week.is-recentering {
+  pointer-events: none;
+  will-change: transform;
+}
+.ecal__grid.is-week .ecal__day { touch-action: pan-y; }
+.ecal__viewport.is-day-dragging {
+  cursor: grabbing;
+  user-select: none;
+}
+.ecal__viewport.is-day-dragging .ecal__day { cursor: grabbing; }
 /* one dot per event along the bottom: the day number stays the thing you read,
    the dots only say how full the day is */
 .ecal__dots {
@@ -3087,7 +4179,8 @@ body:has(.welcome:not(.is-leaving)) .pageflip { opacity: 0; pointer-events: none
   border-radius: 50%;
   background: color-mix(in srgb, var(--accent) 65%, transparent);
 }
-.ecal__day.is-today .ecal__dot { background: color-mix(in srgb, var(--sig-ink) 65%, transparent); }
+/* dots remain legible on today's translucent signature tint */
+.ecal__day.is-today .ecal__dot { background: color-mix(in srgb, var(--text) 60%, transparent); }
 /* an important event: just a red bell in the top-right corner (cell stays neutral) */
 .ecal__bell {
   position: absolute;
@@ -3098,58 +4191,136 @@ body:has(.welcome:not(.is-leaving)) .pageflip { opacity: 0; pointer-events: none
 }
 .ecal__bell svg { width: 12px; height: 12px; }
 
-/* hover preview of a day's events */
-.ecal__preview {
-  position: absolute;
-  bottom: calc(100% + 9px);
-  left: 50%;
-  min-width: 130px;
-  max-width: 210px;
-  padding: 9px 11px;
-  background: var(--surface);
-  border: 1px solid var(--border);
-  border-radius: 12px;
-  box-shadow: var(--shadow);
-  text-align: left;
-  z-index: 25;
-  opacity: 0;
-  visibility: hidden;
-  pointer-events: none;
-  transform: translateX(-50%) translateY(5px);
-  transition: opacity .18s ease, transform .18s ease;
+/* DESKTOP WEEK RIBBON — open on the page instead of trapped in a compact card.
+   Three days recede on either side of a larger centre, giving the calendar a
+   direction while keeping the app's translucent stone and signature light. */
+@media (min-width: 1000px) {
+  .ecal {
+    padding: 10px 8px 4px;
+    border-radius: 30px;
+  }
+  .ecal:not(.is-expanded) {
+    background: none;
+    box-shadow: none;
+    backdrop-filter: none;
+  }
+  .ecal:not(.is-expanded)::before { opacity: 0; }
+  .ecal:not(.is-expanded)::after {
+    top: 53px;
+    left: 7%;
+    right: 7%;
+    opacity: .28;
+  }
+  .ecal.is-expanded {
+    padding: 18px 20px 10px;
+    background:
+      radial-gradient(95% 75% at 50% -12%,
+        color-mix(in srgb, var(--c-sig) 11%, transparent), transparent 64%),
+      linear-gradient(180deg,
+        color-mix(in srgb, var(--c-surface) 27%, transparent),
+        color-mix(in srgb, var(--c-surface) 8%, transparent));
+  }
+  .ecal__head {
+    margin-bottom: 20px;
+    padding-inline: 12px;
+  }
+  .ecal__month {
+    font-size: 1.22rem;
+    letter-spacing: -.015em;
+  }
+  .ecal__nav {
+    width: 42px;
+    height: 42px;
+    font-size: 1.55rem;
+    border-radius: 14px;
+  }
+  .ecal__grid.is-week {
+    grid-template-columns:
+      repeat(3, minmax(76px, 1fr))
+      minmax(112px, 1.36fr)
+      repeat(3, minmax(76px, 1fr));
+    column-gap: clamp(9px, 1.25vw, 18px);
+    row-gap: 10px;
+    align-items: center;
+    padding: 0 6px;
+  }
+  .ecal__grid.is-week .ecal__wd {
+    padding-bottom: 2px;
+    font-size: .72rem;
+    letter-spacing: .075em;
+    transition: color .22s ease, opacity .22s ease, transform .22s ease;
+  }
+  .ecal__grid.is-week .ecal__wd:nth-child(4) {
+    color: var(--text);
+    font-weight: 700;
+    transform: translateY(-2px);
+  }
+  .ecal__grid.is-week .ecal__day {
+    align-self: center;
+    height: 64px;
+    aspect-ratio: auto;
+    border-radius: 18px;
+    font-size: 1rem;
+    background: color-mix(in srgb, var(--c-surface) 24%, transparent);
+    box-shadow: inset 0 1px 0 color-mix(in srgb, var(--c-line) 20%, transparent);
+  }
+  .ecal__grid.is-week .ecal__day:hover {
+    background: var(--accent-soft);
+    transform: translateY(-3px);
+  }
+  .ecal__grid.is-week .ecal__day.is-focus {
+    height: 88px;
+    border-radius: 24px;
+    font-size: 1.42rem;
+    font-weight: 700;
+    color: var(--text);
+    background: color-mix(in srgb, var(--c-surface) 24%, transparent);
+    box-shadow:
+      inset 0 1px 0 color-mix(in srgb, var(--c-line) 38%, transparent),
+      0 15px 34px -24px color-mix(in srgb, var(--c-text) 28%, transparent);
+  }
+  .ecal__grid.is-week .ecal__day.is-today {
+    background: color-mix(in srgb, var(--accent) 10%, var(--cell-fill));
+    color: var(--text);
+    box-shadow:
+      inset 0 1px 0 color-mix(in srgb, var(--c-line) 38%, transparent),
+      0 15px 34px -24px var(--sig-glow);
+  }
+  .ecal__grid.is-week .ecal__day[data-col="0"],
+  .ecal__grid.is-week .ecal__day[data-col="6"],
+  .ecal__grid.is-week .ecal__wd:nth-child(1),
+  .ecal__grid.is-week .ecal__wd:nth-child(7) { opacity: .56; }
+  .ecal__grid.is-week .ecal__day[data-col="1"],
+  .ecal__grid.is-week .ecal__day[data-col="5"],
+  .ecal__grid.is-week .ecal__wd:nth-child(2),
+  .ecal__grid.is-week .ecal__wd:nth-child(6) { opacity: .72; }
+  .ecal__grid.is-week .ecal__day[data-col="2"],
+  .ecal__grid.is-week .ecal__day[data-col="4"],
+  .ecal__grid.is-week .ecal__wd:nth-child(3),
+  .ecal__grid.is-week .ecal__wd:nth-child(5) { opacity: .88; }
+  .ecal__grid.is-week .ecal__day.is-today { opacity: 1; }
+  .ecal__grid.is-week .ecal__dots { bottom: 9px; gap: 4px; }
+  .ecal__grid.is-week .ecal__dot { width: 5px; height: 5px; }
+  .ecal__grid.is-week .ecal__bell { top: 8px; right: 9px; }
+
+  .ecal__grid.is-month {
+    column-gap: 10px;
+    row-gap: 9px;
+  }
+  .ecal__grid.is-month .ecal__day {
+    min-height: 56px;
+    aspect-ratio: 1.45 / 1;
+    border-radius: 15px;
+    font-size: .96rem;
+  }
+  .ecal__grid.is-month .ecal__day:hover { transform: translateY(-2px); }
+  .ecal__toggle {
+    margin: 13px auto 0;
+    width: 38px;
+    height: 30px;
+    border-radius: 10px;
+  }
 }
-.ecal__preview::after {   /* caret pointing down to the cell */
-  content: "";
-  position: absolute;
-  top: 100%;
-  left: 50%;
-  transform: translateX(-50%);
-  border: 5px solid transparent;
-  border-top-color: var(--surface);
-}
-.ecal__day:hover .ecal__preview {
-  opacity: 1;
-  visibility: visible;
-  transform: translateX(-50%) translateY(0);
-}
-.ecal__prev-item {
-  display: flex;
-  align-items: center;
-  gap: 7px;
-  font-size: .78rem;
-  color: var(--text);
-  padding: 2px 0;
-}
-.ecal__prev-ico {
-  flex: 0 0 auto;
-  color: var(--accent);
-  display: grid; place-items: center;
-}
-.ecal__prev-ico svg { width: 14px; height: 14px; }
-.ecal__prev-text { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.ecal__prev-item.important { color: var(--danger); font-weight: 600; }
-.ecal__prev-item.important .ecal__prev-ico { color: var(--danger); }
-.ecal__prev-more { display: block; font-size: .72rem; color: var(--muted); padding-top: 3px; }
 
 
 /* HABITS VIEW */
@@ -3428,9 +4599,735 @@ body:has(.welcome:not(.is-leaving)) .pageflip { opacity: 0; pointer-events: none
   }
   .detail .detail__bar { padding: 8px 16px 6px; }
   .detail .detail__body { padding: 4px 16px 22px; }
-  .app__grid { gap: 34px; }
   .app__col { gap: 34px; }
   .day-line { margin-bottom: 58px; }
+}
+
+/* THINKING SPACE — direct editing on a large surface, with nested canvases. */
+.thinking {
+  position: fixed;
+  inset: 0;
+  z-index: 82;
+  display: block;
+  /* The same ground as the app: the veiled sky, with the signature pooling in
+     from the top left exactly as it does on the calendar card. The reactive
+     field canvas is moved in here while the view is up (see openThinking), so
+     the board sits on the app's own background rather than a flat panel. */
+  background:
+    radial-gradient(120% 80% at 14% -8%,
+      color-mix(in srgb, var(--c-sig) 13%, transparent), transparent 62%),
+    var(--sky);
+  opacity: 0;
+  transition: opacity .28s ease;
+}
+/* under the board's own content, over the sky behind it */
+.thinking > #field { z-index: -1; }
+.thinking[hidden] { display: none; }
+.thinking.is-open { opacity: 1; }
+.thinking-board { height: 100%; }
+.thinking__bar {
+  min-height: 70px;
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: max(14px, env(safe-area-inset-top)) max(22px, env(safe-area-inset-right)) 14px
+    max(22px, env(safe-area-inset-left));
+  border-bottom: 1px solid var(--border);
+  background: color-mix(in srgb, var(--c-surface) 22%, transparent);
+  -webkit-backdrop-filter: blur(14px) saturate(120%);
+  backdrop-filter: blur(14px) saturate(120%);
+}
+.thinking-board {
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.thinking__bar--board { min-height: 62px; padding-top: max(10px, env(safe-area-inset-top)); padding-bottom: 10px; }
+.thinking-board__name {
+  flex: 1 1 auto;
+  min-width: 80px;
+  border: 0;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  font-size: 1.06rem;
+  font-weight: 650;
+  outline: none;
+}
+.thinking-board__name:focus { border-bottom: 1px solid var(--accent); }
+.thinking-board__name:disabled {
+  color: var(--muted);
+  cursor: default;
+}
+.thinking-board__saved { color: var(--muted); font-size: .72rem; }
+.thinking__bar--board .detail__back:disabled {
+  opacity: .2;
+  cursor: default;
+  pointer-events: none;
+}
+.thinking-board__exit {
+  flex: 0 0 auto;
+  width: 36px;
+  height: 36px;
+  border: 0;
+  border-radius: 10px;
+  background: none;
+  color: var(--muted);
+  font: inherit;
+  font-size: 1.25rem;
+  cursor: pointer;
+}
+.thinking-board__exit:hover { color: var(--text); background: var(--input-bg); }
+.thinking-tools {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  padding: 9px max(18px, env(safe-area-inset-right)) 9px max(18px, env(safe-area-inset-left));
+  border-bottom: 1px solid var(--border);
+  background: color-mix(in srgb, var(--c-surface) 14%, transparent);
+  -webkit-backdrop-filter: blur(14px) saturate(120%);
+  backdrop-filter: blur(14px) saturate(120%);
+  overflow-x: auto;
+  scrollbar-width: none;
+}
+.thinking-tools::-webkit-scrollbar { display: none; }
+.thinking-tools__label {
+  flex: 0 0 auto;
+  margin-right: 4px;
+  color: var(--muted);
+  font-size: .72rem;
+  font-weight: 700;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+}
+.thinking-tool {
+  --block-color: var(--muted);
+  flex: 0 0 auto;
+  height: 34px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 1px solid color-mix(in srgb, var(--block-color) 35%, var(--border));
+  border-radius: 999px;
+  padding: 0 11px 0 7px;
+  background: color-mix(in srgb, var(--block-color) 10%, var(--surface-solid));
+  color: var(--text);
+  font: inherit;
+  font-size: .78rem;
+  cursor: pointer;
+  white-space: nowrap;
+  touch-action: pan-x;
+}
+.thinking-tool:hover { border-color: var(--block-color); }
+.thinking-tool-drag {
+  --block-color: var(--muted);
+  position: fixed;
+  z-index: 140;
+  min-height: 38px;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  border: 2px solid var(--block-color);
+  border-radius: 999px;
+  padding: 0 13px 0 8px;
+  background: color-mix(in srgb, var(--block-color) 18%, var(--surface-solid));
+  color: var(--text);
+  font-size: .8rem;
+  font-weight: 750;
+  box-shadow: 0 12px 30px color-mix(in srgb, var(--c-sky-3) 30%, transparent);
+  pointer-events: none;
+  opacity: .94;
+}
+.thinking-tool--canvas {
+  height: 40px;
+  border: 2px solid color-mix(in srgb, var(--block-color) 72%, var(--border));
+  padding: 0 14px 0 9px;
+  background:
+    linear-gradient(135deg, color-mix(in srgb, var(--block-color) 22%, transparent), transparent),
+    color-mix(in srgb, var(--block-color) 15%, var(--surface-solid));
+  font-weight: 800;
+  box-shadow: 0 5px 16px color-mix(in srgb, var(--block-color) 17%, transparent);
+}
+.thinking-tool--canvas:hover {
+  background: color-mix(in srgb, var(--block-color) 23%, var(--surface-solid));
+}
+.thinking-tool__mark {
+  width: 20px; height: 20px;
+  display: grid; place-items: center;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--block-color) 18%, transparent);
+  color: var(--block-color);
+  font-size: .72rem;
+  font-weight: 800;
+}
+.thinking-tool__mark svg { width: 15px; height: 15px; }
+:where(.thinking-block) { --block-color: var(--muted); }
+/* THE BLOCK COLOURS — off the importance palette, not off a list of their own.
+   Those five hues were the only colours in the app written by hand, so the board
+   was the one room a theme or a palette change did not reach. The mapping keeps
+   the hues the feature was built with — on aurora the palette lands on violet,
+   blue, teal and amber, which is nearly what was there — and a problem keeps the
+   app's own red rather than borrowing a stop. Solution and answer share a colour,
+   as do example and canvas: that pairing was deliberate and is preserved. */
+.thinking-tool--problem, .thinking-block--problem { --block-color: var(--c-danger); }
+.thinking-tool--question, .thinking-block--question { --block-color: var(--c-imp-1); }
+.thinking-tool--example, .thinking-block--example { --block-color: var(--c-imp-2); }
+.thinking-tool--canvas, .thinking-block--canvas { --block-color: var(--c-imp-2); }
+.thinking-tool--solution, .thinking-block--solution { --block-color: var(--c-imp-4); }
+.thinking-tool--answer, .thinking-block--answer { --block-color: var(--c-imp-4); }
+.thinking-tool--idea, .thinking-block--idea { --block-color: var(--c-imp-5); }
+.thinking-tool--text, .thinking-block--text { --block-color: var(--muted); }
+.thinking-tool--note, .thinking-block--note { --block-color: var(--muted); }
+.thinking-tool--text {
+  border-color: color-mix(in srgb, var(--muted) 24%, transparent);
+  background: transparent;
+}
+.thinking-link-hint {
+  position: absolute;
+  z-index: 8;
+  top: calc(max(10px, env(safe-area-inset-top)) + 116px);
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 8px 12px;
+  border: 1px solid color-mix(in srgb, var(--accent) 50%, transparent);
+  border-radius: 999px;
+  background: var(--surface-solid);
+  box-shadow: var(--shadow);
+  color: var(--text);
+  font-size: .78rem;
+}
+.thinking-link-hint[hidden] { display: none; }
+.thinking-link-hint button {
+  border: 0;
+  background: none;
+  color: var(--accent);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+}
+.thinking-trash {
+  position: absolute;
+  z-index: 24;
+  left: 50%;
+  bottom: max(28px, env(safe-area-inset-bottom));
+  min-width: 190px;
+  min-height: 54px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 9px;
+  border: 1px dashed color-mix(in srgb, var(--danger) 58%, var(--border));
+  border-radius: 16px;
+  padding: 10px 18px;
+  background: color-mix(in srgb, var(--danger) 10%, var(--surface-solid));
+  color: var(--danger);
+  font-size: .78rem;
+  font-weight: 700;
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(14px) saturate(120%);
+  opacity: 0;
+  transform: translate(-50%, 22px) scale(.92);
+  transition: opacity .18s ease, transform .18s ease, background .15s ease;
+  pointer-events: none;
+}
+.thinking-trash[hidden] { display: none; }
+.thinking-trash.is-visible { opacity: 1; transform: translate(-50%, 0) scale(1); }
+.thinking-trash.is-active {
+  border-style: solid;
+  background: var(--danger);
+  color: white;
+  transform: translate(-50%, 0) scale(1.08);
+  box-shadow: 0 12px 34px color-mix(in srgb, var(--danger) 34%, transparent);
+}
+.thinking-trash svg { width: 21px; height: 21px; }
+.thinking-viewport {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: auto;
+  overscroll-behavior: contain;
+  background: color-mix(in srgb, var(--c-bg) 90%, var(--c-surface));
+  cursor: grab;
+  scrollbar-width: none;
+  touch-action: none;
+}
+.thinking-viewport::-webkit-scrollbar { display: none; }
+.thinking-viewport.is-panning { cursor: grabbing; user-select: none; }
+.thinking-viewport.is-tool-drop {
+  cursor: copy;
+  box-shadow: inset 0 0 0 3px color-mix(in srgb, var(--accent) 70%, transparent);
+}
+.thinking-viewport.is-canvas-opening {
+  transform-origin: var(--thinking-transition-x) var(--thinking-transition-y);
+  animation: thinking-canvas-open .44s cubic-bezier(.2, .82, .22, 1);
+}
+.thinking-viewport.is-canvas-closing {
+  transform-origin: var(--thinking-transition-x) var(--thinking-transition-y);
+  animation: thinking-canvas-close .44s cubic-bezier(.2, .82, .22, 1);
+}
+@keyframes thinking-canvas-open {
+  0% { opacity: .18; transform: scale(.84); filter: blur(5px); }
+  58% { opacity: 1; transform: scale(1.018); filter: blur(0); }
+  100% { opacity: 1; transform: scale(1); filter: blur(0); }
+}
+@keyframes thinking-canvas-close {
+  0% { opacity: .2; transform: scale(1.1); filter: blur(5px); }
+  62% { opacity: 1; transform: scale(.988); filter: blur(0); }
+  100% { opacity: 1; transform: scale(1); filter: blur(0); }
+}
+.thinking-plane {
+  position: relative;
+  width: 20000px;
+  height: 12000px;
+  background-image: radial-gradient(circle, color-mix(in srgb, var(--c-line) 45%, transparent) 1px, transparent 1.2px);
+  background-size: 24px 24px;
+}
+.thinking-links, .thinking-blocks { position: absolute; inset: 0; }
+.thinking-links { z-index: 1; overflow: visible; }
+.thinking-links marker path { fill: color-mix(in srgb, var(--accent) 72%, var(--text)); }
+.thinking-blocks { z-index: 2; pointer-events: none; }
+.thinking-link {
+  fill: none;
+  stroke: color-mix(in srgb, var(--accent) 72%, var(--text));
+  stroke-width: 2;
+  stroke-linecap: round;
+  marker-end: url(#thinkingArrow);
+  pointer-events: none;
+  opacity: .7;
+}
+.thinking-link-hit {
+  fill: none;
+  stroke: transparent;
+  stroke-width: 16;
+  pointer-events: stroke;
+  cursor: pointer;
+}
+.thinking-link-preview {
+  fill: none;
+  stroke: color-mix(in srgb, var(--accent) 82%, var(--text));
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  stroke-dasharray: 7 5;
+  marker-end: url(#thinkingArrow);
+  pointer-events: none;
+}
+.thinking-links:has(.thinking-link-hit:hover) .thinking-link { opacity: .28; }
+.thinking-link-pair:hover + .thinking-link-hit { stroke: color-mix(in srgb, var(--danger) 12%, transparent); }
+.thinking-block {
+  position: absolute;
+  width: 160px;
+  min-height: 64px;
+  display: flex;
+  flex-direction: column;
+  border: 1px solid var(--border);
+  border-radius: var(--r-md);
+  background: var(--surface-solid);
+  box-shadow: var(--shadow);
+  pointer-events: auto;
+  transition: box-shadow .18s ease, border-color .18s ease;
+}
+.thinking-block:hover { border-color: color-mix(in srgb, var(--block-color) 30%, var(--border)); }
+.thinking-block.is-dragging { z-index: 4; box-shadow: 0 18px 44px color-mix(in srgb, var(--c-sky-3) 25%, transparent); }
+.thinking-block.is-link-source {
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--block-color) 25%, transparent), var(--shadow);
+}
+.thinking-block.is-drop-target {
+  border-color: var(--block-color);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--block-color) 24%, transparent), var(--shadow);
+}
+.thinking-board:is(.is-combining, .is-tool-dragging) .thinking-block.is-drop-option {
+  border-style: dashed;
+  border-color: color-mix(in srgb, var(--block-color) 58%, var(--border));
+}
+.thinking-board:is(.is-combining, .is-tool-dragging) .thinking-block.is-drop-target {
+  border-style: solid;
+  border-color: var(--block-color);
+}
+.thinking-board:is(.is-combining, .is-tool-dragging)
+  .thinking-block.is-drop-target > .thinking-canvas__stage {
+  border-color: var(--block-color);
+  box-shadow: inset 0 0 0 3px color-mix(in srgb, var(--block-color) 18%, transparent);
+}
+.thinking-block--nested {
+  position: relative;
+  left: auto;
+  top: auto;
+  width: auto;
+  min-height: 58px;
+  margin: 0;
+  box-shadow: none;
+}
+.thinking-block--nested.is-detaching {
+  position: fixed;
+  z-index: 100;
+  margin: 0;
+  pointer-events: none;
+  box-shadow: var(--shadow);
+}
+.thinking-block--canvas:not(.thinking-block--nested) {
+  min-height: 430px;
+}
+.thinking-block--canvas {
+  background: color-mix(in srgb, var(--surface-solid) 82%, transparent);
+  backdrop-filter: blur(8px) saturate(115%);
+}
+.thinking-block--canvas.is-collapsed {
+  width: min(310px, calc(100% - 20px)) !important;
+  min-height: 0;
+}
+.thinking-block--canvas.is-collapsed .thinking-canvas__stage {
+  display: none;
+}
+.thinking-block--canvas-child {
+  position: absolute;
+  width: 220px;
+  min-height: 64px;
+}
+.thinking-block--canvas-child.is-detaching { position: fixed; }
+.thinking-block--canvas.thinking-block--canvas-child { max-width: none; }
+.thinking-block__head {
+  min-height: 27px;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  padding: 2px 4px;
+  border-bottom: 1px solid color-mix(in srgb, var(--block-color) 34%, var(--border));
+  border-radius: calc(var(--r-md) - 1px) calc(var(--r-md) - 1px) 0 0;
+  background: color-mix(in srgb, var(--block-color) 24%, var(--surface-solid));
+  cursor: grab;
+  user-select: none;
+  touch-action: none;
+}
+.thinking-block__icon, .thinking-block__delete {
+  border: 0;
+  background: none;
+  color: var(--muted);
+  cursor: pointer;
+}
+.thinking-block.is-dragging > .thinking-block__head { cursor: grabbing; }
+.thinking-block__icon {
+  width: 21px; height: 21px;
+  display: grid; place-items: center;
+  border-radius: 6px;
+  color: var(--block-color);
+  background: color-mix(in srgb, var(--block-color) 22%, transparent);
+}
+.thinking-block__icon svg { width: 13px; height: 13px; }
+.thinking-block--canvas > .thinking-block__head .thinking-block__icon { cursor: default; }
+.thinking-block__type {
+  flex: 1 1 auto;
+  min-width: 0;
+  border: 0;
+  background: none;
+  color: var(--block-color);
+  font: inherit;
+  font-size: .58rem;
+  font-weight: 800;
+  letter-spacing: .06em;
+  text-transform: uppercase;
+  outline: none;
+  cursor: default;
+}
+.thinking-block__delete {
+  width: 19px; height: 20px;
+  border-radius: 6px;
+  font-size: .9rem;
+  opacity: 0;
+}
+.thinking-block:hover .thinking-block__delete { opacity: .65; }
+.thinking-block__delete:hover { opacity: 1; color: var(--danger); background: var(--input-bg); }
+.thinking-block__text {
+  width: 100%;
+  min-height: 36px;
+  resize: none;
+  overflow: hidden;
+  border: 0;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  font-size: .86rem;
+  line-height: 1.48;
+  padding: 6px 9px 7px;
+  outline: none;
+}
+.thinking-block__text::placeholder { color: color-mix(in srgb, var(--muted) 74%, transparent); }
+.thinking-block.is-manually-sized > .thinking-block__text {
+  flex: 0 1 auto;
+  min-height: 0;
+  overflow: auto;
+}
+.thinking-block.is-manually-sized > .thinking-block__children {
+  flex: 0 1 auto;
+  min-height: 0;
+  overflow: auto;
+}
+.thinking-canvas__head {
+  display: flex;
+  align-items: baseline;
+  gap: 9px;
+  padding: 5px 14px 10px;
+}
+.thinking-canvas__label {
+  flex: 0 0 auto;
+  color: var(--block-color);
+  font-size: .64rem;
+  font-weight: 800;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+.thinking-canvas__title {
+  flex: 1 1 auto;
+  width: 100%;
+  min-width: 0;
+  overflow: hidden;
+  border: 0;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  font-size: 1.03rem;
+  font-weight: 650;
+  outline: none;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.thinking-canvas__title:focus { box-shadow: inset 0 -1px var(--block-color); }
+.thinking-canvas__stage {
+  position: relative;
+  height: 330px;
+  margin: 0 10px 8px;
+  border: 1px dashed color-mix(in srgb, var(--c-line) 55%, transparent);
+  border-radius: 12px;
+  background-image: radial-gradient(circle,
+    color-mix(in srgb, var(--c-line) 45%, transparent) 1px, transparent 1.2px);
+  background-size: 20px 20px;
+  background-color: color-mix(in srgb, var(--c-bg) 90%, var(--c-surface));
+  overflow: hidden;
+  cursor: grab;
+  touch-action: none;
+}
+.thinking-canvas__stage.is-panning { cursor: grabbing; user-select: none; }
+.thinking-canvas__empty {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  color: var(--muted);
+  font-size: .75rem;
+  line-height: 1.45;
+  text-align: center;
+  pointer-events: none;
+}
+.thinking-canvas__resize {
+  position: absolute;
+  right: 5px;
+  bottom: 5px;
+  z-index: 8;
+  width: 18px;
+  height: 18px;
+  border: 0;
+  border-right: 2px solid color-mix(in srgb, var(--block-color) 72%, transparent);
+  border-bottom: 2px solid color-mix(in srgb, var(--block-color) 72%, transparent);
+  border-radius: 0 0 5px 0;
+  background: none;
+  cursor: nwse-resize;
+  touch-action: none;
+}
+.thinking-block--canvas.is-resizing { box-shadow: var(--shadow); }
+.thinking-block__resize {
+  position: absolute;
+  right: 4px;
+  bottom: 4px;
+  z-index: 9;
+  width: 17px;
+  height: 17px;
+  border: 0;
+  border-right: 2px solid color-mix(in srgb, var(--block-color) 68%, transparent);
+  border-bottom: 2px solid color-mix(in srgb, var(--block-color) 68%, transparent);
+  border-radius: 0 0 5px 0;
+  padding: 0;
+  background: none;
+  cursor: nwse-resize;
+  opacity: .35;
+  transition: opacity .14s ease;
+  touch-action: none;
+}
+.thinking-block:hover:not(:has(.thinking-block:hover)) > .thinking-block__resize,
+.thinking-block__resize:focus-visible,
+.thinking-block.is-resizing > .thinking-block__resize { opacity: 1; }
+.thinking-block.is-resizing { box-shadow: var(--shadow); }
+.thinking-block__children {
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  padding: 2px 9px 7px;
+}
+.thinking-block__children .thinking-block__text {
+  min-height: 32px;
+  padding-top: 3px;
+  font-size: .82rem;
+}
+.thinking-block__children .thinking-block__head { min-height: 25px; }
+.thinking-block__children .thinking-block__foot { min-height: 25px; padding-bottom: 2px; }
+.thinking-block__foot {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  min-height: 27px;
+  padding: 1px 5px 4px 9px;
+}
+.thinking-block:has(> .thinking-block__resize) > .thinking-block__foot { padding-right: 25px; }
+.thinking-block__connections { color: var(--muted); font-size: .66rem; }
+.thinking-block__actions { display: inline-flex; align-items: center; gap: 3px; }
+.thinking-block__add-answer {
+  border: 0;
+  background: none;
+  color: var(--muted);
+  font: inherit;
+  font-size: .66rem;
+  cursor: pointer;
+  padding: 5px 4px;
+}
+.thinking-block__add-answer:hover { color: var(--c-imp-4); }   /* the answer colour */
+.thinking-block__canvas-action {
+  width: 29px;
+  height: 27px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 8px;
+  background: none;
+  color: var(--muted);
+  cursor: pointer;
+}
+.thinking-block__canvas-action:hover,
+.thinking-block__canvas-action[aria-pressed="true"] {
+  color: var(--block-color);
+  background: color-mix(in srgb, var(--block-color) 14%, transparent);
+}
+.thinking-block__canvas-action svg { width: 16px; height: 16px; }
+.thinking-block__link-point {
+  position: absolute;
+  z-index: 12;
+  right: -8px;
+  top: 50%;
+  width: 16px;
+  height: 16px;
+  border: 3px solid var(--surface-solid);
+  border-radius: 50%;
+  padding: 0;
+  background: var(--block-color);
+  box-shadow: 0 2px 8px color-mix(in srgb, var(--block-color) 38%, transparent);
+  cursor: crosshair;
+  opacity: 0;
+  transform: translateY(-50%) scale(.6);
+  transition: opacity .14s ease, transform .14s ease, box-shadow .14s ease;
+  pointer-events: none;
+  touch-action: none;
+}
+.thinking-block:hover:not(:has(.thinking-block:hover)) > .thinking-block__link-point,
+.thinking-block__link-point:focus-visible,
+.thinking-board.is-linking .thinking-block > .thinking-block__link-point {
+  opacity: 1;
+  transform: translateY(-50%) scale(1);
+  pointer-events: auto;
+}
+.thinking-block.is-link-source > .thinking-block__link-point {
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--block-color) 24%, transparent);
+  transform: translateY(-50%) scale(1.08);
+}
+.thinking-block__link-point.is-link-drop-target {
+  box-shadow: 0 0 0 6px color-mix(in srgb, var(--block-color) 28%, transparent);
+  transform: translateY(-50%) scale(1.28) !important;
+}
+.thinking-block--text {
+  width: 150px;
+  min-height: 0;
+  border: 1px solid transparent;
+  border-left: 0;
+  border-radius: 9px;
+  background: transparent;
+  box-shadow: none;
+}
+.thinking-block--text.thinking-block--nested:not(.thinking-block--canvas-child) { width: auto; }
+.thinking-block--text:hover,
+.thinking-block--text:focus-within {
+  border-color: color-mix(in srgb, var(--muted) 24%, transparent);
+  background: color-mix(in srgb, var(--surface-solid) 34%, transparent);
+}
+.thinking-block--text .thinking-block__head {
+  min-height: 23px;
+  padding: 0 2px;
+  border-bottom: 0;
+  background: none;
+}
+.thinking-block--text .thinking-block__delete { margin-left: auto; }
+.thinking-block--text .thinking-block__text {
+  min-height: 32px;
+  padding: 2px 9px 5px;
+  font-size: 1rem;
+  line-height: 1.5;
+}
+.thinking-block--text .thinking-block__foot {
+  min-height: 24px;
+  padding: 0 3px 2px 9px;
+  opacity: 0;
+  transition: opacity .16s ease;
+}
+.thinking-block--text:hover .thinking-block__foot,
+.thinking-block--text:focus-within .thinking-block__foot,
+.thinking-block--text.is-link-source .thinking-block__foot { opacity: 1; }
+.thinking-blank {
+  position: absolute;
+  z-index: 0;
+  left: 50vw;
+  top: 38vh;
+  width: 300px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 6px;
+  transform: translate(-50%, -50%);
+  color: var(--muted);
+  text-align: center;
+  pointer-events: none;
+}
+.thinking-blank[hidden] { display: none; }
+.thinking-blank__spark { color: var(--accent); }
+.thinking-blank__spark svg { width: 25px; height: 25px; }
+.thinking-blank strong { color: var(--text); font-size: .95rem; font-weight: 600; }
+.thinking-blank span:last-child { font-size: .78rem; line-height: 1.45; }
+.thinking-board__tip {
+  position: absolute;
+  right: max(18px, env(safe-area-inset-right));
+  bottom: max(9px, env(safe-area-inset-bottom));
+  z-index: 5;
+  padding: 5px 9px;
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--c-bg) 84%, transparent);
+  color: var(--muted);
+  font-size: .68rem;
+  pointer-events: none;
+}
+
+@media (max-width: 700px) {
+  .thinking__bar { min-height: 62px; gap: 9px; padding-left: 12px; padding-right: 12px; }
+  .thinking-block__delete { opacity: .65; }
+  .thinking-board__saved { display: none; }
+  .thinking-tools { padding-left: 12px; padding-right: 12px; }
+  .thinking-tools__label { display: none; }
+  .thinking-tool { height: 32px; padding-right: 9px; font-size: .74rem; }
+  .thinking-link-hint { top: calc(max(10px, env(safe-area-inset-top)) + 105px); max-width: calc(100% - 24px); white-space: nowrap; }
+  .thinking-board__tip { display: none; }
+  .thinking-trash { bottom: max(18px, env(safe-area-inset-bottom)); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .thinking-viewport.is-canvas-opening,
+  .thinking-viewport.is-canvas-closing { animation-duration: .01ms; }
 }
 
 /* THE SKY — a full space rather than a card. The projects are not listed here,
@@ -3696,8 +5593,13 @@ body:has(.welcome:not(.is-leaving)) .pageflip { opacity: 0; pointer-events: none
   border-bottom: 1px solid var(--border);
 }
 .pview__name {
-  flex: 1 1 auto;
+  /* A short base width protects the back control and the project actions. Long
+     names still scroll inside the input without widening the whole top bar. */
+  flex: 0 1 clamp(112px, 30vw, 280px);
   min-width: 0;
+  width: clamp(112px, 30vw, 280px);
+  max-width: 100%;
+  margin-right: auto;
   border: 0;
   background: none;
   color: var(--text);

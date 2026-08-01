@@ -1,0 +1,776 @@
+<!DOCTYPE html>
+<html lang="fr" data-theme="night" data-palette="aurora"><head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#0c0f1a">
+  <!-- full-screen standalone when installed to the home screen -->
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Mes tâches">
+  <title>Mes tâches</title>
+  <link rel="stylesheet" href="./style.css?v=1785283529">
+  <link rel="manifest" href="./manifest.webmanifest">
+  <link rel="apple-touch-icon" href="./icons/icon-192.png">
+  <!-- apply saved theme before paint to avoid a color flash -->
+  <script>
+    try {
+      var saved = JSON.parse(localStorage.getItem("todoAppData"));
+      var t = (saved && saved.settings && saved.settings.theme) || "auto";   // adaptive by default
+      if (t === "auto") {
+        var h = new Date().getHours();
+        t = h >= 5 && h < 8 ? "dawn" : h >= 8 && h < 18 ? "day" : h >= 18 && h < 21 ? "dusk" : "night";
+        var s = saved && saved.sun, now = new Date();
+        var todayK = now.getFullYear() + "-" + String(now.getMonth() + 1).padStart(2, "0")
+          + "-" + String(now.getDate()).padStart(2, "0");
+        if (t !== "night" && s && s.date === todayK && s.code != null) {
+          var c = s.code;
+          if ((c >= 51 && c <= 67) || (c >= 80 && c <= 82) || c >= 95) t = "rain";
+        }
+      }
+      document.documentElement.setAttribute("data-theme", t);
+      if (saved && saved.settings && saved.settings.palette) {
+        document.documentElement.setAttribute("data-palette", saved.settings.palette);
+      }
+    } catch (err) {}
+  </script>
+<style>*{transition:none !important;animation:none !important}</style></head>
+<body class="is-well">
+
+  <!-- time-of-day background gradient / stars -->
+  <div id="sky"><span class="star" style="width: 2.09802px; height: 2.09802px; left: 51.8455%; top: 71.6744%; animation-duration: 4.27287s; animation-delay: -2.27704s;"></span><span class="star" style="width: 1.02157px; height: 1.02157px; left: 75.5738%; top: 49.7415%; animation-duration: 3.59104s; animation-delay: -3.68925s;"></span><span class="star" style="width: 1.11087px; height: 1.11087px; left: 8.82227%; top: 22.5869%; animation-duration: 4.01665s; animation-delay: -2.44052s;"></span><span class="star" style="width: 1.74745px; height: 1.74745px; left: 53.5115%; top: 7.06383%; animation-duration: 4.05591s; animation-delay: -1.81791s;"></span><span class="star" style="width: 1.61629px; height: 1.61629px; left: 2.17732%; top: 10.3086%; animation-duration: 4.26306s; animation-delay: -0.80648s;"></span><span class="star" style="width: 1.33034px; height: 1.33034px; left: 43.2677%; top: 15.733%; animation-duration: 3.84037s; animation-delay: -0.592488s;"></span><span class="star" style="width: 2.14514px; height: 2.14514px; left: 84.6625%; top: 52.0552%; animation-duration: 3.90287s; animation-delay: -1.66805s;"></span><span class="star" style="width: 1.91165px; height: 1.91165px; left: 47.3862%; top: 2.73885%; animation-duration: 2.33029s; animation-delay: -2.76198s;"></span><span class="star" style="width: 1.13958px; height: 1.13958px; left: 53.9907%; top: 9.47501%; animation-duration: 2.70626s; animation-delay: -0.98009s;"></span><span class="star" style="width: 1.05134px; height: 1.05134px; left: 37.6182%; top: 43.3979%; animation-duration: 2.8522s; animation-delay: -0.610132s;"></span><span class="star" style="width: 2.24058px; height: 2.24058px; left: 42.6435%; top: 5.58528%; animation-duration: 3.9842s; animation-delay: -1.57994s;"></span><span class="star" style="width: 1.81708px; height: 1.81708px; left: 66.6518%; top: 1.53941%; animation-duration: 3.6s; animation-delay: -1.02293s;"></span><span class="star" style="width: 1.56469px; height: 1.56469px; left: 11.8147%; top: 33.7335%; animation-duration: 3.72181s; animation-delay: -3.85751s;"></span><span class="star" style="width: 1.40578px; height: 1.40578px; left: 97.9657%; top: 44.9614%; animation-duration: 2.163s; animation-delay: -1.03463s;"></span><span class="star" style="width: 1.42947px; height: 1.42947px; left: 58.5435%; top: 52.3753%; animation-duration: 4.26475s; animation-delay: -1.75909s;"></span><span class="star" style="width: 1.78532px; height: 1.78532px; left: 63.9323%; top: 69.7716%; animation-duration: 4.20998s; animation-delay: -1.27819s;"></span><span class="star" style="width: 1.39902px; height: 1.39902px; left: 25.7923%; top: 66.0323%; animation-duration: 3.07016s; animation-delay: -0.904631s;"></span><span class="star" style="width: 1.43289px; height: 1.43289px; left: 65.0588%; top: 27.9791%; animation-duration: 4.23812s; animation-delay: -0.514146s;"></span><span class="star" style="width: 2.52717px; height: 2.52717px; left: 15.7094%; top: 34.163%; animation-duration: 3.13072s; animation-delay: -2.18267s;"></span><span class="star" style="width: 1.27865px; height: 1.27865px; left: 3.18176%; top: 22.5565%; animation-duration: 4.86753s; animation-delay: -1.01903s;"></span><span class="star" style="width: 1.12774px; height: 1.12774px; left: 75.3308%; top: 3.39234%; animation-duration: 4.61917s; animation-delay: -3.78461s;"></span><span class="star" style="width: 2.45893px; height: 2.45893px; left: 57.6241%; top: 60.866%; animation-duration: 2.93646s; animation-delay: -3.0607s;"></span><span class="star" style="width: 2.3498px; height: 2.3498px; left: 36.9117%; top: 50.8039%; animation-duration: 4.35538s; animation-delay: -1.42712s;"></span><span class="star" style="width: 2.38365px; height: 2.38365px; left: 97.5532%; top: 36.4676%; animation-duration: 4.69845s; animation-delay: -2.6573s;"></span><span class="star" style="width: 1.81941px; height: 1.81941px; left: 14.3011%; top: 39.7428%; animation-duration: 2.97719s; animation-delay: -0.786679s;"></span><span class="star" style="width: 2.5583px; height: 2.5583px; left: 71.4371%; top: 19.3291%; animation-duration: 3.47921s; animation-delay: -1.40766s;"></span><span class="star" style="width: 2.24088px; height: 2.24088px; left: 16.6474%; top: 71.8911%; animation-duration: 4.3665s; animation-delay: -0.155999s;"></span><span class="star" style="width: 2.10713px; height: 2.10713px; left: 45.0746%; top: 3.05199%; animation-duration: 2.81616s; animation-delay: -2.76105s;"></span><span class="star" style="width: 2.53112px; height: 2.53112px; left: 12.0005%; top: 65.9653%; animation-duration: 2.38663s; animation-delay: -0.893234s;"></span><span class="star" style="width: 1.96452px; height: 1.96452px; left: 26.7823%; top: 61.9012%; animation-duration: 4.18146s; animation-delay: -3.19995s;"></span><span class="star" style="width: 1.53191px; height: 1.53191px; left: 47.8647%; top: 43.9473%; animation-duration: 4.47584s; animation-delay: -3.93209s;"></span><span class="star" style="width: 1.9281px; height: 1.9281px; left: 96.0615%; top: 49.9951%; animation-duration: 2.55577s; animation-delay: -0.361838s;"></span><span class="star" style="width: 1.28063px; height: 1.28063px; left: 64.5789%; top: 56.0381%; animation-duration: 3.04702s; animation-delay: -2.28038s;"></span><span class="star" style="width: 1.23756px; height: 1.23756px; left: 78.6952%; top: 18.1391%; animation-duration: 3.91047s; animation-delay: -3.96529s;"></span><span class="star" style="width: 1.24827px; height: 1.24827px; left: 28.4505%; top: 57.4885%; animation-duration: 2.2538s; animation-delay: -0.265081s;"></span><span class="star" style="width: 1.64842px; height: 1.64842px; left: 58.2465%; top: 36.9161%; animation-duration: 3.70607s; animation-delay: -3.34775s;"></span><span class="star" style="width: 1.436px; height: 1.436px; left: 15.3508%; top: 35.1594%; animation-duration: 4.21182s; animation-delay: -0.360986s;"></span><span class="star" style="width: 2.44422px; height: 2.44422px; left: 92.6718%; top: 58.1524%; animation-duration: 3.43652s; animation-delay: -1.46555s;"></span><span class="star" style="width: 2.46458px; height: 2.46458px; left: 54.4978%; top: 37.234%; animation-duration: 2.56648s; animation-delay: -0.0996572s;"></span><span class="star" style="width: 1.36057px; height: 1.36057px; left: 49.6733%; top: 64.8748%; animation-duration: 2.41925s; animation-delay: -0.093163s;"></span><span class="star" style="width: 1.91202px; height: 1.91202px; left: 49.1761%; top: 23.0451%; animation-duration: 4.95519s; animation-delay: -3.18509s;"></span><span class="star" style="width: 1.36724px; height: 1.36724px; left: 51.2027%; top: 30.5849%; animation-duration: 3.06634s; animation-delay: -0.632037s;"></span><span class="star" style="width: 2.25247px; height: 2.25247px; left: 6.50034%; top: 8.54229%; animation-duration: 2.22772s; animation-delay: -0.755407s;"></span><span class="star" style="width: 2.1209px; height: 2.1209px; left: 86.365%; top: 2.75499%; animation-duration: 3.99601s; animation-delay: -1.05428s;"></span></div>
+  <!-- the reactive block field, drawn only while the "field" decoration is on -->
+  <canvas id="field" aria-hidden="true" width="1902" height="984"></canvas>
+  <!-- activatable decorations (particles / petals / cats / …) -->
+  <div id="decor"></div>
+  <!-- the cooler light the well-being space is seen under -->
+  <div id="wellLight" aria-hidden="true"></div>
+  <!-- a whisper of grain over the flat colour fields -->
+  <div id="grain"></div>
+
+
+  <!-- top bar: the weather sits with the tools, always visible top-right -->
+  <div class="topbar">
+    <button id="dtlWeather" class="topbar__weather" type="button" hidden=""></button>
+    <button id="focusBtn" class="topbar__btn" type="button" data-i18n-aria="focusAria" aria-label="Passer en mode focus">
+      <svg viewBox="0 0 64 64" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M32 8 C 27 18, 27 28, 32 36 C 37 28, 37 18, 32 8 Z"></path>
+        <path d="M32 36 C 24 33, 16 25, 20 15 C 22 24, 28 31, 33 35"></path>
+        <path d="M32 36 C 40 33, 48 25, 44 15 C 42 24, 36 31, 31 35"></path>
+        <path d="M24 35 C 28 38, 36 38, 40 35"></path>
+        <path d="M32 36 C 29 44, 29 50, 32 56 C 35 50, 35 44, 32 36 Z"></path>
+        <path d="M26 54 C 29 51, 35 51, 38 54"></path>
+      </svg>
+    </button>
+    <button id="skyBtn" class="topbar__btn" type="button" data-i18n-aria="skyAria" aria-label="Le ciel des projets">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M12 3 13.6 8.2 18.5 9.4 14.7 12.6 15.5 17.6 12 15.1 8.5 17.6 9.3 12.6 5.5 9.4 10.4 8.2 Z"></path>
+        <circle cx="19" cy="5" r="1"></circle><circle cx="4.5" cy="17.5" r="1"></circle><circle cx="20" cy="18" r="1"></circle>
+      </svg>
+    </button>
+    <button id="notesBtn" class="topbar__btn" type="button" data-i18n-aria="notesToolAria" aria-label="Prise de notes">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><line x1="10" y1="9" x2="8" y2="9"></line></svg>
+    </button>
+    <button id="settingsBtn" class="topbar__btn topbar__btn--gear" type="button" data-i18n-aria="settingsAria" aria-label="Paramètres">⚙</button>
+  </div>
+
+  <!-- welcome screen -->
+  <!-- The threshold: the day rule itself, big, over the block field. The rule is
+       not a copy — it is the app's own, which flies up into place on entering. -->
+  <section id="welcome" class="welcome is-leaving" data-gone="1" style="display: none;">
+    <div class="welcome__inner">
+      <h1 class="welcome__title">
+        <span id="welcomeGreeting">Bonjour A !</span>
+        <span id="welcomeQuestion" class="welcome__q" data-i18n="welcomeQuestion">Que faites-vous aujourd'hui ?</span>
+      </h1>
+    </div>
+    <div class="welcome__slot" id="welcomeSlot"></div>
+    <div class="welcome__habits" id="welcomeHabits"><button type="button" class="welcome__ring is-done" aria-label="Lecture" aria-pressed="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path></svg></button><button type="button" class="welcome__ring is-done" aria-label="Meditation" aria-pressed="true"></button><button type="button" class="welcome__ring is-done" aria-label="Eau" aria-pressed="true"></button><button type="button" class="welcome__ring" aria-label="Marche" aria-pressed="false"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg></button><button type="button" class="welcome__ring" aria-label="Ecriture" aria-pressed="false"></button></div>
+    <p class="welcome__hint" id="welcomeHint" data-i18n="enterHint">Touchez pour entrer</p>
+  </section>
+
+  <!-- app -->
+  <main id="app" class="app"><section class="day-line" style="">
+      <div class="dtl" id="dtl">
+        <div class="dtl__markers" id="dtlMarkers"></div>
+        <div class="dtl__strip" id="dtlStrip" style="background: linear-gradient(90deg in oklab, var(--dtl-night), var(--dtl-day) 50%, var(--dtl-night));"></div>
+        <div class="dtl__eticks" id="dtlEticks"></div>
+        <div class="dtl__cursor" id="dtlCursor" hidden="">
+          <span class="dtl__cursor-halo"></span>
+          <span class="dtl__cursor-core"></span>
+          <span class="dtl__cursor-ico"></span>
+        </div>
+      </div>
+      <div class="dtl__ticks" id="dtlTicks"><span class="dtl__tick is-major" style="left: 0.35%;"></span><span class="dtl__tick-label" style="left: 0.35%;">20:00</span><span class="dtl__tick" style="left: 6.6%;"></span><span class="dtl__tick is-major" style="left: 12.85%;"></span><span class="dtl__tick-label" style="left: 12.85%;">22:00</span><span class="dtl__tick" style="left: 19.1%;"></span><span class="dtl__tick is-day-break" style="left: 25.35%;"></span><span class="dtl__tick-label is-day-break" style="left: 25.35%;">29 juil.</span><span class="dtl__tick" style="left: 31.6%;"></span><span class="dtl__tick is-major" style="left: 37.85%;"></span><span class="dtl__tick-label" style="left: 37.85%;">02:00</span><span class="dtl__tick" style="left: 44.1%;"></span><span class="dtl__tick is-major" style="left: 50.35%;"></span><span class="dtl__tick-label" style="left: 50.35%;">04:00</span><span class="dtl__tick" style="left: 56.6%;"></span><span class="dtl__tick is-major" style="left: 62.85%;"></span><span class="dtl__tick-label" style="left: 62.85%;">06:00</span><span class="dtl__tick" style="left: 69.1%;"></span><span class="dtl__tick is-major" style="left: 75.35%;"></span><span class="dtl__tick-label" style="left: 75.35%;">08:00</span><span class="dtl__tick" style="left: 81.6%;"></span><span class="dtl__tick is-major" style="left: 87.85%;"></span><span class="dtl__tick-label" style="left: 87.85%;">10:00</span><span class="dtl__tick" style="left: 94.1%;"></span></div>
+    </section>
+
+    <!-- the day runs edge to edge, on its own, with nothing else on the line -->
+    
+
+    <!-- the two spaces share the day line above and slide under it -->
+    <div class="pages is-live" id="pages" style="height: 3464px;">
+      <div class="pages__track" id="pagesTrack" style="transform: translateX(-50%);">
+
+    <section class="page" id="workPage">
+    <div class="app__grid">
+
+    <!-- wide screens split the rest in two columns; both stack on mobile -->
+    <div class="app__col app__col--main">
+
+      <!-- tasks: their own section, independent from the day above -->
+      <section class="zone tasks-zone">
+        <div class="zone__head">
+          <h2 class="zone__title" data-i18n="tasksTitle">Vos tâches</h2>
+          <span class="zone__count" id="tasksCount"></span>
+        </div>
+        <div class="tasks" id="tasksList"><p class="empty">Rien pour l'instant.</p></div>
+        <button class="add-card" id="addTaskBtn" type="button">
+          <span class="add-card__plus">+</span>
+          <span class="add-card__label" data-i18n="addTaskTitle">Ajouter une tâche</span>
+        </button>
+        <!-- quick add: one line, the date/time/pin are read out of it -->
+        <form class="quick" id="quickAdd" hidden="">
+          <div class="quick__field">
+            <div class="quick__mirror" id="quickMirror" aria-hidden="true"></div>
+            <input id="quickInput" class="quick__input" type="text" autocomplete="off" data-i18n-placeholder="quickPlaceholder" data-i18n-aria="addTaskTitle" placeholder="Relire le rapport demain 18h !" aria-label="Ajouter une tâche">
+          </div>
+          <p class="quick__hint" id="quickHint" hidden=""></p>
+        </form>
+      </section>
+
+      <!-- projects -->
+      <section class="zone">
+        <div class="zone__head">
+          <h2 class="zone__title" data-i18n="projectsTitle">Vos projets</h2>
+          <button class="zone__action" id="addProjectBtn" type="button" data-i18n-aria="addProjectAria" aria-label="Nouveau projet">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+          </button>
+        </div>
+        <ul class="list list--cards" id="projectsList"><li class="empty">Rien pour l'instant.</li></ul>
+      </section>
+
+    </div>
+
+    <div class="app__col app__col--side">
+
+      <!-- the week in view; the chevron unfolds the whole month in place -->
+      <section class="zone">
+        <div class="ecal">
+          <div class="ecal__head">
+            <button type="button" class="ecal__nav" id="ecalPrev" data-i18n-aria="prevMonthAria" aria-label="Mois précédent">‹</button>
+            <span class="ecal__month" id="ecalMonth">juillet 2026</span>
+            <button type="button" class="ecal__nav" id="ecalNext" data-i18n-aria="nextMonthAria" aria-label="Mois suivant">›</button>
+          </div>
+          <div class="ecal__viewport" id="ecalViewport">
+            <div class="ecal__grid" id="ecalGrid"><div class="ecal__wd">lun.</div><div class="ecal__wd">mar.</div><div class="ecal__wd">mer.</div><div class="ecal__wd">jeu.</div><div class="ecal__wd">ven.</div><div class="ecal__wd">sam.</div><div class="ecal__wd">dim.</div><button type="button" class="ecal__day" data-key="2026-07-27" data-row="0"><span>27</span></button><button type="button" class="ecal__day" data-key="2026-07-28" data-row="0"><span>28</span></button><button type="button" class="ecal__day is-today" data-key="2026-07-29" data-row="0"><span>29</span></button><button type="button" class="ecal__day" data-key="2026-07-30" data-row="0"><span>30</span></button><button type="button" class="ecal__day" data-key="2026-07-31" data-row="0"><span>31</span></button><button type="button" class="ecal__day" data-key="2026-08-01" data-row="0"><span>1</span></button><button type="button" class="ecal__day" data-key="2026-08-02" data-row="0"><span>2</span></button></div>
+          </div>
+          <button type="button" class="ecal__toggle" id="ecalToggle" aria-expanded="false" data-i18n-aria="expandCalAria" aria-label="Déplier le calendrier">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"></polyline></svg>
+          </button>
+        </div>
+      </section>
+
+      <!-- today's events, right under the month they belong to -->
+      <section class="zone">
+        <div class="zone__head">
+          <h2 class="zone__title" id="dayTitle" data-i18n="todayTitle">Aujourd'hui</h2>
+          <button class="zone__action" id="dayToday" type="button" hidden="" data-i18n-aria="backToToday" aria-label="Revenir à aujourd'hui">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="1 4 1 10 7 10"></polyline><path d="M3.5 15a9 9 0 1 0 2.1-9.4L1 10"></path></svg>
+          </button>
+        </div>
+        <div class="day-events" id="todayEvents"></div>
+        <button class="add-card" id="addEventBtn" type="button">
+          <span class="add-card__plus">+</span>
+          <span class="add-card__label" data-i18n="addEventTitle">Ajouter un événement</span>
+        </button>
+        <!-- same quick add as the tasks: the day, the time and the "!" are read out of the line -->
+        <form class="quick" id="quickEvent" hidden="">
+          <div class="quick__field">
+            <div class="quick__mirror" id="quickEventMirror" aria-hidden="true"></div>
+            <input id="quickEventInput" class="quick__input" type="text" autocomplete="off" data-i18n-placeholder="quickEventPlaceholder" data-i18n-aria="addEventTitle" placeholder="Réunion équipe vendredi 14h !" aria-label="Ajouter un événement">
+          </div>
+          <p class="quick__hint" id="quickEventHint" hidden=""></p>
+        </form>
+      </section>
+
+    </div>
+
+    </div>
+    </section>
+
+    <!-- well-being: the daily tiles and their tracking, away from the work -->
+    <section class="page" id="wellPage">
+      <div class="wrap">
+        <!-- the tree is the view: one branch per habit, its circles are the
+             habits themselves. The numbers stay underneath for the precise read. -->
+        <div class="tree" id="tree">
+          <canvas id="treeCanvas" aria-hidden="true" width="1902" height="3296" style="width: 1902px; height: 3296px;"></canvas>
+          <!-- the sap runs on its own canvas: a frame costs a few strokes, not the tree -->
+          <canvas id="treeSap" class="tree__sap" aria-hidden="true" width="1902" height="3296" style="width: 1902px; height: 3296px;"></canvas>
+          <div class="tree__nodes" id="treeNodes"><button type="button" class="tnode is-done" aria-label="Lecture" aria-pressed="true" style="left: 1753.47px; top: 2222px; --vigour: 1.00;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path></svg><span class="tnode__name">Lecture</span><span class="tnode__edit">···</span></button><button type="button" class="tnode is-done" aria-label="Meditation" aria-pressed="true" style="left: 97.7825px; top: 2267.67px; --vigour: 1.00;"><span class="tnode__name">Meditation</span><span class="tnode__edit">···</span></button><button type="button" class="tnode is-done" aria-label="Eau" aria-pressed="true" style="left: 119.899px; top: 2656.61px; --vigour: 1.00;"><span class="tnode__name">Eau</span><span class="tnode__edit">···</span></button><button type="button" class="tnode" aria-label="Marche" aria-pressed="false" style="left: 1592.91px; top: 2644.89px; --vigour: 1.00;"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg><span class="tnode__name">Marche</span><span class="tnode__edit">···</span></button><button type="button" class="tnode" aria-label="Ecriture" aria-pressed="false" style="left: 1459.07px; top: 2197.71px; --vigour: 1.00;"><span class="tnode__name">Ecriture</span><span class="tnode__edit">···</span></button></div>
+        </div>
+        <div class="tree__foot">
+          <h2 class="zone__title" data-i18n="wellTitle">Bien-être</h2>
+          <button class="zone__action" id="addHabitBtn" type="button" data-i18n-aria="addHabitAria" aria-label="Ajouter une habitude">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+          </button>
+        </div>
+        <div class="hrule" id="habitsRule"><div class="hrule__lanes"><div class="hrule__lane"><span class="hrule__tag" title="Lecture"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path></svg></span><span class="hrule__day" title="Lecture · 2026-05-21"></span><span class="hrule__day" title="Lecture · 2026-05-22"></span><span class="hrule__day" title="Lecture · 2026-05-23"></span><span class="hrule__day" title="Lecture · 2026-05-24"></span><span class="hrule__day" title="Lecture · 2026-05-25"></span><span class="hrule__day" title="Lecture · 2026-05-26"></span><span class="hrule__day" title="Lecture · 2026-05-27"></span><span class="hrule__day" title="Lecture · 2026-05-28"></span><span class="hrule__day" title="Lecture · 2026-05-29"></span><span class="hrule__day" title="Lecture · 2026-05-30"></span><span class="hrule__day" title="Lecture · 2026-05-31"></span><span class="hrule__day is-on" title="Lecture · 2026-06-01"></span><span class="hrule__day is-on" title="Lecture · 2026-06-02"></span><span class="hrule__day is-on" title="Lecture · 2026-06-03"></span><span class="hrule__day is-on" title="Lecture · 2026-06-04"></span><span class="hrule__day is-on" title="Lecture · 2026-06-05"></span><span class="hrule__day" title="Lecture · 2026-06-06"></span><span class="hrule__day is-on" title="Lecture · 2026-06-07"></span><span class="hrule__day" title="Lecture · 2026-06-08"></span><span class="hrule__day is-on" title="Lecture · 2026-06-09"></span><span class="hrule__day" title="Lecture · 2026-06-10"></span><span class="hrule__day is-on" title="Lecture · 2026-06-11"></span><span class="hrule__day" title="Lecture · 2026-06-12"></span><span class="hrule__day" title="Lecture · 2026-06-13"></span><span class="hrule__day is-on" title="Lecture · 2026-06-14"></span><span class="hrule__day is-on" title="Lecture · 2026-06-15"></span><span class="hrule__day is-on" title="Lecture · 2026-06-16"></span><span class="hrule__day is-on" title="Lecture · 2026-06-17"></span><span class="hrule__day is-on" title="Lecture · 2026-06-18"></span><span class="hrule__day" title="Lecture · 2026-06-19"></span><span class="hrule__day is-on" title="Lecture · 2026-06-20"></span><span class="hrule__day is-on" title="Lecture · 2026-06-21"></span><span class="hrule__day" title="Lecture · 2026-06-22"></span><span class="hrule__day is-on" title="Lecture · 2026-06-23"></span><span class="hrule__day" title="Lecture · 2026-06-24"></span><span class="hrule__day is-on" title="Lecture · 2026-06-25"></span><span class="hrule__day is-on" title="Lecture · 2026-06-26"></span><span class="hrule__day is-on" title="Lecture · 2026-06-27"></span><span class="hrule__day is-on" title="Lecture · 2026-06-28"></span><span class="hrule__day is-on" title="Lecture · 2026-06-29"></span><span class="hrule__day" title="Lecture · 2026-06-30"></span><span class="hrule__day is-on" title="Lecture · 2026-07-01"></span><span class="hrule__day is-on" title="Lecture · 2026-07-02"></span><span class="hrule__day is-on" title="Lecture · 2026-07-03"></span><span class="hrule__day is-on" title="Lecture · 2026-07-04"></span><span class="hrule__day is-on" title="Lecture · 2026-07-05"></span><span class="hrule__day is-on" title="Lecture · 2026-07-06"></span><span class="hrule__day is-on" title="Lecture · 2026-07-07"></span><span class="hrule__day is-on" title="Lecture · 2026-07-08"></span><span class="hrule__day" title="Lecture · 2026-07-09"></span><span class="hrule__day" title="Lecture · 2026-07-10"></span><span class="hrule__day is-on" title="Lecture · 2026-07-11"></span><span class="hrule__day" title="Lecture · 2026-07-12"></span><span class="hrule__day is-on" title="Lecture · 2026-07-13"></span><span class="hrule__day is-on" title="Lecture · 2026-07-14"></span><span class="hrule__day is-on" title="Lecture · 2026-07-15"></span><span class="hrule__day is-on" title="Lecture · 2026-07-16"></span><span class="hrule__day" title="Lecture · 2026-07-17"></span><span class="hrule__day" title="Lecture · 2026-07-18"></span><span class="hrule__day is-on" title="Lecture · 2026-07-19"></span><span class="hrule__day" title="Lecture · 2026-07-20"></span><span class="hrule__day is-on" title="Lecture · 2026-07-21"></span><span class="hrule__day is-on" title="Lecture · 2026-07-22"></span><span class="hrule__day is-on" title="Lecture · 2026-07-23"></span><span class="hrule__day is-on" title="Lecture · 2026-07-24"></span><span class="hrule__day" title="Lecture · 2026-07-25"></span><span class="hrule__day is-on" title="Lecture · 2026-07-26"></span><span class="hrule__day is-on" title="Lecture · 2026-07-27"></span><span class="hrule__day is-on" title="Lecture · 2026-07-28"></span><span class="hrule__day is-on is-today" title="Lecture · 2026-07-29"></span></div><div class="hrule__lane"><span class="hrule__tag" title="Meditation"></span><span class="hrule__day" title="Meditation · 2026-05-21"></span><span class="hrule__day" title="Meditation · 2026-05-22"></span><span class="hrule__day" title="Meditation · 2026-05-23"></span><span class="hrule__day" title="Meditation · 2026-05-24"></span><span class="hrule__day" title="Meditation · 2026-05-25"></span><span class="hrule__day" title="Meditation · 2026-05-26"></span><span class="hrule__day" title="Meditation · 2026-05-27"></span><span class="hrule__day" title="Meditation · 2026-05-28"></span><span class="hrule__day" title="Meditation · 2026-05-29"></span><span class="hrule__day" title="Meditation · 2026-05-30"></span><span class="hrule__day is-on" title="Meditation · 2026-05-31"></span><span class="hrule__day" title="Meditation · 2026-06-01"></span><span class="hrule__day is-on" title="Meditation · 2026-06-02"></span><span class="hrule__day" title="Meditation · 2026-06-03"></span><span class="hrule__day" title="Meditation · 2026-06-04"></span><span class="hrule__day" title="Meditation · 2026-06-05"></span><span class="hrule__day is-on" title="Meditation · 2026-06-06"></span><span class="hrule__day is-on" title="Meditation · 2026-06-07"></span><span class="hrule__day" title="Meditation · 2026-06-08"></span><span class="hrule__day is-on" title="Meditation · 2026-06-09"></span><span class="hrule__day" title="Meditation · 2026-06-10"></span><span class="hrule__day" title="Meditation · 2026-06-11"></span><span class="hrule__day" title="Meditation · 2026-06-12"></span><span class="hrule__day is-on" title="Meditation · 2026-06-13"></span><span class="hrule__day" title="Meditation · 2026-06-14"></span><span class="hrule__day" title="Meditation · 2026-06-15"></span><span class="hrule__day is-on" title="Meditation · 2026-06-16"></span><span class="hrule__day" title="Meditation · 2026-06-17"></span><span class="hrule__day is-on" title="Meditation · 2026-06-18"></span><span class="hrule__day is-on" title="Meditation · 2026-06-19"></span><span class="hrule__day is-on" title="Meditation · 2026-06-20"></span><span class="hrule__day" title="Meditation · 2026-06-21"></span><span class="hrule__day" title="Meditation · 2026-06-22"></span><span class="hrule__day is-on" title="Meditation · 2026-06-23"></span><span class="hrule__day is-on" title="Meditation · 2026-06-24"></span><span class="hrule__day" title="Meditation · 2026-06-25"></span><span class="hrule__day" title="Meditation · 2026-06-26"></span><span class="hrule__day is-on" title="Meditation · 2026-06-27"></span><span class="hrule__day" title="Meditation · 2026-06-28"></span><span class="hrule__day" title="Meditation · 2026-06-29"></span><span class="hrule__day is-on" title="Meditation · 2026-06-30"></span><span class="hrule__day" title="Meditation · 2026-07-01"></span><span class="hrule__day" title="Meditation · 2026-07-02"></span><span class="hrule__day is-on" title="Meditation · 2026-07-03"></span><span class="hrule__day" title="Meditation · 2026-07-04"></span><span class="hrule__day" title="Meditation · 2026-07-05"></span><span class="hrule__day" title="Meditation · 2026-07-06"></span><span class="hrule__day" title="Meditation · 2026-07-07"></span><span class="hrule__day" title="Meditation · 2026-07-08"></span><span class="hrule__day" title="Meditation · 2026-07-09"></span><span class="hrule__day is-on" title="Meditation · 2026-07-10"></span><span class="hrule__day" title="Meditation · 2026-07-11"></span><span class="hrule__day" title="Meditation · 2026-07-12"></span><span class="hrule__day is-on" title="Meditation · 2026-07-13"></span><span class="hrule__day is-on" title="Meditation · 2026-07-14"></span><span class="hrule__day" title="Meditation · 2026-07-15"></span><span class="hrule__day" title="Meditation · 2026-07-16"></span><span class="hrule__day" title="Meditation · 2026-07-17"></span><span class="hrule__day is-on" title="Meditation · 2026-07-18"></span><span class="hrule__day is-on" title="Meditation · 2026-07-19"></span><span class="hrule__day is-on" title="Meditation · 2026-07-20"></span><span class="hrule__day" title="Meditation · 2026-07-21"></span><span class="hrule__day" title="Meditation · 2026-07-22"></span><span class="hrule__day is-on" title="Meditation · 2026-07-23"></span><span class="hrule__day is-on" title="Meditation · 2026-07-24"></span><span class="hrule__day" title="Meditation · 2026-07-25"></span><span class="hrule__day is-on" title="Meditation · 2026-07-26"></span><span class="hrule__day" title="Meditation · 2026-07-27"></span><span class="hrule__day" title="Meditation · 2026-07-28"></span><span class="hrule__day is-on is-today" title="Meditation · 2026-07-29"></span></div><div class="hrule__lane"><span class="hrule__tag" title="Eau"></span><span class="hrule__day" title="Eau · 2026-05-21"></span><span class="hrule__day" title="Eau · 2026-05-22"></span><span class="hrule__day" title="Eau · 2026-05-23"></span><span class="hrule__day" title="Eau · 2026-05-24"></span><span class="hrule__day" title="Eau · 2026-05-25"></span><span class="hrule__day" title="Eau · 2026-05-26"></span><span class="hrule__day" title="Eau · 2026-05-27"></span><span class="hrule__day" title="Eau · 2026-05-28"></span><span class="hrule__day" title="Eau · 2026-05-29"></span><span class="hrule__day" title="Eau · 2026-05-30"></span><span class="hrule__day is-on" title="Eau · 2026-05-31"></span><span class="hrule__day is-on" title="Eau · 2026-06-01"></span><span class="hrule__day is-on" title="Eau · 2026-06-02"></span><span class="hrule__day is-on" title="Eau · 2026-06-03"></span><span class="hrule__day is-on" title="Eau · 2026-06-04"></span><span class="hrule__day is-on" title="Eau · 2026-06-05"></span><span class="hrule__day is-on" title="Eau · 2026-06-06"></span><span class="hrule__day is-on" title="Eau · 2026-06-07"></span><span class="hrule__day is-on" title="Eau · 2026-06-08"></span><span class="hrule__day is-on" title="Eau · 2026-06-09"></span><span class="hrule__day is-on" title="Eau · 2026-06-10"></span><span class="hrule__day is-on" title="Eau · 2026-06-11"></span><span class="hrule__day" title="Eau · 2026-06-12"></span><span class="hrule__day is-on" title="Eau · 2026-06-13"></span><span class="hrule__day" title="Eau · 2026-06-14"></span><span class="hrule__day is-on" title="Eau · 2026-06-15"></span><span class="hrule__day is-on" title="Eau · 2026-06-16"></span><span class="hrule__day is-on" title="Eau · 2026-06-17"></span><span class="hrule__day is-on" title="Eau · 2026-06-18"></span><span class="hrule__day is-on" title="Eau · 2026-06-19"></span><span class="hrule__day is-on" title="Eau · 2026-06-20"></span><span class="hrule__day is-on" title="Eau · 2026-06-21"></span><span class="hrule__day is-on" title="Eau · 2026-06-22"></span><span class="hrule__day is-on" title="Eau · 2026-06-23"></span><span class="hrule__day is-on" title="Eau · 2026-06-24"></span><span class="hrule__day is-on" title="Eau · 2026-06-25"></span><span class="hrule__day is-on" title="Eau · 2026-06-26"></span><span class="hrule__day is-on" title="Eau · 2026-06-27"></span><span class="hrule__day is-on" title="Eau · 2026-06-28"></span><span class="hrule__day is-on" title="Eau · 2026-06-29"></span><span class="hrule__day is-on" title="Eau · 2026-06-30"></span><span class="hrule__day" title="Eau · 2026-07-01"></span><span class="hrule__day is-on" title="Eau · 2026-07-02"></span><span class="hrule__day is-on" title="Eau · 2026-07-03"></span><span class="hrule__day is-on" title="Eau · 2026-07-04"></span><span class="hrule__day is-on" title="Eau · 2026-07-05"></span><span class="hrule__day is-on" title="Eau · 2026-07-06"></span><span class="hrule__day" title="Eau · 2026-07-07"></span><span class="hrule__day is-on" title="Eau · 2026-07-08"></span><span class="hrule__day is-on" title="Eau · 2026-07-09"></span><span class="hrule__day is-on" title="Eau · 2026-07-10"></span><span class="hrule__day is-on" title="Eau · 2026-07-11"></span><span class="hrule__day is-on" title="Eau · 2026-07-12"></span><span class="hrule__day is-on" title="Eau · 2026-07-13"></span><span class="hrule__day is-on" title="Eau · 2026-07-14"></span><span class="hrule__day" title="Eau · 2026-07-15"></span><span class="hrule__day is-on" title="Eau · 2026-07-16"></span><span class="hrule__day is-on" title="Eau · 2026-07-17"></span><span class="hrule__day is-on" title="Eau · 2026-07-18"></span><span class="hrule__day is-on" title="Eau · 2026-07-19"></span><span class="hrule__day is-on" title="Eau · 2026-07-20"></span><span class="hrule__day" title="Eau · 2026-07-21"></span><span class="hrule__day" title="Eau · 2026-07-22"></span><span class="hrule__day is-on" title="Eau · 2026-07-23"></span><span class="hrule__day is-on" title="Eau · 2026-07-24"></span><span class="hrule__day" title="Eau · 2026-07-25"></span><span class="hrule__day" title="Eau · 2026-07-26"></span><span class="hrule__day is-on" title="Eau · 2026-07-27"></span><span class="hrule__day is-on" title="Eau · 2026-07-28"></span><span class="hrule__day is-on is-today" title="Eau · 2026-07-29"></span></div><div class="hrule__lane"><span class="hrule__tag" title="Marche"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg></span><span class="hrule__day" title="Marche · 2026-05-21"></span><span class="hrule__day" title="Marche · 2026-05-22"></span><span class="hrule__day" title="Marche · 2026-05-23"></span><span class="hrule__day" title="Marche · 2026-05-24"></span><span class="hrule__day" title="Marche · 2026-05-25"></span><span class="hrule__day" title="Marche · 2026-05-26"></span><span class="hrule__day" title="Marche · 2026-05-27"></span><span class="hrule__day" title="Marche · 2026-05-28"></span><span class="hrule__day" title="Marche · 2026-05-29"></span><span class="hrule__day" title="Marche · 2026-05-30"></span><span class="hrule__day" title="Marche · 2026-05-31"></span><span class="hrule__day" title="Marche · 2026-06-01"></span><span class="hrule__day is-on" title="Marche · 2026-06-02"></span><span class="hrule__day" title="Marche · 2026-06-03"></span><span class="hrule__day is-on" title="Marche · 2026-06-04"></span><span class="hrule__day" title="Marche · 2026-06-05"></span><span class="hrule__day is-on" title="Marche · 2026-06-06"></span><span class="hrule__day" title="Marche · 2026-06-07"></span><span class="hrule__day" title="Marche · 2026-06-08"></span><span class="hrule__day" title="Marche · 2026-06-09"></span><span class="hrule__day" title="Marche · 2026-06-10"></span><span class="hrule__day" title="Marche · 2026-06-11"></span><span class="hrule__day" title="Marche · 2026-06-12"></span><span class="hrule__day" title="Marche · 2026-06-13"></span><span class="hrule__day" title="Marche · 2026-06-14"></span><span class="hrule__day" title="Marche · 2026-06-15"></span><span class="hrule__day is-on" title="Marche · 2026-06-16"></span><span class="hrule__day" title="Marche · 2026-06-17"></span><span class="hrule__day is-on" title="Marche · 2026-06-18"></span><span class="hrule__day is-on" title="Marche · 2026-06-19"></span><span class="hrule__day" title="Marche · 2026-06-20"></span><span class="hrule__day" title="Marche · 2026-06-21"></span><span class="hrule__day" title="Marche · 2026-06-22"></span><span class="hrule__day is-on" title="Marche · 2026-06-23"></span><span class="hrule__day" title="Marche · 2026-06-24"></span><span class="hrule__day is-on" title="Marche · 2026-06-25"></span><span class="hrule__day" title="Marche · 2026-06-26"></span><span class="hrule__day is-on" title="Marche · 2026-06-27"></span><span class="hrule__day" title="Marche · 2026-06-28"></span><span class="hrule__day" title="Marche · 2026-06-29"></span><span class="hrule__day" title="Marche · 2026-06-30"></span><span class="hrule__day is-on" title="Marche · 2026-07-01"></span><span class="hrule__day is-on" title="Marche · 2026-07-02"></span><span class="hrule__day" title="Marche · 2026-07-03"></span><span class="hrule__day" title="Marche · 2026-07-04"></span><span class="hrule__day" title="Marche · 2026-07-05"></span><span class="hrule__day" title="Marche · 2026-07-06"></span><span class="hrule__day" title="Marche · 2026-07-07"></span><span class="hrule__day is-on" title="Marche · 2026-07-08"></span><span class="hrule__day is-on" title="Marche · 2026-07-09"></span><span class="hrule__day is-on" title="Marche · 2026-07-10"></span><span class="hrule__day" title="Marche · 2026-07-11"></span><span class="hrule__day" title="Marche · 2026-07-12"></span><span class="hrule__day is-on" title="Marche · 2026-07-13"></span><span class="hrule__day" title="Marche · 2026-07-14"></span><span class="hrule__day" title="Marche · 2026-07-15"></span><span class="hrule__day" title="Marche · 2026-07-16"></span><span class="hrule__day is-on" title="Marche · 2026-07-17"></span><span class="hrule__day" title="Marche · 2026-07-18"></span><span class="hrule__day is-on" title="Marche · 2026-07-19"></span><span class="hrule__day" title="Marche · 2026-07-20"></span><span class="hrule__day is-on" title="Marche · 2026-07-21"></span><span class="hrule__day is-on" title="Marche · 2026-07-22"></span><span class="hrule__day is-on" title="Marche · 2026-07-23"></span><span class="hrule__day is-on" title="Marche · 2026-07-24"></span><span class="hrule__day" title="Marche · 2026-07-25"></span><span class="hrule__day is-on" title="Marche · 2026-07-26"></span><span class="hrule__day is-on" title="Marche · 2026-07-27"></span><span class="hrule__day" title="Marche · 2026-07-28"></span><span class="hrule__day is-today" title="Marche · 2026-07-29"></span></div><div class="hrule__lane"><span class="hrule__tag" title="Ecriture"></span><span class="hrule__day" title="Ecriture · 2026-05-21"></span><span class="hrule__day" title="Ecriture · 2026-05-22"></span><span class="hrule__day" title="Ecriture · 2026-05-23"></span><span class="hrule__day" title="Ecriture · 2026-05-24"></span><span class="hrule__day" title="Ecriture · 2026-05-25"></span><span class="hrule__day" title="Ecriture · 2026-05-26"></span><span class="hrule__day" title="Ecriture · 2026-05-27"></span><span class="hrule__day" title="Ecriture · 2026-05-28"></span><span class="hrule__day" title="Ecriture · 2026-05-29"></span><span class="hrule__day" title="Ecriture · 2026-05-30"></span><span class="hrule__day" title="Ecriture · 2026-05-31"></span><span class="hrule__day is-on" title="Ecriture · 2026-06-01"></span><span class="hrule__day is-on" title="Ecriture · 2026-06-02"></span><span class="hrule__day is-on" title="Ecriture · 2026-06-03"></span><span class="hrule__day" title="Ecriture · 2026-06-04"></span><span class="hrule__day" title="Ecriture · 2026-06-05"></span><span class="hrule__day is-on" title="Ecriture · 2026-06-06"></span><span class="hrule__day is-on" title="Ecriture · 2026-06-07"></span><span class="hrule__day is-on" title="Ecriture · 2026-06-08"></span><span class="hrule__day is-on" title="Ecriture · 2026-06-09"></span><span class="hrule__day is-on" title="Ecriture · 2026-06-10"></span><span class="hrule__day is-on" title="Ecriture · 2026-06-11"></span><span class="hrule__day is-on" title="Ecriture · 2026-06-12"></span><span class="hrule__day is-on" title="Ecriture · 2026-06-13"></span><span class="hrule__day" title="Ecriture · 2026-06-14"></span><span class="hrule__day is-on" title="Ecriture · 2026-06-15"></span><span class="hrule__day" title="Ecriture · 2026-06-16"></span><span class="hrule__day is-on" title="Ecriture · 2026-06-17"></span><span class="hrule__day is-on" title="Ecriture · 2026-06-18"></span><span class="hrule__day is-on" title="Ecriture · 2026-06-19"></span><span class="hrule__day is-on" title="Ecriture · 2026-06-20"></span><span class="hrule__day is-on" title="Ecriture · 2026-06-21"></span><span class="hrule__day is-on" title="Ecriture · 2026-06-22"></span><span class="hrule__day" title="Ecriture · 2026-06-23"></span><span class="hrule__day" title="Ecriture · 2026-06-24"></span><span class="hrule__day" title="Ecriture · 2026-06-25"></span><span class="hrule__day is-on" title="Ecriture · 2026-06-26"></span><span class="hrule__day is-on" title="Ecriture · 2026-06-27"></span><span class="hrule__day" title="Ecriture · 2026-06-28"></span><span class="hrule__day" title="Ecriture · 2026-06-29"></span><span class="hrule__day" title="Ecriture · 2026-06-30"></span><span class="hrule__day is-on" title="Ecriture · 2026-07-01"></span><span class="hrule__day is-on" title="Ecriture · 2026-07-02"></span><span class="hrule__day" title="Ecriture · 2026-07-03"></span><span class="hrule__day is-on" title="Ecriture · 2026-07-04"></span><span class="hrule__day is-on" title="Ecriture · 2026-07-05"></span><span class="hrule__day is-on" title="Ecriture · 2026-07-06"></span><span class="hrule__day is-on" title="Ecriture · 2026-07-07"></span><span class="hrule__day is-on" title="Ecriture · 2026-07-08"></span><span class="hrule__day is-on" title="Ecriture · 2026-07-09"></span><span class="hrule__day is-on" title="Ecriture · 2026-07-10"></span><span class="hrule__day" title="Ecriture · 2026-07-11"></span><span class="hrule__day is-on" title="Ecriture · 2026-07-12"></span><span class="hrule__day" title="Ecriture · 2026-07-13"></span><span class="hrule__day is-on" title="Ecriture · 2026-07-14"></span><span class="hrule__day is-on" title="Ecriture · 2026-07-15"></span><span class="hrule__day is-on" title="Ecriture · 2026-07-16"></span><span class="hrule__day" title="Ecriture · 2026-07-17"></span><span class="hrule__day is-on" title="Ecriture · 2026-07-18"></span><span class="hrule__day is-on" title="Ecriture · 2026-07-19"></span><span class="hrule__day is-on" title="Ecriture · 2026-07-20"></span><span class="hrule__day is-on" title="Ecriture · 2026-07-21"></span><span class="hrule__day is-on" title="Ecriture · 2026-07-22"></span><span class="hrule__day is-on" title="Ecriture · 2026-07-23"></span><span class="hrule__day is-on" title="Ecriture · 2026-07-24"></span><span class="hrule__day" title="Ecriture · 2026-07-25"></span><span class="hrule__day" title="Ecriture · 2026-07-26"></span><span class="hrule__day is-on" title="Ecriture · 2026-07-27"></span><span class="hrule__day is-on" title="Ecriture · 2026-07-28"></span><span class="hrule__day is-today" title="Ecriture · 2026-07-29"></span></div></div><div class="hrule__axis"><span class="hrule__tag"></span><span class="hrule__stamp is-start">mai</span><span class="hrule__stamp"></span><span class="hrule__stamp"></span><span class="hrule__stamp"></span><span class="hrule__stamp"></span><span class="hrule__stamp"></span><span class="hrule__stamp"></span><span class="hrule__stamp"></span><span class="hrule__stamp"></span><span class="hrule__stamp"></span><span class="hrule__stamp"></span><span class="hrule__stamp is-start">juin</span><span class="hrule__stamp"></span><span class="hrule__stamp"></span><span class="hrule__stamp"></span><span class="hrule__stamp"></span><span class="hrule__stamp"></span><span class="hrule__stamp"></span><span class="hrule__stamp"></span><span class="hrule__stamp"></span><span class="hrule__stamp"></span><span class="hrule__stamp"></span><span class="hrule__stamp"></span><span class="hrule__stamp"></span><span class="hrule__stamp"></span><span class="hrule__stamp"></span><span class="hrule__stamp"></span><span class="hrule__stamp"></span><span class="hrule__stamp"></span><span class="hrule__stamp"></span><span class="hrule__stamp"></span><span class="hrule__stamp"></span><span class="hrule__stamp"></span><span class="hrule__stamp"></span><span class="hrule__stamp"></span><span class="hrule__stamp"></span><span class="hrule__stamp"></span><span class="hrule__stamp"></span><span class="hrule__stamp"></span><span class="hrule__stamp"></span><span class="hrule__stamp"></span><span class="hrule__stamp is-start">juil.</span><span class="hrule__stamp"></span><span class="hrule__stamp"></span><span class="hrule__stamp"></span><span class="hrule__stamp"></span><span class="hrule__stamp"></span><span class="hrule__stamp"></span><span class="hrule__stamp"></span><span class="hrule__stamp"></span><span class="hrule__stamp"></span><span class="hrule__stamp"></span><span class="hrule__stamp"></span><span class="hrule__stamp"></span><span class="hrule__stamp"></span><span class="hrule__stamp"></span><span class="hrule__stamp"></span><span class="hrule__stamp"></span><span class="hrule__stamp"></span><span class="hrule__stamp"></span><span class="hrule__stamp"></span><span class="hrule__stamp"></span><span class="hrule__stamp"></span><span class="hrule__stamp"></span><span class="hrule__stamp"></span><span class="hrule__stamp"></span><span class="hrule__stamp"></span><span class="hrule__stamp"></span><span class="hrule__stamp"></span><span class="hrule__stamp"></span></div></div>
+      </div>
+    </section>
+
+      </div>
+    </div>
+
+  </main>
+
+  <!-- the way between the two spaces: this arrow, or a swipe on touch -->
+  <button class="pageflip is-open" id="pageFlip" type="button" aria-expanded="true" data-i18n-aria="switchSpaceAria" aria-label="Changer d'espace">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6"></polyline></svg>
+  </button>
+
+  <!-- the editor card lives here when no object is unfolded -->
+  <div id="detail" class="detail-park" hidden="">
+    <div class="detail__card">
+      <!-- the object's identity line: it takes over the row header when open,
+           so nothing is written twice and the top space becomes editable -->
+      <div class="detail__titlerow" id="detailHead">
+        <button id="detailIcon" class="detail__icon" type="button" data-i18n-aria="editIconLabel" aria-label="Icône" hidden=""></button>
+        <input id="detailName" class="detail__name" type="text" maxlength="120">
+        <button id="detailBell" class="detail__pin detail__bell" type="button" hidden="" aria-pressed="false" data-i18n-aria="importantAria" aria-label="Marquer comme important">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg>
+        </button>
+        <button id="detailPin" class="detail__pin" type="button" data-i18n-aria="pinLabel" aria-label="Épingler">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="6" r="3"></circle><circle cx="17.7" cy="10.15" r="3"></circle><circle cx="15.5" cy="16.85" r="3"></circle><circle cx="8.47" cy="16.85" r="3"></circle><circle cx="6.3" cy="10.15" r="3"></circle><circle cx="12" cy="12" r="2.2"></circle></svg>
+        </button>
+      </div>
+      <div class="detail__body">
+        <div class="detail__section">
+          <span class="detail__label" data-i18n="notesLabel">Notes</span>
+          <textarea id="detailNotes" class="detail__notes" rows="1" data-i18n-placeholder="notesPlaceholder" placeholder="Ajouter des notes…"></textarea>
+        </div>
+
+        <div class="detail__section" id="subtaskSection">
+          <span class="detail__label" data-i18n="subtasksLabel">Sous-tâches</span>
+          <form id="subtaskForm" class="sub-add">
+            <input id="subtaskInput" class="add__input" type="text" data-i18n-placeholder="addSubtaskPlaceholder" placeholder="Ajouter une sous-tâche…" required="">
+            <button class="add__btn" type="submit" data-i18n-aria="addAria" aria-label="Ajouter">+</button>
+          </form>
+          <ul id="subtaskList" class="list"></ul>
+        </div>
+
+        <div class="detail__actions">
+        <button id="detailWhen" class="detail__delete detail__when" type="button">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+          <span data-i18n="rescheduleLabel">Replanifier</span>
+        </button>
+        <button id="detailDelete" class="detail__delete" type="button">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path><line x1="10" y1="11" x2="10" y2="17"></line><line x1="14" y1="11" x2="14" y2="17"></line></svg>
+          <span data-i18n="deleteAria">Supprimer</span>
+        </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- focus overlay -->
+  <div id="focus" class="focus" hidden="">
+    <img id="scubaGif" class="scuba-gif" src="./assets/cat-scuba.gif" alt="" hidden="">
+    <div class="focus__dot"></div>
+    <p class="focus__phrase" id="focusPhrase"></p>
+    <button id="focusExit" class="focus__exit" type="button" data-i18n-aria="focusExitAria" aria-label="Quitter le mode focus">×</button>
+  </div>
+
+  <!-- settings dialog -->
+  <div id="settings" class="modal" hidden="">
+    <div class="modal__backdrop" data-close=""></div>
+    <div class="modal__card">
+      <div class="modal__head">
+        <h2 class="modal__title" data-i18n="settingsTitle">Paramètres</h2>
+        <button class="modal__close" data-close="" data-i18n-aria="closeAria" aria-label="Fermer">×</button>
+      </div>
+
+      <div class="tabs" id="settingsTabs" role="tablist">
+        <button class="tab is-active" data-tab="system" type="button" role="tab" data-i18n="tabSystem">Système</button>
+        <button class="tab" data-tab="custom" type="button" role="tab" data-i18n="tabCustom">Personnalisation</button>
+      </div>
+
+      <div class="tab-panel is-active" data-tabpanel="system">
+        <label class="field">
+          <span class="field__label" data-i18n="nameLabel">Votre prénom</span>
+          <input id="nameInput" class="field__input" type="text" data-i18n-placeholder="namePlaceholder" placeholder="Ex. Aymane" maxlength="30">
+        </label>
+
+        <div class="field">
+          <span class="field__label" data-i18n="locationLabel">Localisation</span>
+          <input id="citySearch" class="field__input" type="text" data-i18n-placeholder="cityPlaceholder" placeholder="Rechercher une ville…" autocomplete="off">
+          <div id="cityResults" class="city-results"></div>
+        </div>
+
+        <div class="field">
+          <span class="field__label" data-i18n="languageLabel">Langue</span>
+          <div class="langs" id="langs">
+            <button class="lang is-active" data-lang="fr" data-i18n="langFr" type="button">Français</button>
+            <button class="lang" data-lang="en" data-i18n="langEn" type="button">English</button>
+          </div>
+        </div>
+
+        <div class="field">
+          <span class="field__label" data-i18n="dataLabel">Sauvegarde</span>
+          <div class="data-actions">
+            <button id="exportBtn" class="data-btn" type="button" data-i18n="exportBtn">Exporter</button>
+            <button id="importBtn" class="data-btn" type="button" data-i18n="importBtn">Importer</button>
+            <input id="importFile" type="file" accept="application/json,.json" hidden="">
+          </div>
+        </div>
+      </div>
+
+      <div class="tab-panel" data-tabpanel="custom" hidden="">
+        <div class="field">
+          <span class="field__label" data-i18n="themeLabel">Thème</span>
+          <div class="themes" id="themes">
+            <button class="theme" data-theme="auto" data-i18n="themeAuto" type="button">Adaptatif</button>
+            <button class="theme" data-theme="light" data-i18n="themeLight" type="button">Clair</button>
+            <button class="theme" data-theme="dark" data-i18n="themeDark" type="button">Sombre</button>
+            <button class="theme" data-theme="rose" data-i18n="themeRose" type="button">Rose</button>
+            <button class="theme" data-theme="dawn" data-i18n="themeDawn" type="button">Aube</button>
+            <button class="theme" data-theme="day" data-i18n="themeDay" type="button">Jour</button>
+            <button class="theme" data-theme="rain" data-i18n="themeRain" type="button">Pluie</button>
+            <button class="theme" data-theme="dusk" data-i18n="themeDusk" type="button">Crépuscule</button>
+            <button class="theme is-active" data-theme="night" data-i18n="themeNight" type="button">Nuit</button>
+          </div>
+        </div>
+
+        <div class="field">
+          <span class="field__label" data-i18n="paintLabel">Couleurs</span>
+          <button id="paintBtn" class="data-btn data-btn--wide" type="button" data-i18n-aria="paintAria" aria-label="Couleurs">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18.4 2.6a2 2 0 0 1 3 3L11 16l-4 1 1-4z"></path><path d="M6 14c-2 1-3 3-3 6 3 0 5-1 6-3"></path></svg>
+            <span data-i18n="paintOpen">Ouvrir l'atelier</span>
+          </button>
+        </div>
+
+        <div class="field field--row">
+          <span class="field__label" data-i18n="scrubLabel">Faire défiler le temps</span>
+          <span id="scrubToggleSlot"><button type="button" class="toggle toggle--accent" role="switch" aria-checked="false" aria-label="Faire défiler le temps"><span class="toggle__knob"></span></button></span>
+        </div>
+        <p class="field__hint" data-i18n="scrubHint">Tirez la barre du temps pour voyager dans la journée</p>
+
+        <div class="field">
+          <span class="field__label" data-i18n="treeShopLabel">Arbre</span>
+          <button id="treeBtn" class="data-btn data-btn--wide" type="button" data-i18n-aria="treeShopAria" aria-label="Modifier l'arbre">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21V9"></path><path d="M12 12 7 7"></path><path d="m12 14 5-5"></path><path d="M12 9c0-3 2-5 2-5"></path></svg>
+            <span data-i18n="treeShopOpen">Modifier l'arbre</span>
+          </button>
+        </div>
+
+        <div class="field">
+          <span class="field__label" data-i18n="decorLabel">Décorations</span>
+          <div class="decors" id="decors">
+            <button class="decor-opt" data-decor="particles" data-i18n="decorParticles" type="button">Particules</button>
+            <button class="decor-opt" data-decor="petals" data-i18n="decorPetals" type="button">Pétales</button>
+            <button class="decor-opt" data-decor="bubbles" data-i18n="decorBubbles" type="button">Bulles</button>
+            <button class="decor-opt" data-decor="fireflies" data-i18n="decorFireflies" type="button">Lucioles</button>
+            <button class="decor-opt" data-decor="rain" data-i18n="decorRain" type="button">Pluie</button>
+            <button class="decor-opt" data-decor="fog" data-i18n="decorFog" type="button">Brouillard</button>
+            <button class="decor-opt" data-decor="snow" data-i18n="decorSnow" type="button">Neige</button>
+            <button class="decor-opt" data-decor="storm" data-i18n="decorStorm" type="button">Orage</button>
+            <button class="decor-opt is-active" data-decor="field" data-i18n="decorField" type="button">Champ</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- tree workshop: what the tree shows, and how it flowers -->
+  <div id="treeShop" class="modal" hidden="">
+    <div class="modal__backdrop" data-close=""></div>
+    <div class="modal__card">
+      <div class="modal__head">
+        <h2 class="modal__title" data-i18n="treeShopTitle">Modifier l'arbre</h2>
+        <button class="modal__close" data-close="" data-i18n-aria="closeAria" aria-label="Fermer">×</button>
+      </div>
+
+      <div class="field">
+        <span class="field__label" data-i18n="bloomLabel">Floraison</span>
+        <div class="decors" id="blooms">
+          <button class="bloom-opt is-active" data-bloom="corolla" data-i18n="bloomCorolla" type="button">Corolles</button>
+          <button class="bloom-opt is-active" data-bloom="burst" data-i18n="bloomBurst" type="button">Éclosions</button>
+          <button class="bloom-opt is-active" data-bloom="bud" data-i18n="bloomBud" type="button">Boutons</button>
+        </div>
+      </div>
+      <p class="field__hint" data-i18n="bloomHint">Une branche ne fleurit qu'une fois son habitude tenue longtemps</p>
+
+      <div class="field field--row">
+        <span class="field__label" data-i18n="treeSapLabel">Sève</span>
+        <span id="treeSapSlot"><button type="button" class="toggle is-on" role="switch" aria-checked="true" aria-label="Sève"><span class="toggle__knob"></span></button></span>
+      </div>
+      <p class="field__hint" data-i18n="treeSapHint">Une lumière monte des racines et parcourt chaque flux</p>
+
+      <div class="field field--row">
+        <span class="field__label" data-i18n="treeTrunkLabel">Afficher le tronc</span>
+        <span id="treeTrunkSlot"><button type="button" class="toggle is-on" role="switch" aria-checked="true" aria-label="Afficher le tronc"><span class="toggle__knob"></span></button></span>
+      </div>
+      <div class="field field--row">
+        <span class="field__label" data-i18n="treeBranchesLabel">Afficher les branches</span>
+        <span id="treeBranchesSlot"><button type="button" class="toggle is-on" role="switch" aria-checked="true" aria-label="Afficher les branches"><span class="toggle__knob"></span></button></span>
+      </div>
+      <p class="field__hint" data-i18n="treePartsHint">Pour regarder une famille de flux à la fois</p>
+
+      <div class="field field--row">
+        <span class="field__label" data-i18n="treeWispsLabel">Fils fins de l'arbre</span>
+        <span id="treeWispsSlot"><button type="button" class="toggle is-on" role="switch" aria-checked="true" aria-label="Fils fins de l'arbre"><span class="toggle__knob"></span></button></span>
+      </div>
+      <p class="field__hint" data-i18n="treeWispsHint">Le duvet autour des veines. Coupez-le pour ne voir que la structure</p>
+
+      <div class="field field--row">
+        <span class="field__label" data-i18n="treeFullLabel">Arbre au maximum</span>
+        <span id="treeFullSlot"><button type="button" class="toggle is-on toggle--accent" role="switch" aria-checked="true" aria-label="Arbre au maximum"><span class="toggle__knob"></span></button></span>
+      </div>
+      <p class="field__hint" data-i18n="treeFullHint">Aperçu : l'arbre tel qu'il serait au mieux, toutes habitudes tenues</p>
+    </div>
+  </div>
+
+  <!-- colour workshop: pick a theme, then edit its source colours -->
+  <div id="paint" class="modal" hidden="">
+    <div class="modal__backdrop" data-close=""></div>
+    <div class="modal__card paint">
+      <div class="modal__head">
+        <h2 class="modal__title" data-i18n="paintTitle">Couleurs</h2>
+        <button class="modal__close" data-close="" data-i18n-aria="closeAria" aria-label="Fermer">×</button>
+      </div>
+
+      <div class="field">
+        <span class="field__label" data-i18n="paintThemeLabel">Thème à modifier</span>
+        <div class="themes" id="paintThemes"></div>
+      </div>
+
+      <div id="paintSlots"></div>
+
+      <div class="field">
+        <div class="paint__row">
+          <span class="field__label" data-i18n="paletteLabel">Palette</span>
+          <button type="button" class="paint__undo" id="paintPaletteReset" data-i18n="paintResetOne">Réinitialiser</button>
+        </div>
+        <div class="palettes" id="paintPalettes"></div>
+        <div class="swatches" id="paintImp"></div>
+      </div>
+
+      <button type="button" class="data-btn paint__reset" id="paintReset" data-i18n="paintReset">Réinitialiser ce thème</button>
+    </div>
+  </div>
+
+  <!-- habit icon picker -->
+  <div id="iconPicker" class="modal" hidden="">
+    <div class="modal__backdrop" data-close=""></div>
+    <div class="modal__card">
+      <div class="modal__head">
+        <h2 class="modal__title" data-i18n="pickIconTitle">Choisir une icône</h2>
+        <button class="modal__close" data-close="" data-i18n-aria="closeAria" aria-label="Fermer">×</button>
+      </div>
+      <label class="field" id="habitNameField">
+        <span class="field__label" data-i18n="habitNameLabel">Nom de l'habitude</span>
+        <input id="habitNameInput" class="field__input" type="text" data-i18n-placeholder="habitNamePlaceholder" placeholder="Ex. Boire de l'eau" maxlength="40">
+      </label>
+      <div class="field" id="iconPresets" hidden="">
+        <span class="field__label" data-i18n="presetsLabel">Préconfigurées</span>
+        <button id="presetSleep" class="icon-preset" type="button">
+          <span class="icon-preset__ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg></span>
+          <span data-i18n="sleepTitle">Sommeil</span>
+        </button>
+        <button id="presetExercise" class="icon-preset" type="button">
+          <span class="icon-preset__ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="2.5" y1="9" x2="2.5" y2="15"></line><line x1="5.5" y1="7" x2="5.5" y2="17"></line><line x1="18.5" y1="7" x2="18.5" y2="17"></line><line x1="21.5" y1="9" x2="21.5" y2="15"></line><line x1="5.5" y1="12" x2="18.5" y2="12"></line></svg></span>
+          <span data-i18n="exerciseTitle">Exercices rapides</span>
+        </button>
+      </div>
+      <div class="icon-grid" id="iconGrid"><button type="button" class="icon-choice"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"></path></svg></button><button type="button" class="icon-choice"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"></path><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"></path></svg></button><button type="button" class="icon-choice"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"></polyline></svg></button><button type="button" class="icon-choice"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"></path></svg></button><button type="button" class="icon-choice"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="5"></circle><line x1="12" y1="1" x2="12" y2="3"></line><line x1="12" y1="21" x2="12" y2="23"></line><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"></line><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"></line><line x1="1" y1="12" x2="3" y2="12"></line><line x1="21" y1="12" x2="23" y2="12"></line><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"></line><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"></line></svg></button><button type="button" class="icon-choice"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 1 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"></path></svg></button><button type="button" class="icon-choice"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 8h1a4 4 0 0 1 0 8h-1"></path><path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"></path><line x1="6" y1="1" x2="6" y2="4"></line><line x1="10" y1="1" x2="10" y2="4"></line><line x1="14" y1="1" x2="14" y2="4"></line></svg></button><button type="button" class="icon-choice"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg></button><button type="button" class="icon-choice"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 18V5l12-2v13"></path><circle cx="6" cy="18" r="3"></circle><circle cx="18" cy="16" r="3"></circle></svg></button><button type="button" class="icon-choice"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20.24 12.24a6 6 0 0 0-8.49-8.49L5 10.5V19h8.5z"></path><line x1="16" y1="8" x2="2" y2="22"></line><line x1="17.5" y1="15" x2="9" y2="15"></line></svg></button><button type="button" class="icon-choice"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="16 18 22 12 16 6"></polyline><polyline points="8 6 2 12 8 18"></polyline></svg></button><button type="button" class="icon-choice"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"></polygon></svg></button><button type="button" class="icon-choice"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="2.5" y1="9" x2="2.5" y2="15"></line><line x1="5.5" y1="7" x2="5.5" y2="17"></line><line x1="18.5" y1="7" x2="18.5" y2="17"></line><line x1="21.5" y1="9" x2="21.5" y2="15"></line><line x1="5.5" y1="12" x2="18.5" y2="12"></line></svg></button><button type="button" class="icon-choice"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="5" r="2"></circle><path d="M12 8v3"></path><path d="M7.5 18.5c1.2 -.8 2.7 -1.2 4.5 -1.2s3.3 .4 4.5 1.2"></path><path d="M12 11c-2.5 .5 -4 2 -4.5 4"></path><path d="M12 11c2.5 .5 4 2 4.5 4"></path></svg></button><button type="button" class="icon-choice"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="13" cy="4" r="1.6"></circle><path d="M7 21l3 -4"></path><path d="M16 21l-2 -4l-3 -3l1 -6"></path><path d="M6 12l2 -3l4 -1l3 3l3 1"></path></svg></button><button type="button" class="icon-choice"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="2" y="7" width="20" height="10" rx="5"></rect><line x1="6" y1="12" x2="9" y2="12"></line><line x1="7.5" y1="10.5" x2="7.5" y2="13.5"></line><circle cx="15.5" cy="13" r="1"></circle><circle cx="18.5" cy="11" r="1"></circle></svg></button><button type="button" class="icon-choice"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg></button><button type="button" class="icon-choice"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 21h16"></path><path d="M5 21v-7a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v7"></path><path d="M4 16.4c1.4 0 1.4 1 2.8 1s1.4-1 2.8-1 1.4 1 2.8 1 1.4-1 2.8-1 1.4 1 2.8 1"></path><path d="M12 6.5V9"></path><path d="M12 3.5a1 1 0 0 0-1 1c0 .8 1 1.5 1 1.5s1-.7 1-1.5a1 1 0 0 0-1-1z"></path></svg></button><button type="button" class="icon-choice"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg></button><button type="button" class="icon-choice"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 10 12 5 2 10l10 5 10-5z"></path><path d="M6 12v5c0 1.1 2.7 3 6 3s6-1.9 6-3v-5"></path><line x1="22" y1="10" x2="22" y2="15"></line></svg></button><button type="button" class="icon-choice"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="20 12 20 22 4 22 4 12"></polyline><rect x="2" y="7" width="20" height="5"></rect><line x1="12" y1="22" x2="12" y2="7"></line><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"></path><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"></path></svg></button><button type="button" class="icon-choice"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path><path d="M13.73 21a2 2 0 0 1-3.46 0"></path></svg></button><button type="button" class="icon-choice"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg></button><button type="button" class="icon-choice"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="9"></circle><circle cx="12" cy="12" r="5"></circle><circle cx="12" cy="12" r="1.4"></circle></svg></button><button type="button" class="icon-choice"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4.5 16.5c-1.5 1.3-2 5-2 5s3.7-.5 5-2c.7-.9.7-2.2-.1-3a2.1 2.1 0 0 0-2.9 0z"></path><path d="M12 15l-3-3a11 11 0 0 1 5-8c1.9-1.9 4-2 5-2s1.1 3.1-.8 5a11 11 0 0 1-8 5z"></path><path d="M9 12H4s.5-2.8 2-4c1.5-.4 3 0 3 0"></path><path d="M12 15v5s2.8-.5 4-2c.4-1.5 0-3 0-3"></path></svg></button><button type="button" class="icon-choice"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 8 12 13 18 8"></polyline><polyline points="6 15 12 20 18 15"></polyline></svg></button><button type="button" class="icon-choice"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="4" y1="4" x2="20" y2="4"></line><path d="M8 4v6l4 4 4-4V4"></path><line x1="4" y1="20" x2="20" y2="20"></line></svg></button><button type="button" class="icon-choice"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="6" y="3" width="5" height="5" rx="1"></rect><rect x="13" y="3" width="5" height="5" rx="1"></rect><rect x="6" y="9.5" width="5" height="5" rx="1"></rect><rect x="13" y="9.5" width="5" height="5" rx="1"></rect><rect x="6" y="16" width="5" height="5" rx="1"></rect><rect x="13" y="16" width="5" height="5" rx="1"></rect></svg></button><button type="button" class="icon-choice"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 3v6"></path><path d="M8 9l4 6 4-6"></path><path d="M8 21l4-6 4 6"></path></svg></button><button type="button" class="icon-choice"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="3" y1="5" x2="21" y2="5"></line><line x1="8" y1="5" x2="8" y2="13"></line><line x1="16" y1="5" x2="16" y2="13"></line><polyline points="6 10 8 13 10 10"></polyline><polyline points="14 10 16 13 18 10"></polyline></svg></button><button type="button" class="icon-choice"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="5" y1="4" x2="5" y2="20"></line><line x1="19" y1="4" x2="19" y2="20"></line><polyline points="9 9 12 13 15 9"></polyline></svg></button></div>
+    </div>
+  </div>
+
+  <!-- sleep habit: log last night on a slider, configure targets & recommendation -->
+  <div id="sleepView" class="modal" hidden="">
+    <div class="modal__backdrop" data-close=""></div>
+    <div class="modal__card sleep">
+      <div class="modal__head">
+        <h2 class="modal__title" data-i18n="sleepTitle">Sommeil</h2>
+        <button class="modal__close" data-close="" data-i18n-aria="closeAria" aria-label="Fermer">×</button>
+      </div>
+
+      <div class="sleep__today">
+        <span class="field__label" data-i18n="sleepTonight">Cette nuit</span>
+        <div class="sleep__value"><span id="sleepVal">8h</span></div>
+        <div class="sleep__status" id="sleepStatus"></div>
+        <div class="sleep__track" id="sleepTrack">
+          <div class="sleep__bar"></div>
+          <div class="sleep__zone" id="sleepZone" hidden=""></div>
+          <div class="sleep__ticks" id="sleepTicks"></div>
+          <input id="sleepSlider" class="sleep__slider" type="range" min="0" max="14" step="0.5" aria-label="Heures de sommeil">
+          <div class="sleep__bubble" id="sleepBubble">8h</div>
+        </div>
+        <div class="sleep__scale"><span>0h</span><span>7h</span><span>14h</span></div>
+      </div>
+
+      <div class="sleep__config">
+        <span class="field__label" data-i18n="sleepConfig">Configuration</span>
+        <div class="sleep__grid">
+          <label class="sleep__field"><span data-i18n="sleepAgeLabel">Âge</span><input id="sleepAge" type="number" min="0" max="120" inputmode="numeric"></label>
+          <label class="sleep__field"><span data-i18n="sleepWakeLabel">Réveil visé</span><input id="sleepWake" type="time"></label>
+          <label class="sleep__field sleep__field--wide"><span data-i18n="sleepTargetLabel">Objectif (h)</span><input id="sleepTarget" type="number" min="0" max="16" step="0.5" inputmode="decimal"></label>
+        </div>
+        <div class="sleep__reco" id="sleepReco" hidden="">
+          <span class="sleep__reco-txt" id="sleepRecoTxt"></span>
+        </div>
+        <div class="sleep__bedtime" id="sleepBedtime" hidden=""></div>
+      </div>
+
+      <div class="sleep__week">
+        <div class="sleep__weekstats">
+          <div class="sleep__stat"><span class="sleep__stat-v" id="sleepAvg">–</span><span class="sleep__stat-l" data-i18n="sleepAvgLabel">Moyenne 7 j</span></div>
+          <div class="sleep__stat"><span class="sleep__stat-v" id="sleepDebt">–</span><span class="sleep__stat-l" data-i18n="sleepDebtLabel">Dette</span></div>
+        </div>
+        <div id="sleepChart" class="sleep__chart"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- quick-exercises habit: pick exercises from a catalog, log reps with -/+1/+10 -->
+  <div id="exerciseView" class="modal" hidden="">
+    <div class="modal__backdrop" data-close=""></div>
+    <div class="modal__card exercise">
+      <div class="modal__head">
+        <h2 class="modal__title" data-i18n="exerciseTitle">Exercices rapides</h2>
+        <button class="modal__close" data-close="" data-i18n-aria="closeAria" aria-label="Fermer">×</button>
+      </div>
+
+      <div id="exerciseItems" class="ex-items"></div>
+
+      <div class="ex-search">
+        <input id="exerciseSearch" class="field__input" type="text" data-i18n-placeholder="exerciseSearchPlaceholder" placeholder="Rechercher un exercice…" autocomplete="off">
+        <div id="exerciseCatalog" class="ex-catalog"></div>
+      </div>
+
+      <div class="sleep__week">
+        <div class="sleep__weekstats">
+          <div class="sleep__stat"><span class="sleep__stat-v" id="exerciseAvg">–</span><span class="sleep__stat-l" data-i18n="exerciseAvgLabel">Réussite 7 j</span></div>
+        </div>
+        <div id="exerciseChart" class="sleep__chart"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- notes: list of titles -->
+  <div id="notes" class="detail detail--wide" hidden="">
+    <div class="detail__backdrop"></div>
+    <div class="detail__card">
+      <div class="detail__bar">
+        <button id="notesBack" class="detail__back" type="button" data-i18n-aria="backAria" aria-label="Retour">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6"></polyline></svg>
+        </button>
+        <button id="addNoteBtn" class="notes__add" type="button" data-i18n-aria="addNoteAria" aria-label="Nouvelle note">+</button>
+      </div>
+      <div class="detail__body">
+        <h2 class="detail__viewtitle" data-i18n="notesTitle">Notes</h2>
+        <input id="noteSearch" class="note-search" type="text" data-i18n-placeholder="searchPlaceholder" placeholder="Rechercher…" aria-label="Rechercher">
+        <div id="notesList" class="notes-list"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- notes: single-note editor -->
+  <div id="noteEditor" class="detail detail--wide" hidden="">
+    <div class="detail__backdrop"></div>
+    <div class="detail__card">
+      <div class="notes__top">
+        <div class="detail__bar">
+          <button id="noteEditorBack" class="detail__back" type="button" data-i18n-aria="backAria" aria-label="Retour">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6"></polyline></svg>
+          </button>
+        </div>
+        <div class="notes__toolbar">
+          <button class="ntool" data-cmd="bold" data-i18n-aria="boldAria" aria-label="Gras">B</button>
+          <button class="ntool" data-cmd="italic" data-i18n-aria="italicAria" aria-label="Italique">I</button>
+          <button class="ntool" data-cmd="underline" data-i18n-aria="underlineAria" aria-label="Souligner">U</button>
+          <button class="ntool" data-cmd="hilite" data-i18n-aria="highlightAria" aria-label="Surligner">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="4" y="6" width="16" height="12" rx="2" fill="#ffe08a" stroke="none"></rect></svg>
+          </button>
+          <span class="ntool__sep"></span>
+          <div class="ntool__emojis" id="noteEmojis"><button type="button" class="ntool ntool--emoji">😀</button><button type="button" class="ntool ntool--emoji">👍</button><button type="button" class="ntool ntool--emoji">❤️</button><button type="button" class="ntool ntool--emoji">🔥</button><button type="button" class="ntool ntool--emoji">⭐</button><button type="button" class="ntool ntool--emoji">✅</button><button type="button" class="ntool ntool--emoji">📌</button><button type="button" class="ntool ntool--emoji">💡</button><button type="button" class="ntool ntool--emoji">🎉</button><button type="button" class="ntool ntool--emoji">⚠️</button></div>
+        </div>
+      </div>
+      <div class="detail__body">
+        <input id="noteTitleInput" class="note-title" type="text" data-i18n-placeholder="noteTitlePlaceholder" placeholder="Titre" maxlength="120">
+        <div id="noteEditorBody" class="note-body" contenteditable="true"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- the sky: one star per project, on its own -->
+  <div id="skyView" class="sky-view" hidden="">
+    <div class="sky-view__bar">
+      <button id="skyBack" class="detail__back" type="button" data-i18n-aria="backAria" aria-label="Retour">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6"></polyline></svg>
+      </button>
+      <h2 class="sky-view__title" data-i18n="skyTitle">Le ciel</h2>
+      <button id="skyMode" class="sky-view__mode" type="button" data-i18n-aria="skyModeAria" aria-label="Ranger le ciel ou le libérer">
+        <span id="skyModeLabel">Libre</span>
+      </button>
+      <button id="skyLink" class="sky-view__add" type="button" aria-pressed="false" data-i18n-aria="skyLinkAria" aria-label="Relier deux projets">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+          <circle cx="5.5" cy="18" r="2.2"></circle><circle cx="18.5" cy="6" r="2.2"></circle><line x1="7.2" x2="16.8" y1="16.5" y2="7.5"></line>
+        </svg>
+      </button>
+      <button id="skyAdd" class="sky-view__add" type="button" data-i18n-aria="addProjectAria" aria-label="Nouveau projet">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+      </button>
+    </div>
+    <div class="sky-view__field" id="skyField">
+      <div class="sky-view__axes" id="skyAxes" hidden="">
+        <span class="sky-view__axis sky-view__axis--near" data-i18n="skyNear">Bientôt</span>
+        <span class="sky-view__axis sky-view__axis--far" data-i18n="skyFar">Un jour</span>
+        <span class="sky-view__axis sky-view__axis--amb" data-i18n="skyAmbition">Ambition</span>
+      </div>
+      <!-- what the camera moves: the constellations, the stars, the horizon -->
+      <div class="sky-view__camera" id="skyCamera">
+        <svg class="sky-links" id="skyLinks" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"></svg>
+        <div class="sky-view__horizon"><span data-i18n="skyDormant">En sommeil</span></div>
+      </div>
+      <p class="sky-view__empty" id="skyEmpty" data-i18n="skyEmpty" hidden="">Le ciel est vide. Allumez une première étoile.</p>
+      <p class="sky-view__hint" id="skyHint" data-i18n="skyLinkHint" hidden="">Choisissez deux étoiles à relier.</p>
+    </div>
+  </div>
+
+  <!-- the project workspace: what the star opens into -->
+  <div id="projectView" class="pview" hidden="">
+    <div class="pview__bar">
+      <button id="pviewBack" class="detail__back" type="button" data-i18n-aria="backAria" aria-label="Retour">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6"></polyline></svg>
+      </button>
+      <button id="pviewIcon" class="detail__icon" type="button" data-i18n-aria="editIconLabel" aria-label="Icône"></button>
+      <input id="pviewName" class="pview__name" type="text" maxlength="120">
+      <span id="pviewImp" class="detail__imp"></span>
+      <button id="pviewDone" class="pview__act" type="button">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="4 12.5 9.5 18 20 6"></polyline></svg>
+        <span id="pviewDoneLabel" data-i18n="completeLabel">Compléter</span>
+      </button>
+      <button id="pviewDelete" class="pview__act pview__act--del" type="button" data-i18n-aria="deleteAria" aria-label="Supprimer">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
+      </button>
+    </div>
+
+    <div class="pview__body">
+      <div class="pview__cols">
+        <div class="pview__col">
+          <section class="pview__sec">
+            <span class="detail__label" data-i18n="capLabel">Le cap</span>
+            <textarea id="pviewWhy" class="pview__line" rows="1" data-i18n-placeholder="whyPlaceholder" placeholder="Pourquoi ce projet ?"></textarea>
+            <textarea id="pviewOutcome" class="pview__line" rows="1" data-i18n-placeholder="outcomePlaceholder" placeholder="À quoi ça ressemble, une fois fini ?"></textarea>
+            <button id="pviewHorizon" class="pview__horizon" type="button">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+              <span id="pviewHorizonLabel" data-i18n="horizonNone">Sans date</span>
+            </button>
+          </section>
+
+          <section class="pview__sec">
+            <span class="detail__label" data-i18n="milestonesLabel">Jalons</span>
+            <div id="timeline" class="timeline"></div>
+          </section>
+        </div>
+
+        <div class="pview__col">
+          <section class="pview__sec">
+            <span class="detail__label" data-i18n="stepsLabel">Prochaines étapes</span>
+            <form id="pviewStepForm" class="sub-add">
+              <input id="pviewStepInput" class="add__input" type="text" data-i18n-placeholder="stepAdd" placeholder="Une étape concrète…" required="">
+              <button class="add__btn" type="submit" data-i18n-aria="addAria" aria-label="Ajouter">+</button>
+            </form>
+            <div id="pviewSteps" class="steps"></div>
+          </section>
+
+          <section class="pview__sec">
+            <span class="detail__label" data-i18n="journalLabel">Journal</span>
+            <form id="pviewJournalForm" class="sub-add">
+              <input id="pviewJournalInput" class="add__input" type="text" maxlength="400" data-i18n-placeholder="journalAdd" placeholder="Noter une avancée, une idée…" required="">
+              <button class="add__btn" type="submit" data-i18n-aria="addAria" aria-label="Ajouter">+</button>
+            </form>
+            <div id="pviewJournal" class="jrn"></div>
+          </section>
+        </div>
+      </div>
+
+      <section class="pview__sec pview__sec--wall">
+        <div class="pview__wallhead">
+          <span class="detail__label" data-i18n="dreamLabel">Mur de rêve</span>
+          <button id="pviewDreamAdd" class="zone__action" type="button" data-i18n-aria="dreamAdd" aria-label="Carte">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
+          </button>
+        </div>
+        <div id="pviewWall" class="wall"></div>
+      </section>
+    </div>
+  </div>
+
+  <!-- deadline calendar -->
+  <div id="calendar" class="modal" hidden="">
+    <div class="modal__backdrop" data-close=""></div>
+    <div class="modal__card">
+      <div class="modal__head">
+        <h2 class="modal__title" data-i18n="calendarTitle">Échéance</h2>
+        <button class="modal__close" data-close="" data-i18n-aria="closeAria" aria-label="Fermer">×</button>
+      </div>
+
+      <div class="cal">
+        <div class="cal__head">
+          <button type="button" class="cal__nav" id="calPrev" data-i18n-aria="prevMonthAria" aria-label="Mois précédent">‹</button>
+          <span class="cal__month" id="calMonth"></span>
+          <button type="button" class="cal__nav" id="calNext" data-i18n-aria="nextMonthAria" aria-label="Mois suivant">›</button>
+        </div>
+        <div class="cal__grid" id="calGrid"></div>
+      </div>
+
+      <div class="field field--row" id="calTimeRow">
+        <span class="field__label" data-i18n="calTimeLabel">Heure</span>
+        <span id="timeToggleSlot"><button type="button" class="toggle toggle--accent" role="switch" aria-checked="false"><span class="toggle__knob"></span></button></span>
+      </div>
+      <div id="timePicker" class="time-picker" hidden="">
+        <div class="time-picker__value"><span id="timeValue">09:00</span></div>
+        <div class="time-picker__row">
+          <span class="time-picker__tag">H</span>
+          <input id="timeHour" class="time-picker__slider" type="range" min="0" max="23" step="1" aria-label="Heure">
+        </div>
+        <div class="time-picker__row">
+          <span class="time-picker__tag">Min</span>
+          <input id="timeMinute" class="time-picker__slider" type="range" min="0" max="55" step="5" aria-label="Minutes">
+        </div>
+      </div>
+
+      <div class="cal__actions">
+        <button type="button" class="cal__clear" id="calClear" data-i18n="calClear">Effacer</button>
+        <button type="button" class="cal__confirm" id="calConfirm" data-i18n="calConfirm">Valider</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- today's hourly forecast graph (from the once-a-day Open-Meteo call) -->
+  <div id="weatherModal" class="modal" hidden="">
+    <div class="modal__backdrop" data-close=""></div>
+    <div class="modal__card">
+      <div class="modal__head">
+        <h2 class="modal__title"><span data-i18n="weatherTitle">Météo du jour</span> <span id="weatherPlace" class="weather__place"></span></h2>
+        <button class="modal__close" data-close="" data-i18n-aria="closeAria" aria-label="Fermer">×</button>
+      </div>
+      <div id="weatherChart" class="weather-chart"></div>
+    </div>
+  </div>
+
+  <!-- transient message (deletion undo, backup feedback) -->
+  <div id="toast" class="toast" hidden="">
+    <span id="toastMsg" class="toast__msg"></span>
+    <button id="toastAction" class="toast__action" type="button" hidden=""></button>
+  </div>
+
+  <script>window.PREVIEW_FULL=true;window.PART="";</script>
+<script src="seed.js"></script>
+<script src="./app.js?v=1785283529"></script>
+<script src="driver.js"></script>
+
+
+<div id="dump">x|{"scrollY":1968,"docH":3534,"innerH":984,"canvasH":3296,"upRoom":1968,"downRoom":582,"firstNodeTop":"2222px","litAtViewTop":111}|data:image/png;base64,</div></body></html>

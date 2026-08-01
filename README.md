@@ -1,8 +1,8 @@
 # Mes tâches — PWA todo
 
 Petite application de tâches (tâches du jour + projets), avec thèmes, choix de langue
-(FR / EN) et un mode focus. 100 % statique, aucune dépendance, fonctionne hors-ligne
-et s'installe sur mobile.
+(FR / EN), mode focus et espace de réflexion visuel. 100 % statique, aucune dépendance,
+fonctionne hors-ligne et s'installe sur mobile.
 
 ## Lancer en local
 Ouvrir `index.html` dans un navigateur, ou servir le dossier :

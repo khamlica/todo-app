@@ -1,7 +1,7 @@
 {
   "name": "Mes tâches",
   "short_name": "Mes tâches",
-  "description": "Vos tâches du jour et vos projets, avec un mode focus. Fonctionne hors-ligne.",
+  "description": "Vos tâches, projets et toiles de réflexion. Fonctionne hors-ligne.",
   "lang": "fr",
   "dir": "ltr",
   "start_url": "./",
