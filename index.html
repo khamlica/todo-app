@@ -706,20 +706,31 @@
         <button id="thinkingExit" class="thinking-board__exit" type="button" data-i18n-aria="thinkingExit" aria-label="Quitter le laboratoire">×</button>
       </header>
 
-      <nav class="thinking-tools" data-i18n-aria="thinkingAddBlock" aria-label="Ajouter un bloc">
-        <span class="thinking-tools__label" data-i18n="thinkingAdd">Ajouter</span>
-        <button class="thinking-tool thinking-tool--canvas" type="button" data-block-type="canvas">
-          <span class="thinking-tool__mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M8 8h8v8H8z"/></svg></span>
-          <span data-i18n="blockCanvas">Toile</span>
-        </button>
-        <button class="thinking-tool thinking-tool--problem" type="button" data-block-type="problem"><span class="thinking-tool__mark">?</span><span data-i18n="blockProblem">Problème</span></button>
-        <button class="thinking-tool thinking-tool--solution" type="button" data-block-type="solution"><span class="thinking-tool__mark">S</span><span data-i18n="blockSolution">Solution</span></button>
-        <button class="thinking-tool thinking-tool--example" type="button" data-block-type="example"><span class="thinking-tool__mark">Ex</span><span data-i18n="blockExample">Exemple</span></button>
-        <button class="thinking-tool thinking-tool--idea" type="button" data-block-type="idea"><span class="thinking-tool__mark">I</span><span data-i18n="blockIdea">Idée</span></button>
-        <button class="thinking-tool thinking-tool--question" type="button" data-block-type="question"><span class="thinking-tool__mark">Q</span><span data-i18n="blockQuestion">Question</span></button>
-        <button class="thinking-tool thinking-tool--answer" type="button" data-block-type="answer"><span class="thinking-tool__mark">R</span><span data-i18n="blockAnswer">Réponse</span></button>
-        <button class="thinking-tool thinking-tool--text" type="button" data-block-type="text"><span class="thinking-tool__mark">T</span><span data-i18n="blockText">Texte</span></button>
-        <button class="thinking-tool thinking-tool--note" type="button" data-block-type="note"><span class="thinking-tool__mark">N</span><span data-i18n="blockNote">Note</span></button>
+      <nav class="thinking-tools" data-i18n-aria="thinkingTools" aria-label="Outils de la toile">
+        <div class="thinking-tools__additions">
+          <span class="thinking-tools__label" data-i18n="thinkingAdd">Ajouter</span>
+          <button class="thinking-tool thinking-tool--canvas" type="button" data-block-type="canvas">
+            <span class="thinking-tool__mark" aria-hidden="true"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"><rect x="3" y="3" width="18" height="18" rx="3"/><path d="M8 8h8v8H8z"/></svg></span>
+            <span data-i18n="blockCanvas">Toile</span>
+          </button>
+          <button class="thinking-tool thinking-tool--problem" type="button" data-block-type="problem"><span class="thinking-tool__mark">?</span><span data-i18n="blockProblem">Problème</span></button>
+          <button class="thinking-tool thinking-tool--solution" type="button" data-block-type="solution"><span class="thinking-tool__mark">S</span><span data-i18n="blockSolution">Solution</span></button>
+          <button class="thinking-tool thinking-tool--example" type="button" data-block-type="example"><span class="thinking-tool__mark">Ex</span><span data-i18n="blockExample">Exemple</span></button>
+          <button class="thinking-tool thinking-tool--idea" type="button" data-block-type="idea"><span class="thinking-tool__mark">I</span><span data-i18n="blockIdea">Idée</span></button>
+          <button class="thinking-tool thinking-tool--question" type="button" data-block-type="question"><span class="thinking-tool__mark">Q</span><span data-i18n="blockQuestion">Question</span></button>
+          <button class="thinking-tool thinking-tool--answer" type="button" data-block-type="answer"><span class="thinking-tool__mark">R</span><span data-i18n="blockAnswer">Réponse</span></button>
+          <button class="thinking-tool thinking-tool--text" type="button" data-block-type="text"><span class="thinking-tool__mark">T</span><span data-i18n="blockText">Texte</span></button>
+          <button class="thinking-tool thinking-tool--note" type="button" data-block-type="note"><span class="thinking-tool__mark">N</span><span data-i18n="blockNote">Note</span></button>
+        </div>
+        <div class="thinking-selection-dock">
+          <div id="thinkingSelectionActions" class="thinking-selection-actions" hidden>
+            <span id="thinkingSelectionCount" class="thinking-selection-actions__count"></span>
+            <button id="thinkingSelectionCanvas" class="thinking-selection-actions__canvas" type="button" data-i18n="thinkingPutInCanvas">Mettre dans une nouvelle toile</button>
+          </div>
+          <button id="thinkingSelect" class="thinking-selection-toggle" type="button" aria-pressed="false" data-i18n-aria="thinkingSelect" aria-label="Sélection">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3M8 21H5a2 2 0 0 1-2-2v-3M16 21h3a2 2 0 0 0 2-2v-3"/><path d="m9 8 7 4-3 1-1 3Z"/></svg>
+          </button>
+        </div>
       </nav>
 
       <div id="thinkingLinkHint" class="thinking-link-hint" hidden>

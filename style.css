@@ -1462,6 +1462,15 @@ button.tgroup__head--day:hover {
 .goal-inline__name:focus { outline: none; border-bottom-color: var(--accent); }
 .goal-inline__section { min-width: 0; }
 .goal-inline__section > .detail__label { display: block; margin-bottom: 12px; }
+.goal-inline__journal-section {
+  padding-top: 4px;
+  border-top: 1px solid color-mix(in srgb, var(--c-line) 22%, transparent);
+}
+.goal-inline__journal-add {
+  width: min(100%, 680px);
+  margin-bottom: 14px;
+}
+.goal-inline__journal .detail__empty { margin: 2px 0 0; }
 
 /* HORIZONTAL MILESTONES — titles live in a small card below their point. The
    card appears on hover/focus and remains there while that milestone is open. */
@@ -4688,10 +4697,18 @@ body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: non
   background: color-mix(in srgb, var(--c-surface) 14%, transparent);
   -webkit-backdrop-filter: blur(14px) saturate(120%);
   backdrop-filter: blur(14px) saturate(120%);
+  overflow: hidden;
+}
+.thinking-tools__additions {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 7px;
   overflow-x: auto;
   scrollbar-width: none;
 }
-.thinking-tools::-webkit-scrollbar { display: none; }
+.thinking-tools__additions::-webkit-scrollbar { display: none; }
 .thinking-tools__label {
   flex: 0 0 auto;
   margin-right: 4px;
@@ -4720,6 +4737,76 @@ body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: non
   touch-action: pan-x;
 }
 .thinking-tool:hover { border-color: var(--block-color); }
+.thinking-selection-dock {
+  z-index: 6;
+  flex: 0 0 auto;
+  align-self: stretch;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding-left: 9px;
+  border-left: 1px solid var(--border);
+}
+.thinking-selection-toggle {
+  flex: 0 0 auto;
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 9px;
+  padding: 0;
+  background: none;
+  color: var(--muted);
+  cursor: pointer;
+  touch-action: manipulation;
+  transition: color .15s ease, background .15s ease, box-shadow .15s ease;
+}
+.thinking-selection-toggle:hover {
+  color: var(--text);
+  background: var(--input-bg);
+}
+.thinking-selection-toggle[aria-pressed="true"] {
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 15%, var(--surface-solid));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 42%, transparent);
+}
+.thinking-selection-toggle svg { width: 19px; height: 19px; }
+.thinking-selection-actions {
+  flex: 0 0 auto;
+  height: 34px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  margin-right: 5px;
+  padding: 0 4px 0 10px;
+  border: 1px solid color-mix(in srgb, var(--accent) 34%, var(--border));
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--accent) 9%, var(--surface-solid));
+  white-space: nowrap;
+}
+.thinking-selection-actions[hidden] { display: none; }
+.thinking-selection-actions__count {
+  color: var(--muted);
+  font-size: .7rem;
+  font-weight: 650;
+}
+.thinking-selection-actions__canvas {
+  border: 0;
+  border-radius: 999px;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+}
+.thinking-selection-actions__canvas {
+  padding: 5px 8px;
+  color: var(--accent);
+  font-size: .72rem;
+  font-weight: 750;
+}
+.thinking-selection-actions__canvas:hover { background: color-mix(in srgb, var(--accent) 13%, transparent); }
+.thinking-selection-actions__canvas:disabled { color: var(--muted); cursor: default; opacity: .48; }
 .thinking-tool-drag {
   --block-color: var(--muted);
   position: fixed;
@@ -4931,6 +5018,38 @@ body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: non
 }
 .thinking-block:hover { border-color: color-mix(in srgb, var(--block-color) 30%, var(--border)); }
 .thinking-block.is-dragging { z-index: 4; box-shadow: 0 18px 44px color-mix(in srgb, var(--c-sky-3) 25%, transparent); }
+.thinking-block.is-selected {
+  z-index: 3;
+  border-color: color-mix(in srgb, var(--accent) 78%, var(--block-color));
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 30%, transparent), var(--shadow);
+}
+.thinking-block.is-group-dragging {
+  z-index: 5;
+  transition: none;
+  box-shadow: 0 12px 34px color-mix(in srgb, var(--accent) 25%, transparent), var(--shadow);
+}
+.thinking-board.is-selecting .thinking-viewport,
+.thinking-board.is-selecting .thinking-canvas__stage { cursor: crosshair; }
+.thinking-board.is-selecting .thinking-block { cursor: pointer; }
+.thinking-board.is-selecting .thinking-block > .thinking-block__head { cursor: pointer; }
+.thinking-board.is-selecting .thinking-block.is-selected > .thinking-block__head { cursor: move; }
+.thinking-board.is-selecting .thinking-block :is(button, input, textarea, select) {
+  pointer-events: none;
+}
+.thinking-board.is-selecting .thinking-block__link-point {
+  opacity: 0;
+  pointer-events: none;
+}
+.thinking-board.is-selecting .thinking-link-hit { pointer-events: none; }
+.thinking-selection-box {
+  position: fixed;
+  z-index: 160;
+  border: 1px solid var(--accent);
+  border-radius: 7px;
+  background: color-mix(in srgb, var(--accent) 13%, transparent);
+  box-shadow: 0 0 0 1px color-mix(in srgb, var(--accent) 15%, transparent) inset;
+  pointer-events: none;
+}
 .thinking-block.is-link-source {
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--block-color) 25%, transparent), var(--shadow);
 }
@@ -5057,12 +5176,14 @@ body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: non
 .thinking-block.is-manually-sized > .thinking-block__text {
   flex: 0 1 auto;
   min-height: 0;
-  overflow: auto;
+  overflow: hidden;
+  overflow: clip;
 }
 .thinking-block.is-manually-sized > .thinking-block__children {
   flex: 0 1 auto;
   min-height: 0;
-  overflow: auto;
+  overflow: hidden;
+  overflow: clip;
 }
 .thinking-canvas__head {
   display: flex;
