@@ -744,8 +744,8 @@ body {
 }
 
 /* WELCOME */
-/* THE THRESHOLD — the sky at full bleed and the zellige over it, with only the
-   greeting on top. Nothing to aim at: the whole screen is the door. */
+/* THE THRESHOLD — the sky at full bleed, the day rule across the middle.
+   Nothing to aim at: the whole screen is the door. */
 .welcome {
   position: fixed;
   inset: 0;
@@ -771,6 +771,17 @@ body {
   position: relative;
   z-index: 1;   /* the greeting sits above the field */
   animation: fadeUp .9s ease both;
+}
+.welcome__slot {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+}
+/* blown up on the threshold, and flown back down to 1 on entering */
+.welcome__slot .day-line {
+  width: 100%;
+  transform: scale(1.35);
+  will-change: transform;
 }
 .welcome__hint {
   font-size: .8rem;
@@ -950,6 +961,36 @@ body:has(.welcome:not(.is-leaving)) .pageflip { opacity: 0; pointer-events: none
   border-radius: 10px;
 }
 .add-card--slim .add-card__plus { width: 16px; font-size: 1.1rem; }
+
+/* THE ADD LINE THAT BECOMES A FIELD — the two swap in place, so they have to be
+   the same box to the pixel: same width, same padding, same border width, same
+   radius, same line height. Any difference here is a jump on the page at the
+   moment of the click. Kept next to .quick__field so the pair is edited together.
+   Narrower than the column and centred in it: a bar the full width of the grid
+   read as a heavy thing under a light one. */
+.add-card--quick,
+.quick--event .quick__field {
+  width: 100%;
+  max-width: 290px;
+  margin-left: auto;
+  margin-right: auto;
+  border-radius: 10px;
+}
+.add-card--quick {
+  justify-content: center;
+  gap: 7px;
+  padding: 7px 11px;
+  font-size: .84rem;
+  font-weight: 500;
+  line-height: 1.4;
+}
+.add-card--quick .add-card__plus { width: 16px; font-size: 1.1rem; }
+.quick--event .quick__input,
+.quick--event .quick__mirror {
+  padding: 7px 11px;
+  font-size: .84rem;
+  line-height: 1.4;
+}
 /* flex/inline-flex boxes need this: a display rule beats the hidden attribute */
 .add-card[hidden],
 .toast[hidden] { display: none; }
@@ -2192,109 +2233,80 @@ button.tgroup__head--day:hover {
 }
 .day-row__cal { width: 100%; max-width: 100%; }
 
-/* An event's editor puts the ring beside the notes and the buttons rather than
-   under them: the room is already there, and stacking it would make the panel
-   taller for a control that is only a circle. */
-.detail__body.has-dial {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto;
-  column-gap: 20px;
-  align-items: start;
-}
-.detail__body.has-dial > .detail__section,
-.detail__body.has-dial > .detail__actions { grid-column: 1; margin-top: 0; }
-.detail__body.has-dial > .detail__actions { margin-top: 18px; }
-/* span 2, not 1/-1: with no explicit rows declared, -1 resolves to the start of
-   the grid and the ring would span nothing. An event shows notes then actions. */
-.detail__body.has-dial > #timeSection {
-  grid-column: 2;
-  grid-row: 1 / span 2;
-  align-self: center;
-  margin-top: 0;
-}
-
-/* THE DIAL — the hour is turned, not typed. Twenty-four marks like everything
-   else here, so noon sits at the bottom and the day reads round once. The readout
-   above is the control: the half you press is the half the ring is turning. */
-.dial { display: flex; flex-direction: column; align-items: center; gap: 10px; }
-/* the day the ring belongs to, above the hour it sets */
-.dial__date {
-  font-size: .8rem;
-  font-weight: 600;
-  color: var(--muted);
-  text-align: center;
-  line-height: 1.2;
-}
-.dial__readout {
+/* WHAT HAS NO DAY YET — a line of chips over the rule of time. They are picked up
+   and dropped onto the rule, which is what dates them, so they read as loose
+   things resting there rather than as a list. */
+.undated {
   display: flex;
-  align-items: baseline;
-  gap: 2px;
-  font-family: var(--mono);
-  font-variant-numeric: tabular-nums;
-  font-size: 1.6rem;
-  font-weight: 600;
-  letter-spacing: -.03em;
-  line-height: 1;
+  align-items: center;
+  gap: 10px;
+  max-width: 1160px;
+  margin: 0 auto 10px;
+  padding: 0 20px;
 }
-.dial__unit {
-  border: none;
-  background: none;
-  font: inherit;
+.undated[hidden] { display: none; }
+.undated__label {
+  flex: 0 0 auto;
+  font-size: .68rem;
+  font-weight: 700;
+  letter-spacing: .07em;
+  text-transform: uppercase;
   color: var(--muted);
-  padding: 2px 4px;
-  border-radius: 8px;
-  cursor: pointer;
-  transition: color .2s ease, background .2s ease, text-shadow .3s ease;
 }
-.dial__unit.is-on {
-  color: var(--sig-line);
-  background: color-mix(in srgb, var(--c-sig) 12%, transparent);
-  text-shadow: 0 0 16px var(--sig-glow);
+.undated__items { display: flex; flex-wrap: wrap; gap: 8px; min-width: 0; }
+/* held open for the length of a drag, so an event coming off the rule has
+   somewhere to land even when the strip is otherwise empty */
+.undated.is-target {
+  outline: 1px dashed color-mix(in srgb, var(--muted) 45%, transparent);
+  outline-offset: 6px;
+  border-radius: 12px;
+  min-height: 34px;
 }
-.dial__colon { color: var(--muted); opacity: .5; }
+.undated.is-target.is-active {
+  outline-color: var(--accent);
+  outline-style: solid;
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+}
+.undated__chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  max-width: 240px;
+  padding: 7px 12px;
+  border: 1px dashed color-mix(in srgb, var(--muted) 45%, transparent);
+  border-radius: 999px;
+  background: var(--input-bg);
+  color: var(--text);
+  font: inherit;
+  font-size: .85rem;
+  cursor: grab;
+  touch-action: none;   /* the chip takes the drag, the page must not scroll under it */
+  transition: border-color .2s ease, box-shadow .2s ease;
+}
+.undated__chip:hover { border-color: var(--accent); }
+/* important reads the same off the rule as on it: the danger colour, and a solid
+   edge — a chip that matters is not a dotted outline among others */
+.undated__chip.is-important {
+  border-style: solid;
+  border-color: var(--danger);
+  color: var(--danger);
+  background: color-mix(in srgb, var(--danger) 10%, var(--input-bg));
+}
+.undated__chip.is-important .undated__chip-ico { color: var(--danger); }
+.undated__chip.is-dragging {
+  cursor: grabbing;
+  border-style: solid;
+  border-color: var(--accent);
+  box-shadow: var(--shadow);
+  position: relative;
+  z-index: 30;
+  transition: none;   /* it follows the finger, it does not chase it */
+}
+.undated__chip-ico { flex: 0 0 auto; width: 16px; height: 16px; color: var(--accent); display: grid; place-items: center; }
+.undated__chip-ico svg { width: 16px; height: 16px; }
+.undated__chip-text { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 
-.dial__face {
-  width: 150px;
-  max-width: 100%;
-  aspect-ratio: 1;
-  touch-action: none;   /* the ring takes the drag, the page does not scroll under it */
-  cursor: pointer;
-  overflow: visible;
-}
-.dial__track {
-  fill: color-mix(in srgb, var(--c-surface) 30%, transparent);
-  stroke: var(--item-border);
-  stroke-width: 1;
-}
-.dial__num {
-  font-family: var(--mono);
-  font-size: 11px;
-  font-weight: 600;
-  fill: var(--muted);
-  text-anchor: middle;
-  dominant-baseline: central;
-  pointer-events: none;
-  transition: fill .2s ease;
-}
-.dial__num.is-on { fill: var(--sig-ink); }
-.dial__dot { fill: color-mix(in srgb, var(--muted) 45%, transparent); pointer-events: none; }
-.dial__hand {
-  stroke: var(--sig-line);
-  stroke-width: 2;
-  stroke-linecap: round;
-  opacity: .55;
-  pointer-events: none;
-}
-.dial__knob {
-  fill: var(--sig-line);
-  filter: drop-shadow(0 0 8px var(--sig-glow));
-  pointer-events: none;
-}
-.dial__arm {
-  pointer-events: none;
-  transition: transform .2s cubic-bezier(.3, 0, .2, 1);
-}
-.dial__pivot { fill: var(--muted); opacity: .6; pointer-events: none; }
+@media (min-width: 1000px) { .undated { padding: 0 32px; } }
 
 /* the editor opened from a timeline event */
 .day-fold:empty { display: none; }
@@ -3275,6 +3287,8 @@ body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: non
 .sub-add { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
 
 .detail__actions { display: flex; gap: 10px; margin-top: 24px; }
+/* a display rule beats the hidden attribute, as it does for .add-card */
+.detail__actions[hidden] { display: none; }
 .detail__delete[hidden] { display: none; }   /* display:flex would beat the attribute */
 .detail__actions .detail__delete { margin-top: 0; }
 /* three actions, three readings: completing affirms, rescheduling is neutral,
@@ -3464,11 +3478,16 @@ body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: non
   width: 100%;
   pointer-events: none;
 }
+/* It used to hang under the rule of time, centred and narrower than the page.
+   It opens in the place of the add line now, so it takes that line's footprint
+   and nothing of its own — a width or a margin here would move it off the mark. */
 .quick--event {
-  max-width: 620px;
-  margin: 18px auto 0;
-  padding: 0 20px;
+  max-width: none;
+  margin: 0;
+  padding: 0;
 }
+/* the hint is centred under the field it belongs to, not against the column */
+.quick--event .quick__hint { text-align: center; }
 
 
 /* WEATHER GRAPH (modal) */
@@ -4641,7 +4660,7 @@ body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: non
   gap: 14px;
   padding: max(14px, env(safe-area-inset-top)) max(22px, env(safe-area-inset-right)) 14px
     max(22px, env(safe-area-inset-left));
-  border-bottom: 1px solid var(--border);
+  border-bottom: 0;
   background: color-mix(in srgb, var(--c-surface) 22%, transparent);
   -webkit-backdrop-filter: blur(14px) saturate(120%);
   backdrop-filter: blur(14px) saturate(120%);
@@ -4663,12 +4682,23 @@ body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: non
   font-weight: 650;
   outline: none;
 }
+.thinking-board__name { padding: 3px 2px; border-radius: 8px; }
 .thinking-board__name:focus { border-bottom: 1px solid var(--accent); }
 .thinking-board__name:disabled {
   color: var(--muted);
   cursor: default;
 }
-.thinking-board__saved { color: var(--muted); font-size: .72rem; }
+/* the theme signs its own saves, like every other signature in the app */
+.thinking-board__saved {
+  flex: 0 0 auto;
+  padding: 4px 11px;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--sig) 20%, transparent);
+  color: color-mix(in oklab, var(--sig-line) 55%, var(--text));
+  font-size: .7rem;
+  font-weight: 650;
+}
+.thinking__bar--board .detail__back { border-radius: 999px; }
 .thinking__bar--board .detail__back:disabled {
   opacity: .2;
   cursor: default;
@@ -4679,7 +4709,7 @@ body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: non
   width: 36px;
   height: 36px;
   border: 0;
-  border-radius: 10px;
+  border-radius: 999px;
   background: none;
   color: var(--muted);
   font: inherit;
@@ -4687,13 +4717,15 @@ body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: non
   cursor: pointer;
 }
 .thinking-board__exit:hover { color: var(--text); background: var(--input-bg); }
+/* the bar above already drew a rule; a second one right under it just stacked
+   two hard lines across the top of the board */
 .thinking-tools {
   flex: 0 0 auto;
   display: flex;
   align-items: center;
   gap: 7px;
   padding: 9px max(18px, env(safe-area-inset-right)) 9px max(18px, env(safe-area-inset-left));
-  border-bottom: 1px solid var(--border);
+  border-bottom: 0;
   background: color-mix(in srgb, var(--c-surface) 14%, transparent);
   -webkit-backdrop-filter: blur(14px) saturate(120%);
   backdrop-filter: blur(14px) saturate(120%);
@@ -4705,38 +4737,65 @@ body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: non
   display: flex;
   align-items: center;
   gap: 7px;
+  margin-block: -4px;
+  padding-block: 4px;
   overflow-x: auto;
+  overflow-y: hidden;
   scrollbar-width: none;
 }
 .thinking-tools__additions::-webkit-scrollbar { display: none; }
+/* the palette runs off the edge on purpose; it should fray, not be guillotined */
+.thinking-tools__additions {
+  mask-image: linear-gradient(90deg, #000 calc(100% - 26px), transparent);
+}
+.thinking-tools {
+  box-shadow: 0 10px 24px -18px color-mix(in srgb, #000 calc(var(--c-shade) * 130%), transparent);
+}
+/* the sober counterweight: the colour is all in the dabs, so the two group
+   names stay small and quiet */
 .thinking-tools__label {
   flex: 0 0 auto;
-  margin-right: 4px;
+  margin: 0 5px 0 2px;
   color: var(--muted);
-  font-size: .72rem;
+  font-size: .63rem;
   font-weight: 700;
-  letter-spacing: .06em;
+  letter-spacing: .11em;
   text-transform: uppercase;
+  opacity: .78;
 }
+.thinking-tools__label:not(:first-child) { margin-left: 9px; }
+/* THE PALETTE — the board is a cloth, so the row you pick from is a palette and
+   each tool is a dab of its own colour, not a grey chip with a coloured dot.
+   They lift under the pointer and press when taken, which is the only thing in
+   this app that ever says "pick me up". */
 .thinking-tool {
   --block-color: var(--muted);
   flex: 0 0 auto;
   height: 34px;
   display: inline-flex;
   align-items: center;
-  gap: 6px;
-  border: 1px solid color-mix(in srgb, var(--block-color) 35%, var(--border));
+  gap: 7px;
+  border: 1px solid color-mix(in srgb, var(--block-color) 26%, transparent);
   border-radius: 999px;
-  padding: 0 11px 0 7px;
-  background: color-mix(in srgb, var(--block-color) 10%, var(--surface-solid));
+  padding: 0 13px 0 5px;
+  background: color-mix(in srgb, var(--block-color) 15%, var(--surface-solid));
   color: var(--text);
   font: inherit;
   font-size: .78rem;
+  font-weight: 550;
   cursor: pointer;
   white-space: nowrap;
   touch-action: pan-x;
+  transition: background .16s ease, border-color .16s ease, transform .16s ease;
 }
-.thinking-tool:hover { border-color: var(--block-color); }
+.thinking-tool:hover {
+  position: relative;
+  z-index: 2;
+  border-color: color-mix(in srgb, var(--block-color) 52%, transparent);
+  background: color-mix(in srgb, var(--block-color) 26%, var(--surface-solid));
+  transform: translateY(-2px);
+}
+.thinking-tool:active { transform: translateY(0); }
 .thinking-selection-dock {
   z-index: 6;
   flex: 0 0 auto;
@@ -4754,7 +4813,7 @@ body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: non
   display: grid;
   place-items: center;
   border: 0;
-  border-radius: 9px;
+  border-radius: 999px;
   padding: 0;
   background: none;
   color: var(--muted);
@@ -4822,33 +4881,55 @@ body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: non
   color: var(--text);
   font-size: .8rem;
   font-weight: 750;
-  box-shadow: 0 12px 30px color-mix(in srgb, var(--c-sky-3) 30%, transparent);
+  box-shadow: 0 12px 30px -8px color-mix(in srgb, #000 calc(var(--c-shade) * 105%), transparent);
   pointer-events: none;
   opacity: .94;
 }
-.thinking-tool--canvas {
-  height: 40px;
-  border: 2px solid color-mix(in srgb, var(--block-color) 72%, var(--border));
-  padding: 0 14px 0 9px;
-  background:
-    linear-gradient(135deg, color-mix(in srgb, var(--block-color) 22%, transparent), transparent),
-    color-mix(in srgb, var(--block-color) 15%, var(--surface-solid));
-  font-weight: 800;
-  box-shadow: 0 5px 16px color-mix(in srgb, var(--block-color) 17%, transparent);
+/* The three container tools used to opt out of the pill: square corners, a 2px
+   rim, and the document wore a hard bar down its left side — the very shape the
+   blocks just gave up. They stay pills like everything else; what makes them
+   read as heavier is the disc going solid, which is the same language the
+   blocks now speak. */
+.thinking-tool--canvas,
+.thinking-tool--folder,
+.thinking-tool--document {
+  height: 38px;
+  border-color: color-mix(in srgb, var(--block-color) 48%, var(--border));
+  padding: 0 14px 0 7px;
+  background: color-mix(in srgb, var(--block-color) 13%, var(--surface-solid));
+  font-weight: 750;
 }
-.thinking-tool--canvas:hover {
-  background: color-mix(in srgb, var(--block-color) 23%, var(--surface-solid));
+.thinking-tool--canvas:hover,
+.thinking-tool--folder:hover,
+.thinking-tool--document:hover {
+  background: color-mix(in srgb, var(--block-color) 22%, var(--surface-solid));
+}
+.thinking-tool:disabled {
+  opacity: .28;
+  filter: saturate(.35);
+  cursor: not-allowed;
+  box-shadow: none;
 }
 .thinking-tool__mark {
-  width: 20px; height: 20px;
+  width: 24px; height: 24px;
   display: grid; place-items: center;
   border-radius: 50%;
-  background: color-mix(in srgb, var(--block-color) 18%, transparent);
+  background: color-mix(in srgb, var(--block-color) 30%, transparent);
   color: var(--block-color);
-  font-size: .72rem;
-  font-weight: 800;
 }
-.thinking-tool__mark svg { width: 15px; height: 15px; }
+.thinking-tool__mark svg { width: 14px; height: 14px; }
+/* a container's disc is solid, with the icon knocked out of it — the block's
+   "settled" state, borrowed to say "this one holds other things" */
+.thinking-tool:is(.thinking-tool--canvas, .thinking-tool--folder, .thinking-tool--document) .thinking-tool__mark {
+  width: 26px;
+  height: 26px;
+  background: color-mix(in srgb, var(--block-color) 82%, transparent);
+  color: var(--surface-solid);
+}
+.thinking-tool:is(.thinking-tool--canvas, .thinking-tool--folder, .thinking-tool--document) .thinking-tool__mark svg {
+  width: 19px;
+  height: 19px;
+}
 :where(.thinking-block) { --block-color: var(--muted); }
 /* THE BLOCK COLOURS — off the importance palette, not off a list of their own.
    Those five hues were the only colours in the app written by hand, so the board
@@ -4857,18 +4938,66 @@ body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: non
    blue, teal and amber, which is nearly what was there — and a problem keeps the
    app's own red rather than borrowing a stop. Solution and answer share a colour,
    as do example and canvas: that pairing was deliberate and is preserved. */
-.thinking-tool--problem, .thinking-block--problem { --block-color: var(--c-danger); }
-.thinking-tool--question, .thinking-block--question { --block-color: var(--c-imp-1); }
-.thinking-tool--example, .thinking-block--example { --block-color: var(--c-imp-2); }
-.thinking-tool--canvas, .thinking-block--canvas { --block-color: var(--c-imp-2); }
-.thinking-tool--solution, .thinking-block--solution { --block-color: var(--c-imp-4); }
-.thinking-tool--answer, .thinking-block--answer { --block-color: var(--c-imp-4); }
-.thinking-tool--idea, .thinking-block--idea { --block-color: var(--c-imp-5); }
-.thinking-tool--text, .thinking-block--text { --block-color: var(--muted); }
-.thinking-tool--note, .thinking-block--note { --block-color: var(--muted); }
+.thinking-tool--problem, .thinking-block--problem, .thinking-link--problem { --block-color: var(--c-danger); }
+.thinking-tool--question, .thinking-block--question, .thinking-link--question { --block-color: var(--c-imp-1); }
+.thinking-tool--example, .thinking-block--example, .thinking-link--example { --block-color: var(--c-imp-2); }
+.thinking-tool--canvas, .thinking-block--canvas, .thinking-link--canvas, .thinking-add--canvas { --block-color: var(--c-imp-2); }
+.thinking-tool--folder, .thinking-block--folder, .thinking-link--folder, .thinking-add--folder { --block-color: var(--c-imp-5); }
+.thinking-tool--document, .thinking-block--document, .thinking-link--document, .thinking-add--document { --block-color: var(--c-imp-3); }
+.thinking-tool--solution, .thinking-block--solution, .thinking-link--solution { --block-color: var(--c-imp-4); }
+.thinking-tool--answer, .thinking-block--answer, .thinking-link--answer { --block-color: var(--c-imp-4); }
+.thinking-tool--task, .thinking-block--task, .thinking-link--task { --block-color: var(--c-imp-3); }
+.thinking-tool--idea, .thinking-block--idea, .thinking-link--idea { --block-color: var(--c-imp-5); }
+.thinking-tool--text, .thinking-block--text, .thinking-link--text { --block-color: var(--muted); }
+.thinking-tool--note, .thinking-block--note, .thinking-link--note { --block-color: var(--muted); }
 .thinking-tool--text {
   border-color: color-mix(in srgb, var(--muted) 24%, transparent);
   background: transparent;
+}
+
+/* THE TYPE MARK — a pastille, not a bar. The spine that lived on the left edge
+   sat in the void left by the card's own corner radius, so it read as detached;
+   it fought the drag grip and the stuck groups for the same colour; and a hard
+   straight rule is the one shape this app never uses — the task check is a
+   ring, the tools are pills, the field is a lattice that answers the pointer.
+
+   So the mark is a soft disc in the type's own pastel, holding the icon, and
+   what it says is whether the thing is settled: pale while it is open, solid
+   with the icon knocked out once it is answered. That is exactly what a task
+   checkbox does upstairs, tick and all. */
+.thinking-block:where(:not(.thinking-block--organization, .thinking-block--text))
+  > .thinking-block__head {
+  min-height: 26px;
+  gap: 7px;
+  padding: 4px 4px 2px 7px;
+  border-bottom: 0;
+  background: none;
+}
+.thinking-block:where(:not(.thinking-block--organization, .thinking-block--text))
+  > .thinking-block__head > .thinking-block__icon {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--block-color) 17%, transparent);
+  transition: background .16s ease, color .16s ease;
+}
+.thinking-block:where(:not(.thinking-block--organization, .thinking-block--text))
+  > .thinking-block__head > .thinking-block__icon svg { width: 13px; height: 13px; }
+.thinking-block:where(:not(.thinking-block--organization, .thinking-block--text))
+  > .thinking-block__head > .thinking-block__icon:hover {
+  background: color-mix(in srgb, var(--block-color) 34%, transparent);
+}
+/* settled: the disc fills and the icon is knocked out of it */
+.thinking-block--solution > .thinking-block__head > .thinking-block__icon,
+.thinking-block--answer > .thinking-block__head > .thinking-block__icon,
+.thinking-block--task.is-task-done > .thinking-block__head > .thinking-block__icon {
+  background: color-mix(in srgb, var(--block-color) 86%, transparent);
+  color: var(--surface-solid);
+}
+.thinking-block--solution > .thinking-block__head > .thinking-block__icon:hover,
+.thinking-block--answer > .thinking-block__head > .thinking-block__icon:hover,
+.thinking-block--task.is-task-done > .thinking-block__head > .thinking-block__icon:hover {
+  background: var(--block-color);
 }
 .thinking-link-hint {
   position: absolute;
@@ -4883,7 +5012,7 @@ body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: non
   border: 1px solid color-mix(in srgb, var(--accent) 50%, transparent);
   border-radius: 999px;
   background: var(--surface-solid);
-  box-shadow: var(--shadow);
+  box-shadow: 0 8px 22px -8px color-mix(in srgb, #000 calc(var(--c-shade) * 95%), transparent);
   color: var(--text);
   font-size: .78rem;
 }
@@ -4907,14 +5036,14 @@ body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: non
   align-items: center;
   justify-content: center;
   gap: 9px;
-  border: 1px dashed color-mix(in srgb, var(--danger) 58%, var(--border));
-  border-radius: 16px;
+  border: 1px solid color-mix(in srgb, var(--danger) 34%, transparent);
+  border-radius: 999px;
   padding: 10px 18px;
-  background: color-mix(in srgb, var(--danger) 10%, var(--surface-solid));
+  background: color-mix(in srgb, var(--danger) 12%, var(--surface-solid));
   color: var(--danger);
   font-size: .78rem;
   font-weight: 700;
-  box-shadow: var(--shadow);
+  box-shadow: 0 10px 26px -10px color-mix(in srgb, #000 calc(var(--c-shade) * 95%), transparent);
   backdrop-filter: blur(14px) saturate(120%);
   opacity: 0;
   transform: translate(-50%, 22px) scale(.92);
@@ -4924,7 +5053,7 @@ body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: non
 .thinking-trash[hidden] { display: none; }
 .thinking-trash.is-visible { opacity: 1; transform: translate(-50%, 0) scale(1); }
 .thinking-trash.is-active {
-  border-style: solid;
+  border-color: var(--danger);
   background: var(--danger);
   color: white;
   transform: translate(-50%, 0) scale(1.08);
@@ -4965,26 +5094,45 @@ body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: non
   62% { opacity: 1; transform: scale(.988); filter: blur(0); }
   100% { opacity: 1; transform: scale(1); filter: blur(0); }
 }
+/* THE CLOTH — a toile is a woven thing, and the lattice was already sitting on
+   the crossings of a weave: the dots are the knots, so they get their threads.
+   Same 24px step as before, so nothing new can beat against the scroll. */
 .thinking-plane {
   position: relative;
   width: 20000px;
   height: 12000px;
-  background-image: radial-gradient(circle, color-mix(in srgb, var(--c-line) 45%, transparent) 1px, transparent 1.2px);
-  background-size: 24px 24px;
+  background-image:
+    radial-gradient(circle,
+      color-mix(in srgb, var(--c-line) 40%, transparent) 1px, transparent 1.2px),
+    repeating-linear-gradient(90deg,
+      color-mix(in srgb, var(--c-line) 15%, transparent) 0 1px, transparent 1px 24px),
+    repeating-linear-gradient(0deg,
+      color-mix(in srgb, var(--c-line) 11%, transparent) 0 1px, transparent 1px 24px);
+  background-size: 24px 24px, 24px 24px, 24px 24px;
 }
 .thinking-links, .thinking-blocks { position: absolute; inset: 0; }
 .thinking-links { z-index: 1; overflow: visible; }
-.thinking-links marker path { fill: color-mix(in srgb, var(--accent) 72%, var(--text)); }
+/* the head takes the line's own colour, so one rule recolours both */
+.thinking-links marker path {
+  fill: color-mix(in srgb, var(--accent) 72%, var(--text));
+  fill: context-stroke;
+}
 .thinking-blocks { z-index: 2; pointer-events: none; }
+/* A link wears the colour of the block it leaves, set per path in the script.
+   Every line being the same accent said nothing about what it joined; by hue
+   a board now reads at a glance — the reds leave problems, the teals leave
+   solutions. */
 .thinking-link {
   fill: none;
-  stroke: color-mix(in srgb, var(--accent) 72%, var(--text));
-  stroke-width: 2;
+  stroke: var(--block-color, color-mix(in srgb, var(--accent) 72%, var(--text)));
+  stroke-width: 2.2;
   stroke-linecap: round;
   marker-end: url(#thinkingArrow);
   pointer-events: none;
-  opacity: .7;
+  opacity: .66;
+  transition: opacity .16s ease, stroke .16s ease;
 }
+.thinking-link.is-doomed { stroke: var(--danger); opacity: 1; }
 .thinking-link-hit {
   fill: none;
   stroke: transparent;
@@ -5001,32 +5149,69 @@ body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: non
   marker-end: url(#thinkingArrow);
   pointer-events: none;
 }
-.thinking-links:has(.thinking-link-hit:hover) .thinking-link { opacity: .28; }
-.thinking-link-pair:hover + .thinking-link-hit { stroke: color-mix(in srgb, var(--danger) 12%, transparent); }
+/* hovering one link withdraws the others — but not the one under the pointer */
+.thinking-links:has(.thinking-link-hit:hover) .thinking-link:not(.is-doomed) { opacity: .22; }
 .thinking-block {
+  --thinking-corner-tl: var(--r-md);
+  --thinking-corner-tr: var(--r-md);
+  --thinking-corner-br: var(--r-md);
+  --thinking-corner-bl: var(--r-md);
   position: absolute;
+  isolation: isolate;
   width: 160px;
   min-height: 64px;
   display: flex;
   flex-direction: column;
   border: 1px solid var(--border);
-  border-radius: var(--r-md);
+  border-radius: var(--thinking-corner-tl) var(--thinking-corner-tr)
+    var(--thinking-corner-br) var(--thinking-corner-bl);
   background: var(--surface-solid);
-  box-shadow: var(--shadow);
+  /* --shadow is mixed from --c-sky-3, which on the violet themes is lighter
+     than the page: every block wore a halo instead of casting a shadow. Down
+     here it has to darken, so it is mixed from black. */
+  --thinking-lift:
+    0 1px 2px color-mix(in srgb, #000 calc(var(--c-shade) * 46%), transparent),
+    0 8px 20px -8px color-mix(in srgb, #000 calc(var(--c-shade) * 95%), transparent);
+  box-shadow: var(--thinking-lift);
   pointer-events: auto;
   transition: box-shadow .18s ease, border-color .18s ease;
 }
+/* THE ORGANIZATION BLOCKS — toile, dossier, document. Unfolded they used to
+   wear a window chrome: card border, tinted title bar, a 10px gutter, a dashed
+   stage and a footer strip for two buttons, five edges deep. Nothing else in
+   the app frames anything — a task group is a label and a fading rule — so the
+   chrome is gone and the head reads like .tgroup__head instead.
+
+   The recess is painted on ::before rather than on the card, which leaves the
+   card's own border and shadow to the state rules right below (selection,
+   drag, drop). */
+.thinking-block--organization {
+  border: 0;
+  background: none;
+  box-shadow: none;
+}
+.thinking-block--organization:not(.is-collapsed)::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+}
 .thinking-block:hover { border-color: color-mix(in srgb, var(--block-color) 30%, var(--border)); }
-.thinking-block.is-dragging { z-index: 4; box-shadow: 0 18px 44px color-mix(in srgb, var(--c-sky-3) 25%, transparent); }
+.thinking-block.is-dragging {
+  z-index: 4;
+  box-shadow: 0 18px 44px -6px color-mix(in srgb, #000 calc(var(--c-shade) * 105%), transparent);
+}
 .thinking-block.is-selected {
   z-index: 3;
   border-color: color-mix(in srgb, var(--accent) 78%, var(--block-color));
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 30%, transparent), var(--shadow);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 30%, transparent), var(--thinking-lift);
 }
 .thinking-block.is-group-dragging {
   z-index: 5;
   transition: none;
-  box-shadow: 0 12px 34px color-mix(in srgb, var(--accent) 25%, transparent), var(--shadow);
+  box-shadow: 0 12px 34px color-mix(in srgb, var(--accent) 25%, transparent), var(--thinking-lift);
 }
 .thinking-board.is-selecting .thinking-viewport,
 .thinking-board.is-selecting .thinking-canvas__stage { cursor: crosshair; }
@@ -5035,6 +5220,10 @@ body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: non
 .thinking-board.is-selecting .thinking-block.is-selected > .thinking-block__head { cursor: move; }
 .thinking-board.is-selecting .thinking-block :is(button, input, textarea, select) {
   pointer-events: none;
+}
+.thinking-board.is-selecting
+  .thinking-block.is-selected > .thinking-block__head > .thinking-block__delete {
+  pointer-events: auto;
 }
 .thinking-board.is-selecting .thinking-block__link-point {
   opacity: 0;
@@ -5051,24 +5240,49 @@ body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: non
   pointer-events: none;
 }
 .thinking-block.is-link-source {
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--block-color) 25%, transparent), var(--shadow);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--block-color) 25%, transparent), var(--thinking-lift);
 }
 .thinking-block.is-drop-target {
   border-color: var(--block-color);
-  box-shadow: 0 0 0 4px color-mix(in srgb, var(--block-color) 24%, transparent), var(--shadow);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--block-color) 24%, transparent), var(--thinking-lift);
 }
-.thinking-board:is(.is-combining, .is-tool-dragging) .thinking-block.is-drop-option {
+.thinking-board:is(.is-combining, .is-tool-dragging)
+  .thinking-block:is(.is-drop-option, .is-stick-option) {
   border-style: dashed;
   border-color: color-mix(in srgb, var(--block-color) 58%, var(--border));
 }
+.thinking-block.is-stick-target::after {
+  content: "";
+  position: absolute;
+  z-index: 30;
+  border-radius: 6px;
+  background: var(--block-color);
+  box-shadow: 0 0 0 4px color-mix(in srgb, var(--block-color) 22%, transparent);
+  pointer-events: none;
+}
+.thinking-block.is-stick-target-top::after,
+.thinking-block.is-stick-target-bottom::after {
+  left: 10px;
+  right: 10px;
+  height: 5px;
+}
+.thinking-block.is-stick-target-top::after { top: -3px; }
+.thinking-block.is-stick-target-bottom::after { bottom: -3px; }
+.thinking-block.is-stick-target-left::after,
+.thinking-block.is-stick-target-right::after {
+  top: 10px;
+  bottom: 10px;
+  width: 5px;
+}
+.thinking-block.is-stick-target-left::after { left: -3px; }
+.thinking-block.is-stick-target-right::after { right: -3px; }
 .thinking-board:is(.is-combining, .is-tool-dragging) .thinking-block.is-drop-target {
   border-style: solid;
   border-color: var(--block-color);
 }
 .thinking-board:is(.is-combining, .is-tool-dragging)
   .thinking-block.is-drop-target > .thinking-canvas__stage {
-  border-color: var(--block-color);
-  box-shadow: inset 0 0 0 3px color-mix(in srgb, var(--block-color) 18%, transparent);
+  box-shadow: inset 0 0 0 3px color-mix(in srgb, var(--block-color) 24%, transparent);
 }
 .thinking-block--nested {
   position: relative;
@@ -5084,21 +5298,105 @@ body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: non
   z-index: 100;
   margin: 0;
   pointer-events: none;
-  box-shadow: var(--shadow);
+  box-shadow: var(--thinking-lift);
 }
-.thinking-block--canvas:not(.thinking-block--nested) {
-  min-height: 430px;
-}
-.thinking-block--canvas {
-  background: color-mix(in srgb, var(--surface-solid) 82%, transparent);
-  backdrop-filter: blur(8px) saturate(115%);
-}
-.thinking-block--canvas.is-collapsed {
-  width: min(310px, calc(100% - 20px)) !important;
+.thinking-block--organization:not(.thinking-block--nested) {
   min-height: 0;
 }
-.thinking-block--canvas.is-collapsed .thinking-canvas__stage {
+/* A folded container is the most toy-like thing on the board — an icon on a
+   plate, like the tools. So it answers the pointer instead of just tinting. */
+.thinking-block--organization.is-collapsed {
+  width: 112px !important;
+  height: 112px;
+  min-height: 112px;
+  border-radius: 18px;
+  transition: background .16s ease, transform .16s ease;
+}
+.thinking-block--organization.is-collapsed:hover {
+  background: color-mix(in srgb, var(--block-color) 13%, transparent);
+  transform: translateY(-2px);
+}
+.thinking-block--organization.is-collapsed > .thinking-block__head {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  flex: 1 1 auto;
+  flex-direction: column;
+  justify-content: center;
+  gap: 7px;
+  padding: 10px 8px 13px;
+  border: 0;
+  border-radius: 18px;
+  background: transparent;
+}
+.thinking-block--organization.is-collapsed > .thinking-block__head .thinking-block__icon {
+  width: 58px;
+  height: 52px;
+  flex: 0 0 52px;
+  border-radius: 0;
+  color: var(--block-color);
+  background: none;
+  box-shadow: none;
+}
+.thinking-block--organization.is-collapsed > .thinking-block__head .thinking-block__icon svg {
+  width: 48px;
+  height: 48px;
+}
+.thinking-block--organization.is-collapsed > .thinking-block__head .thinking-block__type {
+  width: 100%;
+  flex: 0 0 auto;
+  overflow: hidden;
+  color: var(--text);
+  font-size: .7rem;
+  line-height: 1.2;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.thinking-block--organization.is-collapsed > .thinking-block__head .thinking-block__delete {
+  position: absolute;
+  top: 4px;
+  right: 4px;
+}
+/* folded, the head is the whole tile: no filet, no count, no canvas actions */
+.thinking-block--organization.is-collapsed > .thinking-block__head > .thinking-block__rule,
+.thinking-block--organization.is-collapsed > .thinking-block__head > .thinking-block__connections,
+.thinking-block--organization.is-collapsed > .thinking-block__head > .thinking-block__actions {
   display: none;
+}
+.thinking-block--canvas.is-collapsed > .thinking-block__head .thinking-block__icon {
+  color: var(--block-color);
+  background: none;
+  box-shadow: none;
+}
+.thinking-block--canvas.is-collapsed > .thinking-block__head .thinking-block__type {
+  color: var(--text);
+}
+.thinking-block--organization.is-collapsed .thinking-canvas__stage {
+  display: none;
+}
+.thinking-block--organization.is-collapsed .thinking-folder__list {
+  display: none;
+}
+/* the corner vars survive the chrome: they are what still tells a folder tab
+   from a document spine once the borders are gone */
+.thinking-block--folder {
+  --thinking-corner-tl: 5px;
+  --thinking-corner-tr: 12px;
+  --thinking-corner-br: 12px;
+  --thinking-corner-bl: 5px;
+}
+.thinking-block--folder:not(.is-collapsed) { width: 420px; }
+.thinking-block--document {
+  --thinking-corner-tl: 4px;
+  --thinking-corner-tr: 7px;
+  --thinking-corner-br: 7px;
+  --thinking-corner-bl: 4px;
+}
+/* the spine is the block's identity, not a frame: 9px of colour became 3 */
+.thinking-block--document:not(.is-collapsed) {
+  border-left: 3px solid color-mix(in srgb, var(--block-color) 60%, transparent);
 }
 .thinking-block--canvas-child {
   position: absolute;
@@ -5106,7 +5404,7 @@ body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: non
   min-height: 64px;
 }
 .thinking-block--canvas-child.is-detaching { position: fixed; }
-.thinking-block--canvas.thinking-block--canvas-child { max-width: none; }
+.thinking-block--organization.thinking-block--canvas-child { max-width: none; }
 .thinking-block__head {
   min-height: 27px;
   display: flex;
@@ -5114,12 +5412,111 @@ body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: non
   gap: 3px;
   padding: 2px 4px;
   border-bottom: 1px solid color-mix(in srgb, var(--block-color) 34%, var(--border));
-  border-radius: calc(var(--r-md) - 1px) calc(var(--r-md) - 1px) 0 0;
+  border-radius: var(--thinking-corner-tl) var(--thinking-corner-tr) 0 0;
   background: color-mix(in srgb, var(--block-color) 24%, var(--surface-solid));
   cursor: grab;
   user-select: none;
   touch-action: none;
 }
+/* Unfolded, an organization head is a task-group head: name, filet, actions.
+   No band, no rule under it — the surface below is what reads as the body. */
+.thinking-block--organization:not(.is-collapsed) > .thinking-block__head {
+  min-height: 26px;
+  gap: 9px;
+  padding: 3px 4px 3px 8px;
+  border-bottom: 0;
+  border-radius: 0;
+  background: none;
+}
+.thinking-block--organization:not(.is-collapsed) > .thinking-block__head
+  > .thinking-block__type {
+  flex: 0 1 auto;
+}
+.thinking-block__rule {
+  flex: 1 1 auto;
+  min-width: 12px;
+  height: 1px;
+  background: linear-gradient(90deg,
+    color-mix(in srgb, var(--block-color) 62%, transparent), transparent);
+}
+/* the two canvas actions stay legible without asking for the click */
+.thinking-block--organization:not(.is-collapsed) > .thinking-block__head
+  .thinking-block__canvas-action {
+  width: 24px;
+  height: 22px;
+  border-radius: 6px;
+  opacity: .42;
+  transition: opacity .14s ease, color .14s ease, background .14s ease;
+}
+.thinking-block--organization:hover > .thinking-block__head .thinking-block__canvas-action,
+.thinking-block--organization:focus-within > .thinking-block__head .thinking-block__canvas-action {
+  opacity: 1;
+}
+.thinking-block--organization:not(.is-collapsed) > .thinking-block__head
+  .thinking-block__canvas-action svg { width: 14px; height: 14px; }
+.thinking-block.is-stuck-top { --thinking-corner-br: 0; --thinking-corner-bl: 0; }
+.thinking-block.is-stuck-right { --thinking-corner-tl: 0; --thinking-corner-bl: 0; }
+.thinking-block.is-stuck-bottom { --thinking-corner-tl: 0; --thinking-corner-tr: 0; }
+.thinking-block.is-stuck-left { --thinking-corner-tr: 0; --thinking-corner-br: 0; }
+.thinking-block.has-stuck-top { --thinking-corner-tl: 0; --thinking-corner-tr: 0; }
+.thinking-block.has-stuck-right { --thinking-corner-tr: 0; --thinking-corner-br: 0; }
+.thinking-block.has-stuck-bottom { --thinking-corner-br: 0; --thinking-corner-bl: 0; }
+.thinking-block.has-stuck-left { --thinking-corner-tl: 0; --thinking-corner-bl: 0; }
+/* A joined edge was two borders thick, which drew a seam down a stuck group and
+   kept it looking like separate cards. The block that came to stick gives its
+   border up, so the group reads as one object with one hairline. */
+.thinking-block.is-stuck-top { border-bottom-color: transparent; }
+.thinking-block.is-stuck-bottom { border-top-color: transparent; }
+.thinking-block.is-stuck-left { border-right-color: transparent; }
+.thinking-block.is-stuck-right { border-left-color: transparent; }
+/* THE GRIP — what you drag a stuck block by. It was a slab of the type's own
+   colour with a square top, bolted onto the card and competing with the mark
+   for the same hue. The colour belongs to the pastille now, so the grip goes
+   quiet and round, and wakes under the pointer like the rest of the app. */
+.thinking-block.is-stuck-compact > .thinking-block__head,
+.thinking-block__solo-drag {
+  width: 34px;
+  min-height: 5px;
+  height: 5px;
+  margin: 4px 0 0 9px;
+  padding: 0;
+  border: 0;
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--muted) 44%, transparent);
+  transition: background .16s ease, width .16s ease;
+}
+.thinking-block:hover > .thinking-block__solo-drag,
+.thinking-block.is-stuck-compact:hover > .thinking-block__head {
+  width: 46px;
+  background: color-mix(in srgb, var(--block-color) 72%, transparent);
+}
+.thinking-block.is-stuck-compact > .thinking-block__head > * { display: none; }
+.thinking-block.is-stuck-horizontal-title-raised > .thinking-block__head {
+  position: absolute;
+  z-index: 4;
+  right: -1px;
+  bottom: calc(100% - 1px);
+  left: -1px;
+  width: auto;
+}
+.thinking-block__solo-drag {
+  width: 52px;
+  min-height: 9px;
+  height: 9px;
+  flex: 0 0 9px;
+  margin-left: 8px;
+  padding: 0;
+  border: 0;
+  border-radius: 0 0 6px 6px;
+  background: color-mix(in srgb, var(--block-color) 62%, var(--surface-solid));
+  cursor: grab;
+  touch-action: none;
+}
+.thinking-block__solo-drag:focus-visible {
+  outline: 2px solid color-mix(in srgb, var(--block-color) 70%, transparent);
+  outline-offset: 2px;
+}
+.thinking-block.is-dragging > .thinking-block__solo-drag { cursor: grabbing; }
 .thinking-block__icon, .thinking-block__delete {
   border: 0;
   background: none;
@@ -5135,7 +5532,16 @@ body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: non
   background: color-mix(in srgb, var(--block-color) 22%, transparent);
 }
 .thinking-block__icon svg { width: 13px; height: 13px; }
-.thinking-block--canvas > .thinking-block__head .thinking-block__icon { cursor: default; }
+.thinking-block--organization > .thinking-block__head .thinking-block__icon {
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+  cursor: default;
+}
+.thinking-block--organization:not(.is-collapsed) > .thinking-block__head .thinking-block__icon svg {
+  width: 15px;
+  height: 15px;
+}
 .thinking-block__type {
   flex: 1 1 auto;
   min-width: 0;
@@ -5149,6 +5555,16 @@ body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: non
   text-transform: uppercase;
   outline: none;
   cursor: default;
+}
+.thinking-block__type--canvas-title {
+  overflow: hidden;
+  color: var(--text);
+  font-size: .7rem;
+  font-weight: 700;
+  letter-spacing: .015em;
+  text-overflow: ellipsis;
+  text-transform: none;
+  white-space: nowrap;
 }
 .thinking-block__delete {
   width: 19px; height: 20px;
@@ -5173,8 +5589,58 @@ body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: non
   outline: none;
 }
 .thinking-block__text::placeholder { color: color-mix(in srgb, var(--muted) 74%, transparent); }
+.thinking-task__body {
+  width: 100%;
+  min-height: 36px;
+  display: flex;
+  align-items: flex-start;
+  overflow: hidden;
+}
+.thinking-task__body > .thinking-block__text {
+  width: auto;
+  min-width: 0;
+  flex: 1 1 auto;
+  padding-left: 4px;
+}
+.thinking-task__check {
+  width: 25px;
+  height: 30px;
+  flex: 0 0 25px;
+  display: grid;
+  place-items: center;
+  margin: 4px 0 0 5px;
+  padding: 0;
+  border: 0;
+  border-radius: 7px;
+  background: none;
+  color: var(--block-color);
+  cursor: pointer;
+}
+.thinking-task__check:hover { background: color-mix(in srgb, var(--block-color) 12%, transparent); }
+.thinking-task__check svg { width: 18px; height: 18px; }
+.thinking-task__check svg path { opacity: 0; }
+.thinking-task__check[aria-checked="true"] svg rect {
+  fill: color-mix(in srgb, var(--block-color) 22%, transparent);
+}
+.thinking-task__check[aria-checked="true"] svg path { opacity: 1; }
+.thinking-block--task.is-task-done > .thinking-task__body > .thinking-block__text {
+  color: var(--muted);
+  text-decoration: line-through;
+}
+.thinking-block.is-manually-sized > .thinking-task__body {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+  overflow: clip;
+}
+.thinking-block.is-manually-sized > .thinking-task__body > .thinking-block__text {
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+  overflow: clip;
+}
 .thinking-block.is-manually-sized > .thinking-block__text {
-  flex: 0 1 auto;
+  flex: 1 1 auto;
   min-height: 0;
   overflow: hidden;
   overflow: clip;
@@ -5185,49 +5651,41 @@ body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: non
   overflow: hidden;
   overflow: clip;
 }
-.thinking-canvas__head {
-  display: flex;
-  align-items: baseline;
-  gap: 9px;
-  padding: 5px 14px 10px;
-}
-.thinking-canvas__label {
-  flex: 0 0 auto;
-  color: var(--block-color);
-  font-size: .64rem;
-  font-weight: 800;
-  letter-spacing: .08em;
-  text-transform: uppercase;
-}
-.thinking-canvas__title {
-  flex: 1 1 auto;
-  width: 100%;
-  min-width: 0;
-  overflow: hidden;
-  border: 0;
-  background: none;
-  color: var(--text);
-  font: inherit;
-  font-size: 1.03rem;
-  font-weight: 650;
-  outline: none;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.thinking-canvas__title:focus { box-shadow: inset 0 -1px var(--block-color); }
+/* The working surface. Gutter, dashed border and radius are gone; what it
+   looks like now comes from the three variables a look sets on the block. */
 .thinking-canvas__stage {
   position: relative;
   height: 330px;
-  margin: 0 10px 8px;
-  border: 1px dashed color-mix(in srgb, var(--c-line) 55%, transparent);
-  border-radius: 12px;
-  background-image: radial-gradient(circle,
-    color-mix(in srgb, var(--c-line) 45%, transparent) 1px, transparent 1.2px);
-  background-size: 20px 20px;
-  background-color: color-mix(in srgb, var(--c-bg) 90%, var(--c-surface));
+  margin: 0;
+  border: 0;
+  border-radius: 0 0 var(--thinking-corner-br) var(--thinking-corner-bl);
+  /* the same cloth as the plane, woven one notch tighter */
+  background-image:
+    var(--canvas-dots, none),
+    repeating-linear-gradient(90deg, var(--canvas-thread, transparent) 0 1px,
+      transparent 1px var(--canvas-grid, 18px)),
+    repeating-linear-gradient(0deg, var(--canvas-thread, transparent) 0 1px,
+      transparent 1px var(--canvas-grid, 18px));
+  background-size: var(--canvas-grid, 18px) var(--canvas-grid, 18px), auto, auto;
+  background-color: var(--canvas-recess, transparent);
   overflow: hidden;
   cursor: grab;
   touch-action: none;
+}
+/* Without a frame around it, a block cut off dead at the rim just looks broken.
+   It fades into the surface instead, which also says the canvas carries on
+   past what you can see. */
+.thinking-canvas__stage::after {
+  content: "";
+  position: absolute;
+  z-index: 6;
+  inset: 0;
+  background:
+    linear-gradient(90deg, var(--canvas-recess), transparent 22px,
+      transparent calc(100% - 22px), var(--canvas-recess)),
+    linear-gradient(180deg, var(--canvas-recess), transparent 22px,
+      transparent calc(100% - 22px), var(--canvas-recess));
+  pointer-events: none;
 }
 .thinking-canvas__stage.is-panning { cursor: grabbing; user-select: none; }
 .thinking-canvas__empty {
@@ -5242,6 +5700,139 @@ body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: non
   text-align: center;
   pointer-events: none;
 }
+.thinking-document-preview {
+  position: absolute;
+  inset: 18px 22px;
+  overflow: hidden;
+  color: var(--text);
+  font-size: .78rem;
+  line-height: 1.55;
+  opacity: .72;
+  pointer-events: none;
+  mask-image: linear-gradient(to bottom, black 62%, transparent 100%);
+}
+.thinking-folder__list {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(104px, 1fr));
+  align-items: start;
+  gap: 12px 8px;
+  min-height: 72px;
+  pointer-events: auto;
+}
+/* the preview list is the folder's working surface: same treatment as a stage */
+.thinking-folder__list--preview {
+  margin: 0;
+  border-radius: 0 0 var(--thinking-corner-br) var(--thinking-corner-bl);
+  padding: 8px 10px 12px;
+  background-color: var(--canvas-recess, transparent);
+  overflow: hidden;
+}
+.thinking-folder__list--fullscreen {
+  position: absolute;
+  z-index: 2;
+  min-height: 180px;
+  border-left: 7px solid color-mix(in srgb, var(--c-imp-5) 68%, var(--surface-solid));
+  border-radius: 7px 16px 16px 7px;
+  padding: 16px;
+  background: color-mix(in srgb, var(--surface-solid) 97%, var(--c-imp-5));
+  box-shadow: 0 20px 55px color-mix(in srgb, var(--c-sky-3) 20%, transparent);
+}
+.thinking-folder__list > .thinking-block {
+  position: relative !important;
+  left: auto !important;
+  top: auto !important;
+  width: 100% !important;
+  max-width: none;
+  justify-self: stretch;
+}
+.thinking-folder__list > .thinking-block--organization.is-collapsed {
+  height: 112px;
+  min-height: 112px;
+}
+.thinking-folder__list > .thinking-block--organization:not(.is-collapsed) {
+  grid-column: 1 / -1;
+}
+.thinking-folder__list > .thinking-block.is-detaching {
+  position: fixed !important;
+}
+/* THE + TILE — a folder takes containers and nothing else, so the three it can
+   hold are right there. Shut it is the app's own invitation, the dashed plate
+   with a plus from the task view; open it is three dabs off the palette. */
+.thinking-folder__add {
+  position: relative;
+  height: 112px;
+  display: grid;
+  place-items: center;
+}
+.thinking-folder__add-open {
+  width: 100%;
+  height: 100%;
+  border: 1px dashed color-mix(in srgb, var(--muted) 38%, transparent);
+  border-radius: 18px;
+  background: none;
+  color: color-mix(in srgb, var(--muted) 80%, transparent);
+  font: inherit;
+  font-size: 1.6rem;
+  line-height: 1;
+  cursor: pointer;
+  transition: border-color .16s ease, color .16s ease, background .16s ease, transform .16s ease;
+}
+.thinking-folder__add-open:hover {
+  border-color: color-mix(in srgb, var(--accent) 55%, transparent);
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+  color: var(--accent);
+  transform: translateY(-2px);
+}
+.thinking-folder__add.is-open > .thinking-folder__add-open { opacity: 0; pointer-events: none; }
+/* open, the three still need something to sit on */
+.thinking-folder__add.is-open {
+  border-radius: 18px;
+  background: color-mix(in srgb, var(--c-surface) 20%, transparent);
+}
+.thinking-folder__add-choices {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .16s ease;
+}
+.thinking-folder__add.is-open > .thinking-folder__add-choices {
+  opacity: 1;
+  pointer-events: auto;
+}
+.thinking-folder__add-choice {
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  padding: 0;
+  background: color-mix(in srgb, var(--block-color) 26%, transparent);
+  color: var(--block-color);
+  cursor: pointer;
+  transition: background .16s ease, transform .16s ease;
+}
+.thinking-folder__add-choice svg { width: 16px; height: 16px; }
+.thinking-folder__add-choice:hover {
+  background: color-mix(in srgb, var(--block-color) 86%, transparent);
+  color: var(--surface-solid);
+  transform: translateY(-2px);
+}
+.thinking-folder__resize { z-index: 18; }
+.thinking-folder__list.is-drop-target {
+  border-color: var(--c-imp-5);
+  box-shadow: inset 0 0 0 3px color-mix(in srgb, var(--c-imp-5) 18%, transparent);
+}
+.thinking-board.is-folder-view .thinking-plane {
+  background-image: none;
+  background-color: color-mix(in srgb, var(--c-bg) 94%, var(--c-surface));
+}
+.thinking-board.is-folder-view .thinking-viewport { cursor: default; }
 .thinking-canvas__resize {
   position: absolute;
   right: 5px;
@@ -5255,9 +5846,128 @@ body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: non
   border-radius: 0 0 5px 0;
   background: none;
   cursor: nwse-resize;
+  opacity: 0;
+  transition: opacity .14s ease;
   touch-action: none;
 }
-.thinking-block--canvas.is-resizing { box-shadow: var(--shadow); }
+.thinking-block--organization:hover:not(:has(.thinking-block:hover))
+  > .thinking-canvas__stage > .thinking-canvas__resize,
+.thinking-block--organization:focus-within:not(:has(.thinking-block:focus-within))
+  > .thinking-canvas__stage > .thinking-canvas__resize,
+.thinking-block--organization.is-resizing > .thinking-canvas__stage > .thinking-canvas__resize {
+  opacity: 1;
+}
+.thinking-block--organization.is-resizing { box-shadow: var(--thinking-lift); }
+
+/* L'OUVERTURE — the canvas is a hole cut in the plane, not a card on it. No
+   border at all: an inner shadow along the top lip, a lit edge below, and the
+   grid tightening one notch per level so depth is readable at a glance. */
+/* A hole has to be darker than what it is cut into, on every theme. Mixing
+   --c-sky-3 in did that on rain but not on dusk, where the zenith violet is
+   lighter than the page and the recess came out raised. Black is the only
+   direction that holds everywhere; --c-shade says how far a theme wants it. */
+.thinking-block--organization:not(.is-collapsed) {
+  --canvas-recess: color-mix(in oklab, var(--c-bg) calc(100% - var(--c-shade) * 30%), #000);
+  --canvas-dots: radial-gradient(circle,
+    color-mix(in srgb, var(--c-line) 52%, transparent) 1px, transparent 1.2px);
+  --canvas-thread: color-mix(in srgb, var(--c-line) 16%, transparent);
+  --canvas-grid: 17px;
+}
+.thinking-block--organization:not(.is-collapsed)::before {
+  background: var(--canvas-recess);
+  box-shadow:
+    inset 0 2px 6px color-mix(in srgb, #000 calc(var(--c-shade) * 95%), transparent),
+    inset 0 1px 0 color-mix(in srgb, #000 calc(var(--c-shade) * 120%), transparent),
+    0 1px 0 color-mix(in srgb, var(--c-surface) 55%, transparent);
+}
+.thinking-canvas__stage .thinking-block--organization:not(.is-collapsed) {
+  --canvas-recess: color-mix(in oklab, var(--c-bg) calc(100% - var(--c-shade) * 55%), #000);
+  --canvas-grid: 13px;
+}
+.thinking-canvas__stage .thinking-canvas__stage
+  .thinking-block--organization:not(.is-collapsed) {
+  --canvas-recess: color-mix(in oklab, var(--c-bg) calc(100% - var(--c-shade) * 80%), #000);
+  --canvas-grid: 10px;
+}
+
+.thinking-document-sheet {
+  position: absolute;
+  z-index: 0;
+  min-height: 920px;
+  border: 1px solid color-mix(in srgb, var(--c-line) 66%, transparent);
+  border-radius: 4px 12px 12px 4px;
+  background:
+    linear-gradient(90deg, transparent 54px,
+      color-mix(in srgb, var(--c-danger) 28%, transparent) 55px,
+      transparent 56px),
+    repeating-linear-gradient(to bottom, transparent 0, transparent 31px,
+      color-mix(in srgb, var(--c-line) 28%, transparent) 32px),
+    color-mix(in srgb, var(--surface-solid) 98%, var(--c-bg));
+  box-shadow: 0 22px 60px color-mix(in srgb, var(--c-sky-3) 22%, transparent);
+  color: var(--text);
+  pointer-events: auto;
+}
+.thinking-document-sheet::before {
+  content: "";
+  position: absolute;
+  left: -7px;
+  top: 26px;
+  bottom: 26px;
+  width: 14px;
+  background: radial-gradient(circle, var(--c-bg) 3px, transparent 3.8px) center top / 14px 28px repeat-y;
+  pointer-events: none;
+}
+.thinking-document-toolbar {
+  position: sticky;
+  z-index: 2;
+  top: 0;
+  min-height: 48px;
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  padding: 7px 18px 7px 70px;
+  border-bottom: 1px solid color-mix(in srgb, var(--c-line) 38%, transparent);
+  border-radius: 4px 12px 0 0;
+  background: color-mix(in srgb, var(--surface-solid) 94%, transparent);
+  backdrop-filter: blur(10px);
+}
+.thinking-document-tool {
+  min-width: 32px;
+  height: 32px;
+  border: 1px solid transparent;
+  border-radius: 7px;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  font-size: .82rem;
+  font-weight: 750;
+  cursor: pointer;
+}
+.thinking-document-tool:hover,
+.thinking-document-tool:focus-visible {
+  border-color: color-mix(in srgb, var(--block-color, var(--accent)) 42%, var(--border));
+  background: var(--input-bg);
+}
+.thinking-document-tool.is-italic { font-style: italic; }
+.thinking-document-tool.is-underlined { text-decoration: underline; }
+.thinking-document-tool.is-highlight {
+  text-decoration: underline 5px #ffe08a;
+  text-underline-offset: -3px;
+}
+.thinking-document-body {
+  min-height: 870px;
+  padding: 38px 62px 80px 76px;
+  outline: none;
+  font-size: 1.02rem;
+  line-height: 2rem;
+  cursor: text;
+}
+.thinking-document-body:empty::before {
+  content: attr(data-placeholder);
+  color: var(--muted);
+  pointer-events: none;
+}
+.thinking-document-body :is(ul, ol) { padding-left: 24px; }
 .thinking-block__resize {
   position: absolute;
   right: 4px;
@@ -5272,14 +5982,15 @@ body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: non
   padding: 0;
   background: none;
   cursor: nwse-resize;
-  opacity: .35;
+  opacity: 0;
   transition: opacity .14s ease;
   touch-action: none;
 }
 .thinking-block:hover:not(:has(.thinking-block:hover)) > .thinking-block__resize,
+.thinking-block:focus-within:not(:has(.thinking-block:focus-within)) > .thinking-block__resize,
 .thinking-block__resize:focus-visible,
 .thinking-block.is-resizing > .thinking-block__resize { opacity: 1; }
-.thinking-block.is-resizing { box-shadow: var(--shadow); }
+.thinking-block.is-resizing { box-shadow: var(--thinking-lift); }
 .thinking-block__children {
   display: flex;
   flex-direction: column;
@@ -5302,6 +6013,8 @@ body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: non
 }
 .thinking-block:has(> .thinking-block__resize) > .thinking-block__foot { padding-right: 25px; }
 .thinking-block__connections { color: var(--muted); font-size: .66rem; }
+/* in a head it is a flex item, so an empty one would still cost a gap */
+.thinking-block__connections:empty { display: none; }
 .thinking-block__actions { display: inline-flex; align-items: center; gap: 3px; }
 .thinking-block__add-answer {
   border: 0;
@@ -5364,12 +6077,76 @@ body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: non
   box-shadow: 0 0 0 6px color-mix(in srgb, var(--block-color) 28%, transparent);
   transform: translateY(-50%) scale(1.28) !important;
 }
+.thinking-block__stick-add {
+  position: absolute;
+  z-index: 21;
+  display: grid;
+  place-items: center;
+  border: 1px solid color-mix(in srgb, var(--block-color) 58%, var(--border));
+  border-radius: 999px;
+  padding: 0;
+  background: color-mix(in srgb, var(--block-color) 24%, var(--surface-solid));
+  color: var(--block-color);
+  font: inherit;
+  font-size: .86rem;
+  font-weight: 850;
+  line-height: 1;
+  box-shadow: 0 3px 10px color-mix(in srgb, var(--block-color) 24%, transparent);
+  cursor: pointer;
+  opacity: 0;
+  transform: scale(.72);
+  transition: opacity .14s ease, transform .14s ease, background .14s ease;
+  pointer-events: none;
+  touch-action: manipulation;
+}
+.thinking-block__stick-add--top,
+.thinking-block__stick-add--bottom {
+  left: 12px;
+  right: 24px;
+  height: 18px;
+}
+.thinking-block__stick-add--top { top: -9px; }
+.thinking-block__stick-add--bottom { bottom: -9px; }
+.thinking-block__stick-add--left,
+.thinking-block__stick-add--right {
+  top: 12px;
+  bottom: 24px;
+  width: 18px;
+}
+.thinking-block__stick-add--left { left: -9px; }
+.thinking-block__stick-add--right { right: -9px; }
+.thinking-block:hover:not(:has(.thinking-block:hover)):has(> .thinking-block__stick-add),
+.thinking-block:has(> .thinking-block__stick-add:focus-visible) {
+  z-index: 22;
+}
+.thinking-block:hover:not(:has(.thinking-block:hover)) > .thinking-block__stick-add,
+.thinking-block__stick-add:focus-visible {
+  opacity: 1;
+  transform: scale(1);
+  pointer-events: auto;
+}
+.thinking-block__stick-add:hover {
+  background: color-mix(in srgb, var(--block-color) 36%, var(--surface-solid));
+}
+.thinking-block:has(> .thinking-block__stick-add--right) > .thinking-block__link-point {
+  top: 24%;
+}
+.thinking-board.is-selecting .thinking-block__stick-add,
+.thinking-block.is-dragging > .thinking-block__stick-add {
+  opacity: 0;
+  pointer-events: none;
+}
 .thinking-block--text {
+  --thinking-corner-tl: 9px;
+  --thinking-corner-tr: 9px;
+  --thinking-corner-br: 9px;
+  --thinking-corner-bl: 9px;
   width: 150px;
   min-height: 0;
   border: 1px solid transparent;
   border-left: 0;
-  border-radius: 9px;
+  border-radius: var(--thinking-corner-tl) var(--thinking-corner-tr)
+    var(--thinking-corner-br) var(--thinking-corner-bl);
   background: transparent;
   box-shadow: none;
 }

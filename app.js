@@ -82,11 +82,12 @@
         delete events[i].done;
         if (events[i].important == null) events[i].important = false;
         if (!events[i].icon) events[i].icon = "calendar";
-        if (!events[i].time) events[i].time = "09:00";
+        if (!events[i].date) events[i].date = null;   // it waits over the rule
+        if (events[i].date && !events[i].time) events[i].time = "09:00";
       }
       let canvases = saved.canvases || [];
       for (let i = 0; i < canvases.length; i++) {
-        if ([2, 3, 4, 5].indexOf(canvases[i].thinkingTreeVersion) === -1
+        if ([2, 3, 4, 5, 6, 7, 8, 9, 10, 11].indexOf(canvases[i].thinkingTreeVersion) === -1
             || canvases[i].type !== "canvas") {
           canvases = [];
           break;
@@ -95,6 +96,8 @@
       for (let i = 0; i < canvases.length; i++) {
         let canvas = canvases[i];
         const compactOldBlocks = canvas.thinkingTreeVersion < 5;
+        const oldCanvasTitles = canvas.thinkingTreeVersion < 6;
+        const oldFolderLayout = canvas.thinkingTreeVersion < 11;
         canvas.parentId = null;
         canvas.title = "";
         if (!canvas.blocks) canvas.blocks = [];
@@ -103,17 +106,27 @@
         if (!canvas.updatedAt) canvas.updatedAt = canvas.createdAt;
         for (let j = 0; j < canvas.blocks.length; j++) {
           const block = canvas.blocks[j];
-          if (["problem", "solution", "example", "idea", "question", "answer", "canvas", "text", "note"]
+          if (["problem", "solution", "example", "idea", "question", "answer", "canvas",
+            "folder", "document", "text", "note", "task"]
             .indexOf(block.type) === -1) block.type = "note";
           delete block.icon;
           delete block.color;
           if (compactOldBlocks) delete block.blockHeight;
-          if (block.type === "canvas") {
+          if (["canvas", "folder", "document"].indexOf(block.type) !== -1) {
             if (block.canvasWidth == null) block.canvasWidth = 650;
             if (block.canvasHeight == null) block.canvasHeight = 330;
             if (block.cameraX == null) block.cameraX = 9000;
             if (block.cameraY == null) block.cameraY = 5000;
+            if (block.collapsed == null) block.collapsed = false;
           }
+          if (block.type === "folder") {
+            if (oldFolderLayout) block.blockWidth = 420;
+            delete block.canvasWidth;
+            delete block.canvasHeight;
+            delete block.previewX;
+            delete block.previewY;
+          }
+          if (block.type === "document" && block.documentHtml == null) block.documentHtml = "";
           if (block.x == null) block.x = 80 + (j % 5) * 280;
           if (block.y == null) block.y = 80 + Math.floor(j / 5) * 190;
         }
@@ -124,10 +137,10 @@
         }
         for (let j = 0; j < canvas.blocks.length; j++) {
           const block = canvas.blocks[j];
-          if (block.type !== "canvas") continue;
-          if (!(block.title || "").trim()) {
-            block.title = saved.settings && saved.settings.language === "en"
-              ? "New canvas" : "Nouvelle toile";
+          if (["canvas", "folder", "document"].indexOf(block.type) === -1) continue;
+          if (!(block.title || "").trim()
+              || (oldCanvasTitles && ["New canvas", "Nouvelle toile"].indexOf(block.title) !== -1)) {
+            block.title = "";
           }
           delete block.directorId;
         }
@@ -150,9 +163,49 @@
         for (let j = 0; j < canvas.blocks.length; j++) {
           const block = canvas.blocks[j];
           const parent = canvasBlocks[block.parentId];
-          if (parent && parent.type !== "canvas") {
+          if (parent && ["canvas", "folder", "document"].indexOf(parent.type) === -1) {
             delete block.blockWidth;
             delete block.blockHeight;
+          }
+        }
+        const folderPositions = {};
+        for (let j = 0; j < canvas.blocks.length; j++) {
+          const block = canvas.blocks[j];
+          const parent = canvasBlocks[block.parentId];
+          if (!parent || parent.type !== "folder") continue;
+          folderPositions[parent.id] = (folderPositions[parent.id] || 0) + 1;
+          if (block.folderOrder == null) block.folderOrder = folderPositions[parent.id] * 100;
+          delete block.stuckToId;
+          delete block.stuckSide;
+        }
+        const stuckSides = ["top", "right", "bottom", "left"];
+        const occupiedStuckSides = {};
+        for (let j = 0; j < canvas.blocks.length; j++) {
+          const block = canvas.blocks[j];
+          const target = canvasBlocks[block.stuckToId];
+          const parent = canvasBlocks[block.parentId];
+          const key = block.stuckToId + ":" + block.stuckSide;
+          if (!target || target.id === block.id || target.parentId !== block.parentId
+              || !parent || ["canvas", "folder", "document"].indexOf(parent.type) === -1
+              || stuckSides.indexOf(block.stuckSide) === -1 || occupiedStuckSides[key]) {
+            delete block.stuckToId;
+            delete block.stuckSide;
+          } else {
+            occupiedStuckSides[key] = true;
+          }
+        }
+        for (let j = 0; j < canvas.blocks.length; j++) {
+          const block = canvas.blocks[j];
+          const visited = {};
+          let branch = block;
+          while (branch && branch.stuckToId) {
+            if (visited[branch.id]) {
+              delete block.stuckToId;
+              delete block.stuckSide;
+              break;
+            }
+            visited[branch.id] = true;
+            branch = canvasBlocks[branch.stuckToId];
           }
         }
 
@@ -177,12 +230,12 @@
           directCanvas.parentId = null;
           directCanvas.blocks = canvas.blocks;
           directCanvas.links = canvas.links;
-          directCanvas.thinkingTreeVersion = 5;
+          directCanvas.thinkingTreeVersion = 11;
           canvas = directCanvas;
           canvases[i] = canvas;
         }
         canvas.title = "";
-        canvas.thinkingTreeVersion = 5;
+        canvas.thinkingTreeVersion = 11;
       }
       return {
         tasks: tasks,
@@ -256,6 +309,7 @@
       tasksTitle: "Vos tâches",
       backToToday: "Revenir à aujourd'hui",
       newEventName: "Nouvel événement",
+      undatedLabel: "Sans date",
       projectsTitle: "Vos projets",
       addTaskTitle: "Ajouter une tâche",
       newTaskName: "Nouvelle tâche",
@@ -425,8 +479,6 @@
       editDateNone: "Aucune date",
       notesLabel: "Notes",
       subtasksLabel: "Sous-tâches",
-      dialHourAria: "Régler l'heure",
-      dialMinAria: "Régler les minutes",
       milestonesLabel: "Jalons",
       pinLabel: "Épingler",
       importantLabel: "Important",
@@ -470,7 +522,6 @@
       dormantFor: "sans nouvelles depuis",
       daysShort: "j",
       addEventPlaceholder: "Ajouter un événement…",
-      timeLabel: "Heure",
       eventStatusPending: "En attente",
       eventStatusPast: "Passé",
       importantAria: "Marquer comme important",
@@ -489,11 +540,14 @@
       thinkingTools: "Outils de la toile",
       thinkingAddBlock: "Ajouter un bloc",
       thinkingAdd: "Ajouter",
+      thinkingOrganization: "Organisation",
+      thinkingBlocksLabel: "Blocs",
+      thinkingAddStuck: "Ajouter un élément collé",
+      thinkingMoveStuckSingle: "Déplacer uniquement cet élément",
       thinkingSelect: "Sélection",
       thinkingSelectionOne: "1 bloc sélectionné",
       thinkingSelectionMany: "{count} blocs sélectionnés",
       thinkingPutInCanvas: "Mettre dans une nouvelle toile",
-      thinkingNewCanvas: "Nouvelle toile",
       blockProblem: "Problème",
       blockSolution: "Solution",
       blockExample: "Exemple",
@@ -501,24 +555,39 @@
       blockQuestion: "Question",
       blockAnswer: "Réponse",
       blockCanvas: "Toile",
+      blockFolder: "Dossier",
+      blockDocument: "Bloc-note",
       blockText: "Texte",
       blockNote: "Note",
-      blockPlaceholderProblem: "Quel problème cherchez-vous à résoudre ?",
+      blockTask: "Tâche",
+      blockPlaceholderProblem: "Ce qui bloque…",
       blockPlaceholderSolution: "Une solution possible…",
       blockPlaceholderExample: "Un cas concret…",
       blockPlaceholderIdea: "Une piste à explorer…",
       blockPlaceholderQuestion: "Une question ouverte…",
-      blockPlaceholderAnswer: "Une réponse, une hypothèse…",
+      blockPlaceholderAnswer: "Une réponse…",
       blockPlaceholderCanvas: "Toile",
+      blockPlaceholderFolder: "Dossier",
+      blockPlaceholderDocument: "Bloc-note",
       blockPlaceholderText: "Écrivez librement…",
       blockPlaceholderNote: "Un détail à garder…",
+      blockPlaceholderTask: "À faire…",
       thinkingQuestionAddAnswer: "Ajouter une réponse",
-      thinkingCanvasEmpty: "Déposez ici les blocs de cette réflexion.",
+      thinkingCanvasEmpty: "Déposez vos blocs ici.",
+      thinkingFolderAdd: "Ajouter dans le dossier",
+      thinkingDocumentEmpty: "Écrivez, ou déposez un bloc.",
+      thinkingDocumentPlaceholder: "Commencez à écrire…",
+      thinkingBulletsAria: "Liste à puces",
+      thinkingNumberedAria: "Liste numérotée",
       thinkingResizeCanvas: "Redimensionner la toile",
+      thinkingResizeFolder: "Rogner la vue du dossier",
       thinkingResizeBlock: "Redimensionner le bloc",
       thinkingCollapseCanvas: "Replier la toile",
       thinkingExpandCanvas: "Déplier la toile",
       thinkingOpenCanvasFullscreen: "Ouvrir la toile en plein écran",
+      thinkingCollapseOrganization: "Replier",
+      thinkingExpandOrganization: "Prévisualiser",
+      thinkingOpenOrganization: "Ouvrir en plein écran",
       thinkingCloseCanvas: "Replier dans la toile mère",
       thinkingBaseCanvas: "Toile mère de base",
       thinkingExit: "Quitter le laboratoire",
@@ -530,7 +599,7 @@
       thinkingConnectionOne: "liaison",
       thinkingConnectionMany: "liaisons",
       thinkingBlankTitle: "Commencez par ce qui vous occupe",
-      thinkingBlankCopy: "Ajoutez un problème, une question ou une première idée.",
+      thinkingBlankCopy: "Un problème, une question, une idée.",
       thinkingDeleteLink: "Glissez le fond pour déplacer la caméra · cliquez sur une liaison pour la supprimer.",
       addNoteAria: "Nouvelle note",
       boldAria: "Gras",
@@ -560,6 +629,7 @@
       tasksTitle: "Your tasks",
       backToToday: "Back to today",
       newEventName: "New event",
+      undatedLabel: "No date",
       projectsTitle: "Your projects",
       addTaskTitle: "Add a task",
       newTaskName: "New task",
@@ -729,8 +799,6 @@
       editDateNone: "No date",
       notesLabel: "Notes",
       subtasksLabel: "Subtasks",
-      dialHourAria: "Set the hour",
-      dialMinAria: "Set the minutes",
       milestonesLabel: "Milestones",
       pinLabel: "Pin",
       importantLabel: "Important",
@@ -774,7 +842,6 @@
       dormantFor: "nothing for",
       daysShort: "d",
       addEventPlaceholder: "Add an event…",
-      timeLabel: "Time",
       eventStatusPending: "Pending",
       eventStatusPast: "Past",
       importantAria: "Mark as important",
@@ -793,11 +860,14 @@
       thinkingTools: "Canvas tools",
       thinkingAddBlock: "Add a block",
       thinkingAdd: "Add",
+      thinkingOrganization: "Organization",
+      thinkingBlocksLabel: "Blocks",
+      thinkingAddStuck: "Add a stuck element",
+      thinkingMoveStuckSingle: "Move only this element",
       thinkingSelect: "Select",
       thinkingSelectionOne: "1 block selected",
       thinkingSelectionMany: "{count} blocks selected",
       thinkingPutInCanvas: "Put in a new canvas",
-      thinkingNewCanvas: "New canvas",
       blockProblem: "Problem",
       blockSolution: "Solution",
       blockExample: "Example",
@@ -805,24 +875,39 @@
       blockQuestion: "Question",
       blockAnswer: "Answer",
       blockCanvas: "Canvas",
+      blockFolder: "Folder",
+      blockDocument: "Notepad",
       blockText: "Text",
       blockNote: "Note",
-      blockPlaceholderProblem: "What problem are you trying to solve?",
+      blockTask: "Task",
+      blockPlaceholderProblem: "What is in the way…",
       blockPlaceholderSolution: "A possible solution…",
       blockPlaceholderExample: "A concrete case…",
       blockPlaceholderIdea: "A path to explore…",
       blockPlaceholderQuestion: "An open question…",
-      blockPlaceholderAnswer: "An answer, a hypothesis…",
+      blockPlaceholderAnswer: "An answer…",
       blockPlaceholderCanvas: "Canvas",
+      blockPlaceholderFolder: "Folder",
+      blockPlaceholderDocument: "Notepad",
       blockPlaceholderText: "Write freely…",
       blockPlaceholderNote: "A detail to keep…",
+      blockPlaceholderTask: "To do…",
       thinkingQuestionAddAnswer: "Add an answer",
-      thinkingCanvasEmpty: "Drop the blocks for this line of thought here.",
+      thinkingCanvasEmpty: "Drop your blocks here.",
+      thinkingFolderAdd: "Add to the folder",
+      thinkingDocumentEmpty: "Write, or drop a block.",
+      thinkingDocumentPlaceholder: "Start writing…",
+      thinkingBulletsAria: "Bulleted list",
+      thinkingNumberedAria: "Numbered list",
       thinkingResizeCanvas: "Resize canvas",
+      thinkingResizeFolder: "Crop folder view",
       thinkingResizeBlock: "Resize block",
       thinkingCollapseCanvas: "Collapse canvas",
       thinkingExpandCanvas: "Expand canvas",
       thinkingOpenCanvasFullscreen: "Open canvas fullscreen",
+      thinkingCollapseOrganization: "Collapse",
+      thinkingExpandOrganization: "Preview",
+      thinkingOpenOrganization: "Open fullscreen",
       thinkingCloseCanvas: "Collapse into the parent canvas",
       thinkingBaseCanvas: "Base parent canvas",
       thinkingExit: "Exit the idea laboratory",
@@ -834,7 +919,7 @@
       thinkingConnectionOne: "connection",
       thinkingConnectionMany: "connections",
       thinkingBlankTitle: "Start with what is on your mind",
-      thinkingBlankCopy: "Add a problem, a question or a first idea.",
+      thinkingBlankCopy: "A problem, a question, an idea.",
       thinkingDeleteLink: "Drag the background to move the camera · click a connection to delete it.",
       addNoteAria: "New note",
       boldAria: "Bold",
@@ -973,11 +1058,26 @@
   const welcomeScreen = document.getElementById("welcome");
   const appScreen = document.getElementById("app");
 
+  const dayLine = document.querySelector(".day-line");
+  const welcomeSlot = document.getElementById("welcomeSlot");
+  const APP_ENTER_MS = 620;
+  const WELCOME_RULE_SCALE = 1.35;   // must match .welcome__slot .day-line
+  // where the rule lives in the app, so it can be handed straight back
+  const dayLineHome = dayLine && dayLine.parentNode;
+  const dayLineNext = dayLine && dayLine.nextSibling;
+
+  /* The day rule spends the welcome screen in the middle of the page, blown up.
+     Entering does not swap one for another: the very same element is moved back
+     where it belongs and flown from where it was to where it lands. */
+  if (dayLine && welcomeSlot) welcomeSlot.appendChild(dayLine);
+
   function enterApp() {
     if (!welcomeScreen || welcomeScreen.dataset.gone) return;
     welcomeScreen.dataset.gone = "1";
 
+    const from = dayLine ? dayLine.getBoundingClientRect() : null;
     appScreen.hidden = false;
+    if (dayLine && dayLineHome) dayLineHome.insertBefore(dayLine, dayLineNext);
     // the rail was measured while the app was still display:none, so its height
     // was zero; now that it has a size, take it again
     syncPagesHeight(false);
@@ -986,8 +1086,24 @@
       renderTimeRule();
     });
 
+    if (from && dayLine) {
+      const to = dayLine.getBoundingClientRect();
+      dayLine.style.transformOrigin = "50% 50%";
+      dayLine.style.transition = "none";
+      dayLine.style.transform = "translate(" + (from.left - to.left) + "px,"
+        + (from.top - to.top) + "px) scale(" + WELCOME_RULE_SCALE + ")";
+      dayLine.offsetWidth;                       // commit before releasing
+      dayLine.style.transition = "transform " + APP_ENTER_MS + "ms cubic-bezier(.22,.8,.25,1)";
+      dayLine.style.transform = "";
+      setTimeout(function () {
+        dayLine.style.transition = "";
+        dayLine.style.transformOrigin = "";
+        renderTimeRule();                        // measure it where it landed
+      }, APP_ENTER_MS);
+    }
+
     welcomeScreen.classList.add("is-leaving");
-    setZelligeOn(false);   // the mosaic goes with the threshold, not after it
+    setZelligeOn(false);   // parked, but keep the threshold tidy either way
     setTimeout(function () { welcomeScreen.style.display = "none"; }, 560);
     setTimeout(function () { setFieldWelcome(false); }, 900);   // let the ground settle
     ensureSunData();   // ask for location only once the app is entered
@@ -2513,9 +2629,15 @@
   /* The threshold has a ground of its own: the mosaic, not the block field.
      The field belongs to the app, and comes back to whatever the user chose
      for it the moment the door is through. */
+  /* The zellige is parked, not removed: the whole painter is still here and
+     comes back by flipping this to true. The threshold meanwhile stands on the
+     app's own ground — the sky, with the block field over it. */
+  const ZELLIGE_ON_THRESHOLD = false;
+
   function setFieldWelcome(on) {
-    setZelligeOn(on);
-    setFieldOn(!on && state.settings.decorations.indexOf("field") !== -1);
+    setZelligeOn(on && ZELLIGE_ON_THRESHOLD);
+    setFieldOn((!on || !ZELLIGE_ON_THRESHOLD)
+               && state.settings.decorations.indexOf("field") !== -1);
     fieldWake();
   }
 
@@ -7196,9 +7318,10 @@
   const detail = document.getElementById("detail");
   const detailName = document.getElementById("detailName");
   const detailIcon = document.getElementById("detailIcon");
-  const detailBell = document.getElementById("detailBell");
   const detailWhen = document.getElementById("detailWhen");
   const detailPin = document.getElementById("detailPin");
+  const detailBell = document.getElementById("detailBell");
+  const detailActions = document.getElementById("detailActions");
   const detailNotes = document.getElementById("detailNotes");
   const subtaskList = document.getElementById("subtaskList");
   const subtaskSection = document.getElementById("subtaskSection");
@@ -7288,13 +7411,14 @@
   function fillDetail(item) {
     const kind = detailTarget.kind;
     detailName.value = item.text || "";
+    detailPin.hidden = kind === "events";   // an event is not pinnable
+    if (!detailPin.hidden) detailPin.classList.toggle("is-on", !!item.pinned);
+    // the bell is the event's own flag, and the only way to take it back off
     detailBell.hidden = kind !== "events";
     if (kind === "events") {
       detailBell.classList.toggle("is-on", !!item.important);
       detailBell.setAttribute("aria-pressed", item.important ? "true" : "false");
     }
-    detailPin.hidden = kind === "events";   // an event is not pinnable
-    if (!detailPin.hidden) detailPin.classList.toggle("is-on", !!item.pinned);
     // an event carries an icon, shown as a square button left of the title
     detailIcon.hidden = kind !== "events";
     if (kind === "events") detailIcon.innerHTML = habitSvg(item.icon || "calendar");
@@ -7303,136 +7427,13 @@
 
     subtaskSection.hidden = kind === "events";   // an event just has notes
     if (kind !== "events") renderSubtasks(item);
-    timeSection.hidden = kind !== "events";
-    detailBody.classList.toggle("has-dial", kind === "events");
-    if (kind === "events") setDialTo(item);
+    // An event's editor is its icon, its name and its note, and nothing more.
+    // It is placed by dragging it on the rule of time, and unmade by dropping it
+    // on the bin — so it needs neither a scheduler nor a delete button here.
+    detailActions.hidden = kind === "events";
     detailBody.scrollTop = 0;
   }
 
-  /* THE DIAL — the hour is set by turning a ring, not by typing into a field. It
-     runs on 24 marks like everything else here, so noon is at the bottom and the
-     day reads round once rather than twice. The readout above is the control: the
-     half you press is the half the ring is turning. */
-  const timeSection = document.getElementById("timeSection");
-  const dialFace = document.getElementById("dialFace");
-  const dialArm = document.getElementById("dialArm");
-  const dialHourBtn = document.getElementById("dialHour");
-  const dialMinBtn = document.getElementById("dialMin");
-  const DIAL_R = 66;
-  let dialMode = "hour";
-  let dialEvent = null;
-
-  function dialSteps() { return dialMode === "hour" ? 24 : 12; }
-
-  /* a step's point on the ring: 0 at the top, running clockwise */
-  function dialPoint(index, radius) {
-    const angle = (index / dialSteps()) * Math.PI * 2 - Math.PI / 2;
-    return { x: 100 + Math.cos(angle) * radius, y: 100 + Math.sin(angle) * radius };
-  }
-
-  function dialParts() {
-    const bits = (dialEvent && dialEvent.time ? dialEvent.time : "09:00").split(":");
-    return { h: parseInt(bits[0], 10) || 0, m: parseInt(bits[1], 10) || 0 };
-  }
-
-  function setDialTo(event) {
-    dialEvent = event;
-    dialMode = "hour";
-    document.getElementById("dialDate").textContent = longDayLabel(event.date);
-    renderDial();
-  }
-
-  /* "Vendredi 31 juillet" — the day spelled out, no year: an event on show is
-     always inside the period the grid is holding */
-  function longDayLabel(key) {
-    const locale = state.settings.language === "fr" ? "fr-FR" : "en-US";
-    const text = new Date(key + "T00:00").toLocaleDateString(locale,
-      { weekday: "long", day: "numeric", month: "long" });
-    return text.charAt(0).toUpperCase() + text.slice(1);
-  }
-
-  function renderDial() {
-    if (!dialEvent) return;
-    const at = dialParts();
-    dialHourBtn.textContent = pad2(at.h);
-    dialMinBtn.textContent = pad2(at.m);
-    dialHourBtn.classList.toggle("is-on", dialMode === "hour");
-    dialMinBtn.classList.toggle("is-on", dialMode === "min");
-
-    const marks = document.getElementById("dialTicks");
-    marks.innerHTML = "";
-    const steps = dialSteps();
-    const live = dialMode === "hour" ? at.h : Math.round(at.m / 5) % 12;
-    for (let i = 0; i < steps; i++) {
-      // every third hour is named, the rest are only felt; on minutes all twelve
-      // are named, there is room for them
-      const named = dialMode === "min" || i % 3 === 0;
-      const spot = dialPoint(i, DIAL_R);
-      if (named) {
-        const label = document.createElementNS("http://www.w3.org/2000/svg", "text");
-        label.setAttribute("class", i === live ? "dial__num is-on" : "dial__num");
-        label.setAttribute("x", spot.x.toFixed(1));
-        label.setAttribute("y", spot.y.toFixed(1));
-        label.textContent = pad2(dialMode === "hour" ? i : i * 5);
-        marks.appendChild(label);
-      } else {
-        const dot = document.createElementNS("http://www.w3.org/2000/svg", "circle");
-        dot.setAttribute("class", "dial__dot");
-        dot.setAttribute("cx", spot.x.toFixed(1));
-        dot.setAttribute("cy", spot.y.toFixed(1));
-        dot.setAttribute("r", "1.6");
-        marks.appendChild(dot);
-      }
-    }
-
-    const turn = live / steps * 360;
-    dialArm.setAttribute("transform", "rotate(" + turn.toFixed(1) + " 100 100)");
-  }
-
-  /* where on the ring a pointer landed, as a step index */
-  function dialIndexAt(clientX, clientY) {
-    const box = dialFace.getBoundingClientRect();
-    const x = (clientX - box.left) / box.width * 200 - 100;
-    const y = (clientY - box.top) / box.height * 200 - 100;
-    let deg = Math.atan2(x, -y) * 180 / Math.PI;
-    if (deg < 0) deg += 360;
-    const steps = dialSteps();
-    return Math.round(deg / (360 / steps)) % steps;
-  }
-
-  function writeDial(index) {
-    if (!dialEvent) return;
-    const at = dialParts();
-    const time = dialMode === "hour"
-      ? pad2(index) + ":" + pad2(at.m)
-      : pad2(at.h) + ":" + pad2(index * 5);
-    if (time === dialEvent.time) return;
-    dialEvent.time = time;
-    saveState();
-    renderDial();
-    renderEventCal();        // the day's dots and the grid's load
-    renderDailyTimeline();   // the rule and the thread follow the minute live
-  }
-
-  let dialTurning = false;
-  dialFace.addEventListener("pointerdown", function (event) {
-    dialTurning = true;
-    dialFace.setPointerCapture(event.pointerId);
-    writeDial(dialIndexAt(event.clientX, event.clientY));
-  });
-  dialFace.addEventListener("pointermove", function (event) {
-    if (dialTurning) writeDial(dialIndexAt(event.clientX, event.clientY));
-  });
-  dialFace.addEventListener("pointerup", function (event) {
-    dialTurning = false;
-    dialFace.releasePointerCapture(event.pointerId);
-    // setting an hour then jumping to the minutes is the usual run of it
-    if (dialMode === "hour") { dialMode = "min"; renderDial(); }
-  });
-  dialFace.addEventListener("pointercancel", function () { dialTurning = false; });
-
-  dialHourBtn.addEventListener("click", function () { dialMode = "hour"; renderDial(); });
-  dialMinBtn.addEventListener("click", function () { dialMode = "min"; renderDial(); });
 
   /* INLINE EDITING — one editor card, moved into whichever row is open rather
      than a window opening over the page. Clicking a task unfolds the task
@@ -7507,7 +7508,8 @@
   document.addEventListener("click", function (event) {
     if (!openHost || !event.target.closest) return;
     // a square and the fold it opens are one object, even though they are apart
-    if (event.target.closest(".item.is-open, .dtl__event:not(.dtl__add), .day-fold")) return;
+    // a chip and the fold it opens are one object, though they sit apart
+    if (event.target.closest(".item.is-open, .dtl__event:not(.dtl__add), .undated__chip, .day-fold")) return;
     if (event.target.closest(".modal, .detail")) return;   // pickers the editor opens
     closeDetail();
   });
@@ -9411,6 +9413,18 @@
     refreshDetailSource();   // refresh the note mark
   });
 
+  detailBell.addEventListener("click", function () {
+    const item = currentDetailItem();
+    if (!item) return;
+    item.important = !item.important;
+    saveState();
+    detailBell.classList.toggle("is-on", !!item.important);
+    detailBell.setAttribute("aria-pressed", item.important ? "true" : "false");
+    renderEventCal();
+    renderDailyTimeline();
+    renderUndated();
+  });
+
   detailPin.addEventListener("click", function () {
     const item = currentDetailItem();
     if (!item) return;
@@ -9420,15 +9434,6 @@
     detailPin.classList.toggle("is-on", !!item.pinned);
   });
 
-  detailBell.addEventListener("click", function () {
-    const item = currentDetailItem();
-    if (!item) return;
-    item.important = !item.important;
-    saveState();
-    detailBell.classList.toggle("is-on", !!item.important);
-    detailBell.setAttribute("aria-pressed", item.important ? "true" : "false");
-    refreshDetailSource();   // calendar bell and row highlight
-  });
   detailWhen.addEventListener("click", function () {
     const item = currentDetailItem();
     if (item) openCalendar(item.id, detailTarget.kind === "events" ? "events" : "tasks");
@@ -9489,6 +9494,7 @@
 
   /* "past" once its time (or the end of its day, if no time) has gone by */
   function eventStatus(event) {
+    if (!event.date) return "pending";   // nothing that has no day can have gone by
     const at = new Date(event.date + "T" + (event.time || "23:59:59"));
     return Date.now() > at.getTime() ? "past" : "pending";
   }
@@ -10037,20 +10043,118 @@
     if (mounted) openFold(host);
   }
 
+  /* key may be null: an event with no day yet waits over the rule of time. Its
+     hour stays null too — an hour without a day would be a half-truth. */
   function addEvent(key, text, time, important) {
     state.events.push({
       id: Date.now().toString(), text: text, important: !!important,
-      icon: "calendar", date: key, time: time || "09:00"
+      icon: "calendar", date: key || null, time: key ? (time || "09:00") : null
     });
     saveState();
     renderEventCal();
     renderDailyTimeline();
+    renderUndated();
+  }
+
+  /* WHAT HAS NO DAY YET — written without a date, waiting over the rule of time.
+     Dropping one onto the rule is what dates it, and the drop reuses the same
+     reader and the same preview the task rows already use. */
+  function undatedEvents() {
+    const found = [];
+    for (let i = 0; i < state.events.length; i++) {
+      if (!state.events[i].date) found.push(state.events[i]);
+    }
+    return found;
+  }
+
+  function renderUndated() {
+    const box = document.getElementById("undatedItems");
+    if (!box) return;
+    const list = undatedEvents();
+    box.innerHTML = "";
+    document.getElementById("undated").hidden = list.length === 0;
+    for (let i = 0; i < list.length; i++) box.appendChild(undatedChip(list[i]));
+  }
+
+  function undatedChip(event) {
+    const chip = document.createElement("button");
+    chip.type = "button";
+    chip.className = event.important ? "undated__chip is-important" : "undated__chip";
+    chip.dataset.event = event.id;
+    chip.title = event.text;
+
+    const icon = document.createElement("span");
+    icon.className = "undated__chip-ico";
+    icon.innerHTML = habitSvg(event.icon || "calendar");
+    const text = document.createElement("span");
+    text.className = "undated__chip-text";
+    text.textContent = event.text;
+    chip.append(icon, text);
+
+    armUndatedDrag(chip, event);
+    return chip;
+  }
+
+  function armUndatedDrag(chip, event) {
+    chip.addEventListener("pointerdown", function (down) {
+      if (down.pointerType === "mouse" && down.button !== 0) return;
+      down.preventDefault();
+      chip.setPointerCapture(down.pointerId);
+      let moved = false;
+      let drop = null;
+
+      let deleting = false;
+
+      const move = function (at) {
+        if (!moved && Math.abs(at.clientX - down.clientX)
+                    + Math.abs(at.clientY - down.clientY) < 6) return;
+        if (!moved) {
+          moved = true;
+          chip.classList.add("is-dragging");
+          showTimelineTrash(true, false);
+        }
+        chip.style.transform = "translate(" + (at.clientX - down.clientX).toFixed(0)
+          + "px," + (at.clientY - down.clientY).toFixed(0) + "px)";
+
+        // the bin wins over the rule: it is the more final of the two
+        deleting = timelineTrashHit(at.clientX, at.clientY);
+        chip.classList.toggle("is-delete-target", deleting);
+        showTimelineTrash(true, deleting);
+        drop = deleting ? null : taskDropAt(at.clientX, at.clientY);
+        showTaskDrop(drop, event);
+      };
+      const up = function () {
+        const remove = deleting;
+        chip.releasePointerCapture(down.pointerId);
+        chip.removeEventListener("pointermove", move);
+        chip.removeEventListener("pointerup", up);
+        chip.removeEventListener("pointercancel", up);
+        chip.classList.remove("is-dragging", "is-delete-target");
+        chip.style.transform = "";
+        showTaskDrop(null, event);
+        showTimelineTrash(false, false);
+        // a press that never travelled is a click: open it instead
+        if (!moved) { openEventFold(event); return; }
+        if (remove) { deleteTimelineMarker("events", event); return; }
+        if (!drop) return;
+        event.date = drop.date;
+        event.time = drop.time;
+        saveState();
+        renderEventCal();
+        renderDailyTimeline();
+        renderUndated();
+      };
+      chip.addEventListener("pointermove", move);
+      chip.addEventListener("pointerup", up);
+      chip.addEventListener("pointercancel", up);
+    });
   }
 
   function removeEvent(id) {
     removeWithUndo("events", id, function () {
       renderEventCal();
       renderDailyTimeline();
+      renderUndated();   // an undated one lives only in the strip: redraw it too
     });
   }
 
@@ -10259,7 +10363,6 @@
     }
 
     renderTimelineItems(windowStart);
-    renderAddEventSlot(windowStart);
     fieldWake();   // the block field carries the sun's light, so it repaints too
   }
 
@@ -10401,6 +10504,27 @@
       && clientY >= rect.top - 18 && clientY <= rect.bottom + 18;
   }
 
+  /* THE UNDATED ZONE AS A TARGET — dropping a dated event into the strip above
+     takes its day away. The strip is only on the page when it holds something,
+     so it is shown on purpose for the length of a drag: otherwise there would be
+     nowhere to drop the first one. */
+  const undatedEl = document.getElementById("undated");
+
+  function showUndatedZone(show, active) {
+    if (!undatedEl) return;
+    undatedEl.classList.toggle("is-target", !!show);
+    undatedEl.classList.toggle("is-active", !!active);
+    if (show) undatedEl.hidden = false;
+    else renderUndated();   // back to whatever it should be on its own
+  }
+
+  function undatedZoneHit(clientX, clientY) {
+    if (!undatedEl || undatedEl.hidden) return false;
+    const rect = undatedEl.getBoundingClientRect();
+    return clientX >= rect.left - 12 && clientX <= rect.right + 12
+      && clientY >= rect.top - 14 && clientY <= rect.bottom + 14;
+  }
+
   function deleteTimelineMarker(kind, item) {
     if (detailTarget.kind === kind && detailTarget.id === item.id) closeDetail();
     if (kind === "events") removeEvent(item.id);
@@ -10422,8 +10546,18 @@
       const originalPast = eventStatus(event) === "past";
       let moved = false;
       let deleting = false;
+      let undating = false;
 
       marker.setPointerCapture(downEvent.pointerId);
+
+      const rest = function (label) {
+        event.time = originalTime;
+        marker.style.left = Math.max(0, Math.min(100, timePct(originalAt, windowStart))).toFixed(2) + "%";
+        marker.classList.toggle("is-past", originalPast);
+        marker.classList.toggle("is-pending", !originalPast);
+        marker.setAttribute("aria-label", label + " · " + event.text);
+        marker.querySelector(".dtl__event-tip").textContent = label;
+      };
 
       const move = function (moveEvent) {
         const dx = moveEvent.clientX - downEvent.clientX;
@@ -10433,20 +10567,17 @@
           moved = true;
           marker.classList.add("is-dragging");
           showTimelineTrash(true, false);
+          showUndatedZone(true, false);
         }
 
         deleting = timelineTrashHit(moveEvent.clientX, moveEvent.clientY);
+        // the bin wins over the strip: it is the more final of the two
+        undating = !deleting && undatedZoneHit(moveEvent.clientX, moveEvent.clientY);
         marker.classList.toggle("is-delete-target", deleting);
         showTimelineTrash(true, deleting);
-        if (deleting) {
-          event.time = originalTime;
-          marker.style.left = Math.max(0, Math.min(100, timePct(originalAt, windowStart))).toFixed(2) + "%";
-          marker.classList.toggle("is-past", originalPast);
-          marker.classList.toggle("is-pending", !originalPast);
-          marker.setAttribute("aria-label", translate("timelineDelete") + " · " + event.text);
-          marker.querySelector(".dtl__event-tip").textContent = translate("timelineDelete");
-          return;
-        }
+        showUndatedZone(true, undating);
+        if (undating) { rest(translate("undatedLabel")); return; }
+        if (deleting) { rest(translate("timelineDelete")); return; }
 
         const rawMinutes = originalMinutes + dx / line.width * spanMs / 60000;
         const snapped = Math.round(rawMinutes / EVENT_DRAG_STEP) * EVENT_DRAG_STEP;
@@ -10470,6 +10601,7 @@
         marker.removeEventListener("pointercancel", cancel);
         marker.classList.remove("is-dragging", "is-delete-target");
         showTimelineTrash(false, false);
+        showUndatedZone(false, false);
         if (marker.hasPointerCapture(downEvent.pointerId)) {
           marker.releasePointerCapture(downEvent.pointerId);
         }
@@ -10477,9 +10609,20 @@
 
       const up = function () {
         const remove = deleting;
+        const loosen = undating;
         cleanup();
         if (!moved) return;
         eventDragUntil = Date.now() + 300;
+        if (loosen) {
+          // it keeps its name and its icon; only its place in time is given back
+          event.date = null;
+          event.time = null;
+          saveState();
+          renderEventCal();
+          renderDailyTimeline();
+          renderUndated();
+          return;
+        }
         if (remove) {
           event.time = originalTime;
           deleteTimelineMarker("events", event);
@@ -10662,108 +10805,10 @@
     });
   }
 
-  const ADD_SLOT_STEP = 30;
-  const ADD_SLOT_CLEARANCE = 90;
-  let addEventSlot = null;
-
   function eventMinute(event) {
     if (!event.time) return null;
     const parts = event.time.split(":");
     return parseInt(parts[0], 10) * 60 + parseInt(parts[1], 10);
-  }
-
-  function occupiedTimelineMinutes(dayKey) {
-    const occupied = [];
-    const dayEvents = eventsOnDay(dayKey);
-    for (let i = 0; i < dayEvents.length; i++) {
-      const minute = eventMinute(dayEvents[i]);
-      if (minute != null && !isNaN(minute)) occupied.push(minute);
-    }
-    const dayTasks = tasksOnDay(dayKey);
-    for (let i = 0; i < dayTasks.length; i++) {
-      const minute = eventMinute({ time: dayTasks[i].dueTime || "09:00" });
-      if (minute != null && !isNaN(minute)) occupied.push(minute);
-    }
-    return occupied;
-  }
-
-  function minuteClearOf(minute, occupied) {
-    for (let i = 0; i < occupied.length; i++) {
-      if (Math.abs(minute - occupied[i]) < ADD_SLOT_CLEARANCE) return false;
-    }
-    return true;
-  }
-
-  /* Find the nearest visible half-hour with enough quiet around every object
-     already attached to the line. On today, "now" is occupied too: the add
-     marker must never masquerade as the live cursor. */
-  function freeEventMinute(dayKey, windowStart) {
-    const reference = new Date(timelineTime());
-    const referenceMinute = reference.getHours() * 60 + reference.getMinutes();
-    const preferred = Math.round(referenceMinute / ADD_SLOT_STEP) * ADD_SLOT_STEP;
-
-    const occupied = occupiedTimelineMinutes(dayKey);
-    if (!sectionDay && dayKey === dateKeyOf(reference)) occupied.push(referenceMinute);
-
-    const candidates = [];
-    for (let minute = 0; minute < 24 * 60; minute += ADD_SLOT_STEP) {
-      const time = String(Math.floor(minute / 60)).padStart(2, "0")
-        + ":" + String(minute % 60).padStart(2, "0");
-      const at = new Date(dayKey + "T" + time).getTime();
-      const pct = timePct(at, windowStart);
-      if (pct >= 4 && pct <= 96) candidates.push({ minute: minute, pct: pct });
-    }
-    candidates.sort(function (a, b) {
-      const aDistance = Math.abs(a.minute - preferred);
-      const bDistance = Math.abs(b.minute - preferred);
-      if (aDistance !== bDistance) return aDistance - bDistance;
-      if ((a.minute < preferred) !== (b.minute < preferred)) return a.minute < preferred ? 1 : -1;
-      return a.minute - b.minute;
-    });
-
-    let fallback = candidates[0] || { minute: Math.max(0, Math.min(23 * 60 + 30, preferred)), pct: 50 };
-    let fallbackClearance = -1;
-    for (let i = 0; i < candidates.length; i++) {
-      let clearance = 24 * 60;
-      for (let j = 0; j < occupied.length; j++) {
-        clearance = Math.min(clearance, Math.abs(candidates[i].minute - occupied[j]));
-      }
-      if (clearance >= ADD_SLOT_CLEARANCE) return candidates[i];
-      if (clearance > fallbackClearance) {
-        fallback = candidates[i];
-        fallbackClearance = clearance;
-      }
-    }
-    return fallback;
-  }
-
-  /* Keep the chosen add time anchored. It is replaced only when the visible day
-     changes, it leaves the window, or a real task/event takes its quiet slot. */
-  function retainedAddEventMinute(dayKey, windowStart) {
-    if (!addEventSlot || addEventSlot.date !== dayKey) return null;
-    const minute = eventMinute({ time: addEventSlot.time });
-    if (minute == null || isNaN(minute)) return null;
-    const at = new Date(dayKey + "T" + addEventSlot.time).getTime();
-    const pct = timePct(at, windowStart);
-    if (pct < 4 || pct > 96) return null;
-    if (!minuteClearOf(minute, occupiedTimelineMinutes(dayKey))) return null;
-    return { minute: minute, pct: pct };
-  }
-
-  function renderAddEventSlot(windowStart) {
-    const marker = document.getElementById("addEventBtn");
-    const reference = new Date(timelineTime());
-    const day = sectionDay || dateKeyOf(reference);
-    const slot = retainedAddEventMinute(day, windowStart)
-      || freeEventMinute(day, windowStart);
-    const time = String(Math.floor(slot.minute / 60)).padStart(2, "0")
-      + ":" + String(slot.minute % 60).padStart(2, "0");
-    addEventSlot = { date: day, time: time };
-
-    marker.style.left = slot.pct.toFixed(2) + "%";
-    marker.hidden = !document.getElementById("quickEvent").hidden;
-    marker.setAttribute("aria-label", translate("addEventTitle") + " · " + time);
-    document.getElementById("addEventTip").textContent = translate("addEventTitle") + " · " + time;
   }
 
   /* Events and dated tasks share one collision layout: each object gets its
@@ -10911,14 +10956,14 @@
     renderList("tasks");
   }
 
-  /* the day on show has the last word: a bare time belongs to it, not to today */
+  /* An event written without a day stays without one: it waits over the rule of
+     time until it is dropped onto it. Only a day actually recognised in the line
+     dates it — nothing is guessed on the writer's behalf any more. */
   function quickEventDay(parsed) {
-    if (parsed.date && !parsed.inferred) return parsed.date;
-    return (addEventSlot && addEventSlot.date) || sectionDay || todayKey();
+    return parsed.date && !parsed.inferred ? parsed.date : null;
   }
-  function quickEventTime(parsed, day) {
-    if (parsed.time) return parsed.time;
-    return addEventSlot && addEventSlot.date === day ? addEventSlot.time : "09:00";
+  function quickEventTime(parsed) {
+    return parsed.time || null;
   }
 
   wireQuickAdd({
@@ -10929,7 +10974,8 @@
     resolveTime: quickEventTime,
     submit: function (parsed, title, day, time) {
       addEvent(day, title, time, parsed.flag);
-      goToDay(day);   // follow the day it landed on rather than lose it from view
+      if (day) goToDay(day);   // follow the day it landed on rather than lose it
+      else renderUndated();    // undated: it appears over the rule instead
     }
   });
 
@@ -11243,11 +11289,14 @@
   const thinkingSelectionActions = document.getElementById("thinkingSelectionActions");
   const thinkingSelectionCount = document.getElementById("thinkingSelectionCount");
   const thinkingSelectionCanvas = document.getElementById("thinkingSelectionCanvas");
-  const THINKING_BLOCK_TYPES = ["problem", "solution", "example", "idea", "question", "answer", "note"];
+  const THINKING_BLOCK_TYPES = ["problem", "solution", "example", "idea", "question", "answer", "note", "task"];
+  const THINKING_ORGANIZATION_TYPES = ["canvas", "folder", "document"];
   const THINKING_WORLD_WIDTH = 20000;
   const THINKING_WORLD_HEIGHT = 12000;
   const THINKING_WORLD_X = 9000;
   const THINKING_WORLD_Y = 5000;
+  const THINKING_CANVAS_CHROME = 70;
+  const THINKING_STICK_SIDES = ["top", "right", "bottom", "left"];
   let openCanvasId = null;
   let thinkingLinkFrom = null;
   let thinkingCounter = 0;
@@ -11262,7 +11311,71 @@
   let thinkingSelectionParentId = null;
   let thinkingSelectedIds = {};
   let thinkingSelectionClickSuppressed = false;
+  let thinkingClipboard = null;
+  let thinkingPasteCount = 0;
   const thinkingCanvasFoldLocks = {};
+
+  function isThinkingOrganization(block) {
+    return !!block && THINKING_ORGANIZATION_TYPES.indexOf(block.type) !== -1;
+  }
+
+  function thinkingOrganizationAllows(parent, child) {
+    if (!isThinkingOrganization(parent) || !child) return false;
+    if (parent.type === "folder") {
+      return THINKING_ORGANIZATION_TYPES.indexOf(child.type) !== -1;
+    }
+    return true;
+  }
+
+  function thinkingOrganizationTitle(block) {
+    return (block.title || "").trim() || translate(thinkingTypeKey(block.type));
+  }
+
+  function thinkingFolderChildren(tree, folder) {
+    const children = [];
+    for (let i = 0; i < tree.blocks.length; i++) {
+      if (tree.blocks[i].parentId === folder.id) children.push(tree.blocks[i]);
+    }
+    children.sort(function (a, b) {
+      const aOrder = a.folderOrder == null ? tree.blocks.indexOf(a) * 100 : a.folderOrder;
+      const bOrder = b.folderOrder == null ? tree.blocks.indexOf(b) * 100 : b.folderOrder;
+      return aOrder - bOrder;
+    });
+    return children;
+  }
+
+  function nextThinkingFolderOrder(tree, folder) {
+    const children = thinkingFolderChildren(tree, folder);
+    return children.length ? (children[children.length - 1].folderOrder || children.length * 100)
+      + 100 : 100;
+  }
+
+  function placeThinkingBlockInFolder(tree, block, folder, list, clientX, clientY) {
+    const children = thinkingFolderChildren(tree, folder).filter(function (child) {
+      return child.id !== block.id;
+    });
+    let insertAt = children.length;
+    if (list && clientY != null) {
+      const cards = list.querySelectorAll(":scope > .thinking-block");
+      insertAt = children.length;
+      let visualIndex = 0;
+      for (let i = 0; i < cards.length; i++) {
+        if (cards[i].dataset.blockId === block.id) continue;
+        const rect = cards[i].getBoundingClientRect();
+        const onThisRow = clientY >= rect.top && clientY <= rect.bottom;
+        if (clientY < rect.top || (onThisRow && clientX < rect.left + rect.width / 2)) {
+          insertAt = visualIndex;
+          break;
+        }
+        visualIndex++;
+      }
+    }
+    children.splice(Math.min(insertAt, children.length), 0, block);
+    for (let i = 0; i < children.length; i++) children[i].folderOrder = (i + 1) * 100;
+    block.parentId = folder.id;
+    delete block.stuckToId;
+    delete block.stuckSide;
+  }
 
   function thinkingId(prefix) {
     thinkingCounter++;
@@ -11305,6 +11418,159 @@
     return null;
   }
 
+  function thinkingSubtask(owner, id) {
+    if (!owner || !owner.subtasks) return null;
+    for (let i = 0; i < owner.subtasks.length; i++) {
+      if (owner.subtasks[i].id === id) return owner.subtasks[i];
+    }
+    return null;
+  }
+
+  function thinkingTaskOwner(block) {
+    return block && block.taskId ? findItem("tasks", block.taskId) : null;
+  }
+
+  function thinkingTaskItem(block) {
+    const owner = thinkingTaskOwner(block);
+    if (!owner) return null;
+    return block.subtaskId ? thinkingSubtask(owner, block.subtaskId) : owner;
+  }
+
+  function createThinkingTask(text) {
+    const task = {
+      id: thinkingId("t"),
+      text: text || translate("newTaskName"),
+      done: false,
+      projectId: null
+    };
+    state.tasks.push(task);
+    return task;
+  }
+
+  function linkThinkingBlockToNewTask(block, text) {
+    const task = createThinkingTask(text);
+    block.taskId = task.id;
+    delete block.subtaskId;
+    block.text = task.text;
+    return task;
+  }
+
+  function removeThinkingTaskItem(block) {
+    const owner = thinkingTaskOwner(block);
+    if (!owner) return null;
+    if (block.subtaskId) {
+      for (let i = 0; i < owner.subtasks.length; i++) {
+        if (owner.subtasks[i].id === block.subtaskId) {
+          return owner.subtasks.splice(i, 1)[0];
+        }
+      }
+      return null;
+    }
+    for (let i = 0; i < state.tasks.length; i++) {
+      if (state.tasks[i].id === block.taskId) return state.tasks.splice(i, 1)[0];
+    }
+    return null;
+  }
+
+  function thinkingTaskForNote(canvas, block) {
+    if (!canvas || !block || block.type !== "note") return null;
+    const parent = findThinkingParent(canvas, block.parentId);
+    return parent && parent.type === "task" ? thinkingTaskItem(parent) : null;
+  }
+
+  function refreshThinkingTaskViews() {
+    renderList("tasks");
+    renderDailyTimeline();
+  }
+
+  function syncThinkingBlockTaskPlacement(canvas, block, nextParent) {
+    if (!block || !nextParent) return;
+    if (block.type === "note") {
+      const previousTask = thinkingTaskForNote(canvas, block);
+      if (previousTask) block.text = previousTask.notes || "";
+      if (nextParent.type === "task") {
+        const nextTask = thinkingTaskItem(nextParent);
+        if (nextTask) {
+          if ((block.text || "").trim()) nextTask.notes = block.text;
+          else block.text = nextTask.notes || "";
+        }
+      }
+      refreshThinkingTaskViews();
+      return;
+    }
+    if (block.type !== "task") return;
+
+    let item = thinkingTaskItem(block);
+    if (!item) item = linkThinkingBlockToNewTask(block, block.text);
+    if (nextParent.type === "task" && !nextParent.subtaskId) {
+      if (block.taskId === nextParent.taskId && !block.subtaskId) return;
+      const parentTask = thinkingTaskItem(nextParent);
+      if (!parentTask) return;
+      item = removeThinkingTaskItem(block) || item;
+      if (!parentTask.subtasks) parentTask.subtasks = [];
+      const subtask = {
+        id: item.id,
+        text: item.text || translate("newTaskName"),
+        done: !!item.done
+      };
+      if (item.notes) subtask.notes = item.notes;
+      parentTask.subtasks.push(subtask);
+      block.taskId = nextParent.taskId;
+      block.subtaskId = subtask.id;
+      block.text = subtask.text;
+      refreshThinkingTaskViews();
+      return;
+    }
+    if (block.subtaskId) {
+      item = removeThinkingTaskItem(block) || item;
+      const task = {
+        id: item.id,
+        text: item.text || translate("newTaskName"),
+        done: !!item.done,
+        projectId: null
+      };
+      if (item.notes) task.notes = item.notes;
+      state.tasks.push(task);
+      block.taskId = task.id;
+      delete block.subtaskId;
+      block.text = task.text;
+      refreshThinkingTaskViews();
+    }
+  }
+
+  function changeThinkingBlockType(canvas, block, nextType) {
+    const linkedTask = thinkingTaskItem(block);
+    const linkedNote = thinkingTaskForNote(canvas, block);
+    const parent = findThinkingParent(canvas, block.parentId);
+    if (nextType === "task" && parent && parent.type === "task" && parent.subtaskId) return;
+    if (linkedTask) block.text = linkedTask.text || "";
+    else if (linkedNote) block.text = linkedNote.notes || "";
+    const wasTask = block.type === "task";
+    block.type = nextType;
+    if (nextType === "task") {
+      linkThinkingBlockToNewTask(block, block.text);
+      if (parent && parent.type === "task") {
+        syncThinkingBlockTaskPlacement(canvas, block, parent);
+      }
+    } else {
+      delete block.taskId;
+      delete block.subtaskId;
+      if (nextType === "note" && parent && parent.type === "task") {
+        const task = thinkingTaskItem(parent);
+        if (task) {
+          if ((block.text || "").trim()) task.notes = block.text;
+          else block.text = task.notes || "";
+        }
+      }
+    }
+    touchCanvas(canvas);
+    if (wasTask || nextType === "task"
+        || (nextType === "note" && parent && parent.type === "task")) {
+      refreshThinkingTaskViews();
+    }
+    renderThinkingCanvas(canvas);
+  }
+
   function touchCanvas(canvas) {
     canvas.updatedAt = Date.now();
     saveState();
@@ -11320,7 +11586,7 @@
     const selected = [];
     if (!canvas || !thinkingSelectionParentId) return selected;
     const parent = findThinkingParent(canvas, thinkingSelectionParentId);
-    if (!parent || parent.type !== "canvas") {
+    if (!isThinkingOrganization(parent)) {
       clearThinkingSelection();
       return selected;
     }
@@ -11340,6 +11606,7 @@
     const selected = selectedThinkingBlocks(currentCanvas());
     thinkingBoard.classList.toggle("is-selecting", thinkingSelectionMode);
     thinkingSelect.setAttribute("aria-pressed", thinkingSelectionMode ? "true" : "false");
+    thinkingSelect.title = translate("thinkingSelect") + " (S)";
     thinkingSelectionActions.hidden = !thinkingSelectionMode || !selected.length;
     thinkingSelectionCanvas.disabled = !selected.length;
     thinkingSelectionCount.textContent = selected.length === 1
@@ -11360,9 +11627,244 @@
     syncThinkingSelection();
   }
 
+  function thinkingShortcutIsEditing(target) {
+    if (!target || !target.closest) return false;
+    return !!target.closest("input, textarea, select, [contenteditable]:not([contenteditable='false'])");
+  }
+
+  function hoveredThinkingBlock(canvas) {
+    const cards = thinkingBlocks.querySelectorAll(".thinking-block:hover");
+    for (let i = cards.length - 1; i >= 0; i--) {
+      const card = cards[i];
+      const free = !card.classList.contains("thinking-block--nested")
+        || card.classList.contains("thinking-block--canvas-child");
+      if (!free) continue;
+      const block = findThinkingParent(canvas, card.dataset.blockId);
+      const parent = block ? findThinkingParent(canvas, block.parentId) : null;
+      if (block && isThinkingOrganization(parent)) return block;
+    }
+    return null;
+  }
+
+  function hoveredThinkingDeleteTarget(canvas) {
+    const cards = thinkingBlocks.querySelectorAll(".thinking-block:hover");
+    for (let i = cards.length - 1; i >= 0; i--) {
+      const block = findThinkingParent(canvas, cards[i].dataset.blockId);
+      if (block) return block;
+    }
+    return null;
+  }
+
+  function copyThinkingBlocks() {
+    const canvas = currentCanvas();
+    if (!canvas) return false;
+    let roots = selectedThinkingBlocks(canvas);
+    if (!roots.length) {
+      const hovered = hoveredThinkingBlock(canvas);
+      if (hovered) roots = [hovered];
+    }
+    if (!roots.length) return false;
+
+    const included = {};
+    for (let i = 0; i < roots.length; i++) included[roots[i].id] = true;
+    let foundChild = true;
+    while (foundChild) {
+      foundChild = false;
+      for (let i = 0; i < canvas.blocks.length; i++) {
+        const block = canvas.blocks[i];
+        if (!included[block.id] && included[block.parentId]) {
+          included[block.id] = true;
+          foundChild = true;
+        }
+      }
+    }
+
+    const blocks = [];
+    const links = [];
+    for (let i = 0; i < canvas.blocks.length; i++) {
+      if (included[canvas.blocks[i].id]) {
+        const snapshot = JSON.parse(JSON.stringify(canvas.blocks[i]));
+        const task = snapshot.type === "task" ? thinkingTaskItem(canvas.blocks[i]) : null;
+        const noteTask = snapshot.type === "note"
+          ? thinkingTaskForNote(canvas, canvas.blocks[i]) : null;
+        if (task) snapshot.text = task.text || "";
+        if (noteTask) snapshot.text = noteTask.notes || "";
+        blocks.push(snapshot);
+      }
+    }
+    for (let i = 0; i < canvas.links.length; i++) {
+      if (included[canvas.links[i].from] && included[canvas.links[i].to]) {
+        links.push(JSON.parse(JSON.stringify(canvas.links[i])));
+      }
+    }
+    thinkingClipboard = {
+      canvasId: canvas.id,
+      parentId: roots[0].parentId,
+      rootIds: roots.map(function (block) { return block.id; }),
+      blocks: blocks,
+      links: links
+    };
+    thinkingPasteCount = 0;
+    return true;
+  }
+
+  function thinkingClipboardTarget(canvas, viewedCanvas) {
+    if (!thinkingClipboard || thinkingClipboard.canvasId !== canvas.id) return viewedCanvas;
+    const sourceParent = findThinkingParent(canvas, thinkingClipboard.parentId);
+    if (!isThinkingOrganization(sourceParent)
+        || (sourceParent.collapsed && sourceParent.id !== viewedCanvasId)) {
+      return viewedCanvas;
+    }
+    if (sourceParent.id === viewedCanvas.id) return sourceParent;
+    const card = thinkingBlocks.querySelector('[data-block-id="' + sourceParent.id + '"]');
+    const stage = card ? card.querySelector(".thinking-canvas__stage") : null;
+    return stage && stage.getClientRects().length ? sourceParent : viewedCanvas;
+  }
+
+  function pasteThinkingBlocks() {
+    const canvas = currentCanvas();
+    const viewedCanvas = currentThinkingCanvasNode();
+    if (!canvas || !viewedCanvas || !thinkingClipboard || !thinkingClipboard.blocks.length) {
+      return false;
+    }
+    const target = thinkingClipboardTarget(canvas, viewedCanvas);
+    const rootIds = {};
+    for (let i = 0; i < thinkingClipboard.rootIds.length; i++) {
+      rootIds[thinkingClipboard.rootIds[i]] = true;
+    }
+    for (let i = 0; i < thinkingClipboard.blocks.length; i++) {
+      const copied = thinkingClipboard.blocks[i];
+      if (rootIds[copied.id] && !thinkingOrganizationAllows(target, copied)) return false;
+    }
+
+    let minX = Infinity;
+    let minY = Infinity;
+    let maxX = -Infinity;
+    let maxY = -Infinity;
+    for (let i = 0; i < thinkingClipboard.blocks.length; i++) {
+      const block = thinkingClipboard.blocks[i];
+      if (!rootIds[block.id]) continue;
+      const size = thinkingBlockSize(block);
+      minX = Math.min(minX, block.x);
+      minY = Math.min(minY, block.y);
+      maxX = Math.max(maxX, block.x + size.width);
+      maxY = Math.max(maxY, block.y + size.height);
+    }
+    if (!Number.isFinite(minX) || !Number.isFinite(minY)) return false;
+
+    const sameParent = thinkingClipboard.canvasId === canvas.id
+      && thinkingClipboard.parentId === target.id;
+    let dx;
+    let dy;
+    if (sameParent) {
+      dx = 32 * (thinkingPasteCount + 1);
+      dy = dx;
+    } else {
+      dx = thinkingViewport.scrollLeft + thinkingViewport.clientWidth / 2
+        - (minX + maxX) / 2;
+      dy = thinkingViewport.scrollTop + thinkingViewport.clientHeight / 2
+        - (minY + maxY) / 2;
+    }
+    const minimumDx = 18 - minX;
+    const maximumDx = THINKING_WORLD_WIDTH - 18 - maxX;
+    const minimumDy = 18 - minY;
+    const maximumDy = THINKING_WORLD_HEIGHT - 18 - maxY;
+    if (minimumDx <= maximumDx) dx = Math.max(minimumDx, Math.min(maximumDx, dx));
+    if (minimumDy <= maximumDy) dy = Math.max(minimumDy, Math.min(maximumDy, dy));
+
+    const idMap = {};
+    for (let i = 0; i < thinkingClipboard.blocks.length; i++) {
+      idMap[thinkingClipboard.blocks[i].id] = thinkingId("b");
+    }
+    const pastedRoots = [];
+    const pastedBlocks = [];
+    for (let i = 0; i < thinkingClipboard.blocks.length; i++) {
+      const source = thinkingClipboard.blocks[i];
+      const clone = JSON.parse(JSON.stringify(source));
+      clone.id = idMap[source.id];
+      if (rootIds[source.id]) {
+        clone.parentId = target.id;
+        clone.x += dx;
+        clone.y += dy;
+        if (target.type === "folder") {
+          clone.folderOrder = nextThinkingFolderOrder(canvas, target);
+          delete clone.stuckToId;
+          delete clone.stuckSide;
+        } else {
+          delete clone.folderOrder;
+        }
+        pastedRoots.push(clone);
+      } else {
+        clone.parentId = idMap[source.parentId];
+      }
+      if (target.type !== "folder" && source.stuckToId && idMap[source.stuckToId]) {
+        clone.stuckToId = idMap[source.stuckToId];
+      } else {
+        delete clone.stuckToId;
+        delete clone.stuckSide;
+      }
+      if (clone.type === "task") {
+        delete clone.taskId;
+        delete clone.subtaskId;
+        linkThinkingBlockToNewTask(clone, clone.text);
+      }
+      canvas.blocks.push(clone);
+      pastedBlocks.push(clone);
+    }
+    for (let i = 0; i < thinkingClipboard.links.length; i++) {
+      const sourceLink = thinkingClipboard.links[i];
+      canvas.links.push({
+        id: thinkingId("l"),
+        from: idMap[sourceLink.from],
+        to: idMap[sourceLink.to]
+      });
+    }
+
+    for (let i = 0; i < pastedBlocks.length; i++) {
+      const clone = pastedBlocks[i];
+      const parent = findThinkingParent(canvas, clone.parentId);
+      if (parent && parent.type === "folder") {
+        if (clone.folderOrder == null) clone.folderOrder = nextThinkingFolderOrder(canvas, parent);
+        delete clone.stuckToId;
+        delete clone.stuckSide;
+      }
+      if (clone.type === "task" && parent && parent.type === "task") {
+        syncThinkingBlockTaskPlacement(canvas, clone, parent);
+      }
+    }
+    for (let i = 0; i < pastedBlocks.length; i++) {
+      const clone = pastedBlocks[i];
+      const parent = findThinkingParent(canvas, clone.parentId);
+      if (clone.type !== "note" || !parent || parent.type !== "task") continue;
+      const task = thinkingTaskItem(parent);
+      if (task) task.notes = clone.text || "";
+    }
+
+    thinkingSelectedIds = {};
+    for (let i = 0; i < pastedRoots.length; i++) {
+      thinkingSelectedIds[pastedRoots[i].id] = true;
+      const size = thinkingBlockSize(pastedRoots[i]);
+      growThinkingCanvasForBlock(canvas, pastedRoots[i], size.width, size.height);
+    }
+    thinkingSelectionParentId = target.id;
+    thinkingPasteCount++;
+    setThinkingSelectionMode(true);
+    touchCanvas(canvas);
+    refreshThinkingTaskViews();
+    renderThinkingCanvas(canvas);
+    if (target.type === "folder") {
+      requestAnimationFrame(function () {
+        const folderCard = thinkingBlocks.querySelector('[data-block-id="' + target.id + '"]');
+        if (folderCard) growThinkingCanvasForBlock(canvas, target,
+          folderCard.offsetWidth, folderCard.offsetHeight);
+      });
+    }
+    return true;
+  }
+
   function toggleThinkingBlockSelection(canvas, block) {
     const parent = findThinkingParent(canvas, block.parentId);
-    if (!parent || parent.type !== "canvas") return;
+    if (!isThinkingOrganization(parent)) return;
     if (thinkingSelectionParentId && thinkingSelectionParentId !== block.parentId) {
       clearThinkingSelection();
     }
@@ -11460,6 +11962,7 @@
     }, true);
     card.addEventListener("click", function (event) {
       if (!thinkingSelectionMode || !hitsThinkingSelectionCard(event.target, card)) return;
+      if (event.target.closest(".thinking-block__delete")) return;
       event.preventDefault();
       event.stopImmediatePropagation();
       if (thinkingSelectionClickSuppressed || card.dataset.selectionDragged) return;
@@ -11497,6 +12000,7 @@
       }
       let moved = false;
       let dropCanvas = null;
+      let stickSnapshot = null;
       const move = function (moveEvent) {
         if (moveEvent.pointerId !== pointerId) return;
         const rawDx = moveEvent.clientX - startX;
@@ -11508,6 +12012,12 @@
         if (!moved && Math.hypot(dx, dy) < 4) return;
         moveEvent.preventDefault();
         if (!moved) {
+          stickSnapshot = thinkingStickSnapshot(canvas);
+          const detached = {};
+          for (let i = 0; i < selected.length; i++) detached[selected[i].id] = true;
+          detachThinkingIdsFromSticks(canvas, detached);
+          layoutVisibleThinkingStuckBlocks(canvas);
+          showThinkingTrash();
           thinkingBoard.classList.add("is-combining");
           markThinkingSelectionCanvasOptions(canvas, selected, true);
         }
@@ -11523,6 +12033,8 @@
         dropCanvas = thinkingSelectionCanvasDropParent(moveEvent.clientX,
           moveEvent.clientY, selected, canvas);
         if (dropCanvas) dropCanvas.classList.add("is-drop-target");
+        thinkingTrash.classList.toggle("is-active",
+          pointInsideThinkingTrash(moveEvent.clientX, moveEvent.clientY));
         requestThinkingLinks(canvas);
       };
       const up = function (upEvent) {
@@ -11531,17 +12043,26 @@
         head.removeEventListener("pointerup", up);
         head.removeEventListener("pointercancel", up);
         const cancelled = upEvent.type === "pointercancel";
+        const deleted = moved && !cancelled
+          && pointInsideThinkingTrash(upEvent.clientX, upEvent.clientY);
+        hideThinkingTrash();
         thinkingBoard.classList.remove("is-combining");
         markThinkingSelectionCanvasOptions(canvas, selected, false);
         clearThinkingDropTargets();
         for (let i = 0; i < starts.length; i++) {
           starts[i].card.classList.remove("is-group-dragging");
-          if (cancelled) {
+          if (cancelled || deleted) {
             starts[i].block.x = starts[i].x;
             starts[i].block.y = starts[i].y;
           }
         }
         if (!moved) return;
+        if (cancelled) restoreThinkingStickSnapshot(canvas, stickSnapshot);
+        if (deleted) {
+          restoreThinkingStickSnapshot(canvas, stickSnapshot);
+          removeThinkingSelection(canvas);
+          return;
+        }
         card.dataset.selectionDragged = "true";
         if (!cancelled) {
           dropCanvas = thinkingSelectionCanvasDropParent(upEvent.clientX,
@@ -11568,6 +12089,10 @@
     const selected = selectedThinkingBlocks(canvas);
     if (!canvas || !selected.length || !thinkingSelectionParentId) return;
     const parentId = thinkingSelectionParentId;
+    const detached = {};
+    for (let i = 0; i < selected.length; i++) detached[selected[i].id] = true;
+    detachThinkingIdsFromSticks(canvas, detached);
+    layoutVisibleThinkingStuckBlocks(canvas);
     let minX = Infinity;
     let minY = Infinity;
     let maxX = -Infinity;
@@ -11587,10 +12112,10 @@
     const previewX = minX - padding;
     const previewY = minY - padding;
     const grouped = {
-      id: thinkingId("b"), type: "canvas", title: translate("thinkingNewCanvas"), text: "",
+      id: thinkingId("b"), type: "canvas", title: "", text: "",
       parentId: parentId,
       x: Math.max(18, previewX - 10),
-      y: Math.max(18, previewY - 70),
+      y: Math.max(18, previewY - 28),
       icon: "target",
       canvasWidth: stageWidth + 20,
       canvasHeight: stageHeight,
@@ -11602,7 +12127,8 @@
     };
     for (let i = 0; i < selected.length; i++) selected[i].parentId = grouped.id;
     canvas.blocks.push(grouped);
-    growThinkingCanvasForBlock(canvas, grouped, grouped.canvasWidth, grouped.canvasHeight + 110);
+    growThinkingCanvasForBlock(canvas, grouped, grouped.canvasWidth,
+      grouped.canvasHeight + THINKING_CANVAS_CHROME);
     thinkingSelectedIds = {};
     thinkingSelectedIds[grouped.id] = true;
     thinkingSelectionParentId = parentId;
@@ -11619,15 +12145,45 @@
   }
 
   function thinkingTypeIcon(type) {
-    if (type === "problem" || type === "canvas") return "target";
-    if (type === "solution" || type === "answer") return "bulb";
+    if (type === "problem") return "target";
+    if (type === "canvas") return "canvas";
+    if (type === "folder") return "folder";
+    if (type === "document") return "document";
+    if (type === "solution") return "bulb";
+    if (type === "answer") return "reply";       // shares the colour, not the glyph
     if (type === "example") return "flag";
     if (type === "question") return "compass";
     if (type === "idea") return "spark";
+    if (type === "task") return "check";
+    if (type === "note") return "note";
+    if (type === "text") return "lines";
     return "spark";
   }
 
   function thinkingIconSvg(name) {
+    if (name === "folder") {
+      return '<svg viewBox="0 0 48 48" fill="none" aria-hidden="true">'
+        + '<path d="M5 13a4 4 0 0 1 4-4h10l4.5 4.5H39a4 4 0 0 1 4 4V38a4 4 0 0 1-4 4H9a4 4 0 0 1-4-4Z" fill="currentColor" opacity=".46"/>'
+        + '<path d="M5 21.5A3.5 3.5 0 0 1 8.5 18h31a3.5 3.5 0 0 1 3.4 4.3l-4 16.8A3.8 3.8 0 0 1 35.2 42H8.8A3.8 3.8 0 0 1 5 38.2Z" fill="currentColor"/>'
+        + '<path d="M9 14h11.5l2.8 3H39" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity=".72"/>'
+        + '</svg>';
+    }
+    if (name === "canvas") {
+      return '<svg viewBox="0 0 48 48" fill="none" aria-hidden="true">'
+        + '<rect x="5" y="7" width="38" height="34" rx="5" fill="currentColor" opacity=".16"/>'
+        + '<rect x="7" y="9" width="34" height="30" rx="4" stroke="currentColor" stroke-width="2.6"/>'
+        + '<path d="M13 18h22M13 24h14M13 30h18" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/>'
+        + '<circle cx="35" cy="30" r="3.2" fill="currentColor"/>'
+        + '</svg>';
+    }
+    if (name === "document") {
+      return '<svg viewBox="0 0 48 48" fill="none" aria-hidden="true">'
+        + '<path d="M12 5h25a4 4 0 0 1 4 4v30a4 4 0 0 1-4 4H12Z" fill="currentColor" opacity=".17"/>'
+        + '<path d="M12 5h25a4 4 0 0 1 4 4v30a4 4 0 0 1-4 4H12Z" stroke="currentColor" stroke-width="2.5"/>'
+        + '<path d="M19 15h15M19 22h15M19 29h11M19 36h13" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>'
+        + '<path d="M7 12h8M7 21h8M7 30h8M7 39h8" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>'
+        + '</svg>';
+    }
     let paths = "";
     if (name === "target") {
       paths = '<circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/>'
@@ -11641,6 +12197,16 @@
       paths = '<path d="M6 21V4m0 1h11l-2 3 2 3H6"/>';
     } else if (name === "compass") {
       paths = '<circle cx="12" cy="12" r="9"/><path d="m15.5 8.5-2 5-5 2 2-5Z"/>';
+    } else if (name === "check") {
+      paths = '<rect x="3" y="3" width="18" height="18" rx="5"/>'
+        + '<path d="m7 12 3 3 7-7"/>';
+    } else if (name === "reply") {
+      paths = '<path d="M10 8V4L3 11l7 7v-4c4.5 0 7.6 1.5 10 5-1-5.5-4-10-10-11Z"/>';
+    } else if (name === "note") {
+      paths = '<path d="M6 3h8l4 4v14H6Z"/><path d="M14 3v4h4"/>'
+        + '<path d="M9.5 12h5M9.5 16h3"/>';
+    } else if (name === "lines") {
+      paths = '<path d="M5 7h14M5 12h10M5 17h6"/>';
     } else {
       paths = '<path d="M20.8 4.7a5.5 5.5 0 0 0-7.8 0L12 5.8l-1.1-1.1a5.5 5.5 0 0 0-7.8 7.8L12 21l8.8-8.5a5.5 5.5 0 0 0 0-7.8Z"/>';
     }
@@ -11687,7 +12253,7 @@
     const canvas = {
       id: thinkingId("c"),
       type: "canvas",
-      thinkingTreeVersion: 5,
+      thinkingTreeVersion: 11,
       parentId: null,
       title: "",
       text: "",
@@ -11733,7 +12299,7 @@
     let branch = canvasNode;
     while (branch && branch.parentId) {
       branch = findThinkingParent(tree, branch.parentId);
-      if (branch && branch.type === "canvas") return branch;
+      if (isThinkingOrganization(branch)) return branch;
     }
     return null;
   }
@@ -11741,11 +12307,17 @@
   function syncThinkingCanvasHeader(tree, canvasNode) {
     const parent = thinkingCanvasParent(tree, canvasNode);
     thinkingName.disabled = !parent;
-    thinkingName.value = parent ? canvasNode.title || "" : "";
+    thinkingName.value = parent ? thinkingOrganizationTitle(canvasNode) : "";
     const back = document.getElementById("thinkingBoardBack");
     back.disabled = !parent;
     back.setAttribute("aria-label", translate(parent ? "thinkingCloseCanvas" : "thinkingBaseCanvas"));
     thinkingName.placeholder = translate(parent ? "thinkingUntitled" : "thinkingBaseCanvas");
+    const tools = document.querySelectorAll(".thinking-tool[data-block-type]");
+    for (let i = 0; i < tools.length; i++) {
+      tools[i].disabled = !thinkingOrganizationAllows(canvasNode, {
+        type: tools[i].dataset.blockType
+      });
+    }
   }
 
   function thinkingCanvasTransition(kind, origin, targetId) {
@@ -11774,6 +12346,7 @@
   }
 
   function syncThinkingCanvasPreview(canvasNode) {
+    if (canvasNode.type === "folder") return;
     const width = Math.max(220, (canvasNode.canvasWidth || 650) - 20);
     const height = canvasNode.canvasHeight || 330;
     canvasNode.previewX = canvasNode.cameraX + thinkingViewport.clientWidth / 2 - width / 2;
@@ -11783,7 +12356,7 @@
   function navigateThinkingCanvas(id, transition) {
     const tree = currentCanvas();
     const canvasNode = tree ? findThinkingParent(tree, id) : null;
-    if (!tree || !canvasNode || canvasNode.type !== "canvas") return;
+    if (!tree || !isThinkingOrganization(canvasNode)) return;
     const current = currentThinkingCanvasNode();
     if (current) {
       current.cameraX = thinkingViewport.scrollLeft;
@@ -11817,21 +12390,191 @@
     navigateThinkingCanvas(parent.id, { kind: "close", targetId: canvasNode.id });
   }
 
+  function applyThinkingDocumentFormat(command, body) {
+    body.focus();
+    if (command === "hilite") {
+      document.execCommand("styleWithCSS", false, true);
+      document.execCommand("hiliteColor", false, "#ffe08a");
+    } else {
+      document.execCommand(command, false, null);
+    }
+  }
+
+  function createThinkingDocumentSheet(tree, documentNode) {
+    const sheetWidth = Math.min(820, Math.max(620, thinkingViewport.clientWidth - 160));
+    if (documentNode.sheetX == null) {
+      documentNode.sheetX = documentNode.cameraX
+        + thinkingViewport.clientWidth / 2 - sheetWidth / 2;
+    }
+    if (documentNode.sheetY == null) documentNode.sheetY = documentNode.cameraY + 56;
+
+    const sheet = document.createElement("section");
+    sheet.className = "thinking-document-sheet";
+    sheet.style.left = documentNode.sheetX + "px";
+    sheet.style.top = documentNode.sheetY + "px";
+    sheet.style.width = sheetWidth + "px";
+
+    const toolbar = document.createElement("div");
+    toolbar.className = "thinking-document-toolbar";
+    const tools = [
+      { command: "bold", label: "boldAria", content: "B" },
+      { command: "italic", label: "italicAria", content: "I" },
+      { command: "underline", label: "underlineAria", content: "U" },
+      { command: "hilite", label: "highlightAria", content: "H" },
+      { command: "insertUnorderedList", label: "thinkingBulletsAria", content: "•" },
+      { command: "insertOrderedList", label: "thinkingNumberedAria", content: "1." }
+    ];
+
+    const body = document.createElement("div");
+    body.className = "thinking-document-body";
+    body.contentEditable = "true";
+    body.setAttribute("data-placeholder", translate("thinkingDocumentPlaceholder"));
+    body.innerHTML = documentNode.documentHtml || "";
+    body.addEventListener("input", function () {
+      documentNode.documentHtml = body.innerHTML;
+      touchCanvas(tree);
+    });
+
+    for (let i = 0; i < tools.length; i++) {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "thinking-document-tool";
+      button.dataset.command = tools[i].command;
+      button.setAttribute("aria-label", translate(tools[i].label));
+      button.textContent = tools[i].content;
+      if (tools[i].command === "italic") button.classList.add("is-italic");
+      if (tools[i].command === "underline") button.classList.add("is-underlined");
+      if (tools[i].command === "hilite") button.classList.add("is-highlight");
+      button.addEventListener("pointerdown", function (event) { event.preventDefault(); });
+      button.addEventListener("click", function () {
+        applyThinkingDocumentFormat(this.dataset.command, body);
+        documentNode.documentHtml = body.innerHTML;
+        touchCanvas(tree);
+      });
+      toolbar.appendChild(button);
+    }
+    sheet.append(toolbar, body);
+    return sheet;
+  }
+
+  function createThinkingFolderList(tree, folder, fullscreen) {
+    const list = document.createElement("div");
+    list.className = "thinking-folder__list";
+    list.classList.add(fullscreen ? "thinking-folder__list--fullscreen"
+      : "thinking-folder__list--preview");
+    list.dataset.blockId = folder.id;
+    list.dataset.organizationId = folder.id;
+    const children = thinkingFolderChildren(tree, folder);
+    for (let i = 0; i < children.length; i++) {
+      list.appendChild(createThinkingBlock(tree, children[i], true, false, folder));
+    }
+    list.appendChild(createThinkingFolderAdd(tree, folder));
+    if (fullscreen) {
+      const width = Math.min(620, Math.max(360, thinkingViewport.clientWidth - 120));
+      list.style.width = width + "px";
+      list.style.left = (folder.cameraX + thinkingViewport.clientWidth / 2 - width / 2) + "px";
+      list.style.top = (folder.cameraY + 44) + "px";
+    } else if (folder.folderHeight) {
+      list.style.height = folder.folderHeight + "px";
+    }
+    return list;
+  }
+
+  /* The + tile in a folder. A folder holds containers and nothing else, so the
+     three it can take are offered straight away rather than behind a menu. */
+  function createThinkingFolderAdd(tree, folder) {
+    const tile = document.createElement("div");
+    tile.className = "thinking-folder__add";
+    const open = document.createElement("button");
+    open.type = "button";
+    open.className = "thinking-folder__add-open";
+    open.setAttribute("aria-expanded", "false");
+    open.setAttribute("aria-label", translate("thinkingFolderAdd"));
+    open.textContent = "+";
+    const choices = document.createElement("div");
+    choices.className = "thinking-folder__add-choices";
+    for (let i = 0; i < THINKING_ORGANIZATION_TYPES.length; i++) {
+      const type = THINKING_ORGANIZATION_TYPES[i];
+      const pick = document.createElement("button");
+      pick.type = "button";
+      pick.className = "thinking-folder__add-choice thinking-add--" + type;
+      pick.setAttribute("aria-label", translate(thinkingTypeKey(type)));
+      pick.title = translate(thinkingTypeKey(type));
+      pick.innerHTML = thinkingIconSvg(thinkingTypeIcon(type));
+      pick.addEventListener("click", function (event) {
+        event.stopPropagation();
+        addThinkingContainerToFolder(tree, folder, type);
+      });
+      choices.appendChild(pick);
+    }
+    open.addEventListener("click", function (event) {
+      event.stopPropagation();
+      const shown = tile.classList.toggle("is-open");
+      open.setAttribute("aria-expanded", shown ? "true" : "false");
+      if (!shown) return;
+      // one click anywhere else puts the three away again
+      setTimeout(function () {
+        document.addEventListener("click", function close() {
+          tile.classList.remove("is-open");
+          open.setAttribute("aria-expanded", "false");
+          document.removeEventListener("click", close);
+        }, { once: true });
+      }, 0);
+    });
+    tile.append(open, choices);
+    return tile;
+  }
+
+  function addThinkingContainerToFolder(tree, folder, type) {
+    const block = {
+      id: thinkingId("b"), type: type, text: "", title: "",
+      x: folder.x, y: folder.y, parentId: folder.id,
+      collapsed: true,
+      cameraX: THINKING_WORLD_X, cameraY: THINKING_WORLD_Y,
+      folderOrder: nextThinkingFolderOrder(tree, folder)
+    };
+    if (type === "folder") {
+      block.blockWidth = 420;
+    } else {
+      block.canvasWidth = 650;
+      block.canvasHeight = 330;
+      block.previewX = THINKING_WORLD_X
+        + thinkingViewport.clientWidth / 2 - (block.canvasWidth - 20) / 2;
+      block.previewY = THINKING_WORLD_Y
+        + thinkingViewport.clientHeight / 2 - block.canvasHeight / 2;
+    }
+    if (type === "document") block.documentHtml = "";
+    tree.blocks.push(block);
+    touchCanvas(tree);
+    renderThinkingCanvas(tree);
+  }
+
   function renderThinkingCanvas(canvas) {
     const viewedCanvas = currentThinkingCanvasNode() || canvas;
     syncThinkingCanvasHeader(canvas, viewedCanvas);
+    thinkingBoard.classList.toggle("is-folder-view", viewedCanvas.type === "folder");
     thinkingBlocks.innerHTML = "";
     let visibleCount = 0;
-    for (let i = 0; i < canvas.blocks.length; i++) {
-      if (canvas.blocks[i].parentId === viewedCanvas.id) {
-        thinkingBlocks.appendChild(createThinkingBlock(canvas, canvas.blocks[i], false, false,
-          viewedCanvas));
-        visibleCount++;
+    if (viewedCanvas.type === "folder") {
+      thinkingBlocks.appendChild(createThinkingFolderList(canvas, viewedCanvas, true));
+      visibleCount++;
+    } else if (viewedCanvas.type === "document") {
+      thinkingBlocks.appendChild(createThinkingDocumentSheet(canvas, viewedCanvas));
+      visibleCount++;
+    }
+    if (viewedCanvas.type !== "folder") {
+      for (let i = 0; i < canvas.blocks.length; i++) {
+        if (canvas.blocks[i].parentId === viewedCanvas.id) {
+          thinkingBlocks.appendChild(createThinkingBlock(canvas, canvas.blocks[i], false, false,
+            viewedCanvas));
+          visibleCount++;
+        }
       }
     }
     thinkingBlank.hidden = visibleCount !== 0;
     thinkingBlank.style.left = (viewedCanvas.cameraX + thinkingViewport.clientWidth / 2) + "px";
     thinkingBlank.style.top = (viewedCanvas.cameraY + thinkingViewport.clientHeight * .38) + "px";
+    layoutVisibleThinkingStuckBlocks(canvas);
     syncThinkingLinkMode();
     syncThinkingSelection();
     requestThinkingLinks(canvas);
@@ -11883,6 +12626,8 @@
     for (let i = 0; i < canvas.blocks.length; i++) {
       const child = canvas.blocks[i];
       if (child.parentId !== parent.id) continue;
+      const nextParent = findThinkingParent(canvas, parent.parentId);
+      if (nextParent) syncThinkingBlockTaskPlacement(canvas, child, nextParent);
       child.parentId = parent.parentId;
       child.x = Math.min(THINKING_WORLD_WIDTH - 300, parent.x + 28 + released * 24);
       child.y = Math.min(THINKING_WORLD_HEIGHT - 220, parent.y + 180 + released * 32);
@@ -11900,10 +12645,11 @@
         width: card.offsetWidth, height: canvasStage.offsetHeight };
       card.classList.add("is-resizing");
       const move = function (moveEvent) {
-        block.canvasWidth = Math.max(360, start.width + moveEvent.clientX - start.x);
-        block.canvasHeight = Math.max(220, start.height + moveEvent.clientY - start.y);
-        card.style.width = block.canvasWidth + "px";
-        canvasStage.style.height = block.canvasHeight + "px";
+        const width = Math.max(360, start.width + moveEvent.clientX - start.x);
+        const stageHeight = Math.max(220, start.height + moveEvent.clientY - start.y);
+        resizeThinkingStuckSide(canvas, block, "width", width);
+        resizeThinkingStuckSide(canvas, block, "height", stageHeight + THINKING_CANVAS_CHROME);
+        layoutVisibleThinkingStuckBlocks(canvas);
         requestThinkingLinks(canvas);
       };
       const up = function () {
@@ -11912,11 +12658,53 @@
         handle.removeEventListener("pointercancel", up);
         card.classList.remove("is-resizing");
         alignThinkingCameraWithPreview(block);
-        growThinkingCanvasForBlock(canvas, block, block.canvasWidth, block.canvasHeight + 110);
+        growThinkingCanvasForBlock(canvas, block, block.canvasWidth,
+          block.canvasHeight + THINKING_CANVAS_CHROME);
         touchCanvas(canvas);
         renderThinkingCanvas(canvas);
       };
       handle.addEventListener("pointermove", move);
+      handle.addEventListener("pointerup", up);
+      handle.addEventListener("pointercancel", up);
+    });
+  }
+
+  function armThinkingFolderResize(handle, card, folderGrid, block, canvas) {
+    handle.addEventListener("pointerdown", function (event) {
+      if (thinkingSelectionMode || event.button !== 0) return;
+      event.preventDefault();
+      event.stopPropagation();
+      handle.setPointerCapture(event.pointerId);
+      const pointerId = event.pointerId;
+      const start = { x: event.clientX, y: event.clientY,
+        width: card.offsetWidth, height: folderGrid.offsetHeight };
+      let moved = false;
+      card.classList.add("is-resizing");
+      const move = function (moveEvent) {
+        if (moveEvent.pointerId !== pointerId) return;
+        moveEvent.preventDefault();
+        const width = Math.max(230, Math.round(start.width + moveEvent.clientX - start.x));
+        const height = Math.max(96, Math.round(start.height + moveEvent.clientY - start.y));
+        if (width === start.width && height === start.height) return;
+        moved = true;
+        block.blockWidth = width;
+        block.folderHeight = height;
+        card.style.width = width + "px";
+        folderGrid.style.height = height + "px";
+        growThinkingCanvasForBlock(canvas, block, card.offsetWidth, card.offsetHeight);
+        requestThinkingLinks(canvas);
+      };
+      const up = function (upEvent) {
+        if (upEvent.pointerId !== pointerId) return;
+        handle.removeEventListener("pointermove", move);
+        handle.removeEventListener("pointerup", up);
+        handle.removeEventListener("pointercancel", up);
+        card.classList.remove("is-resizing");
+        if (!moved) return;
+        touchCanvas(canvas);
+        renderThinkingCanvas(canvas);
+      };
+      handle.addEventListener("pointermove", move, { passive: false });
       handle.addEventListener("pointerup", up);
       handle.addEventListener("pointercancel", up);
     });
@@ -11943,14 +12731,14 @@
         if (Math.abs(dx) < 2 && Math.abs(dy) < 2) return;
         moved = true;
         if (Math.abs(dx) >= 2) {
-          block.blockWidth = Math.max(minimumWidth, Math.round(start.width + dx));
-          card.style.width = block.blockWidth + "px";
+          resizeThinkingStuckSide(canvas, block, "width",
+            Math.max(minimumWidth, Math.round(start.width + dx)));
         }
         if (Math.abs(dy) >= 2) {
-          block.blockHeight = Math.max(minimumHeight, Math.round(start.height + dy));
-          card.style.height = block.blockHeight + "px";
-          card.classList.add("is-manually-sized");
+          resizeThinkingStuckSide(canvas, block, "height",
+            Math.max(minimumHeight, Math.round(start.height + dy)));
         }
+        layoutVisibleThinkingStuckBlocks(canvas);
         growThinkingCanvasForBlock(canvas, block, card.offsetWidth, card.offsetHeight);
         requestThinkingLinks(canvas);
       };
@@ -11988,7 +12776,8 @@
   }
 
   function thinkingBlockNaturalWidth(block) {
-    if (block.type === "canvas") return block.canvasWidth || 650;
+    if (block.type === "folder") return block.blockWidth || 420;
+    if (isThinkingOrganization(block)) return block.canvasWidth || 650;
     if (block.blockWidth) return block.blockWidth;
     const lines = (block.text || "").split("\n");
     let longestLine = 0;
@@ -12001,16 +12790,333 @@
 
   function thinkingBlockSize(block, width, height) {
     if (width && height) return { width: width, height: height };
-    if (block.type === "canvas") {
+    if (block.type === "folder") {
+      return { width: block.collapsed ? 112 : block.blockWidth || 420,
+        height: block.collapsed ? 112 : 180 };
+    }
+    if (isThinkingOrganization(block)) {
       return {
-        width: block.collapsed ? 310 : block.canvasWidth || 650,
-        height: block.collapsed ? 96 : (block.canvasHeight || 330) + 110
+        width: block.collapsed ? 112 : block.canvasWidth || 650,
+        height: block.collapsed ? 112 : (block.canvasHeight || 330) + THINKING_CANVAS_CHROME
       };
     }
     if (block.type === "text") return { width: thinkingBlockNaturalWidth(block),
       height: block.blockHeight || 56 };
     return { width: thinkingBlockNaturalWidth(block),
       height: block.blockHeight || (block.type === "question" ? 90 : 64) };
+  }
+
+  function oppositeThinkingStickSide(side) {
+    if (side === "top") return "bottom";
+    if (side === "bottom") return "top";
+    if (side === "left") return "right";
+    return "left";
+  }
+
+  function thinkingStickSnapshot(canvas) {
+    const snapshot = [];
+    for (let i = 0; i < canvas.blocks.length; i++) {
+      const block = canvas.blocks[i];
+      snapshot.push({
+        id: block.id,
+        parentId: block.parentId,
+        stuckToId: block.stuckToId,
+        stuckSide: block.stuckSide,
+        x: block.x,
+        y: block.y,
+        blockWidth: block.blockWidth,
+        blockHeight: block.blockHeight,
+        canvasWidth: block.canvasWidth,
+        canvasHeight: block.canvasHeight
+      });
+    }
+    return snapshot;
+  }
+
+  function restoreThinkingStickSnapshot(canvas, snapshot) {
+    if (!snapshot) return;
+    for (let i = 0; i < snapshot.length; i++) {
+      const block = findThinkingParent(canvas, snapshot[i].id);
+      if (!block) continue;
+      block.parentId = snapshot[i].parentId;
+      block.x = snapshot[i].x;
+      block.y = snapshot[i].y;
+      const optional = ["stuckToId", "stuckSide", "blockWidth", "blockHeight",
+        "canvasWidth", "canvasHeight"];
+      for (let j = 0; j < optional.length; j++) {
+        const key = optional[j];
+        if (snapshot[i][key] == null) delete block[key];
+        else block[key] = snapshot[i][key];
+      }
+    }
+  }
+
+  /* Keep the unselected chain closed. */
+  function detachThinkingIdsFromSticks(canvas, detachedIds) {
+    for (let i = 0; i < canvas.blocks.length; i++) {
+      const block = canvas.blocks[i];
+      if (detachedIds[block.id] || !detachedIds[block.stuckToId]) continue;
+      const side = block.stuckSide;
+      let branch = findThinkingParent(canvas, block.stuckToId);
+      while (branch && detachedIds[branch.id]) {
+        if (branch.stuckSide !== side) {
+          branch = null;
+          break;
+        }
+        branch = findThinkingParent(canvas, branch.stuckToId);
+      }
+      if (branch && branch.parentId === block.parentId) {
+        block.stuckToId = branch.id;
+      } else {
+        delete block.stuckToId;
+        delete block.stuckSide;
+      }
+    }
+    for (let i = 0; i < canvas.blocks.length; i++) {
+      const block = canvas.blocks[i];
+      if (detachedIds[block.id] && block.stuckToId && !detachedIds[block.stuckToId]) {
+        delete block.stuckToId;
+        delete block.stuckSide;
+      }
+    }
+  }
+
+  function thinkingAttachedBlock(canvas, targetId, side, ignoredId) {
+    for (let i = 0; i < canvas.blocks.length; i++) {
+      const block = canvas.blocks[i];
+      if (block.id !== ignoredId && block.stuckToId === targetId && block.stuckSide === side) {
+        return block;
+      }
+    }
+    return null;
+  }
+
+  function thinkingStickContinuationSide(canvas, block) {
+    const target = block.stuckToId ? findThinkingParent(canvas, block.stuckToId) : null;
+    if (target && target.parentId === block.parentId
+        && THINKING_STICK_SIDES.indexOf(block.stuckSide) !== -1) {
+      return block.stuckSide;
+    }
+    for (let i = 0; i < THINKING_STICK_SIDES.length; i++) {
+      const side = THINKING_STICK_SIDES[i];
+      const attached = thinkingAttachedBlock(canvas, block.id, side);
+      if (attached && attached.parentId === block.parentId) return side;
+    }
+    return null;
+  }
+
+  /* The chain direction is useful on every member, but the quick-add affordance
+     belongs only to its free end. Containers are deliberately excluded: adding
+     canvases, folders or documents remains an explicit action from the toolbar. */
+  function thinkingStickAdditionSide(canvas, block) {
+    if (isThinkingOrganization(block) || !block.stuckToId
+        || THINKING_STICK_SIDES.indexOf(block.stuckSide) === -1) return null;
+    const target = findThinkingParent(canvas, block.stuckToId);
+    if (!target || target.parentId !== block.parentId) return null;
+    const next = thinkingAttachedBlock(canvas, block.id, block.stuckSide);
+    if (next && next.parentId === block.parentId) return null;
+    return block.stuckSide;
+  }
+
+  function thinkingUsesCompactStuckHeader(canvas, block) {
+    const target = block.stuckToId ? findThinkingParent(canvas, block.stuckToId) : null;
+    if (target && target.parentId === block.parentId && target.type === block.type
+        && (block.stuckSide === "bottom" || block.stuckSide === "right")) {
+      return true;
+    }
+    const above = thinkingAttachedBlock(canvas, block.id, "top");
+    if (above && above.parentId === block.parentId && above.type === block.type) return true;
+    const left = thinkingAttachedBlock(canvas, block.id, "left");
+    return !!(left && left.parentId === block.parentId && left.type === block.type);
+  }
+
+  function thinkingIsStuckListLead(canvas, block) {
+    if (!thinkingStickContinuationSide(canvas, block)) return false;
+    const target = block.stuckToId ? findThinkingParent(canvas, block.stuckToId) : null;
+    if (target && target.parentId === block.parentId
+        && (block.stuckSide === "bottom" || block.stuckSide === "right")) {
+      return false;
+    }
+    const above = thinkingAttachedBlock(canvas, block.id, "top");
+    if (above && above.parentId === block.parentId) return false;
+    const left = thinkingAttachedBlock(canvas, block.id, "left");
+    return !(left && left.parentId === block.parentId);
+  }
+
+  function thinkingStuckComponent(canvas, start) {
+    const found = {};
+    const blocks = [];
+    const queue = [start];
+    found[start.id] = true;
+    for (let index = 0; index < queue.length; index++) {
+      const block = queue[index];
+      blocks.push(block);
+      const target = block.stuckToId ? findThinkingParent(canvas, block.stuckToId) : null;
+      if (target && target.parentId === start.parentId && !found[target.id]) {
+        found[target.id] = true;
+        queue.push(target);
+      }
+      for (let i = 0; i < canvas.blocks.length; i++) {
+        const child = canvas.blocks[i];
+        if (child.parentId !== start.parentId || child.stuckToId !== block.id
+            || found[child.id]) continue;
+        found[child.id] = true;
+        queue.push(child);
+      }
+    }
+    return blocks;
+  }
+
+  function setThinkingBlockAxisSize(block, card, axis, value) {
+    if (axis === "width") {
+      const width = Math.max(110, Math.round(value));
+      if (block.type === "folder") block.blockWidth = width;
+      else if (isThinkingOrganization(block)) block.canvasWidth = width;
+      else block.blockWidth = width;
+      if (card) card.style.width = width + "px";
+      return;
+    }
+    const height = Math.max(52, Math.round(value));
+    if (block.type === "folder") return;
+    if (isThinkingOrganization(block)) {
+      block.canvasHeight = Math.max(50, height - THINKING_CANVAS_CHROME);
+      const stage = card ? card.querySelector(":scope > .thinking-canvas__stage") : null;
+      if (stage) stage.style.height = block.canvasHeight + "px";
+    } else {
+      block.blockHeight = height;
+      if (card) {
+        card.style.height = height + "px";
+        card.classList.add("is-manually-sized");
+      }
+    }
+  }
+
+  function resizeThinkingStuckSide(canvas, source, axis, value) {
+    const vertical = axis === "width";
+    const acceptedSides = vertical ? ["top", "bottom"] : ["left", "right"];
+    const queued = {};
+    const queue = [source];
+    queued[source.id] = true;
+    for (let index = 0; index < queue.length; index++) {
+      const block = queue[index];
+      if (block.stuckToId && acceptedSides.indexOf(block.stuckSide) !== -1) {
+        const target = findThinkingParent(canvas, block.stuckToId);
+        if (target && target.parentId === block.parentId && !queued[target.id]) {
+          queued[target.id] = true;
+          queue.push(target);
+        }
+      }
+      for (let i = 0; i < canvas.blocks.length; i++) {
+        const child = canvas.blocks[i];
+        if (child.stuckToId === block.id && child.parentId === block.parentId
+            && acceptedSides.indexOf(child.stuckSide) !== -1 && !queued[child.id]) {
+          queued[child.id] = true;
+          queue.push(child);
+        }
+      }
+    }
+    for (let i = 0; i < queue.length; i++) {
+      const card = thinkingBlocks.querySelector('[data-block-id="' + queue[i].id + '"]');
+      setThinkingBlockAxisSize(queue[i], card, axis, value);
+    }
+  }
+
+  function setThinkingStuckCrossSize(block, card, side, targetWidth, targetHeight) {
+    if (side === "top" || side === "bottom") {
+      setThinkingBlockAxisSize(block, card, "width", targetWidth);
+    } else {
+      setThinkingBlockAxisSize(block, card, "height", targetHeight);
+    }
+  }
+
+  function positionThinkingStuckCard(tree, block, card, parent) {
+    const viewedCanvas = currentThinkingCanvasNode();
+    if (viewedCanvas && parent.id === viewedCanvas.id) {
+      card.style.left = block.x + "px";
+      card.style.top = block.y + "px";
+      return;
+    }
+    const parentCard = thinkingBlocks.querySelector('[data-block-id="' + parent.id + '"]');
+    const stage = parentCard ? parentCard.querySelector(":scope > .thinking-canvas__stage") : null;
+    if (!stage) return;
+    const origin = thinkingCanvasPreviewOrigin(parent, stage.clientWidth, stage.clientHeight);
+    card.style.left = block.x - origin.x + "px";
+    card.style.top = block.y - origin.y + "px";
+  }
+
+  function layoutThinkingStuckParent(tree, parent) {
+    const directBlocks = [];
+    const cards = {};
+    let hasStuckBlocks = false;
+    for (let i = 0; i < tree.blocks.length; i++) {
+      const block = tree.blocks[i];
+      if (block.parentId !== parent.id) continue;
+      const card = thinkingBlocks.querySelector('[data-block-id="' + block.id + '"]');
+      if (!card) continue;
+      directBlocks.push(block);
+      cards[block.id] = card;
+      if (block.stuckToId) hasStuckBlocks = true;
+    }
+    if (!hasStuckBlocks) return;
+
+    const placed = {};
+    const placeBranch = function (target) {
+      if (!target || placed[target.id]) return;
+      placed[target.id] = true;
+      const targetCard = cards[target.id];
+      if (!targetCard) return;
+      for (let i = 0; i < THINKING_STICK_SIDES.length; i++) {
+        const side = THINKING_STICK_SIDES[i];
+        const child = thinkingAttachedBlock(tree, target.id, side);
+        const childCard = child ? cards[child.id] : null;
+        if (!child || !childCard || placed[child.id]) continue;
+        setThinkingStuckCrossSize(child, childCard, side,
+          targetCard.offsetWidth, targetCard.offsetHeight);
+        const childWidth = childCard.offsetWidth;
+        const childHeight = childCard.offsetHeight;
+        if (side === "top") {
+          child.x = target.x;
+          child.y = target.y - childHeight + 1;
+        } else if (side === "right") {
+          child.x = target.x + targetCard.offsetWidth - 1;
+          child.y = target.y;
+        } else if (side === "bottom") {
+          child.x = target.x;
+          child.y = target.y + targetCard.offsetHeight - 1;
+        } else {
+          child.x = target.x - childWidth + 1;
+          child.y = target.y;
+        }
+        positionThinkingStuckCard(tree, child, childCard, parent);
+        placeBranch(child);
+      }
+    };
+
+    for (let i = 0; i < directBlocks.length; i++) {
+      const target = findThinkingParent(tree, directBlocks[i].stuckToId);
+      if (!target || target.parentId !== parent.id) placeBranch(directBlocks[i]);
+    }
+    for (let i = 0; i < directBlocks.length; i++) placeBranch(directBlocks[i]);
+    for (let i = 0; i < directBlocks.length; i++) {
+      const block = directBlocks[i];
+      const card = cards[block.id];
+      growThinkingCanvasForBlock(tree, block, card.offsetWidth, card.offsetHeight);
+    }
+    for (let i = 0; i < directBlocks.length; i++) {
+      positionThinkingStuckCard(tree, directBlocks[i], cards[directBlocks[i].id], parent);
+    }
+  }
+
+  function layoutVisibleThinkingStuckBlocks(tree) {
+    const viewedCanvas = currentThinkingCanvasNode();
+    if (!viewedCanvas) return;
+    if (viewedCanvas.type !== "folder") layoutThinkingStuckParent(tree, viewedCanvas);
+    const stages = thinkingBlocks.querySelectorAll(".thinking-canvas__stage");
+    for (let i = 0; i < stages.length; i++) {
+      const card = stages[i].closest(".thinking-block--organization");
+      const canvasNode = card ? findThinkingParent(tree, card.dataset.blockId) : null;
+      if (canvasNode && !canvasNode.collapsed) layoutThinkingStuckParent(tree, canvasNode);
+    }
   }
 
   function alignThinkingCameraWithPreview(canvasNode) {
@@ -12094,7 +13200,17 @@
 
   function growThinkingCanvasForBlock(tree, block, width, height) {
     const parent = findThinkingParent(tree, block.parentId);
-    if (!parent || parent.type !== "canvas") return;
+    if (!isThinkingOrganization(parent)) return;
+    if (parent.type === "folder") {
+      if (parent.id === viewedCanvasId) return;
+      if (parent.parentId) {
+        const parentCard = thinkingBlocks.querySelector('[data-block-id="' + parent.id + '"]');
+        growThinkingCanvasForBlock(tree, parent,
+          parentCard ? parentCard.offsetWidth : thinkingBlockNaturalWidth(parent),
+          parentCard ? parentCard.offsetHeight : thinkingBlockSize(parent).height);
+      }
+      return;
+    }
     const size = thinkingBlockSize(block, width, height);
     const origin = thinkingCanvasPreviewOrigin(parent);
     const padding = 18;
@@ -12122,7 +13238,8 @@
     if (parent.id !== viewedCanvasId) alignThinkingCameraWithPreview(parent);
 
     if (parent.parentId) {
-      growThinkingCanvasForBlock(tree, parent, parent.canvasWidth, parent.canvasHeight + 110);
+      growThinkingCanvasForBlock(tree, parent, parent.canvasWidth,
+        parent.canvasHeight + THINKING_CANVAS_CHROME);
     }
   }
 
@@ -12131,11 +13248,18 @@
     thinkingCanvasFoldLocks[block.id] = true;
     setTimeout(function () { delete thinkingCanvasFoldLocks[block.id]; }, 280);
     block.collapsed = !block.collapsed;
-    if (!block.collapsed) {
-      growThinkingCanvasForBlock(canvas, block, block.canvasWidth, block.canvasHeight + 110);
+    if (!block.collapsed && block.type !== "folder") {
+      growThinkingCanvasForBlock(canvas, block, block.canvasWidth,
+        block.canvasHeight + THINKING_CANVAS_CHROME);
     }
     touchCanvas(canvas);
     renderThinkingCanvas(canvas);
+    if (block.type === "folder" && block.parentId) {
+      requestAnimationFrame(function () {
+        const card = thinkingBlocks.querySelector('[data-block-id="' + block.id + '"]');
+        if (card) growThinkingCanvasForBlock(canvas, block, card.offsetWidth, card.offsetHeight);
+      });
+    }
   }
 
   function armThinkingCanvasClicks(card, head, block, canvas) {
@@ -12145,9 +13269,10 @@
       if (event.target.closest("button, input, textarea, select")) return false;
       return event.target.closest(".thinking-block") === card;
     };
-    head.addEventListener("pointerdown", function () { clearTimeout(clickTimer); });
-    head.addEventListener("click", function (event) {
+    card.addEventListener("pointerdown", function () { clearTimeout(clickTimer); });
+    card.addEventListener("click", function (event) {
       if (!hitsCanvasSurface(event)) return;
+      if (!block.collapsed && !head.contains(event.target)) return;
       if (event.detail > 1) {
         clearTimeout(clickTimer);
         return;
@@ -12167,24 +13292,57 @@
   }
 
   function createThinkingBlock(canvas, block, nested, insideCanvas, ownerCanvas) {
+    const linkedTask = block.type === "task" ? thinkingTaskItem(block) : null;
+    const linkedNoteTask = block.type === "note" ? thinkingTaskForNote(canvas, block) : null;
+    if (linkedTask) block.text = linkedTask.text || "";
+    if (linkedNoteTask) block.text = linkedNoteTask.notes || "";
     const card = document.createElement("article");
     const contained = nested && !insideCanvas;
+    const organization = isThinkingOrganization(block);
     card.className = "thinking-block thinking-block--" + block.type;
+    if (organization) card.classList.add("thinking-block--organization");
+    if (linkedTask && linkedTask.done) card.classList.add("is-task-done");
     if (nested) card.classList.add("thinking-block--nested");
     if (insideCanvas) card.classList.add("thinking-block--canvas-child");
-    if (block.type === "canvas") {
+    if (organization) {
       card.classList.toggle("is-collapsed", !!block.collapsed);
     }
     card.dataset.blockId = block.id;
     card.classList.toggle("is-selected", !!thinkingSelectedIds[block.id]);
-    if (block.type === "canvas" && block.canvasWidth) {
+    const stuckTarget = block.stuckToId ? findThinkingParent(canvas, block.stuckToId) : null;
+    if (stuckTarget && stuckTarget.parentId === block.parentId) {
+      card.classList.add("is-stuck", "is-stuck-" + block.stuckSide);
+    }
+    if (thinkingUsesCompactStuckHeader(canvas, block)) card.classList.add("is-stuck-compact");
+    const stickContinuation = thinkingStickContinuationSide(canvas, block);
+    const stickAdditionSide = thinkingStickAdditionSide(canvas, block);
+    const stuckListLead = thinkingIsStuckListLead(canvas, block);
+    if (stuckListLead && (stickContinuation === "left" || stickContinuation === "right")) {
+      let horizontalNeighbor = thinkingAttachedBlock(canvas, block.id, stickContinuation);
+      if (!horizontalNeighbor && block.stuckSide === stickContinuation && block.stuckToId) {
+        horizontalNeighbor = findThinkingParent(canvas, block.stuckToId);
+      }
+      if (horizontalNeighbor && horizontalNeighbor.parentId === block.parentId
+          && horizontalNeighbor.type === block.type) {
+        card.classList.add("is-stuck-horizontal-title-raised");
+      }
+    }
+    for (let i = 0; i < THINKING_STICK_SIDES.length; i++) {
+      const attached = thinkingAttachedBlock(canvas, block.id, THINKING_STICK_SIDES[i]);
+      if (attached && attached.parentId === block.parentId) {
+        card.classList.add("has-stuck-" + THINKING_STICK_SIDES[i]);
+      }
+    }
+    if (block.type === "folder") {
+      if (!contained) card.style.width = (block.blockWidth || 360) + "px";
+    } else if (organization && block.canvasWidth) {
       card.style.width = block.canvasWidth + "px";
     } else if (block.blockWidth && !contained) {
       card.style.width = block.blockWidth + "px";
     } else if (!nested || insideCanvas) {
       card.style.width = thinkingBlockNaturalWidth(block) + "px";
     }
-    if (block.type !== "canvas" && block.blockHeight && !contained) {
+    if (!organization && block.blockHeight && !contained) {
       card.style.height = block.blockHeight + "px";
       card.classList.add("is-manually-sized");
     }
@@ -12197,60 +13355,67 @@
     const head = document.createElement("div");
     head.className = "thinking-block__head";
 
-    const icon = document.createElement(block.type === "canvas" ? "span" : "button");
-    if (block.type !== "canvas") icon.type = "button";
+    const icon = document.createElement(organization ? "span" : "button");
+    if (!organization) icon.type = "button";
     icon.className = "thinking-block__icon";
     icon.innerHTML = thinkingIconSvg(thinkingTypeIcon(block.type));
     if (THINKING_BLOCK_TYPES.indexOf(block.type) !== -1) {
       icon.setAttribute("aria-label", translate("thinkingChangeType"));
       icon.addEventListener("click", function () {
         const current = THINKING_BLOCK_TYPES.indexOf(block.type);
-        block.type = THINKING_BLOCK_TYPES[(current + 1) % THINKING_BLOCK_TYPES.length];
-        touchCanvas(canvas);
-        renderThinkingCanvas(canvas);
+        const next = THINKING_BLOCK_TYPES[(current + 1) % THINKING_BLOCK_TYPES.length];
+        changeThinkingBlockType(canvas, block, next);
       });
     }
 
     const type = document.createElement("span");
     type.className = "thinking-block__type";
-    type.textContent = translate(thinkingTypeKey(block.type));
+    if (organization) type.classList.add("thinking-block__type--canvas-title");
+    type.textContent = organization
+      ? thinkingOrganizationTitle(block)
+      : translate(thinkingTypeKey(block.type));
 
     const del = document.createElement("button");
     del.type = "button";
     del.className = "thinking-block__delete";
     del.setAttribute("aria-label", translate("deleteAria"));
     del.textContent = "×";
-    del.addEventListener("click", function () { removeThinkingBlock(canvas, block.id); });
+    del.addEventListener("click", function (event) {
+      event.stopPropagation();
+      if (thinkingSelectionMode && thinkingSelectedIds[block.id]) {
+        removeThinkingSelection(canvas);
+      } else {
+        removeThinkingBlock(canvas, block.id);
+      }
+    });
     if (block.type !== "text") head.append(icon, type);
+    if (organization) {
+      const rule = document.createElement("span");   // the fading filet, as in a task group
+      rule.className = "thinking-block__rule";
+      head.appendChild(rule);
+    }
     head.appendChild(del);
-    armThinkingDrag(head, card, block, canvas, nested, insideCanvas);
+    if (stuckListLead) armThinkingStuckGroupDrag(head, card, block, canvas);
+    else armThinkingDrag(head, card, block, canvas, nested, insideCanvas);
 
     let text = null;
+    let taskBody = null;
     let children = null;
-    let canvasHead = null;
     let canvasStage = null;
-    if (block.type === "canvas") {
-      canvasHead = document.createElement("div");
-      canvasHead.className = "thinking-canvas__head";
-      const canvasLabel = document.createElement("span");
-      canvasLabel.className = "thinking-canvas__label";
-      canvasLabel.textContent = translate("blockCanvas");
-      const canvasTitle = document.createElement("input");
-      canvasTitle.type = "text";
-      canvasTitle.className = "thinking-canvas__title";
-      canvasTitle.maxLength = 120;
-      canvasTitle.value = block.title || "";
-      canvasTitle.placeholder = translate("thinkingNewCanvas");
-      canvasTitle.setAttribute("aria-label", translate("thinkingUntitled"));
-      canvasTitle.addEventListener("input", function () {
-        block.title = canvasTitle.value;
-        touchCanvas(canvas);
-      });
-      canvasHead.append(canvasLabel, canvasTitle);
-
+    let folderList = null;
+    if (block.type === "folder") {
+      folderList = createThinkingFolderList(canvas, block, false);
+    } else if (organization) {
       canvasStage = document.createElement("div");
       canvasStage.className = "thinking-canvas__stage";
+      canvasStage.classList.add("thinking-canvas__stage--" + block.type);
       if (block.canvasHeight) canvasStage.style.height = block.canvasHeight + "px";
+      if (block.type === "document" && (block.documentHtml || "").trim()) {
+        const previewText = document.createElement("div");
+        previewText.className = "thinking-document-preview";
+        previewText.innerHTML = block.documentHtml;
+        canvasStage.appendChild(previewText);
+      }
       let canvasChildCount = 0;
       for (let i = 0; i < canvas.blocks.length; i++) {
         if (canvas.blocks[i].parentId === block.id) {
@@ -12261,7 +13426,9 @@
       if (!canvasChildCount) {
         const empty = document.createElement("p");
         empty.className = "thinking-canvas__empty";
-        empty.textContent = translate("thinkingCanvasEmpty");
+        empty.textContent = translate(block.type === "document"
+          ? "thinkingDocumentEmpty" : "thinkingCanvasEmpty");
+        if (block.type === "document" && (block.documentHtml || "").trim()) empty.hidden = true;
         canvasStage.appendChild(empty);
       }
       const resize = document.createElement("button");
@@ -12286,6 +13453,10 @@
       text.addEventListener("input", function () {
         applyThinkingListSyntax(text);
         block.text = text.value;
+        const currentTask = block.type === "task" ? thinkingTaskItem(block) : null;
+        const currentNoteTask = block.type === "note" ? thinkingTaskForNote(canvas, block) : null;
+        if (currentTask) currentTask.text = block.text;
+        if (currentNoteTask) currentNoteTask.notes = block.text;
         if (!block.blockHeight || contained) {
           fitThinkingText(text, block.type === "text" ? 32 : nested ? 32 : 36);
         }
@@ -12294,9 +13465,38 @@
           card.style.width = naturalWidth + "px";
           growThinkingCanvasForBlock(canvas, block, naturalWidth, card.offsetHeight);
         }
+        layoutVisibleThinkingStuckBlocks(canvas);
         touchCanvas(canvas);
+        if (currentTask || currentNoteTask) refreshThinkingTaskViews();
         requestThinkingLinks(canvas);
       });
+
+      if (block.type === "task") {
+        taskBody = document.createElement("div");
+        taskBody.className = "thinking-task__body";
+        const check = document.createElement("button");
+        check.type = "button";
+        check.className = "thinking-task__check";
+        check.setAttribute("role", "checkbox");
+        check.setAttribute("aria-label", translate("doneAria"));
+        check.setAttribute("aria-checked", linkedTask && linkedTask.done ? "true" : "false");
+        check.innerHTML = thinkingIconSvg("check");
+        if (!linkedTask) check.disabled = true;
+        check.addEventListener("click", function (event) {
+          event.stopPropagation();
+          const item = thinkingTaskItem(block);
+          if (!item) return;
+          if (block.subtaskId) {
+            item.done = !item.done;
+            saveState();
+            refreshThinkingTaskViews();
+          } else {
+            toggleItem("tasks", block.taskId);
+          }
+          renderThinkingCanvas(canvas);
+        });
+        taskBody.append(check, text);
+      }
 
       children = document.createElement("div");
       children.className = "thinking-block__children";
@@ -12325,13 +13525,13 @@
       addAnswer.addEventListener("click", function () { addThinkingAnswer(canvas, block); });
       actions.appendChild(addAnswer);
     }
-    if (block.type === "canvas") {
+    if (organization) {
       const fold = document.createElement("button");
       fold.type = "button";
       fold.className = "thinking-block__canvas-action";
       fold.dataset.canvasFold = "true";
       fold.setAttribute("aria-label", translate(block.collapsed
-        ? "thinkingExpandCanvas" : "thinkingCollapseCanvas"));
+        ? "thinkingExpandOrganization" : "thinkingCollapseOrganization"));
       fold.setAttribute("aria-expanded", block.collapsed ? "false" : "true");
       fold.innerHTML = block.collapsed
         ? '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="m7 9 5 5 5-5"/></svg>'
@@ -12343,7 +13543,7 @@
       const fullscreen = document.createElement("button");
       fullscreen.type = "button";
       fullscreen.className = "thinking-block__canvas-action";
-      fullscreen.setAttribute("aria-label", translate("thinkingOpenCanvasFullscreen"));
+      fullscreen.setAttribute("aria-label", translate("thinkingOpenOrganization"));
       fullscreen.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 4H4v5M15 4h5v5M9 20H4v-5M15 20h5v-5"/></svg>';
       fullscreen.addEventListener("click", function () {
         const rect = card.getBoundingClientRect();
@@ -12353,7 +13553,14 @@
       actions.append(fold, fullscreen);
     }
 
-    foot.append(count, actions);
+    /* An organization block has no footer strip: its count and its two canvas
+       actions ride in the head, at the far end of the filet. */
+    if (organization) {
+      head.insertBefore(count, del);
+      head.insertBefore(actions, del);
+    } else {
+      foot.append(count, actions);
+    }
 
     const linkPoint = document.createElement("button");
     linkPoint.type = "button";
@@ -12363,7 +13570,13 @@
     armThinkingLinkPoint(linkPoint, block, canvas);
 
     let blockResize = null;
-    if (block.type !== "canvas" && !contained) {
+    if (block.type === "folder" && !contained && !block.collapsed) {
+      blockResize = document.createElement("button");
+      blockResize.type = "button";
+      blockResize.className = "thinking-block__resize thinking-folder__resize";
+      blockResize.setAttribute("aria-label", translate("thinkingResizeFolder"));
+      armThinkingFolderResize(blockResize, card, folderList, block, canvas);
+    } else if (!organization && !contained) {
       blockResize = document.createElement("button");
       blockResize.type = "button";
       blockResize.className = "thinking-block__resize";
@@ -12371,45 +13584,104 @@
       armThinkingBlockResize(blockResize, card, block, canvas);
     }
 
+    let soloDrag = null;
+    if (stuckListLead) {
+      soloDrag = document.createElement("button");
+      soloDrag.type = "button";
+      soloDrag.className = "thinking-block__solo-drag";
+      soloDrag.setAttribute("aria-label", translate("thinkingMoveStuckSingle"));
+      armThinkingDrag(soloDrag, card, block, canvas, nested, insideCanvas);
+    }
+
+    let stickAdd = null;
+    if (stickAdditionSide) {
+      stickAdd = document.createElement("button");
+      stickAdd.type = "button";
+      stickAdd.className = "thinking-block__stick-add thinking-block__stick-add--"
+        + stickAdditionSide;
+      stickAdd.textContent = "+";
+      stickAdd.setAttribute("aria-label", translate("thinkingAddStuck"));
+      stickAdd.addEventListener("click", function (event) {
+        event.preventDefault();
+        event.stopPropagation();
+        const rect = card.getBoundingClientRect();
+        let x = rect.left + rect.width / 2;
+        let y = rect.top + rect.height / 2;
+        if (stickAdditionSide === "top") y = rect.top;
+        else if (stickAdditionSide === "right") x = rect.right;
+        else if (stickAdditionSide === "bottom") y = rect.bottom;
+        else x = rect.left;
+        addThinkingBlock(block.type, { x: x, y: y }, null, block.id, stickAdditionSide);
+      });
+    }
+
     card.appendChild(head);
-    if (block.type === "canvas") {
-      card.append(canvasHead, canvasStage);
+    if (soloDrag) card.appendChild(soloDrag);
+    if (block.type === "folder") {
+      card.appendChild(folderList);
+    } else if (organization) {
+      card.appendChild(canvasStage);
     } else {
-      card.appendChild(text);
+      card.appendChild(taskBody || text);
       if (children.childElementCount) card.appendChild(children);
     }
-    if (linked || actions.childElementCount) card.appendChild(foot);
+    if (!organization && (linked || actions.childElementCount)) card.appendChild(foot);
     if (blockResize) card.appendChild(blockResize);
+    if (stickAdd) card.appendChild(stickAdd);
     card.appendChild(linkPoint);
     if (text && (!block.blockHeight || contained)) requestAnimationFrame(function () {
       fitThinkingText(text, block.type === "text" ? 32 : nested ? 32 : 36);
+      layoutVisibleThinkingStuckBlocks(canvas);
+      requestThinkingLinks(canvas);
     });
     armThinkingSelection(card, head, block, canvas, contained);
-    if (block.type === "canvas") armThinkingCanvasClicks(card, head, block, canvas);
+    if (organization) armThinkingCanvasClicks(card, head, block, canvas);
     return card;
   }
 
   function removeThinkingBlock(canvas, id) {
-    const removed = findThinkingParent(canvas, id);
-    if (!removed) return;
+    removeThinkingBlocks(canvas, [id]);
+  }
+
+  function removeThinkingSelection(canvas) {
+    const selected = selectedThinkingBlocks(canvas);
+    const ids = [];
+    for (let i = 0; i < selected.length; i++) ids.push(selected[i].id);
+    if (ids.length) removeThinkingBlocks(canvas, ids);
+  }
+
+  function removeThinkingBlocks(canvas, ids) {
+    const roots = [];
     const removedIds = {};
+    const removedBranches = {};
     const removedBlocks = [];
     const removedLinks = [];
     const releasedChildren = [];
-    removedIds[id] = true;
-    if (removed.type === "canvas") {
-      let foundChild = true;
-      while (foundChild) {
-        foundChild = false;
-        for (let i = 0; i < canvas.blocks.length; i++) {
-          const block = canvas.blocks[i];
-          if (!removedIds[block.id] && removedIds[block.parentId]) {
-            removedIds[block.id] = true;
-            foundChild = true;
-          }
+    for (let i = 0; i < ids.length; i++) {
+      const root = findThinkingParent(canvas, ids[i]);
+      if (!root || removedIds[root.id]) continue;
+      roots.push(root);
+      removedIds[root.id] = true;
+      if (isThinkingOrganization(root)) removedBranches[root.id] = true;
+    }
+    if (!roots.length) return;
+    const stickSnapshot = thinkingStickSnapshot(canvas);
+    let foundChild = true;
+    while (foundChild) {
+      foundChild = false;
+      for (let i = 0; i < canvas.blocks.length; i++) {
+        const block = canvas.blocks[i];
+        if (!removedIds[block.id] && removedBranches[block.parentId]) {
+          removedIds[block.id] = true;
+          removedBranches[block.id] = true;
+          foundChild = true;
         }
       }
-    } else {
+    }
+    detachThinkingIdsFromSticks(canvas, removedIds);
+    for (let i = 0; i < roots.length; i++) {
+      const removed = roots[i];
+      if (isThinkingOrganization(removed)) continue;
       for (let i = 0; i < canvas.blocks.length; i++) {
         const child = canvas.blocks[i];
         if (child.parentId === removed.id) {
@@ -12438,6 +13710,12 @@
       }
     }
     if (removedIds[thinkingLinkFrom]) thinkingLinkFrom = null;
+    let selectionRemains = false;
+    for (const selectedId in thinkingSelectedIds) {
+      if (removedIds[selectedId]) delete thinkingSelectedIds[selectedId];
+      else selectionRemains = true;
+    }
+    if (!selectionRemains) thinkingSelectionParentId = null;
     touchCanvas(canvas);
     renderThinkingCanvas(canvas);
     showToast(translate("undoDeleted"), translate("undoBtn"), function () {
@@ -12448,6 +13726,10 @@
       for (let i = 0; i < releasedChildren.length; i++) {
         const child = releasedChildren[i];
         if (canvas.blocks.indexOf(child.block) === -1) continue;
+        const restoredParent = findThinkingParent(canvas, child.parentId);
+        if (restoredParent) {
+          syncThinkingBlockTaskPlacement(canvas, child.block, restoredParent);
+        }
         child.block.parentId = child.parentId;
         child.block.x = child.x;
         child.block.y = child.y;
@@ -12456,6 +13738,7 @@
         const item = removedLinks[i];
         canvas.links.splice(Math.min(item.index, canvas.links.length), 0, item.link);
       }
+      restoreThinkingStickSnapshot(canvas, stickSnapshot);
       touchCanvas(canvas);
       if (openCanvasId === canvas.id) renderThinkingCanvas(canvas);
     });
@@ -12503,8 +13786,12 @@
   }
 
   function clearThinkingDropTargets() {
-    const targets = thinkingBlocks.querySelectorAll(".is-drop-target");
-    for (let i = 0; i < targets.length; i++) targets[i].classList.remove("is-drop-target");
+    const targets = thinkingBlocks.querySelectorAll(".is-drop-target, .is-stick-target");
+    for (let i = 0; i < targets.length; i++) {
+      targets[i].classList.remove("is-drop-target", "is-stick-target",
+        "is-stick-target-top", "is-stick-target-right",
+        "is-stick-target-bottom", "is-stick-target-left");
+    }
   }
 
   function markThinkingCombineOptions(canvas, block, on) {
@@ -12513,13 +13800,121 @@
       const candidate = findThinkingParent(canvas, cards[i].dataset.blockId);
       cards[i].classList.toggle("is-drop-option", on
         && canCombineThinkingBlocks(canvas, block, candidate));
+      cards[i].classList.toggle("is-stick-option", on
+        && canStickThinkingBlocks(canvas, block, candidate));
     }
+  }
+
+  function canStickThinkingBlocks(canvas, block, target) {
+    if (!block || !target || target.id === block.id) return false;
+    const targetParent = findThinkingParent(canvas, target.parentId);
+    if (!isThinkingOrganization(targetParent) || targetParent.type === "folder"
+        || !thinkingOrganizationAllows(targetParent, block)) return false;
+    let branch = target;
+    while (branch) {
+      if (branch.id === block.id) return false;
+      branch = branch.parentId ? findThinkingParent(canvas, branch.parentId) : null;
+    }
+    branch = target;
+    while (branch && branch.stuckToId) {
+      if (branch.stuckToId === block.id) return false;
+      branch = findThinkingParent(canvas, branch.stuckToId);
+    }
+    return true;
+  }
+
+  function thinkingStickDrop(draggedCard, block, canvas) {
+    if (!draggedCard) return null;
+    const draggedRect = draggedCard.getBoundingClientRect();
+    const corners = [
+      { x: draggedRect.left, y: draggedRect.top,
+        sides: ["bottom", "right"] },
+      { x: draggedRect.right, y: draggedRect.top,
+        sides: ["bottom", "left"] },
+      { x: draggedRect.left, y: draggedRect.bottom,
+        sides: ["top", "right"] },
+      { x: draggedRect.right, y: draggedRect.bottom,
+        sides: ["top", "left"] }
+    ];
+    let best = null;
+    const snapDistance = 14;
+    const cards = thinkingBlocks.querySelectorAll(".thinking-block");
+    for (let i = 0; i < cards.length; i++) {
+      const card = cards[i];
+      if (card === draggedCard || draggedCard.contains(card)) continue;
+      const target = findThinkingParent(canvas, card.dataset.blockId);
+      if (!canStickThinkingBlocks(canvas, block, target)) continue;
+      const rect = card.getBoundingClientRect();
+      if (!rect.width || !rect.height) continue;
+      for (let j = 0; j < corners.length; j++) {
+        for (let k = 0; k < corners[j].sides.length; k++) {
+          const side = corners[j].sides[k];
+          const horizontal = side === "top" || side === "bottom";
+          const aligned = horizontal
+            ? corners[j].x >= rect.left && corners[j].x <= rect.right
+            : corners[j].y >= rect.top && corners[j].y <= rect.bottom;
+          if (!aligned) continue;
+          let distance;
+          if (side === "top") distance = Math.abs(corners[j].y - rect.top);
+          else if (side === "right") distance = Math.abs(corners[j].x - rect.right);
+          else if (side === "bottom") distance = Math.abs(corners[j].y - rect.bottom);
+          else distance = Math.abs(corners[j].x - rect.left);
+          if (distance <= snapDistance && (!best || distance < best.distance)) {
+            best = { card: card, target: target, side: side, distance: distance };
+          }
+        }
+      }
+    }
+    return best;
+  }
+
+  function markThinkingStickTarget(drop) {
+    if (!drop) return;
+    drop.card.classList.add("is-stick-target", "is-stick-target-" + drop.side);
+  }
+
+  function stickThinkingBlock(canvas, block, target, side) {
+    if (!canStickThinkingBlocks(canvas, block, target)
+        || THINKING_STICK_SIDES.indexOf(side) === -1) return false;
+    const detached = {};
+    detached[block.id] = true;
+    detachThinkingIdsFromSticks(canvas, detached);
+
+    const targetParent = findThinkingParent(canvas, target.parentId);
+    const targetAnchor = findThinkingParent(canvas, target.stuckToId);
+    block.parentId = targetParent.id;
+    block.x = target.x;
+    block.y = target.y;
+    if (targetAnchor && oppositeThinkingStickSide(target.stuckSide) === side) {
+      block.stuckToId = targetAnchor.id;
+      block.stuckSide = target.stuckSide;
+      target.stuckToId = block.id;
+      return true;
+    }
+
+    const next = thinkingAttachedBlock(canvas, target.id, side, block.id);
+    block.stuckToId = target.id;
+    block.stuckSide = side;
+    if (next) {
+      next.stuckToId = block.id;
+      next.stuckSide = side;
+    }
+    return true;
   }
 
   function canCombineThinkingBlocks(canvas, child, possibleParent) {
     if (!possibleParent || possibleParent.id === child.id) return false;
-    if (child.type === "canvas" && possibleParent.type !== "canvas") return false;
-    if (possibleParent.type === "canvas" && possibleParent.collapsed) return false;
+    const childTask = child.type === "task" ? thinkingTaskItem(child) : null;
+    if (isThinkingOrganization(child) && !isThinkingOrganization(possibleParent)) return false;
+    if (isThinkingOrganization(possibleParent)
+        && (!thinkingOrganizationAllows(possibleParent, child)
+          || (possibleParent.collapsed && possibleParent.id !== viewedCanvasId))) {
+      return false;
+    }
+    if (child.type === "task" && possibleParent.type === "task"
+        && (possibleParent.subtaskId
+          || (childTask && childTask.subtasks && childTask.subtasks.length)
+          || (child.taskId && child.taskId === possibleParent.taskId))) return false;
     let branch = possibleParent;
     while (branch) {
       if (branch.id === child.id) return false;
@@ -12528,51 +13923,80 @@
     return true;
   }
 
-  function canIntegrateThinkingSelection(canvas, selected, possibleParent) {
-    if (!possibleParent || possibleParent.type !== "canvas" || possibleParent.collapsed
-        || possibleParent.id === thinkingSelectionParentId) return false;
+  function canIntegrateThinkingSelection(canvas, selected, possibleParent, sourceParentId) {
+    const source = sourceParentId === undefined ? thinkingSelectionParentId : sourceParentId;
+    if (!isThinkingOrganization(possibleParent)
+        || (possibleParent.collapsed && possibleParent.id !== viewedCanvasId)
+        || possibleParent.id === source) return false;
     for (let i = 0; i < selected.length; i++) {
       if (!canCombineThinkingBlocks(canvas, selected[i], possibleParent)) return false;
     }
     return true;
   }
 
-  function markThinkingSelectionCanvasOptions(canvas, selected, on) {
-    const cards = thinkingBlocks.querySelectorAll(".thinking-block--canvas");
+  function markThinkingSelectionCanvasOptions(canvas, selected, on, sourceParentId) {
+    const cards = thinkingBlocks.querySelectorAll(".thinking-block--organization");
     for (let i = 0; i < cards.length; i++) {
       const candidate = findThinkingParent(canvas, cards[i].dataset.blockId);
       cards[i].classList.toggle("is-drop-option", on
-        && canIntegrateThinkingSelection(canvas, selected, candidate));
+        && canIntegrateThinkingSelection(canvas, selected, candidate, sourceParentId));
     }
   }
 
-  function thinkingSelectionCanvasDropParent(clientX, clientY, selected, canvas) {
-    const stages = thinkingBlocks.querySelectorAll(".thinking-canvas__stage");
+  function thinkingOrganizationDropContainers() {
+    return thinkingBlocks.querySelectorAll(".thinking-canvas__stage, .thinking-folder__list");
+  }
+
+  function thinkingDropContainerParent(canvas, container) {
+    const card = container.closest(".thinking-block--organization");
+    const id = container.dataset.organizationId || (card ? card.dataset.blockId : null);
+    return id ? findThinkingParent(canvas, id) : null;
+  }
+
+  function thinkingDropContainerHost(container) {
+    if (container.classList.contains("thinking-folder__list")) return container;
+    return container.closest(".thinking-block--organization");
+  }
+
+  function thinkingSelectionCanvasDropParent(clientX, clientY, selected, canvas,
+      sourceParentId) {
+    const stages = thinkingOrganizationDropContainers();
     let chosen = null;
     let chosenArea = Infinity;
     for (let i = 0; i < stages.length; i++) {
       const rect = stages[i].getBoundingClientRect();
       if (!rect.width || !rect.height || clientX < rect.left || clientX > rect.right
           || clientY < rect.top || clientY > rect.bottom) continue;
-      const card = stages[i].closest(".thinking-block--canvas");
-      const candidate = card ? findThinkingParent(canvas, card.dataset.blockId) : null;
-      if (!canIntegrateThinkingSelection(canvas, selected, candidate)) continue;
+      const candidate = thinkingDropContainerParent(canvas, stages[i]);
+      if (!canIntegrateThinkingSelection(canvas, selected, candidate, sourceParentId)) continue;
       const area = rect.width * rect.height;
       if (!chosen || chosen.contains(stages[i]) || area < chosenArea) {
         chosen = stages[i];
         chosenArea = area;
       }
     }
-    return chosen ? chosen.closest(".thinking-block--canvas") : null;
+    return chosen ? thinkingDropContainerHost(chosen) : null;
   }
 
-  function integrateThinkingSelectionInCanvas(canvas, starts, targetCard) {
+  function integrateThinkingSelectionInCanvas(canvas, starts, targetCard, sourceParentId,
+      updateSelection) {
     if (!targetCard) return false;
-    const target = findThinkingParent(canvas, targetCard.dataset.blockId);
-    const stage = targetCard.querySelector(".thinking-canvas__stage");
+    const target = findThinkingParent(canvas,
+      targetCard.dataset.organizationId || targetCard.dataset.blockId);
+    if (!target) return false;
+    const stage = target.type === "folder" ? targetCard
+      : targetCard.querySelector(".thinking-canvas__stage");
     const selected = [];
     for (let i = 0; i < starts.length; i++) selected.push(starts[i].block);
-    if (!stage || !canIntegrateThinkingSelection(canvas, selected, target)) return false;
+    if (!stage || !canIntegrateThinkingSelection(canvas, selected, target,
+      sourceParentId)) return false;
+    if (target.type === "folder") {
+      for (let i = 0; i < starts.length; i++) {
+        placeThinkingBlockInFolder(canvas, starts[i].block, target, stage, null, null);
+      }
+      if (updateSelection !== false) thinkingSelectionParentId = target.id;
+      return true;
+    }
     const stageRect = stage.getBoundingClientRect();
     const preview = thinkingCanvasPreviewOrigin(target, stage.clientWidth, stage.clientHeight);
     for (let i = 0; i < starts.length; i++) {
@@ -12581,7 +14005,7 @@
       starts[i].block.x = preview.x + rect.left - stageRect.left;
       starts[i].block.y = preview.y + rect.top - stageRect.top;
     }
-    thinkingSelectionParentId = target.id;
+    if (updateSelection !== false) thinkingSelectionParentId = target.id;
     for (let i = 0; i < starts.length; i++) {
       growThinkingCanvasForBlock(canvas, starts[i].block,
         starts[i].width, starts[i].height);
@@ -12590,7 +14014,7 @@
   }
 
   function thinkingCanvasDropParent(clientX, clientY, draggedElement, block, canvas) {
-    const stages = thinkingBlocks.querySelectorAll(".thinking-canvas__stage");
+    const stages = thinkingOrganizationDropContainers();
     let chosen = null;
     let chosenArea = Infinity;
     for (let i = 0; i < stages.length; i++) {
@@ -12599,8 +14023,7 @@
       const rect = stage.getBoundingClientRect();
       if (!rect.width || !rect.height || clientX < rect.left || clientX > rect.right
           || clientY < rect.top || clientY > rect.bottom) continue;
-      const card = stage.closest(".thinking-block--canvas");
-      const parent = card ? findThinkingParent(canvas, card.dataset.blockId) : null;
+      const parent = thinkingDropContainerParent(canvas, stage);
       if (!canCombineThinkingBlocks(canvas, block, parent)) continue;
       const area = rect.width * rect.height;
       if (!chosen || chosen.contains(stage) || area < chosenArea) {
@@ -12608,7 +14031,7 @@
         chosenArea = area;
       }
     }
-    return chosen ? chosen.closest(".thinking-block--canvas") : null;
+    return chosen ? thinkingDropContainerHost(chosen) : null;
   }
 
   function thinkingDropParent(clientX, clientY, card, block, canvas) {
@@ -12619,21 +14042,30 @@
         ? underPointer[i].closest(".thinking-block") : null;
       if (!target) continue;
       const parent = findThinkingParent(canvas, target.dataset.blockId);
-      if (parent && parent.type === "canvas") continue;
+      if (isThinkingOrganization(parent)) continue;
       if (canCombineThinkingBlocks(canvas, block, parent)) return target;
     }
     return thinkingCanvasDropParent(clientX, clientY, card, block, canvas);
   }
 
   function placeBlockInThinkingParent(canvas, block, parentElement, lastPoint, start) {
-    block.parentId = parentElement.dataset.blockId;
-    const parent = findThinkingParent(canvas, block.parentId);
+    const parent = findThinkingParent(canvas,
+      parentElement.dataset.organizationId || parentElement.dataset.blockId);
     if (!parent) return;
-    if (parent.type !== "canvas") {
+    syncThinkingBlockTaskPlacement(canvas, block, parent);
+    block.parentId = parent.id;
+    if (!isThinkingOrganization(parent)) {
       delete block.blockWidth;
       delete block.blockHeight;
+      delete block.folderOrder;
       return;
     }
+    if (parent.type === "folder") {
+      placeThinkingBlockInFolder(canvas, block, parent, parentElement,
+        lastPoint.x, lastPoint.y);
+      return;
+    }
+    delete block.folderOrder;
     const canvasStage = parentElement.querySelector(".thinking-canvas__stage");
     if (!canvasStage) return;
     const rect = canvasStage.getBoundingClientRect();
@@ -12644,10 +14076,124 @@
     growThinkingCanvasForBlock(canvas, block, start.width, start.height);
   }
 
+  function armThinkingStuckGroupDrag(handle, leadCard, leadBlock, canvas) {
+    handle.addEventListener("pointerdown", function (event) {
+      if (thinkingSelectionMode || event.button !== 0
+          || event.target.closest("button, input, textarea, select")) return;
+      const members = thinkingStuckComponent(canvas, leadBlock);
+      if (members.length < 2) return;
+      handle.setPointerCapture(event.pointerId);
+      const starts = [];
+      for (let i = 0; i < members.length; i++) {
+        const card = thinkingBlocks.querySelector('[data-block-id="' + members[i].id + '"]');
+        if (!card) continue;
+        starts.push({
+          block: members[i], card: card,
+          x: members[i].x, y: members[i].y,
+          left: card.offsetLeft, top: card.offsetTop,
+          width: card.offsetWidth, height: card.offsetHeight
+        });
+      }
+      if (starts.length < 2) return;
+      const pointerId = event.pointerId;
+      const sourceParentId = leadBlock.parentId;
+      const startX = event.clientX;
+      const startY = event.clientY;
+      let leftEdge = Infinity;
+      let topEdge = Infinity;
+      let rightEdge = -Infinity;
+      let bottomEdge = -Infinity;
+      for (let i = 0; i < starts.length; i++) {
+        leftEdge = Math.min(leftEdge, starts[i].x);
+        topEdge = Math.min(topEdge, starts[i].y);
+        rightEdge = Math.max(rightEdge, starts[i].x + starts[i].width);
+        bottomEdge = Math.max(bottomEdge, starts[i].y + starts[i].height);
+      }
+      let moved = false;
+      let dropCanvas = null;
+      const move = function (moveEvent) {
+        if (moveEvent.pointerId !== pointerId) return;
+        const rawDx = moveEvent.clientX - startX;
+        const rawDy = moveEvent.clientY - startY;
+        const dx = Math.max(18 - leftEdge,
+          Math.min(THINKING_WORLD_WIDTH - 18 - rightEdge, rawDx));
+        const dy = Math.max(18 - topEdge,
+          Math.min(THINKING_WORLD_HEIGHT - 18 - bottomEdge, rawDy));
+        if (!moved && Math.hypot(dx, dy) < 4) return;
+        moveEvent.preventDefault();
+        if (!moved) {
+          leadCard.dataset.dragged = "true";
+          showThinkingTrash();
+          thinkingBoard.classList.add("is-combining");
+          markThinkingSelectionCanvasOptions(canvas, members, true, sourceParentId);
+        }
+        moved = true;
+        for (let i = 0; i < starts.length; i++) {
+          starts[i].block.x = starts[i].x + dx;
+          starts[i].block.y = starts[i].y + dy;
+          starts[i].card.style.left = starts[i].left + dx + "px";
+          starts[i].card.style.top = starts[i].top + dy + "px";
+          starts[i].card.classList.add("is-group-dragging");
+        }
+        clearThinkingDropTargets();
+        dropCanvas = thinkingSelectionCanvasDropParent(moveEvent.clientX,
+          moveEvent.clientY, members, canvas, sourceParentId);
+        if (dropCanvas) dropCanvas.classList.add("is-drop-target");
+        thinkingTrash.classList.toggle("is-active",
+          pointInsideThinkingTrash(moveEvent.clientX, moveEvent.clientY));
+        requestThinkingLinks(canvas);
+      };
+      const up = function (upEvent) {
+        if (upEvent.pointerId !== pointerId) return;
+        handle.removeEventListener("pointermove", move);
+        handle.removeEventListener("pointerup", up);
+        handle.removeEventListener("pointercancel", up);
+        const cancelled = upEvent.type === "pointercancel";
+        const deleted = moved && !cancelled
+          && pointInsideThinkingTrash(upEvent.clientX, upEvent.clientY);
+        hideThinkingTrash();
+        thinkingBoard.classList.remove("is-combining");
+        markThinkingSelectionCanvasOptions(canvas, members, false, sourceParentId);
+        clearThinkingDropTargets();
+        for (let i = 0; i < starts.length; i++) {
+          starts[i].card.classList.remove("is-group-dragging");
+          if (cancelled || deleted) {
+            starts[i].block.x = starts[i].x;
+            starts[i].block.y = starts[i].y;
+          }
+        }
+        if (!moved) return;
+        if (deleted) {
+          const ids = [];
+          for (let i = 0; i < members.length; i++) ids.push(members[i].id);
+          removeThinkingBlocks(canvas, ids);
+          return;
+        }
+        if (!cancelled) {
+          dropCanvas = thinkingSelectionCanvasDropParent(upEvent.clientX,
+            upEvent.clientY, members, canvas, sourceParentId);
+          if (!integrateThinkingSelectionInCanvas(canvas, starts, dropCanvas,
+            sourceParentId, false)) {
+            for (let i = 0; i < starts.length; i++) {
+              growThinkingCanvasForBlock(canvas, starts[i].block,
+                starts[i].width, starts[i].height);
+            }
+          }
+          touchCanvas(canvas);
+        }
+        renderThinkingCanvas(canvas);
+      };
+      handle.addEventListener("pointermove", move, { passive: false });
+      handle.addEventListener("pointerup", up);
+      handle.addEventListener("pointercancel", up);
+    });
+  }
+
   function armThinkingDrag(handle, card, block, canvas, nested, insideCanvas) {
     handle.addEventListener("pointerdown", function (event) {
       if (thinkingSelectionMode) return;
-      if (event.button !== 0 || event.target.closest("button, input, textarea, select")) return;
+      const interactive = event.target.closest("button, input, textarea, select");
+      if (event.button !== 0 || (interactive && interactive !== handle)) return;
       handle.setPointerCapture(event.pointerId);
       const pointerId = event.pointerId;
       const cardRect = card.getBoundingClientRect();
@@ -12660,6 +14206,8 @@
       let moved = false;
       let portaled = false;
       let dropParent = null;
+      let stickDrop = null;
+      let stickSnapshot = null;
       let lastPoint = { x: event.clientX, y: event.clientY };
       card.classList.add("is-dragging");
       thinkingBoard.classList.add("is-combining");
@@ -12669,6 +14217,11 @@
         lastPoint = { x: moveEvent.clientX, y: moveEvent.clientY };
         if (!moved && Math.hypot(moveEvent.clientX - start.x, moveEvent.clientY - start.y) < 4) return;
         if (!moved) {
+          stickSnapshot = thinkingStickSnapshot(canvas);
+          const detached = {};
+          detached[block.id] = true;
+          detachThinkingIdsFromSticks(canvas, detached);
+          layoutVisibleThinkingStuckBlocks(canvas);
           showThinkingTrash();
           card.dataset.dragged = "true";
         }
@@ -12679,7 +14232,7 @@
             portaled = true;
           }
           card.classList.add("is-detaching");
-          card.style.width = start.width + "px";
+          card.style.setProperty("width", start.width + "px", "important");
           card.style.left = moveEvent.clientX - start.offsetX + "px";
           card.style.top = moveEvent.clientY - start.offsetY + "px";
         } else {
@@ -12691,7 +14244,10 @@
           card.style.top = block.y + "px";
         }
         clearThinkingDropTargets();
-        dropParent = thinkingDropParent(moveEvent.clientX, moveEvent.clientY, card, block, canvas);
+        stickDrop = thinkingStickDrop(card, block, canvas);
+        dropParent = stickDrop ? null
+          : thinkingDropParent(moveEvent.clientX, moveEvent.clientY, card, block, canvas);
+        markThinkingStickTarget(stickDrop);
         if (dropParent) dropParent.classList.add("is-drop-target");
         thinkingTrash.classList.toggle("is-active",
           pointInsideThinkingTrash(moveEvent.clientX, moveEvent.clientY));
@@ -12712,20 +14268,21 @@
         hideThinkingTrash();
         if (!moved) return;
         if (cancelled && moved) {
-          block.parentId = start.parentId;
-          block.x = start.bx;
-          block.y = start.by;
+          restoreThinkingStickSnapshot(canvas, stickSnapshot);
           if (portaled) card.remove();
           renderThinkingCanvas(canvas);
           return;
         }
         if (deleted) {
+          restoreThinkingStickSnapshot(canvas, stickSnapshot);
           if (portaled) card.remove();
           removeThinkingBlock(canvas, block.id);
           return;
         }
-        dropParent = thinkingDropParent(upEvent.clientX, upEvent.clientY, card, block, canvas);
-        if (moved && !dropParent && insideCanvas) {
+        stickDrop = thinkingStickDrop(card, block, canvas);
+        dropParent = stickDrop ? null
+          : thinkingDropParent(upEvent.clientX, upEvent.clientY, card, block, canvas);
+        if (moved && !stickDrop && !dropParent && insideCanvas) {
           const originalParent = findThinkingParent(canvas, block.parentId);
           const originalCard = originalParent
             ? thinkingBlocks.querySelector('[data-block-id="' + originalParent.id + '"]') : null;
@@ -12739,16 +14296,26 @@
             }
           }
         }
-        if (moved && dropParent) {
+        if (moved && stickDrop) {
+          stickThinkingBlock(canvas, block, stickDrop.target, stickDrop.side);
+        } else if (moved && dropParent) {
           placeBlockInThinkingParent(canvas, block, dropParent, lastPoint, start);
         } else if (moved && nested) {
           const planeRect = thinkingPlane.getBoundingClientRect();
           const viewedCanvas = currentThinkingCanvasNode();
-          block.parentId = viewedCanvas ? viewedCanvas.id : canvas.id;
-          block.x = Math.max(18, Math.min(THINKING_WORLD_WIDTH - 300,
-            lastPoint.x - start.offsetX - planeRect.left));
-          block.y = Math.max(18, Math.min(THINKING_WORLD_HEIGHT - 220,
-            lastPoint.y - start.offsetY - planeRect.top));
+          if (viewedCanvas && viewedCanvas.type === "folder") {
+            const folderList = thinkingBlocks.querySelector(".thinking-folder__list--fullscreen");
+            placeThinkingBlockInFolder(canvas, block, viewedCanvas, folderList,
+              lastPoint.x, lastPoint.y);
+          } else {
+            if (viewedCanvas) syncThinkingBlockTaskPlacement(canvas, block, viewedCanvas);
+            block.parentId = viewedCanvas ? viewedCanvas.id : canvas.id;
+            delete block.folderOrder;
+            block.x = Math.max(18, Math.min(THINKING_WORLD_WIDTH - 300,
+              lastPoint.x - start.offsetX - planeRect.left));
+            block.y = Math.max(18, Math.min(THINKING_WORLD_HEIGHT - 220,
+              lastPoint.y - start.offsetY - planeRect.top));
+          }
         }
         if (moved) growThinkingCanvasForBlock(canvas, block, start.width, start.height);
         if (portaled) card.remove();
@@ -12761,14 +14328,21 @@
     });
   }
 
-  function addThinkingBlock(type, point, dropParentId) {
+  function addThinkingBlock(type, point, dropParentId, stickTargetId, stickSide) {
     const canvas = currentCanvas();
     const viewedCanvas = currentThinkingCanvasNode();
     if (!canvas || !viewedCanvas) return;
+    const organization = THINKING_ORGANIZATION_TYPES.indexOf(type) !== -1;
+    if (!dropParentId && !thinkingOrganizationAllows(viewedCanvas, { type: type })) return;
+    if (dropParentId) {
+      const requestedParent = findThinkingParent(canvas, dropParentId);
+      if (isThinkingOrganization(requestedParent)
+          && !thinkingOrganizationAllows(requestedParent, { type: type })) return;
+    }
     const step = canvas.blocks.length;
-    const blockWidth = type === "canvas" ? 650
+    const blockWidth = type === "folder" ? 420 : organization ? 650
       : type === "question" ? 176 : type === "text" ? 150 : 160;
-    const blockHeight = type === "canvas" ? 440
+    const blockHeight = type === "folder" ? 64 : organization ? 330 + THINKING_CANVAS_CHROME
       : type === "question" ? 90 : type === "text" ? 56 : 64;
     let x = Math.max(24, Math.min(THINKING_WORLD_WIDTH - 300,
       thinkingViewport.scrollLeft + thinkingViewport.clientWidth / 2 - blockWidth / 2
@@ -12786,20 +14360,30 @@
       id: thinkingId("b"), type: type, text: "", x: x, y: y,
       parentId: viewedCanvas.id
     };
-    if (type === "canvas") {
-      block.title = translate("thinkingNewCanvas");
-      block.canvasWidth = 650;
-      block.canvasHeight = 330;
+    if (type === "task") linkThinkingBlockToNewTask(block, translate("newTaskName"));
+    if (organization) {
+      block.title = "";
       block.cameraX = THINKING_WORLD_X;
       block.cameraY = THINKING_WORLD_Y;
-      block.previewX = THINKING_WORLD_X
-        + thinkingViewport.clientWidth / 2 - (block.canvasWidth - 20) / 2;
-      block.previewY = THINKING_WORLD_Y
-        + thinkingViewport.clientHeight / 2 - block.canvasHeight / 2;
-      block.collapsed = false;
+      if (type === "folder") {
+        block.blockWidth = 420;
+      } else {
+        block.canvasWidth = 650;
+        block.canvasHeight = 330;
+        block.previewX = THINKING_WORLD_X
+          + thinkingViewport.clientWidth / 2 - (block.canvasWidth - 20) / 2;
+        block.previewY = THINKING_WORLD_Y
+          + thinkingViewport.clientHeight / 2 - block.canvasHeight / 2;
+      }
+      block.collapsed = true;
+      if (type === "document") block.documentHtml = "";
     }
-    if (point && dropParentId) {
-      const parentElement = thinkingBlocks.querySelector('.thinking-block[data-block-id="'
+    if (point && stickTargetId) {
+      const stickTarget = findThinkingParent(canvas, stickTargetId);
+      if (stickTarget) stickThinkingBlock(canvas, block, stickTarget, stickSide);
+    } else if (point && dropParentId) {
+      const parentElement = thinkingBlocks.querySelector('.thinking-folder__list[data-organization-id="'
+        + dropParentId + '"]') || thinkingBlocks.querySelector('.thinking-block[data-block-id="'
         + dropParentId + '"]');
       if (parentElement) {
         placeBlockInThinkingParent(canvas, block, parentElement, point, {
@@ -12810,12 +14394,29 @@
         });
       }
     }
+    if (block.parentId === viewedCanvas.id && viewedCanvas.type === "folder"
+        && block.folderOrder == null) {
+      block.folderOrder = nextThinkingFolderOrder(canvas, viewedCanvas);
+    }
     canvas.blocks.push(block);
     growThinkingCanvasForBlock(canvas, block, blockWidth, blockHeight);
     touchCanvas(canvas);
+    if (type === "task") refreshThinkingTaskViews();
     renderThinkingCanvas(canvas);
+    const parentAfterAdd = findThinkingParent(canvas, block.parentId);
+    if (parentAfterAdd && parentAfterAdd.type === "folder") {
+      requestAnimationFrame(function () {
+        const folderCard = thinkingBlocks.querySelector('[data-block-id="'
+          + parentAfterAdd.id + '"]');
+        if (folderCard) growThinkingCanvasForBlock(canvas, parentAfterAdd,
+          folderCard.offsetWidth, folderCard.offsetHeight);
+      });
+    }
     const field = thinkingBlocks.querySelector('[data-block-id="' + block.id + '"] textarea');
-    if (field) field.focus();
+    if (field) {
+      field.focus();
+      if (type === "task") field.select();
+    }
   }
 
   function pointInsideThinkingViewport(x, y) {
@@ -12836,6 +14437,7 @@
       let moved = false;
       let ghost = null;
       let dropParent = null;
+      let stickDrop = null;
 
       const move = function (moveEvent) {
         if (moveEvent.pointerId !== pointerId) return;
@@ -12855,8 +14457,10 @@
         clearThinkingDropTargets();
         const inside = pointInsideThinkingViewport(moveEvent.clientX, moveEvent.clientY);
         thinkingViewport.classList.toggle("is-tool-drop", inside);
-        dropParent = inside ? thinkingDropParent(moveEvent.clientX, moveEvent.clientY,
-          ghost, draft, canvas) : null;
+        stickDrop = inside ? thinkingStickDrop(ghost, draft, canvas) : null;
+        dropParent = inside && !stickDrop
+          ? thinkingDropParent(moveEvent.clientX, moveEvent.clientY, ghost, draft, canvas) : null;
+        markThinkingStickTarget(stickDrop);
         if (dropParent) dropParent.classList.add("is-drop-target");
       };
 
@@ -12872,9 +14476,13 @@
           if (thinkingSuppressedTool === tool) thinkingSuppressedTool = null;
         }, 350);
         let finalDropParent = null;
+        let finalStickDrop = null;
         if (!cancelled && pointInsideThinkingViewport(endEvent.clientX, endEvent.clientY)) {
-          finalDropParent = thinkingDropParent(endEvent.clientX, endEvent.clientY,
-            ghost, draft, canvas);
+          finalStickDrop = thinkingStickDrop(ghost, draft, canvas);
+          if (!finalStickDrop) {
+            finalDropParent = thinkingDropParent(endEvent.clientX, endEvent.clientY,
+              ghost, draft, canvas);
+          }
         }
         const finalDropParentId = finalDropParent ? finalDropParent.dataset.blockId : null;
         clearThinkingDropTargets();
@@ -12882,7 +14490,9 @@
         thinkingBoard.classList.remove("is-tool-dragging");
         thinkingViewport.classList.remove("is-tool-drop");
         if (!cancelled && pointInsideThinkingViewport(endEvent.clientX, endEvent.clientY)) {
-          addThinkingBlock(type, { x: endEvent.clientX, y: endEvent.clientY }, finalDropParentId);
+          addThinkingBlock(type, { x: endEvent.clientX, y: endEvent.clientY },
+            finalDropParentId, finalStickDrop ? finalStickDrop.target.id : null,
+            finalStickDrop ? finalStickDrop.side : null);
         }
         ghost.remove();
       };
@@ -13082,18 +14692,31 @@
       const end = blockEdgePoint(to, from, toEl.offsetWidth + 14, toEl.offsetHeight + 14);
       const bend = Math.max(44, Math.min(180, Math.abs(end.x - start.x) * .42));
       const direction = end.x >= start.x ? 1 : -1;
+      /* A toile is a web, so a link is a thread and a thread has slack: it
+         droops with its own length, and pulls taut while either end is being
+         carried. The links are already redrawn on every move, so the tightening
+         happens on its own as you drag. */
+      const taut = fromEl.classList.contains("is-dragging")
+        || toEl.classList.contains("is-dragging")
+        || fromEl.classList.contains("is-group-dragging")
+        || toEl.classList.contains("is-group-dragging");
+      const span = Math.hypot(end.x - start.x, end.y - start.y);
+      const droop = taut ? 0 : Math.min(34, span * .13);
       const d = "M " + start.x.toFixed(1) + " " + start.y.toFixed(1)
-        + " C " + (start.x + bend * direction).toFixed(1) + " " + start.y.toFixed(1)
-        + ", " + (end.x - bend * direction).toFixed(1) + " " + end.y.toFixed(1)
+        + " C " + (start.x + bend * direction).toFixed(1) + " " + (start.y + droop).toFixed(1)
+        + ", " + (end.x - bend * direction).toFixed(1) + " " + (end.y + droop).toFixed(1)
         + ", " + end.x.toFixed(1) + " " + end.y.toFixed(1);
       const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
       path.setAttribute("class", "thinking-link");
       path.setAttribute("d", d);
+      // a link wears the colour of what it comes from, so a board reads by hue
+      const fromBlock = findThinkingParent(canvas, link.from);
+      if (fromBlock) path.setAttribute("class", "thinking-link thinking-link--" + fromBlock.type);
       const hit = document.createElementNS("http://www.w3.org/2000/svg", "path");
       hit.setAttribute("class", "thinking-link-hit");
       hit.setAttribute("d", d);
-      hit.addEventListener("pointerenter", function () { path.style.stroke = "var(--danger)"; path.style.opacity = "1"; });
-      hit.addEventListener("pointerleave", function () { path.style.stroke = ""; path.style.opacity = ""; });
+      hit.addEventListener("pointerenter", function () { path.classList.add("is-doomed"); });
+      hit.addEventListener("pointerleave", function () { path.classList.remove("is-doomed"); });
       hit.addEventListener("click", function () {
         removeThinkingLink(canvas, link.id);
       });
@@ -13122,6 +14745,9 @@
   thinkingSelectionCanvas.addEventListener("click", putThinkingSelectionInCanvas);
   const thinkingTools = document.querySelectorAll(".thinking-tool[data-block-type]");
   for (let i = 0; i < thinkingTools.length; i++) {
+    // the palette shows the glyph the block will wear, off the same map
+    thinkingTools[i].querySelector(".thinking-tool__mark").innerHTML =
+      thinkingIconSvg(thinkingTypeIcon(thinkingTools[i].dataset.blockType));
     armThinkingToolDrag(thinkingTools[i]);
     thinkingTools[i].addEventListener("click", function () {
       if (thinkingSuppressedTool === this) {
@@ -13152,6 +14778,10 @@
       canvas.blocks[i].x += dx;
       canvas.blocks[i].y += dy;
     }
+    if (canvasNode.type === "document" && canvasNode.sheetX != null) {
+      canvasNode.sheetX += dx;
+      canvasNode.sheetY += dy;
+    }
     const nextX = thinkingViewport.scrollLeft + dx;
     const nextY = thinkingViewport.scrollTop + dy;
     canvasNode.cameraX = nextX;
@@ -13177,8 +14807,10 @@
   thinkingViewport.addEventListener("pointerdown", function (event) {
     if (event.button !== 0) return;
     const control = event.target.closest
-      ? event.target.closest(".thinking-block, button, input, textarea, select, .thinking-link-hit") : null;
+      ? event.target.closest(".thinking-block, .thinking-folder__list, button, input, textarea, select, [contenteditable], .thinking-link-hit") : null;
     if (control) return;
+    const viewedOrganization = currentThinkingCanvasNode();
+    if (viewedOrganization && viewedOrganization.type === "folder") return;
     if (thinkingSelectionMode) {
       const canvas = currentCanvas();
       const canvasNode = currentThinkingCanvasNode();
@@ -13221,7 +14853,7 @@
     const tree = currentCanvas();
     const canvasNode = currentThinkingCanvasNode();
     if (!tree || !canvasNode || !thinkingCanvasParent(tree, canvasNode)) return;
-    if (event.target.closest("button, input, textarea, select")) return;
+    if (event.target.closest("button, input, textarea, select, [contenteditable]")) return;
     event.preventDefault();
     closeCurrentThinkingCanvas();
   });
@@ -13233,11 +14865,38 @@
   });
   window.addEventListener("resize", function () {
     const canvas = currentCanvas();
-    if (canvas) requestThinkingLinks(canvas);
+    const viewed = currentThinkingCanvasNode();
+    if (canvas && viewed && viewed.type === "folder") renderThinkingCanvas(canvas);
+    else if (canvas) requestThinkingLinks(canvas);
   });
   document.addEventListener("keydown", function (event) {
-    if (event.key !== "Escape" || thinkingView.hidden) return;
-    closeThinking();
+    if (thinkingView.hidden || !thinkingView.classList.contains("is-open")) return;
+    if (event.key === "Escape") {
+      closeThinking();
+      return;
+    }
+    if (thinkingShortcutIsEditing(event.target)) return;
+    if (event.key === "Delete") {
+      const canvas = currentCanvas();
+      const selected = selectedThinkingBlocks(canvas);
+      const target = selected.length ? null : hoveredThinkingDeleteTarget(canvas);
+      if (selected.length || target) {
+        event.preventDefault();
+        if (selected.length) removeThinkingSelection(canvas);
+        else removeThinkingBlock(canvas, target.id);
+      }
+      return;
+    }
+    const key = event.key.toLowerCase();
+    if (!event.ctrlKey && !event.metaKey && !event.altKey && key === "s") {
+      if (event.repeat) return;
+      event.preventDefault();
+      setThinkingSelectionMode(!thinkingSelectionMode);
+      return;
+    }
+    if (event.shiftKey || event.altKey || (!event.ctrlKey && !event.metaKey)) return;
+    if (key === "c" && copyThinkingBlocks()) event.preventDefault();
+    else if (key === "v" && pasteThinkingBlocks()) event.preventDefault();
   });
 
   /* NOTES — a list of note titles; clicking one opens a rich-text editor.
@@ -13564,6 +15223,7 @@
   renderHabits();
   renderEventCal();
   renderDailyTimeline();
+  renderUndated();
   buildIconPicker();
   checkReminders();
   checkSleepReminder();
