@@ -25,6 +25,7 @@
   --c-accent: #7a5cd8;          /* saturated enough to hold its own on paper */
   --c-danger: #d9534f;
   --c-sig: #c3b0f5;
+  --note-highlight-strength: 22%;
   --c-shade: 0.10;
   --c-veil: 0.74;
   --c-sky-1: #fdf7f0;
@@ -42,6 +43,7 @@
   --c-accent: #a78bfa;
   --c-danger: #e8756f;
   --c-sig: #c4b1fb;
+  --note-highlight-strength: 42%;
   --c-shade: 0.45;
   --c-veil: 0.70;
   --c-sky-1: #221d2e;
@@ -50,21 +52,82 @@
   --c-sky-mid: 45%;
 }
 
-[data-theme="rose"] {
-  --c-bg: #faf0f1;
+/* SAKURA — blossom light at the horizon, cool lilac overhead, the way a hanami
+   sky looks through the branches. Comes with its petals (see THEME_DECOR). */
+[data-theme="sakura"] {
+  --c-bg: #fbf1f2;
   --c-surface: #ffffff;
-  --c-line: #efdcdf;
-  --c-text: #433336;
-  --c-muted: #a6868c;
+  --c-line: #f0dce0;
+  --c-text: #45343a;
+  --c-muted: #a8878f;
   --c-accent: #d8547d;
   --c-danger: #d9534f;
-  --c-sig: #f3aac2;
+  --c-sig: #f5b3c6;
+  --note-highlight-strength: 22%;
   --c-shade: 0.10;
   --c-veil: 0.74;
-  --c-sky-1: #fff2f2;
-  --c-sky-2: #fbedf3;
-  --c-sky-3: #f2eaf7;
+  --c-sky-1: #fff4f0;
+  --c-sky-2: #fbe7ef;
+  --c-sky-3: #ecdff3;
   --c-sky-mid: 45%;
+}
+
+/* AQUATIC — the one theme lit from above: the sky ramp runs bright at the zenith
+   (the surface) down to the deep at the horizon, the reverse of every other. */
+[data-theme="aqua"] {
+  --c-bg: #0c2230;
+  --c-surface: #133a4c;
+  --c-line: #1e5064;
+  --c-text: #e2f3f6;
+  --c-muted: #86b0bd;
+  --c-accent: #45c8c0;
+  --c-danger: #ef8377;
+  --c-sig: #8fdcd8;
+  --note-highlight-strength: 40%;
+  --c-shade: 0.46;
+  --c-veil: 0.66;
+  --c-sky-1: #06161f;
+  --c-sky-2: #0d3145;
+  --c-sky-3: #1d6f86;
+  --c-sky-mid: 42%;
+}
+
+/* FOREST — undergrowth below, sun caught in the canopy above */
+[data-theme="forest"] {
+  --c-bg: #edf1e4;
+  --c-surface: #fbfdf6;
+  --c-line: #dbe3ce;
+  --c-text: #2d3a2b;
+  --c-muted: #7d8b76;
+  --c-accent: #3f8a52;
+  --c-danger: #cf5a45;
+  --c-sig: #a8cf94;
+  --note-highlight-strength: 24%;
+  --c-shade: 0.12;
+  --c-veil: 0.72;
+  --c-sky-1: #c6d9b0;
+  --c-sky-2: #dcebc9;
+  --c-sky-3: #edf5d2;
+  --c-sky-mid: 50%;
+}
+
+/* BOREAL — a cold clear night; the colour comes from the aurora, not the sky */
+[data-theme="boreal"] {
+  --c-bg: #0a1622;
+  --c-surface: #14263a;
+  --c-line: #22394f;
+  --c-text: #e4eef7;
+  --c-muted: #85a0b8;
+  --c-accent: #6fd6c0;
+  --c-danger: #e88f8f;
+  --c-sig: #a9e7d5;
+  --note-highlight-strength: 42%;
+  --c-shade: 0.50;
+  --c-veil: 0.70;
+  --c-sky-1: #0b1c2c;
+  --c-sky-2: #0c2233;
+  --c-sky-3: #06101a;
+  --c-sky-mid: 40%;
 }
 
 /* time-of-day themes */
@@ -77,6 +140,7 @@
   --c-accent: #c65f8e;
   --c-danger: #d9534f;
   --c-sig: #f6b490;
+  --note-highlight-strength: 23%;
   --c-shade: 0.10;
   --c-veil: 0.70;
   --c-sky-1: #ffd9bd;
@@ -93,6 +157,7 @@
   --c-accent: #1f7ad1;
   --c-danger: #d9534f;
   --c-sig: #a8cdf5;
+  --note-highlight-strength: 22%;
   --c-shade: 0.10;
   --c-veil: 0.72;
   --c-sky-1: #eaf5ff;
@@ -109,6 +174,7 @@
   --c-accent: #f4845f;
   --c-danger: #ef7168;
   --c-sig: #f3a0b8;
+  --note-highlight-strength: 38%;
   --c-shade: 0.45;
   --c-veil: 0.68;
   --c-sky-1: #ff8f66;
@@ -125,6 +191,7 @@
   --c-accent: #8fa6ee;
   --c-danger: #e6a6a6;
   --c-sig: #c2cbef;
+  --note-highlight-strength: 42%;
   --c-shade: 0.50;
   --c-veil: 0.72;
   --c-sky-1: #131a33;
@@ -142,6 +209,7 @@
   --c-accent: #85b3d6;
   --c-danger: #e6a6a6;
   --c-sig: #b6cadb;
+  --note-highlight-strength: 30%;
   --c-shade: 0.42;
   --c-veil: 0.70;
   --c-sky-1: #3d4552;
@@ -150,7 +218,94 @@
   --c-sky-mid: 45%;
 }
 
-/* IMPORTANCE PALETTE — five stops, the user's choice, independent of the hour */
+/* STEP RAMP — five stops read back by the script for step dots, the importance
+   gauge, the habit water and the zellige. It used to float free of the theme,
+   which is why a sakura page still drew violet steps. The default palette is now
+   "theme": each theme carries its own ramp below, and the three presets stay as
+   a manual override. Two attributes beat one, so a theme's ramp wins over the
+   `[data-palette="theme"]` fallback without any !important. */
+[data-palette="theme"][data-theme="light"],
+[data-palette="theme"] {
+  --c-imp-1: #8b6ee0;
+  --c-imp-2: #6b8ae6;
+  --c-imp-3: #4aa8dd;
+  --c-imp-4: #3fc0b8;
+  --c-imp-5: #e3b23c;
+}
+[data-palette="theme"][data-theme="dark"] {
+  --c-imp-1: #9b82e8;
+  --c-imp-2: #7f9bee;
+  --c-imp-3: #5fb8e6;
+  --c-imp-4: #4fcec4;
+  --c-imp-5: #edc25a;
+}
+/* bud, bloom, open petal, fading petal, the gold of the stamen */
+[data-palette="theme"][data-theme="sakura"] {
+  --c-imp-1: #c94a86;
+  --c-imp-2: #dd6a97;
+  --c-imp-3: #ea8aa0;
+  --c-imp-4: #e9a678;
+  --c-imp-5: #d9a13f;
+}
+[data-palette="theme"][data-theme="dawn"] {
+  --c-imp-1: #a86fd0;
+  --c-imp-2: #d16a9e;
+  --c-imp-3: #ee7f8c;
+  --c-imp-4: #f79a72;
+  --c-imp-5: #f3b95c;
+}
+[data-palette="theme"][data-theme="day"] {
+  --c-imp-1: #2f6fd0;
+  --c-imp-2: #2e93cf;
+  --c-imp-3: #2fb0b8;
+  --c-imp-4: #4dbb87;
+  --c-imp-5: #e2b33f;
+}
+[data-palette="theme"][data-theme="dusk"] {
+  --c-imp-1: #8a6ade;
+  --c-imp-2: #b45fae;
+  --c-imp-3: #e0648b;
+  --c-imp-4: #f2846a;
+  --c-imp-5: #f3ae54;
+}
+[data-palette="theme"][data-theme="night"] {
+  --c-imp-1: #6675dc;
+  --c-imp-2: #7f87e2;
+  --c-imp-3: #93a3ee;
+  --c-imp-4: #8dbde0;
+  --c-imp-5: #ddc684;
+}
+[data-palette="theme"][data-theme="rain"] {
+  --c-imp-1: #6d97cc;
+  --c-imp-2: #74a8ce;
+  --c-imp-3: #83b9c5;
+  --c-imp-4: #95c7b6;
+  --c-imp-5: #d3bb7d;
+}
+/* from the deep up to the lit surface, then the sand */
+[data-palette="theme"][data-theme="aqua"] {
+  --c-imp-1: #2b8cbd;
+  --c-imp-2: #26a7bb;
+  --c-imp-3: #32c4af;
+  --c-imp-4: #5cd6a4;
+  --c-imp-5: #e6c96c;
+}
+[data-palette="theme"][data-theme="forest"] {
+  --c-imp-1: #4a7f3f;
+  --c-imp-2: #6b9a3f;
+  --c-imp-3: #8fae42;
+  --c-imp-4: #b8bb4a;
+  --c-imp-5: #dcae3d;
+}
+[data-palette="theme"][data-theme="boreal"] {
+  --c-imp-1: #7b6cd8;
+  --c-imp-2: #4d8fd6;
+  --c-imp-3: #3fbcc0;
+  --c-imp-4: #55d49b;
+  --c-imp-5: #c3e77e;
+}
+
+/* the three fixed presets, kept as a manual override of the theme's own ramp */
 :root,
 [data-palette="aurora"] {
   --c-imp-1: #8b6ee0;
@@ -191,6 +346,10 @@
   --input-bg: color-mix(in oklab, var(--c-surface) 55%, var(--c-bg));
   --accent-soft: color-mix(in oklab, var(--c-accent) 15%, var(--c-bg));
   --accent-hover: color-mix(in oklab, var(--c-accent) 26%, var(--c-bg));
+  /* A semantic ink rather than a stored RGB value: highlights follow both the
+     theme hue and its light/dark contrast when the theme changes. */
+  --note-highlight: color-mix(in oklab,
+    var(--c-accent) var(--note-highlight-strength), var(--c-surface));
   --welcome-title: var(--c-text);
   /* two layers, tinted with the backdrop rather than pure black */
   --shadow:
@@ -243,6 +402,27 @@
   --glass-cut: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' preserveAspectRatio='none'><g fill='white'><path fill-opacity='0.86' d='M50 0L38 12L4 12L0 16L-4 12L-38 12L-50 0L-38 -12L-4 -12L0 -16L4 -12L38 -12Z'/><path fill-opacity='0.73' d='M150 0L138 12L104 12L100 16L96 12L62 12L50 0L62 -12L96 -12L100 -16L104 -12L138 -12Z'/><path fill-opacity='0.82' d='M0 50L-12 38L-12 4L-16 0L-12 -4L-12 -38L0 -50L12 -38L12 -4L16 0L12 4L12 38Z'/><path fill-opacity='0.78' d='M100 50L88 38L88 4L84 0L88 -4L88 -38L100 -50L112 -38L112 -4L116 0L112 4L112 38Z'/><path fill-opacity='0.69' d='M50 100L38 112L4 112L0 116L-4 112L-38 112L-50 100L-38 88L-4 88L0 84L4 88L38 88Z'/><path fill-opacity='0.62' d='M150 100L138 112L104 112L100 116L96 112L62 112L50 100L62 88L96 88L100 84L104 88L138 88Z'/><path fill-opacity='0.78' d='M0 150L-12 138L-12 104L-16 100L-12 96L-12 62L0 50L12 62L12 96L16 100L12 104L12 138Z'/><path fill-opacity='0.57' d='M100 150L88 138L88 104L84 100L88 96L88 62L100 50L112 62L112 96L116 100L112 104L112 138Z'/><path fill-opacity='0.87' d='M-38 -62L-38 -55L-15 -31L-20 -26L-20 -20L-26 -20L-31 -15L-55 -38L-62 -38L-62 -45L-85 -69L-80 -74L-80 -80L-74 -80L-69 -85L-45 -62Z'/><path fill-opacity='0.87' d='M-62 -62L-55 -62L-31 -85L-26 -80L-20 -80L-20 -74L-15 -69L-38 -45L-38 -38L-45 -38L-69 -15L-74 -20L-80 -20L-80 -26L-85 -31L-62 -55Z'/><path fill-opacity='0.78' d='M62 -62L62 -55L85 -31L80 -26L80 -20L74 -20L69 -15L45 -38L38 -38L38 -45L15 -69L20 -74L20 -80L26 -80L31 -85L55 -62Z'/><path fill-opacity='0.81' d='M38 -62L45 -62L69 -85L74 -80L80 -80L80 -74L85 -69L62 -45L62 -38L55 -38L31 -15L26 -20L20 -20L20 -26L15 -31L38 -55Z'/><path fill-opacity='1.00' d='M50 -18L42 -26L42 -47L40 -50L42 -53L42 -74L50 -82L58 -74L58 -53L60 -50L58 -47L58 -26Z'/><path fill-opacity='0.73' d='M162 -62L162 -55L185 -31L180 -26L180 -20L174 -20L169 -15L145 -38L138 -38L138 -45L115 -69L120 -74L120 -80L126 -80L131 -85L155 -62Z'/><path fill-opacity='0.76' d='M138 -62L145 -62L169 -85L174 -80L180 -80L180 -74L185 -69L162 -45L162 -38L155 -38L131 -15L126 -20L120 -20L120 -26L115 -31L138 -55Z'/><path fill-opacity='0.79' d='M-38 38L-38 45L-15 69L-20 74L-20 80L-26 80L-31 85L-55 62L-62 62L-62 55L-85 31L-80 26L-80 20L-74 20L-69 15L-45 38Z'/><path fill-opacity='0.80' d='M-62 38L-55 38L-31 15L-26 20L-20 20L-20 26L-15 31L-38 55L-38 62L-45 62L-69 85L-74 80L-80 80L-80 74L-85 69L-62 45Z'/><path fill-opacity='0.92' d='M-18 50L-26 58L-47 58L-50 60L-53 58L-74 58L-82 50L-74 42L-53 42L-50 40L-47 42L-26 42Z'/><path fill-opacity='0.04' d='M62 38L62 45L85 69L80 74L80 80L74 80L69 85L45 62L38 62L38 55L15 31L20 26L20 20L26 20L31 15L55 38Z'/><path fill-opacity='0.05' d='M38 38L45 38L69 15L74 20L80 20L80 26L85 31L62 55L62 62L55 62L31 85L26 80L20 80L20 74L15 69L38 45Z'/><path fill-opacity='0.05' d='M58 42L58 47L73 62L70 65L70 70L65 70L62 73L47 58L42 58L42 53L27 38L30 35L30 30L35 30L38 27L53 42Z'/><path fill-opacity='0.05' d='M42 42L47 42L62 27L65 30L70 30L70 35L73 38L58 53L58 58L53 58L38 73L35 70L30 70L30 65L27 62L42 47Z'/><path fill-opacity='0.05' d='M82 50L74 58L53 58L50 60L47 58L26 58L18 50L26 42L47 42L50 40L53 42L74 42Z'/><path fill-opacity='0.05' d='M50 82L42 74L42 53L40 50L42 47L42 26L50 18L58 26L58 47L60 50L58 53L58 74Z'/><path fill-opacity='0.61' d='M162 38L162 45L185 69L180 74L180 80L174 80L169 85L145 62L138 62L138 55L115 31L120 26L120 20L126 20L131 15L155 38Z'/><path fill-opacity='0.63' d='M138 38L145 38L169 15L174 20L180 20L180 26L185 31L162 55L162 62L155 62L131 85L126 80L120 80L120 74L115 69L138 45Z'/><path fill-opacity='0.80' d='M182 50L174 58L153 58L150 60L147 58L126 58L118 50L126 42L147 42L150 40L153 42L174 42Z'/><path fill-opacity='0.76' d='M-38 138L-38 145L-15 169L-20 174L-20 180L-26 180L-31 185L-55 162L-62 162L-62 155L-85 131L-80 126L-80 120L-74 120L-69 115L-45 138Z'/><path fill-opacity='0.73' d='M-62 138L-55 138L-31 115L-26 120L-20 120L-20 126L-15 131L-38 155L-38 162L-45 162L-69 185L-74 180L-80 180L-80 174L-85 169L-62 145Z'/><path fill-opacity='0.61' d='M62 138L62 145L85 169L80 174L80 180L74 180L69 185L45 162L38 162L38 155L15 131L20 126L20 120L26 120L31 115L55 138Z'/><path fill-opacity='0.63' d='M38 138L45 138L69 115L74 120L80 120L80 126L85 131L62 155L62 162L55 162L31 185L26 180L20 180L20 174L15 169L38 145Z'/><path fill-opacity='0.74' d='M50 182L42 174L42 153L40 150L42 147L42 126L50 118L58 126L58 147L60 150L58 153L58 174Z'/><path fill-opacity='0.60' d='M162 138L162 145L185 169L180 174L180 180L174 180L169 185L145 162L138 162L138 155L115 131L120 126L120 120L126 120L131 115L155 138Z'/><path fill-opacity='0.65' d='M138 138L145 138L169 115L174 120L180 120L180 126L185 131L162 155L162 162L155 162L131 185L126 180L120 180L120 174L115 169L138 145Z'/></g></svg>");
   --glass-edges: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' preserveAspectRatio='none'><g fill='none' stroke='white' stroke-width='0.7' stroke-linecap='round' stroke-opacity='.62'><path d='M50 0L38 12'/><path d='M38 12L4 12'/><path d='M4 12L0 16'/><path d='M0 16L-4 12'/><path d='M-4 12L-38 12'/><path d='M-38 -12L-4 -12'/><path d='M-4 -12L0 -16'/><path d='M0 -16L4 -12'/><path d='M4 -12L38 -12'/><path d='M38 -12L50 0'/><path d='M138 12L104 12'/><path d='M104 12L100 16'/><path d='M100 16L96 12'/><path d='M96 12L62 12'/><path d='M62 12L50 0'/><path d='M50 0L62 -12'/><path d='M62 -12L96 -12'/><path d='M96 -12L100 -16'/><path d='M100 -16L104 -12'/><path d='M104 -12L138 -12'/><path d='M0 50L-12 38'/><path d='M-12 38L-12 4'/><path d='M-12 4L-16 0'/><path d='M-16 0L-12 -4'/><path d='M-12 -4L-12 -38'/><path d='M12 -38L12 -4'/><path d='M12 -4L16 0'/><path d='M16 0L12 4'/><path stroke-opacity='0.62' d='M12 4L12 24'/><path stroke-opacity='0.6' d='M12 24L12 31'/><path stroke-opacity='0.57' d='M12 31L12 38'/><path stroke-opacity='0.62' d='M12 38L0 50'/><path stroke-opacity='0.62' d='M100 50L88 38'/><path stroke-opacity='0.57' d='M88 38L88 31'/><path stroke-opacity='0.6' d='M88 31L88 24'/><path stroke-opacity='0.62' d='M88 24L88 4'/><path d='M88 4L84 0'/><path d='M84 0L88 -4'/><path d='M88 -4L88 -38'/><path d='M112 -38L112 -4'/><path d='M112 -4L116 0'/><path d='M116 0L112 4'/><path d='M112 4L112 38'/><path d='M112 38L100 50'/><path d='M50 100L38 112'/><path d='M38 112L4 112'/><path d='M4 112L0 116'/><path d='M0 116L-4 112'/><path d='M-4 112L-38 112'/><path d='M-38 88L-4 88'/><path d='M-4 88L0 84'/><path d='M0 84L4 88'/><path d='M4 88L38 88'/><path d='M38 88L50 100'/><path d='M138 112L104 112'/><path d='M104 112L100 116'/><path d='M100 116L96 112'/><path d='M96 112L62 112'/><path d='M62 112L50 100'/><path d='M50 100L62 88'/><path d='M62 88L96 88'/><path d='M96 88L100 84'/><path d='M100 84L104 88'/><path d='M104 88L138 88'/><path d='M-12 138L-12 104'/><path d='M-12 104L-16 100'/><path d='M-16 100L-12 96'/><path d='M-12 96L-12 62'/><path d='M-12 62L0 50'/><path stroke-opacity='0.62' d='M0 50L12 62'/><path stroke-opacity='0.57' d='M12 62L12 69'/><path stroke-opacity='0.6' d='M12 69L12 76'/><path stroke-opacity='0.62' d='M12 76L12 96'/><path d='M12 96L16 100'/><path d='M16 100L12 104'/><path d='M12 104L12 138'/><path d='M88 138L88 104'/><path d='M88 104L84 100'/><path d='M84 100L88 96'/><path stroke-opacity='0.62' d='M88 96L88 76'/><path stroke-opacity='0.6' d='M88 76L88 69'/><path stroke-opacity='0.57' d='M88 69L88 62'/><path stroke-opacity='0.62' d='M88 62L100 50'/><path d='M100 50L112 62'/><path d='M112 62L112 96'/><path d='M112 96L116 100'/><path d='M116 100L112 104'/><path d='M112 104L112 138'/><path d='M-20 -26L-20 -20'/><path d='M-20 -20L-26 -20'/><path d='M80 -26L80 -20'/><path d='M80 -20L74 -20'/><path d='M74 -20L69 -15'/><path d='M69 -15L45 -38'/><path d='M55 -38L31 -15'/><path d='M31 -15L26 -20'/><path d='M26 -20L20 -20'/><path d='M20 -20L20 -26'/><path d='M50 -18L42 -26'/><path d='M58 -26L50 -18'/><path d='M126 -20L120 -20'/><path d='M120 -20L120 -26'/><path d='M-38 45L-15 69'/><path d='M-15 69L-20 74'/><path d='M-20 74L-20 80'/><path d='M-20 80L-26 80'/><path d='M-26 20L-20 20'/><path d='M-20 20L-20 26'/><path d='M-20 26L-15 31'/><path d='M-15 31L-38 55'/><path d='M-18 50L-26 58'/><path d='M-26 42L-18 50'/><path stroke-opacity='0.04' d='M62 38L62 45'/><path stroke-opacity='0.04' d='M62 45L76 59'/><path stroke-opacity='0.14' d='M76 59L81 64'/><path stroke-opacity='0.36' d='M81 64L85 69'/><path stroke-opacity='0.43' d='M85 69L80 74'/><path stroke-opacity='0.53' d='M80 74L80 80'/><path stroke-opacity='0.59' d='M80 80L74 80'/><path stroke-opacity='0.62' d='M74 80L69 85'/><path stroke-opacity='0.62' d='M69 85L64 81'/><path stroke-opacity='0.51' d='M64 81L59 76'/><path stroke-opacity='0.3' d='M59 76L55 71'/><path stroke-opacity='0.1' d='M55 71L50 67'/><path stroke-opacity='0.04' d='M50 67L45 62'/><path stroke-opacity='0.04' d='M45 62L38 62'/><path stroke-opacity='0.04' d='M38 62L38 55'/><path stroke-opacity='0.04' d='M38 55L24 41'/><path stroke-opacity='0.14' d='M24 41L19 36'/><path stroke-opacity='0.36' d='M19 36L15 31'/><path stroke-opacity='0.43' d='M15 31L20 26'/><path stroke-opacity='0.53' d='M20 26L20 20'/><path stroke-opacity='0.59' d='M20 20L26 20'/><path stroke-opacity='0.62' d='M26 20L31 15'/><path stroke-opacity='0.62' d='M31 15L36 19'/><path stroke-opacity='0.51' d='M36 19L41 24'/><path stroke-opacity='0.3' d='M41 24L45 29'/><path stroke-opacity='0.1' d='M45 29L50 33'/><path stroke-opacity='0.04' d='M50 33L55 38'/><path stroke-opacity='0.04' d='M55 38L62 38'/><path stroke-opacity='0.04' d='M38 38L45 38'/><path stroke-opacity='0.04' d='M45 38L50 33'/><path stroke-opacity='0.1' d='M50 33L55 29'/><path stroke-opacity='0.3' d='M55 29L59 24'/><path stroke-opacity='0.51' d='M59 24L64 19'/><path stroke-opacity='0.62' d='M64 19L69 15'/><path stroke-opacity='0.62' d='M69 15L74 20'/><path stroke-opacity='0.59' d='M74 20L80 20'/><path stroke-opacity='0.53' d='M80 20L80 26'/><path stroke-opacity='0.43' d='M80 26L85 31'/><path stroke-opacity='0.36' d='M85 31L81 36'/><path stroke-opacity='0.14' d='M81 36L76 41'/><path stroke-opacity='0.04' d='M76 41L62 55'/><path stroke-opacity='0.04' d='M62 55L62 62'/><path stroke-opacity='0.04' d='M62 62L55 62'/><path stroke-opacity='0.04' d='M55 62L50 67'/><path stroke-opacity='0.1' d='M50 67L45 71'/><path stroke-opacity='0.3' d='M45 71L41 76'/><path stroke-opacity='0.51' d='M41 76L36 81'/><path stroke-opacity='0.62' d='M36 81L31 85'/><path stroke-opacity='0.62' d='M31 85L26 80'/><path stroke-opacity='0.59' d='M26 80L20 80'/><path stroke-opacity='0.53' d='M20 80L20 74'/><path stroke-opacity='0.43' d='M20 74L15 69'/><path stroke-opacity='0.36' d='M15 69L19 64'/><path stroke-opacity='0.14' d='M19 64L24 59'/><path stroke-opacity='0.04' d='M24 59L38 45'/><path stroke-opacity='0.04' d='M38 45L38 38'/><path stroke-opacity='0.04' d='M58 42L58 47'/><path stroke-opacity='0.04' d='M58 47L73 62'/><path stroke-opacity='0.04' d='M73 62L70 65'/><path stroke-opacity='0.06' d='M70 65L70 70'/><path stroke-opacity='0.12' d='M70 70L65 70'/><path stroke-opacity='0.18' d='M65 70L62 73'/><path stroke-opacity='0.14' d='M62 73L57 68'/><path stroke-opacity='0.04' d='M57 68L47 58'/><path stroke-opacity='0.04' d='M47 58L42 58'/><path stroke-opacity='0.04' d='M42 58L42 53'/><path stroke-opacity='0.04' d='M42 53L27 38'/><path stroke-opacity='0.04' d='M27 38L30 35'/><path stroke-opacity='0.06' d='M30 35L30 30'/><path stroke-opacity='0.12' d='M30 30L35 30'/><path stroke-opacity='0.18' d='M35 30L38 27'/><path stroke-opacity='0.14' d='M38 27L43 32'/><path stroke-opacity='0.04' d='M43 32L53 42'/><path stroke-opacity='0.04' d='M53 42L58 42'/><path stroke-opacity='0.04' d='M42 42L47 42'/><path stroke-opacity='0.04' d='M47 42L57 32'/><path stroke-opacity='0.14' d='M57 32L62 27'/><path stroke-opacity='0.18' d='M62 27L65 30'/><path stroke-opacity='0.12' d='M65 30L70 30'/><path stroke-opacity='0.06' d='M70 30L70 35'/><path stroke-opacity='0.04' d='M70 35L73 38'/><path stroke-opacity='0.04' d='M73 38L58 53'/><path stroke-opacity='0.04' d='M58 53L58 58'/><path stroke-opacity='0.04' d='M58 58L53 58'/><path stroke-opacity='0.04' d='M53 58L43 68'/><path stroke-opacity='0.14' d='M43 68L38 73'/><path stroke-opacity='0.18' d='M38 73L35 70'/><path stroke-opacity='0.12' d='M35 70L30 70'/><path stroke-opacity='0.06' d='M30 70L30 65'/><path stroke-opacity='0.04' d='M30 65L27 62'/><path stroke-opacity='0.04' d='M27 62L42 47'/><path stroke-opacity='0.04' d='M42 47L42 42'/><path stroke-opacity='0.14' d='M82 50L74 58'/><path stroke-opacity='0.04' d='M74 58L53 58'/><path stroke-opacity='0.04' d='M53 58L50 60'/><path stroke-opacity='0.04' d='M50 60L47 58'/><path stroke-opacity='0.04' d='M47 58L26 58'/><path stroke-opacity='0.14' d='M26 58L18 50'/><path stroke-opacity='0.14' d='M18 50L26 42'/><path stroke-opacity='0.04' d='M26 42L47 42'/><path stroke-opacity='0.04' d='M47 42L50 40'/><path stroke-opacity='0.04' d='M50 40L53 42'/><path stroke-opacity='0.04' d='M53 42L74 42'/><path stroke-opacity='0.14' d='M74 42L82 50'/><path stroke-opacity='0.51' d='M50 82L42 74'/><path stroke-opacity='0.17' d='M42 74L42 67'/><path stroke-opacity='0.04' d='M42 67L42 53'/><path stroke-opacity='0.04' d='M42 53L40 50'/><path stroke-opacity='0.04' d='M40 50L42 47'/><path stroke-opacity='0.04' d='M42 47L42 33'/><path stroke-opacity='0.17' d='M42 33L42 26'/><path stroke-opacity='0.51' d='M42 26L50 18'/><path stroke-opacity='0.51' d='M50 18L58 26'/><path stroke-opacity='0.17' d='M58 26L58 33'/><path stroke-opacity='0.04' d='M58 33L58 47'/><path stroke-opacity='0.04' d='M58 47L60 50'/><path stroke-opacity='0.04' d='M60 50L58 53'/><path stroke-opacity='0.04' d='M58 53L58 67'/><path stroke-opacity='0.17' d='M58 67L58 74'/><path stroke-opacity='0.51' d='M58 74L50 82'/><path d='M138 55L115 31'/><path d='M115 31L120 26'/><path d='M120 26L120 20'/><path d='M120 20L126 20'/><path d='M126 80L120 80'/><path d='M120 80L120 74'/><path d='M120 74L115 69'/><path d='M115 69L138 45'/><path d='M126 58L118 50'/><path d='M118 50L126 42'/><path d='M-26 120L-20 120'/><path d='M-20 120L-20 126'/><path d='M20 126L20 120'/><path d='M20 120L26 120'/><path d='M26 120L31 115'/><path d='M31 115L55 138'/><path d='M45 138L69 115'/><path d='M69 115L74 120'/><path d='M74 120L80 120'/><path d='M80 120L80 126'/><path d='M42 126L50 118'/><path d='M50 118L58 126'/><path d='M120 126L120 120'/><path d='M120 120L126 120'/></g></svg>");
 
+  /* outlines the decorations are cut from: a cherry petal (narrow base, cleft
+     tip) and a kelp blade. Shapes only — the colour stays on the element. */
+  --petal-shape: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100' preserveAspectRatio='none'><path fill='%23000' d='M50 98C20 82 4 58 13 33 20 13 37 4 46 20l4 8 4-8c9-16 26-7 33 13 9 25-7 49-37 65z'/></svg>");
+  /* the curtain's hem: opaque along a folded lower edge, gone at the top */
+  --aurora-hem: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 100' preserveAspectRatio='none'><linearGradient id='h' x1='0' y1='1' x2='0' y2='0'><stop offset='.20' stop-color='%23fff' stop-opacity='0'/><stop offset='.46' stop-color='%23fff' stop-opacity='1'/><stop offset='.70' stop-color='%23fff' stop-opacity='.40'/><stop offset='1' stop-color='%23fff' stop-opacity='0'/></linearGradient><path fill='url(%23h)' d='M0 0H200V56c-21 17-38-3-59 7s-36-7-56 3S17 60 0 73z'/></svg>");
+  --weed-shape: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 100' preserveAspectRatio='none'><path fill='%23000' d='M10 100C6 84 3 70 6 56 9 42 15 32 13 20 12 12 9 6 10 0 11 6 16 12 16 20 16 32 11 42 10 56 9 70 13 84 10 100z'/></svg>");
+  /* THE THRESHOLD'S SHAPES — silhouettes the workspace has no room for. Masks,
+     all of them: the outline lives here and the colour stays on the element, so
+     every one of them takes the theme's own ink. */
+  --bough-shape: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 268 152'><defs><linearGradient id='p' x1='0' y1='-46' x2='0' y2='0' gradientUnits='userSpaceOnUse'><stop offset='0' stop-color='%23f3a2c1'/><stop offset='.55' stop-color='%23f9cbdd'/><stop offset='1' stop-color='%23fff4f8'/></linearGradient><g id='f'><path d='M0 0C-18 -6 -30 -14 -30 -26C-30 -38 -22 -46 -14 -44C-7 -42 -3 -36 0 -30C3 -36 7 -42 14 -44C22 -46 30 -38 30 -26C30 -14 18 -6 0 0Z' fill='url(%23p)' transform='rotate(0)'/><path d='M0 0C-18 -6 -30 -14 -30 -26C-30 -38 -22 -46 -14 -44C-7 -42 -3 -36 0 -30C3 -36 7 -42 14 -44C22 -46 30 -38 30 -26C30 -14 18 -6 0 0Z' fill='url(%23p)' transform='rotate(72)'/><path d='M0 0C-18 -6 -30 -14 -30 -26C-30 -38 -22 -46 -14 -44C-7 -42 -3 -36 0 -30C3 -36 7 -42 14 -44C22 -46 30 -38 30 -26C30 -14 18 -6 0 0Z' fill='url(%23p)' transform='rotate(144)'/><path d='M0 0C-18 -6 -30 -14 -30 -26C-30 -38 -22 -46 -14 -44C-7 -42 -3 -36 0 -30C3 -36 7 -42 14 -44C22 -46 30 -38 30 -26C30 -14 18 -6 0 0Z' fill='url(%23p)' transform='rotate(216)'/><path d='M0 0C-18 -6 -30 -14 -30 -26C-30 -38 -22 -46 -14 -44C-7 -42 -3 -36 0 -30C3 -36 7 -42 14 -44C22 -46 30 -38 30 -26C30 -14 18 -6 0 0Z' fill='url(%23p)' transform='rotate(288)'/><circle cx='-5.8' cy='-1.4' r='2.2' fill='%23f3d79c'/><circle cx='2.5' cy='0.1' r='2.7' fill='%23fdf1da'/><circle cx='-2.7' cy='1.3' r='2.5' fill='%23fdf1da'/><circle cx='9.1' cy='0.6' r='2.4' fill='%23f3d79c'/><circle cx='-1.5' cy='-1.6' r='1.7' fill='%23fdf1da'/><circle cx='1.5' cy='-0.5' r='2.7' fill='%23fdf1da'/><circle cx='-5.4' cy='0.6' r='2.1' fill='%23f3d79c'/><circle cx='9.3' cy='3.5' r='2.5' fill='%23fdf1da'/><circle cx='-2.5' cy='-3.0' r='2.6' fill='%23fdf1da'/><circle cx='6.3' cy='4.6' r='2.8' fill='%23f3d79c'/><circle cx='-3.2' cy='-0.8' r='3.0' fill='%23fdf1da'/><circle cx='2.5' cy='5.3' r='0.9' fill='%23fdf3e2'/><circle cx='10.8' cy='6.0' r='0.8' fill='%23fdf3e2'/><circle cx='-8.6' cy='5.8' r='0.8' fill='%23fdf3e2'/><circle cx='-7.8' cy='5.8' r='0.8' fill='%23fdf3e2'/><circle cx='-1.6' cy='-5.7' r='0.9' fill='%23fdf3e2'/><circle cx='-6.0' cy='11.9' r='0.9' fill='%23fdf3e2'/><circle cx='4.5' cy='-12.7' r='1.5' fill='%23fdf3e2'/></g></defs><g fill='none' stroke='%236b4a4f' stroke-linecap='round'><path stroke-width='6.5' d='M262 6C226 14 192 27 162 46 128 68 96 96 58 112 40 120 22 124 4 126'/><path stroke-width='3.1' d='M214 20c-3.2 15.3 -5.6 27.2 -8.0 34.0'/><path stroke-width='2.5' d='M176 38c-5.6 18.0 -9.8 32.0 -14.0 40.0'/><path stroke-width='2.6' d='M140 60c4.0 16.2 7.0 28.8 10.0 36.0'/><path stroke-width='3.2' d='M104 82c-4.8 15.3 -8.4 27.2 -12.0 34.0'/><path stroke-width='2.6' d='M66 104c2.4 13.5 4.2 24.0 6.0 30.0'/><path stroke-width='2.4' d='M188 30c9.6 11.7 16.8 20.8 24.0 26.0'/></g><circle cx='213.9' cy='39.6' r='5.5' fill='%23f6c2d4'/><circle cx='273.7' cy='21.0' r='6.4' fill='%23e18cae'/><circle cx='142.2' cy='80.8' r='6.6' fill='%23f6c2d4'/><circle cx='99.5' cy='67.3' r='5.4' fill='%23e18cae'/><circle cx='139.0' cy='80.1' r='5.8' fill='%23f6c2d4'/><circle cx='74.4' cy='99.3' r='5.4' fill='%23f6c2d4'/><circle cx='239.0' cy='45.8' r='6.7' fill='%23f6c2d4'/><circle cx='77.5' cy='83.4' r='6.6' fill='%23f6c2d4'/><circle cx='236.2' cy='7.4' r='4.7' fill='%23e18cae'/><circle cx='142.5' cy='72.1' r='3.8' fill='%23e18cae'/><circle cx='261.1' cy='1.1' r='5.1' fill='%23e18cae'/><circle cx='10.2' cy='113.0' r='4.4' fill='%23e18cae'/><circle cx='177.7' cy='74.6' r='6.8' fill='%23e18cae'/><circle cx='58.3' cy='94.0' r='3.8' fill='%23f6c2d4'/><circle cx='69.5' cy='83.9' r='4.3' fill='%23f6c2d4'/><circle cx='121.6' cy='73.2' r='4.6' fill='%23e18cae'/><circle cx='154.1' cy='48.3' r='6.1' fill='%23e18cae'/><circle cx='46.8' cy='96.9' r='6.6' fill='%23e18cae'/><circle cx='187.6' cy='37.7' r='4.4' fill='%23e18cae'/><circle cx='130.2' cy='87.3' r='5.6' fill='%23e18cae'/><circle cx='92.5' cy='71.8' r='5.1' fill='%23e18cae'/><circle cx='113.8' cy='79.5' r='5.3' fill='%23e18cae'/><use href='%23f' transform='translate(198,32) scale(.27) rotate(-16)'/><use href='%23f' transform='translate(116,76) scale(.23) rotate(28)'/><use href='%23f' transform='translate(46,114) scale(.30) rotate(-7)'/></svg>");
+  --blossom-shape: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='-50 -50 100 100'><defs><linearGradient id='p' x1='0' y1='-46' x2='0' y2='0' gradientUnits='userSpaceOnUse'><stop offset='0' stop-color='%23f3a2c1'/><stop offset='.55' stop-color='%23f9cbdd'/><stop offset='1' stop-color='%23fff4f8'/></linearGradient><g id='f'><path d='M0 0C-18 -6 -30 -14 -30 -26C-30 -38 -22 -46 -14 -44C-7 -42 -3 -36 0 -30C3 -36 7 -42 14 -44C22 -46 30 -38 30 -26C30 -14 18 -6 0 0Z' fill='url(%23p)' transform='rotate(0)'/><path d='M0 0C-18 -6 -30 -14 -30 -26C-30 -38 -22 -46 -14 -44C-7 -42 -3 -36 0 -30C3 -36 7 -42 14 -44C22 -46 30 -38 30 -26C30 -14 18 -6 0 0Z' fill='url(%23p)' transform='rotate(72)'/><path d='M0 0C-18 -6 -30 -14 -30 -26C-30 -38 -22 -46 -14 -44C-7 -42 -3 -36 0 -30C3 -36 7 -42 14 -44C22 -46 30 -38 30 -26C30 -14 18 -6 0 0Z' fill='url(%23p)' transform='rotate(144)'/><path d='M0 0C-18 -6 -30 -14 -30 -26C-30 -38 -22 -46 -14 -44C-7 -42 -3 -36 0 -30C3 -36 7 -42 14 -44C22 -46 30 -38 30 -26C30 -14 18 -6 0 0Z' fill='url(%23p)' transform='rotate(216)'/><path d='M0 0C-18 -6 -30 -14 -30 -26C-30 -38 -22 -46 -14 -44C-7 -42 -3 -36 0 -30C3 -36 7 -42 14 -44C22 -46 30 -38 30 -26C30 -14 18 -6 0 0Z' fill='url(%23p)' transform='rotate(288)'/><circle cx='-5.8' cy='-1.4' r='2.2' fill='%23f3d79c'/><circle cx='2.5' cy='0.1' r='2.7' fill='%23fdf1da'/><circle cx='-2.7' cy='1.3' r='2.5' fill='%23fdf1da'/><circle cx='9.1' cy='0.6' r='2.4' fill='%23f3d79c'/><circle cx='-1.5' cy='-1.6' r='1.7' fill='%23fdf1da'/><circle cx='1.5' cy='-0.5' r='2.7' fill='%23fdf1da'/><circle cx='-5.4' cy='0.6' r='2.1' fill='%23f3d79c'/><circle cx='9.3' cy='3.5' r='2.5' fill='%23fdf1da'/><circle cx='-2.5' cy='-3.0' r='2.6' fill='%23fdf1da'/><circle cx='6.3' cy='4.6' r='2.8' fill='%23f3d79c'/><circle cx='-3.2' cy='-0.8' r='3.0' fill='%23fdf1da'/><circle cx='2.5' cy='5.3' r='0.9' fill='%23fdf3e2'/><circle cx='10.8' cy='6.0' r='0.8' fill='%23fdf3e2'/><circle cx='-8.6' cy='5.8' r='0.8' fill='%23fdf3e2'/><circle cx='-7.8' cy='5.8' r='0.8' fill='%23fdf3e2'/><circle cx='-1.6' cy='-5.7' r='0.9' fill='%23fdf3e2'/><circle cx='-6.0' cy='11.9' r='0.9' fill='%23fdf3e2'/><circle cx='4.5' cy='-12.7' r='1.5' fill='%23fdf3e2'/></g></defs><use href='%23f' transform='scale(1.02)'/></svg>");
+  /* head to the right, tail to the left — the school crosses rightwards, and
+     drawn the other way round they all swim backwards */
+  --fish-shape: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 50'><path fill='%23000' d='M98 25C86 9 52 6 30 25 52 44 86 41 98 25z'/><path fill='%23000' d='M31 25 3 7v36z'/></svg>");
+  --bird-shape: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 62'><path fill='none' stroke='%23000' stroke-width='9' stroke-linecap='round' d='M5 41C21 9 39 9 50 34 61 9 79 9 95 41'/></svg>");
+  --pines-shape: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1120 200'><path fill='%23000' d='M0 200 H1120 V200 H0ZM-52.3 200.0L-56.9 197.2L-42.7 165.4L-46.2 162.6L-33.1 130.7L-35.4 128.0L-23.6 96.1L-24.7 93.3L-14.0 61.5L-14.0 61.5L-14.0 61.5L-3.3 93.3L-4.4 96.1L7.4 128.0L5.1 130.7L18.2 162.6L14.7 165.4L28.9 197.2L24.3 200.0ZM-15.0 200.0L-18.3 197.6L-8.0 170.2L-10.5 167.8L-1.0 140.3L-2.7 137.9L5.9 110.5L5.1 108.1L12.9 80.7L12.9 80.7L12.9 80.7L20.7 108.1L19.8 110.5L28.5 137.9L26.8 140.3L36.3 167.8L33.8 170.2L44.1 197.6L40.7 200.0ZM29.5 200.0L27.2 198.1L34.4 176.6L32.6 174.7L39.2 153.2L38.0 151.3L44.0 129.8L43.4 128.0L48.8 106.4L48.8 106.4L48.8 106.4L54.2 128.0L53.7 129.8L59.6 151.3L58.5 153.2L65.0 174.7L63.3 176.6L70.4 198.1L68.1 200.0ZM50.4 200.0L48.0 198.2L55.5 177.4L53.7 175.6L60.6 154.9L59.4 153.1L65.7 132.3L65.1 130.5L70.8 109.8L70.8 109.8L70.8 109.8L76.5 130.5L75.9 132.3L82.2 153.1L81.0 154.9L87.9 175.6L86.1 177.4L93.6 198.2L91.2 200.0ZM76.5 200.0L74.5 198.6L80.6 181.9L79.1 180.4L84.7 163.8L83.7 162.3L88.8 145.6L88.3 144.2L92.9 127.5L92.9 127.5L92.9 127.5L97.5 144.2L97.0 145.6L102.0 162.3L101.1 163.8L106.6 180.4L105.2 181.9L111.2 198.6L109.2 200.0ZM89.0 200.0L85.8 197.5L95.7 168.5L93.3 166.0L102.4 137.0L100.8 134.5L109.1 105.5L108.3 103.0L115.8 74.0L115.8 74.0L115.8 74.0L123.3 103.0L122.5 105.5L130.8 134.5L129.2 137.0L138.3 166.0L135.8 168.5L145.7 197.5L142.5 200.0ZM113.3 200.0L110.8 198.3L118.5 179.1L116.6 177.5L123.7 158.3L122.5 156.6L128.9 137.4L128.3 135.7L134.1 116.5L134.1 116.5L134.1 116.5L140.0 135.7L139.3 137.4L145.8 156.6L144.6 158.3L151.6 177.5L149.8 179.1L157.5 198.3L155.0 200.0ZM118.1 200.0L113.3 197.1L128.2 163.7L124.6 160.8L138.3 127.5L135.9 124.6L148.4 91.2L147.2 88.3L158.5 54.9L158.5 54.9L158.5 54.9L169.8 88.3L168.6 91.2L181.1 124.6L178.7 127.5L192.4 160.8L188.8 163.7L203.7 197.1L198.9 200.0ZM164.1 200.0L161.8 198.6L168.9 182.1L167.2 180.7L173.7 164.2L172.6 162.8L178.6 146.4L178.0 144.9L183.4 128.5L183.4 128.5L183.4 128.5L188.8 144.9L188.2 146.4L194.2 162.8L193.1 164.2L199.6 180.7L197.9 182.1L205.0 198.6L202.7 200.0ZM186.9 200.0L183.6 197.9L193.9 173.5L191.4 171.4L200.8 147.0L199.2 144.9L207.8 120.5L207.0 118.4L214.7 94.1L214.7 94.1L214.7 94.1L222.5 118.4L221.7 120.5L230.3 144.9L228.6 147.0L238.1 171.4L235.6 173.5L245.9 197.9L242.5 200.0ZM190.6 200.0L185.0 196.7L202.3 158.5L198.1 155.1L214.0 116.9L211.2 113.6L225.7 75.4L224.3 72.1L237.4 33.9L237.4 33.9L237.4 33.9L250.5 72.1L249.1 75.4L263.6 113.6L260.8 116.9L276.7 155.1L272.5 158.5L289.8 196.7L284.2 200.0ZM232.7 200.0L228.3 196.6L241.9 157.3L238.6 153.9L251.1 114.7L248.9 111.3L260.3 72.0L259.2 68.6L269.5 29.3L269.5 29.3L269.5 29.3L279.8 68.6L278.7 72.0L290.1 111.3L287.9 114.7L300.4 153.9L297.1 157.3L310.7 196.6L306.3 200.0ZM256.5 200.0L251.7 197.1L266.6 163.8L263.0 160.9L276.7 127.6L274.3 124.7L286.8 91.4L285.6 88.5L296.8 55.2L296.8 55.2L296.8 55.2L308.1 88.5L306.9 91.4L319.4 124.7L317.0 127.6L330.7 160.9L327.1 163.8L342.0 197.1L337.1 200.0ZM301.6 200.0L299.2 198.5L306.5 181.0L304.7 179.5L311.4 162.0L310.2 160.4L316.3 142.9L315.7 141.4L321.3 123.9L321.3 123.9L321.3 123.9L326.8 141.4L326.2 142.9L332.3 160.4L331.1 162.0L337.8 179.5L336.0 181.0L343.3 198.5L340.9 200.0ZM313.2 200.0L309.9 197.2L320.0 164.5L317.5 161.7L326.7 129.1L325.1 126.3L333.5 93.6L332.7 90.8L340.2 58.2L340.2 58.2L340.2 58.2L347.8 90.8L347.0 93.6L355.4 126.3L353.8 129.1L363.0 161.7L360.5 164.5L370.5 197.2L367.3 200.0ZM342.4 200.0L339.6 197.7L348.3 171.1L346.1 168.8L354.1 142.2L352.7 139.9L360.0 113.3L359.3 110.9L365.9 84.3L365.9 84.3L365.9 84.3L372.5 110.9L371.8 113.3L379.0 139.9L377.6 142.2L385.6 168.8L383.5 171.1L392.2 197.7L389.4 200.0ZM364.8 200.0L361.5 197.6L371.6 170.5L369.1 168.1L378.4 141.0L376.8 138.6L385.2 111.5L384.4 109.1L392.0 82.0L392.0 82.0L392.0 82.0L399.6 109.1L398.8 111.5L407.2 138.6L405.6 141.0L414.9 168.1L412.4 170.5L422.5 197.6L419.2 200.0ZM379.8 200.0L374.3 196.8L391.4 159.9L387.2 156.7L402.9 119.8L400.2 116.6L414.5 79.7L413.1 76.4L426.0 39.5L426.0 39.5L426.0 39.5L439.0 76.4L437.6 79.7L451.9 116.6L449.1 119.8L464.8 156.7L460.7 159.9L477.8 196.8L472.2 200.0ZM433.1 200.0L431.4 198.7L436.7 184.2L435.4 183.0L440.4 168.5L439.5 167.2L444.0 152.7L443.6 151.5L447.7 137.0L447.7 137.0L447.7 137.0L451.8 151.5L451.3 152.7L455.8 167.2L455.0 168.5L459.9 183.0L458.6 184.2L464.0 198.7L462.3 200.0ZM435.8 200.0L432.1 197.2L443.6 164.5L440.8 161.7L451.3 129.1L449.5 126.3L459.1 93.6L458.1 90.8L466.8 58.2L466.8 58.2L466.8 58.2L475.5 90.8L474.6 93.6L484.2 126.3L482.4 129.1L492.9 161.7L490.1 164.5L501.6 197.2L497.9 200.0ZM464.5 200.0L461.9 198.1L469.9 176.8L468.0 174.9L475.4 153.5L474.1 151.7L480.8 130.3L480.2 128.5L486.3 107.1L486.3 107.1L486.3 107.1L492.4 128.5L491.7 130.3L498.5 151.7L497.2 153.5L504.6 174.9L502.6 176.8L510.7 198.1L508.1 200.0ZM491.9 200.0L488.9 197.7L498.3 171.6L496.0 169.4L504.6 143.3L503.1 141.0L510.9 114.9L510.2 112.6L517.3 86.5L517.3 86.5L517.3 86.5L524.3 112.6L523.6 114.9L531.4 141.0L529.9 143.3L538.5 169.4L536.2 171.6L545.6 197.7L542.6 200.0ZM533.2 200.0L531.6 198.7L536.7 183.7L535.4 182.4L540.2 167.4L539.3 166.1L543.6 151.1L543.2 149.8L547.1 134.7L547.1 134.7L547.1 134.7L551.0 149.8L550.6 151.1L554.9 166.1L554.1 167.4L558.8 182.4L557.5 183.7L562.7 198.7L561.0 200.0ZM547.6 200.0L544.0 197.1L555.0 163.2L552.3 160.2L562.4 126.4L560.6 123.4L569.8 89.6L568.9 86.6L577.2 52.8L577.2 52.8L577.2 52.8L585.5 86.6L584.6 89.6L593.8 123.4L592.0 126.4L602.1 160.2L599.4 163.2L610.4 197.1L606.8 200.0ZM564.3 200.0L560.6 197.6L572.1 170.3L569.3 168.0L579.9 140.7L578.0 138.3L587.7 111.0L586.7 108.6L595.4 81.3L595.4 81.3L595.4 81.3L604.2 108.6L603.2 111.0L612.9 138.3L611.0 140.7L621.6 168.0L618.8 170.3L630.3 197.6L626.6 200.0ZM588.4 200.0L585.5 197.8L594.5 172.3L592.3 170.1L600.6 144.7L599.1 142.5L606.7 117.0L605.9 114.8L612.8 89.3L612.8 89.3L612.8 89.3L619.6 114.8L618.8 117.0L626.4 142.5L624.9 144.7L633.2 170.1L631.0 172.3L640.1 197.8L637.1 200.0ZM613.7 200.0L611.6 198.4L618.1 180.0L616.5 178.4L622.5 160.1L621.5 158.5L627.0 140.1L626.4 138.5L631.4 120.1L631.4 120.1L631.4 120.1L636.3 138.5L635.8 140.1L641.3 158.5L640.2 160.1L646.2 178.4L644.6 180.0L651.2 198.4L649.1 200.0ZM638.4 200.0L636.1 198.5L643.1 181.7L641.4 180.3L647.8 163.5L646.7 162.0L652.5 145.2L652.0 143.8L657.2 127.0L657.2 127.0L657.2 127.0L662.5 143.8L662.0 145.2L667.8 162.0L666.7 163.5L673.1 180.3L671.4 181.7L678.4 198.5L676.1 200.0ZM663.4 200.0L660.1 197.2L670.3 165.2L667.8 162.4L677.2 130.3L675.5 127.5L684.1 95.5L683.2 92.7L690.9 60.7L690.9 60.7L690.9 60.7L698.6 92.7L697.8 95.5L706.4 127.5L704.7 130.3L714.1 162.4L711.6 165.2L721.8 197.2L718.5 200.0ZM694.8 200.0L691.7 197.3L701.1 166.6L698.8 163.9L707.5 133.2L706.0 130.6L713.9 99.9L713.1 97.2L720.3 66.5L720.3 66.5L720.3 66.5L727.4 97.2L726.6 99.9L734.5 130.6L733.0 133.2L741.7 163.9L739.4 166.6L748.8 197.3L745.8 200.0ZM704.6 200.0L699.8 197.3L714.6 166.1L711.0 163.4L724.6 132.2L722.2 129.4L734.6 98.2L733.4 95.5L744.6 64.3L744.6 64.3L744.6 64.3L755.8 95.5L754.6 98.2L767.0 129.4L764.6 132.2L778.1 163.4L774.5 166.1L789.3 197.3L784.5 200.0ZM747.1 200.0L743.3 197.5L755.1 168.5L752.2 166.0L763.2 137.0L761.2 134.4L771.2 105.5L770.2 102.9L779.2 73.9L779.2 73.9L779.2 73.9L788.2 102.9L787.3 105.5L797.2 134.4L795.3 137.0L806.2 166.0L803.3 168.5L815.2 197.5L811.3 200.0ZM793.7 200.0L791.2 198.3L798.9 178.9L797.0 177.2L804.0 157.8L802.8 156.1L809.2 136.7L808.6 135.0L814.4 115.6L814.4 115.6L814.4 115.6L820.2 135.0L819.6 136.7L826.1 156.1L824.8 157.8L831.9 177.2L830.0 178.9L837.7 198.3L835.2 200.0ZM793.4 200.0L788.6 197.0L803.2 162.5L799.6 159.5L813.0 125.1L810.6 122.1L822.8 87.6L821.6 84.6L832.6 50.1L832.6 50.1L832.6 50.1L843.6 84.6L842.4 87.6L854.6 122.1L852.2 125.1L865.6 159.5L862.0 162.5L876.6 197.0L871.8 200.0ZM833.1 200.0L830.6 198.3L838.2 179.3L836.4 177.6L843.3 158.6L842.1 156.9L848.5 137.9L847.9 136.2L853.6 117.1L853.6 117.1L853.6 117.1L859.3 136.2L858.7 137.9L865.1 156.9L863.9 158.6L870.8 177.6L869.0 179.3L876.6 198.3L874.1 200.0ZM867.8 200.0L865.7 198.5L872.1 181.1L870.5 179.5L876.3 162.1L875.3 160.6L880.6 143.2L880.1 141.7L884.9 124.2L884.9 124.2L884.9 124.2L889.7 141.7L889.2 143.2L894.5 160.6L893.4 162.1L899.2 179.5L897.7 181.1L904.0 198.5L902.0 200.0ZM885.7 200.0L882.6 198.2L892.2 177.4L889.8 175.6L898.7 154.9L897.1 153.0L905.1 132.3L904.4 130.5L911.6 109.7L911.6 109.7L911.6 109.7L918.9 130.5L918.1 132.3L926.2 153.0L924.6 154.9L933.4 175.6L931.1 177.4L940.7 198.2L937.6 200.0ZM897.9 200.0L892.6 196.6L909.0 157.3L905.0 153.9L920.2 114.6L917.5 111.2L931.3 71.9L929.9 68.5L942.4 29.2L942.4 29.2L942.4 29.2L954.9 68.5L953.5 71.9L967.3 111.2L964.7 114.6L979.8 153.9L975.8 157.3L992.2 196.6L986.9 200.0ZM949.5 200.0L946.7 198.1L955.2 176.7L953.1 174.9L960.9 153.4L959.5 151.6L966.6 130.2L965.9 128.3L972.3 106.9L972.3 106.9L972.3 106.9L978.8 128.3L978.1 130.2L985.2 151.6L983.8 153.4L991.6 174.9L989.5 176.7L998.0 198.1L995.2 200.0ZM974.8 200.0L972.0 197.7L980.5 171.1L978.4 168.8L986.1 142.2L984.8 139.9L991.8 113.4L991.1 111.1L997.5 84.5L997.5 84.5L997.5 84.5L1003.9 111.1L1003.2 113.4L1010.2 139.9L1008.9 142.2L1016.6 168.8L1014.6 171.1L1023.0 197.7L1020.2 200.0ZM1011.9 200.0L1009.7 198.4L1016.6 180.5L1014.9 179.0L1021.3 161.0L1020.2 159.5L1026.0 141.6L1025.4 140.0L1030.6 122.1L1030.6 122.1L1030.6 122.1L1035.9 140.0L1035.3 141.6L1041.1 159.5L1040.0 161.0L1046.4 179.0L1044.7 180.5L1051.6 198.4L1049.4 200.0ZM1031.2 200.0L1027.1 197.6L1039.7 170.1L1036.7 167.7L1048.3 140.2L1046.2 137.9L1056.8 110.4L1055.8 108.0L1065.3 80.5L1065.3 80.5L1065.3 80.5L1074.9 108.0L1073.9 110.4L1084.4 137.9L1082.4 140.2L1094.0 167.7L1090.9 170.1L1103.5 197.6L1099.4 200.0ZM1060.8 200.0L1057.6 197.7L1067.4 171.5L1065.0 169.2L1074.0 142.9L1072.5 140.6L1080.7 114.4L1079.9 112.1L1087.3 85.8L1087.3 85.8L1087.3 85.8L1094.7 112.1L1093.9 114.4L1102.1 140.6L1100.5 142.9L1109.5 169.2L1107.1 171.5L1116.9 197.7L1113.7 200.0ZM1085.9 200.0L1082.9 197.9L1092.0 174.3L1089.8 172.2L1098.1 148.6L1096.7 146.5L1104.3 122.9L1103.5 120.8L1110.4 97.1L1110.4 97.1L1110.4 97.1L1117.3 120.8L1116.6 122.9L1124.2 146.5L1122.7 148.6L1131.1 172.2L1128.9 174.3L1138.0 197.9L1135.0 200.0Z'/></svg>");
+  --ferns-shape: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 1120 170'><path fill='none' stroke='%23000' stroke-width='2.2' stroke-linecap='round' d='M-12.0 170.0Q-25.9 87.6 -67.6 32.7M-14.1 156.3l-35.1 -16.9M-14.1 156.3l35.1 -16.9M-16.9 142.5l-31.6 -15.1M-16.9 142.5l31.6 -15.1M-20.5 128.8l-28.0 -13.4M-20.5 128.8l28.0 -13.4M-24.9 115.1l-24.4 -11.7M-24.9 115.1l24.4 -11.7M-30.1 101.4l-20.8 -10.0M-30.1 101.4l20.8 -10.0M-36.0 87.6l-17.3 -8.3M-36.0 87.6l17.3 -8.3M-42.8 73.9l-13.7 -6.6M-42.8 73.9l13.7 -6.6M-50.3 60.2l-10.1 -4.9M-50.3 60.2l10.1 -4.9M-58.6 46.5l-6.6 -3.2M-58.6 46.5l6.6 -3.2M16.0 170.0Q13.9 112.6 7.7 74.3M15.5 156.3l-24.3 -11.7M15.5 156.3l24.3 -11.7M14.8 142.7l-20.8 -10.0M14.8 142.7l20.8 -10.0M13.9 129.0l-17.2 -8.3M13.9 129.0l17.2 -8.3M12.7 115.3l-13.7 -6.6M12.7 115.3l13.7 -6.6M11.3 101.6l-10.1 -4.9M11.3 101.6l10.1 -4.9M9.6 88.0l-6.6 -3.1M9.6 88.0l6.6 -3.1M32.8 170.0Q29.1 122.0 18.1 90.0M31.7 156.7l-20.3 -9.8M31.7 156.7l20.3 -9.8M30.1 143.3l-16.9 -8.1M30.1 143.3l16.9 -8.1M28.0 130.0l-13.4 -6.4M28.0 130.0l13.4 -6.4M25.3 116.7l-9.9 -4.8M25.3 116.7l9.9 -4.8M22.0 103.3l-6.5 -3.1M22.0 103.3l6.5 -3.1M55.4 170.0Q52.0 108.9 41.8 68.2M54.6 155.5l-25.7 -12.3M54.6 155.5l25.7 -12.3M53.4 140.9l-21.9 -10.5M53.4 140.9l21.9 -10.5M51.9 126.4l-18.1 -8.7M51.9 126.4l18.1 -8.7M49.9 111.8l-14.3 -6.9M49.9 111.8l14.3 -6.9M47.6 97.3l-10.6 -5.1M47.6 97.3l10.6 -5.1M44.9 82.8l-6.8 -3.3M44.9 82.8l6.8 -3.3M76.7 170.0Q85.2 126.9 110.9 98.2M79.7 155.6l-17.9 -8.6M79.7 155.6l17.9 -8.6M84.6 141.3l-14.2 -6.8M84.6 141.3l14.2 -6.8M91.5 126.9l-10.5 -5.0M91.5 126.9l10.5 -5.0M100.3 112.6l-6.7 -3.2M100.3 112.6l6.7 -3.2M99.7 170.0Q88.2 87.5 53.8 32.5M98.0 156.3l-35.2 -16.9M98.0 156.3l35.2 -16.9M95.7 142.5l-31.6 -15.2M95.7 142.5l31.6 -15.2M92.7 128.8l-28.0 -13.4M92.7 128.8l28.0 -13.4M89.1 115.0l-24.4 -11.7M89.1 115.0l24.4 -11.7M84.8 101.3l-20.9 -10.0M84.8 101.3l20.9 -10.0M79.9 87.5l-17.3 -8.3M79.9 87.5l17.3 -8.3M74.3 73.8l-13.7 -6.6M74.3 73.8l13.7 -6.6M68.1 60.0l-10.1 -4.9M68.1 60.0l10.1 -4.9M61.3 46.3l-6.6 -3.2M61.3 46.3l6.6 -3.2M127.7 170.0Q132.8 111.1 148.3 71.9M128.9 156.0l-24.9 -11.9M128.9 156.0l24.9 -11.9M130.6 142.0l-21.2 -10.2M130.6 142.0l21.2 -10.2M133.0 127.9l-17.6 -8.4M133.0 127.9l17.6 -8.4M135.9 113.9l-13.9 -6.7M135.9 113.9l13.9 -6.7M139.5 99.9l-10.3 -4.9M139.5 99.9l10.3 -4.9M143.6 85.9l-6.6 -3.2M143.6 85.9l6.6 -3.2M152.9 170.0Q155.8 93.1 164.2 41.9M153.4 155.8l-32.6 -15.7M153.4 155.8l32.6 -15.7M154.1 141.5l-28.9 -13.9M154.1 141.5l28.9 -13.9M154.9 127.3l-25.2 -12.1M154.9 127.3l25.2 -12.1M156.0 113.0l-21.5 -10.3M156.0 113.0l21.5 -10.3M157.2 98.8l-17.8 -8.5M157.2 98.8l17.8 -8.5M158.7 84.6l-14.1 -6.8M158.7 84.6l14.1 -6.8M160.3 70.3l-10.4 -5.0M160.3 70.3l10.4 -5.0M162.1 56.1l-6.7 -3.2M162.1 56.1l6.7 -3.2M169.8 170.0Q172.9 103.9 182.3 59.8M170.4 156.2l-28.1 -13.5M170.4 156.2l28.1 -13.5M171.3 142.5l-24.5 -11.8M171.3 142.5l24.5 -11.8M172.4 128.7l-20.9 -10.0M172.4 128.7l20.9 -10.0M173.8 114.9l-17.3 -8.3M173.8 114.9l17.3 -8.3M175.5 101.1l-13.7 -6.6M175.5 101.1l13.7 -6.6M177.5 87.4l-10.2 -4.9M177.5 87.4l10.2 -4.9M179.7 73.6l-6.6 -3.2M179.7 73.6l6.6 -3.2M190.2 170.0Q199.8 101.2 228.7 55.3M192.1 155.7l-29.1 -14.0M192.1 155.7l29.1 -14.0M194.8 141.3l-25.4 -12.2M194.8 141.3l25.4 -12.2M198.3 127.0l-21.6 -10.4M198.3 127.0l21.6 -10.4M202.7 112.7l-17.9 -8.6M202.7 112.7l17.9 -8.6M207.9 98.3l-14.2 -6.8M207.9 98.3l14.2 -6.8M214.0 84.0l-10.5 -5.0M214.0 84.0l10.5 -5.0M220.9 69.7l-6.7 -3.2M220.9 69.7l6.7 -3.2M211.2 170.0Q208.0 134.0 198.5 110.0M209.7 155.0l-14.7 -7.1M209.7 155.0l14.7 -7.1M207.1 140.0l-10.8 -5.2M207.1 140.0l10.8 -5.2M203.4 125.0l-6.9 -3.3M203.4 125.0l6.9 -3.3M237.8 170.0Q228.4 117.4 200.3 82.3M235.2 155.4l-22.0 -10.6M235.2 155.4l22.0 -10.6M231.1 140.8l-18.2 -8.7M231.1 140.8l18.2 -8.7M225.6 126.1l-14.4 -6.9M225.6 126.1l14.4 -6.9M218.6 111.5l-10.6 -5.1M218.6 111.5l10.6 -5.1M210.2 96.9l-6.8 -3.3M210.2 96.9l6.8 -3.3M261.9 170.0Q263.8 111.5 269.6 72.6M262.3 156.1l-24.7 -11.9M262.3 156.1l24.7 -11.9M263.0 142.2l-21.1 -10.1M263.0 142.2l21.1 -10.1M263.9 128.2l-17.5 -8.4M263.9 128.2l17.5 -8.4M265.0 114.3l-13.9 -6.7M265.0 114.3l13.9 -6.7M266.3 100.4l-10.2 -4.9M266.3 100.4l10.2 -4.9M267.8 86.5l-6.6 -3.2M267.8 86.5l6.6 -3.2M284.3 170.0Q289.6 98.1 305.5 50.2M285.2 156.7l-30.7 -14.7M285.2 156.7l30.7 -14.7M286.4 143.4l-27.2 -13.1M286.4 143.4l27.2 -13.1M288.0 130.1l-23.8 -11.4M288.0 130.1l23.8 -11.4M290.0 116.7l-20.3 -9.7M290.0 116.7l20.3 -9.7M292.4 103.4l-16.8 -8.1M292.4 103.4l16.8 -8.1M295.1 90.1l-13.4 -6.4M295.1 90.1l13.4 -6.4M298.2 76.8l-9.9 -4.8M298.2 76.8l9.9 -4.8M301.6 63.5l-6.5 -3.1M301.6 63.5l6.5 -3.1M304.9 170.0Q313.3 122.9 338.3 91.4M307.2 156.9l-20.0 -9.6M307.2 156.9l20.0 -9.6M310.9 143.8l-16.6 -8.0M310.9 143.8l16.6 -8.0M315.8 130.7l-13.2 -6.3M315.8 130.7l13.2 -6.3M322.0 117.6l-9.8 -4.7M322.0 117.6l9.8 -4.7M329.5 104.5l-6.4 -3.1M329.5 104.5l6.4 -3.1M324.9 170.0Q320.6 117.2 307.6 81.9M323.7 155.3l-22.1 -10.6M323.7 155.3l22.1 -10.6M321.8 140.6l-18.3 -8.8M321.8 140.6l18.3 -8.8M319.3 126.0l-14.4 -6.9M319.3 126.0l14.4 -6.9M316.1 111.3l-10.6 -5.1M316.1 111.3l10.6 -5.1M312.2 96.6l-6.8 -3.3M312.2 96.6l6.8 -3.3M351.4 170.0Q340.0 97.6 305.9 49.3M349.5 156.6l-30.9 -14.8M349.5 156.6l30.9 -14.8M346.8 143.2l-27.4 -13.2M346.8 143.2l27.4 -13.2M343.3 129.8l-23.9 -11.5M343.3 129.8l23.9 -11.5M339.0 116.3l-20.4 -9.8M339.0 116.3l20.4 -9.8M334.0 102.9l-17.0 -8.1M334.0 102.9l17.0 -8.1M328.2 89.5l-13.5 -6.5M328.2 89.5l13.5 -6.5M321.5 76.1l-10.0 -4.8M321.5 76.1l10.0 -4.8M314.1 62.7l-6.5 -3.1M314.1 62.7l6.5 -3.1M370.8 170.0Q366.0 138.8 351.4 118.0M367.4 152.7l-12.0 -5.8M367.4 152.7l12.0 -5.8M360.9 135.3l-7.5 -3.6M360.9 135.3l7.5 -3.6M396.2 170.0Q406.4 114.8 437.2 78.0M398.5 156.9l-23.5 -11.3M398.5 156.9l23.5 -11.3M402.0 143.7l-20.1 -9.6M402.0 143.7l20.1 -9.6M406.7 130.6l-16.7 -8.0M406.7 130.6l16.7 -8.0M412.6 117.5l-13.2 -6.4M412.6 117.5l13.2 -6.4M419.6 104.3l-9.8 -4.7M419.6 104.3l9.8 -4.7M427.8 91.2l-6.4 -3.1M427.8 91.2l6.4 -3.1M420.3 170.0Q409.1 112.8 375.2 74.6M417.8 156.4l-24.3 -11.6M417.8 156.4l24.3 -11.6M413.9 142.7l-20.7 -9.9M413.9 142.7l20.7 -9.9M408.7 129.1l-17.2 -8.2M408.7 129.1l17.2 -8.2M402.3 115.5l-13.6 -6.5M402.3 115.5l13.6 -6.5M394.5 101.9l-10.1 -4.8M394.5 101.9l10.1 -4.8M385.5 88.2l-6.5 -3.1M385.5 88.2l6.5 -3.1M440.4 170.0Q435.6 125.0 421.2 94.9M438.7 155.0l-18.6 -8.9M438.7 155.0l18.6 -8.9M435.9 140.0l-14.7 -7.1M435.9 140.0l14.7 -7.1M432.1 125.0l-10.8 -5.2M432.1 125.0l10.8 -5.2M427.2 109.9l-6.9 -3.3M427.2 109.9l6.9 -3.3M470.6 170.0Q462.8 118.9 439.6 84.8M468.4 155.8l-21.5 -10.3M468.4 155.8l21.5 -10.3M465.1 141.6l-17.8 -8.5M465.1 141.6l17.8 -8.5M460.5 127.4l-14.1 -6.8M460.5 127.4l14.1 -6.8M454.8 113.2l-10.4 -5.0M454.8 113.2l10.4 -5.0M447.8 99.0l-6.7 -3.2M447.8 99.0l6.7 -3.2M496.2 170.0Q491.4 133.6 477.2 109.3M493.9 154.8l-14.8 -7.1M493.9 154.8l14.8 -7.1M490.0 139.7l-10.9 -5.2M490.0 139.7l10.9 -5.2M484.4 124.5l-6.9 -3.3M484.4 124.5l6.9 -3.3M523.1 170.0Q526.6 137.6 537.0 115.9M524.8 156.5l-13.5 -6.5M524.8 156.5l13.5 -6.5M527.7 143.0l-10.0 -4.8M527.7 143.0l10.0 -4.8M531.7 129.4l-6.5 -3.1M531.7 129.4l6.5 -3.1M547.0 170.0Q549.3 138.8 556.1 117.9M548.1 157.0l-13.2 -6.3M548.1 157.0l13.2 -6.3M550.0 144.0l-9.8 -4.7M550.0 144.0l9.8 -4.7M552.7 131.0l-6.4 -3.1M552.7 131.0l6.4 -3.1M580.4 170.0Q590.2 100.7 619.8 54.6M582.3 155.6l-29.3 -14.0M582.3 155.6l29.3 -14.0M585.0 141.1l-25.5 -12.2M585.0 141.1l25.5 -12.2M588.7 126.7l-21.8 -10.4M588.7 126.7l21.8 -10.4M593.2 112.3l-18.0 -8.6M593.2 112.3l18.0 -8.6M598.5 97.9l-14.3 -6.8M598.5 97.9l14.3 -6.8M604.7 83.4l-10.5 -5.0M604.7 83.4l10.5 -5.0M611.8 69.0l-6.8 -3.2M611.8 69.0l6.8 -3.2M613.3 170.0Q613.0 127.1 612.3 98.5M613.2 155.7l-17.9 -8.6M613.2 155.7l17.9 -8.6M613.0 141.4l-14.2 -6.8M613.0 141.4l14.2 -6.8M612.8 127.1l-10.4 -5.0M612.8 127.1l10.4 -5.0M612.6 112.8l-6.7 -3.2M612.6 112.8l6.7 -3.2M642.6 170.0Q652.3 120.0 681.5 86.7M645.3 156.1l-21.1 -10.1M645.3 156.1l21.1 -10.1M649.5 142.2l-17.4 -8.4M649.5 142.2l17.4 -8.4M655.2 128.3l-13.8 -6.6M655.2 128.3l13.8 -6.6M662.5 114.5l-10.2 -4.9M662.5 114.5l10.2 -4.9M671.2 100.6l-6.6 -3.2M671.2 100.6l6.6 -3.2M666.2 170.0Q661.4 141.2 646.8 122.0M662.8 154.0l-11.3 -5.4M662.8 154.0l11.3 -5.4M656.3 138.0l-7.2 -3.4M656.3 138.0l7.2 -3.4M689.9 170.0Q691.2 141.3 695.2 122.2M690.8 154.1l-11.3 -5.4M690.8 154.1l11.3 -5.4M692.6 138.1l-7.1 -3.4M692.6 138.1l7.1 -3.4M723.8 170.0Q740.1 89.8 788.9 36.3M726.2 156.6l-34.3 -16.5M726.2 156.6l34.3 -16.5M729.5 143.3l-30.8 -14.8M729.5 143.3l30.8 -14.8M733.8 129.9l-27.3 -13.1M733.8 129.9l27.3 -13.1M738.9 116.5l-23.9 -11.5M738.9 116.5l23.9 -11.5M745.0 103.1l-20.4 -9.8M745.0 103.1l20.4 -9.8M751.9 89.8l-16.9 -8.1M751.9 89.8l16.9 -8.1M759.8 76.4l-13.4 -6.4M759.8 76.4l13.4 -6.4M768.6 63.0l-10.0 -4.8M768.6 63.0l10.0 -4.8M778.3 49.7l-6.5 -3.1M778.3 49.7l6.5 -3.1M744.3 170.0Q737.5 132.2 717.3 107.1M741.1 154.3l-15.3 -7.3M741.1 154.3l15.3 -7.3M735.5 138.5l-11.2 -5.4M735.5 138.5l11.2 -5.4M727.6 122.8l-7.1 -3.4M727.6 122.8l7.1 -3.4M777.0 170.0Q771.9 140.9 756.3 121.6M773.4 153.9l-11.4 -5.5M773.4 153.9l11.4 -5.5M766.5 137.7l-7.2 -3.5M766.5 137.7l7.2 -3.5M805.1 170.0Q806.2 88.9 809.7 34.9M805.2 156.5l-34.6 -16.6M805.2 156.5l34.6 -16.6M805.5 143.0l-31.1 -14.9M805.5 143.0l31.1 -14.9M805.8 129.5l-27.6 -13.2M805.8 129.5l27.6 -13.2M806.1 116.0l-24.1 -11.6M806.1 116.0l24.1 -11.6M806.6 102.5l-20.6 -9.9M806.6 102.5l20.6 -9.9M807.0 88.9l-17.0 -8.2M807.0 88.9l17.0 -8.2M807.6 75.4l-13.5 -6.5M807.6 75.4l13.5 -6.5M808.2 61.9l-10.0 -4.8M808.2 61.9l10.0 -4.8M808.9 48.4l-6.5 -3.1M808.9 48.4l6.5 -3.1M822.2 170.0Q826.1 140.4 837.9 120.7M825.0 153.6l-11.5 -5.5M825.0 153.6l11.5 -5.5M830.2 137.1l-7.3 -3.5M830.2 137.1l7.3 -3.5M850.6 170.0Q859.7 124.9 887.0 94.8M853.8 155.0l-18.6 -8.9M853.8 155.0l18.6 -8.9M859.0 139.9l-14.7 -7.1M859.0 139.9l14.7 -7.1M866.3 124.9l-10.8 -5.2M866.3 124.9l10.8 -5.2M875.6 109.9l-6.9 -3.3M875.6 109.9l6.9 -3.3M871.6 170.0Q878.6 134.0 899.6 110.0M875.0 155.0l-14.7 -7.1M875.0 155.0l14.7 -7.1M880.7 140.0l-10.8 -5.2M880.7 140.0l10.8 -5.2M888.9 125.0l-6.9 -3.3M888.9 125.0l6.9 -3.3M888.6 170.0Q882.2 121.9 863.0 89.9M886.9 156.6l-20.4 -9.8M886.9 156.6l20.4 -9.8M884.1 143.3l-16.9 -8.1M884.1 143.3l16.9 -8.1M880.3 129.9l-13.4 -6.4M880.3 129.9l13.4 -6.4M875.5 116.6l-9.9 -4.8M875.5 116.6l9.9 -4.8M869.8 103.2l-6.5 -3.1M869.8 103.2l6.5 -3.1M916.2 170.0Q910.5 114.8 893.4 78.1M914.9 156.9l-23.5 -11.3M914.9 156.9l23.5 -11.3M912.9 143.7l-20.1 -9.6M912.9 143.7l20.1 -9.6M910.3 130.6l-16.7 -8.0M910.3 130.6l16.7 -8.0M907.0 117.5l-13.2 -6.4M907.0 117.5l13.2 -6.4M903.1 104.3l-9.8 -4.7M903.1 104.3l9.8 -4.7M898.6 91.2l-6.4 -3.1M898.6 91.2l6.4 -3.1M943.5 170.0Q950.2 136.4 970.5 114.0M946.7 156.0l-13.9 -6.7M946.7 156.0l13.9 -6.7M952.3 142.0l-10.3 -4.9M952.3 142.0l10.3 -4.9M960.2 128.0l-6.6 -3.2M960.2 128.0l6.6 -3.2M973.6 170.0Q975.1 130.6 979.9 104.4M974.1 156.9l-16.6 -8.0M974.1 156.9l16.6 -8.0M975.0 143.8l-13.2 -6.4M975.0 143.8l13.2 -6.4M976.3 130.6l-9.8 -4.7M976.3 130.6l9.8 -4.7M977.9 117.5l-6.4 -3.1M977.9 117.5l6.4 -3.1M994.4 170.0Q989.8 110.0 976.0 70.0M993.4 155.7l-25.3 -12.1M993.4 155.7l25.3 -12.1M991.8 141.4l-21.6 -10.4M991.8 141.4l21.6 -10.4M989.7 127.1l-17.9 -8.6M989.7 127.1l17.9 -8.6M987.1 112.8l-14.1 -6.8M987.1 112.8l14.1 -6.8M983.9 98.5l-10.4 -5.0M983.9 98.5l10.4 -5.0M980.2 84.3l-6.7 -3.2M980.2 84.3l6.7 -3.2M1014.2 170.0Q1004.4 114.7 974.8 77.9M1012.0 156.8l-23.5 -11.3M1012.0 156.8l23.5 -11.3M1008.6 143.7l-20.1 -9.7M1008.6 143.7l20.1 -9.7M1004.1 130.5l-16.7 -8.0M1004.1 130.5l16.7 -8.0M998.4 117.4l-13.3 -6.4M998.4 117.4l13.3 -6.4M991.7 104.2l-9.8 -4.7M991.7 104.2l9.8 -4.7M983.8 91.0l-6.4 -3.1M983.8 91.0l6.4 -3.1M1048.1 170.0Q1039.9 98.0 1015.4 49.9M1046.7 156.7l-30.7 -14.8M1046.7 156.7l30.7 -14.8M1044.8 143.3l-27.3 -13.1M1044.8 143.3l27.3 -13.1M1042.3 130.0l-23.8 -11.4M1042.3 130.0l23.8 -11.4M1039.2 116.6l-20.3 -9.8M1039.2 116.6l20.3 -9.8M1035.6 103.3l-16.9 -8.1M1035.6 103.3l16.9 -8.1M1031.4 90.0l-13.4 -6.4M1031.4 90.0l13.4 -6.4M1026.6 76.6l-9.9 -4.8M1026.6 76.6l9.9 -4.8M1021.3 63.3l-6.5 -3.1M1021.3 63.3l6.5 -3.1M1074.9 170.0Q1069.7 132.4 1054.0 107.4M1072.4 154.3l-15.2 -7.3M1072.4 154.3l15.2 -7.3M1068.1 138.7l-11.1 -5.3M1068.1 138.7l11.1 -5.3M1062.0 123.0l-7.1 -3.4M1062.0 123.0l7.1 -3.4M1097.8 170.0Q1085.6 102.0 1049.0 56.7M1095.4 155.8l-28.8 -13.8M1095.4 155.8l28.8 -13.8M1092.0 141.7l-25.1 -12.0M1092.0 141.7l25.1 -12.0M1087.5 127.5l-21.4 -10.3M1087.5 127.5l21.4 -10.3M1081.9 113.3l-17.7 -8.5M1081.9 113.3l17.7 -8.5M1075.3 99.2l-14.0 -6.7M1075.3 99.2l14.0 -6.7M1067.6 85.0l-10.4 -5.0M1067.6 85.0l10.4 -5.0M1058.8 70.9l-6.7 -3.2M1058.8 70.9l6.7 -3.2M1130.6 170.0Q1124.8 128.2 1107.3 100.4M1128.6 156.1l-17.5 -8.4M1128.6 156.1l17.5 -8.4M1125.2 142.2l-13.9 -6.7M1125.2 142.2l13.9 -6.7M1120.5 128.2l-10.2 -4.9M1120.5 128.2l10.2 -4.9M1114.6 114.3l-6.6 -3.2M1114.6 114.3l6.6 -3.2'/></svg>");
+  /* the branch sakura hangs in the top corner: drawn, not masked, so it keeps
+     its own ink and the buds stay round against the sky */
+  --branch-shape: url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 200 120'><g fill='none' stroke='%233b2630' stroke-linecap='round'><path stroke-width='5' d='M200 6C168 12 140 22 116 38 96 51 78 68 58 80'/><path stroke-width='2.6' d='M150 24c-6 10-9 20-8 32'/><path stroke-width='2.2' d='M120 36c-10 6-16 15-19 26'/><path stroke-width='2.4' d='M172 14c-4 12-4 22-1 32'/><path stroke-width='2' d='M92 56c-8 3-14 9-18 17'/></g><g fill='%23c2617f'><circle cx='142' cy='58' r='4.4'/><circle cx='101' cy='64' r='3.8'/><circle cx='171' cy='48' r='4'/><circle cx='74' cy='75' r='3.4'/><circle cx='186' cy='20' r='3'/><circle cx='128' cy='31' r='2.6'/></g></svg>");
+
   --sky-raw: linear-gradient(to top,
     var(--c-sky-1, transparent) 0%,
     var(--c-sky-2, transparent) var(--c-sky-mid, 45%),
@@ -291,6 +471,17 @@ html {
   scrollbar-gutter: stable;
 }
 
+/* Installed, the app is a window and not a page: no system scrollbar, and so no
+   gutter to reserve either. The wheel and the keys still scroll. In a browser tab
+   the bar stays, it belongs to the browser. */
+@media (display-mode: standalone), (display-mode: window-controls-overlay) {
+  html {
+    scrollbar-width: none;
+    scrollbar-gutter: auto;
+  }
+  html::-webkit-scrollbar { display: none; }
+}
+
 body {
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", sans-serif;
   color: var(--text);
@@ -320,10 +511,201 @@ body {
   background: #fff;
   opacity: 0;
 }
-[data-theme="night"] .star { opacity: .85; animation: twinkle 3s ease-in-out infinite; }
+[data-theme="night"] .star,
+[data-theme="boreal"] .star { opacity: .85; animation: twinkle 3s ease-in-out infinite; }
 @keyframes twinkle {
   0%, 100% { opacity: .22; }
   50%      { opacity: .9; }
+}
+
+/* SKY ORNAMENTS — one small thing per theme, costing no DOM and no script: the
+   two pseudo-elements of the sky. The rule is that you should notice it on the
+   second look, never on the first, so everything here is soft, slow and thin. */
+#sky::before,
+#sky::after {
+  content: "";
+  position: absolute;
+  pointer-events: none;
+  opacity: 0;
+}
+
+/* a shaft of afternoon light across the paper, and the dust turning in it */
+[data-theme="light"] #sky::before {
+  inset: -20% 40% -20% -10%;
+  background: linear-gradient(102deg, transparent 42%, rgba(255, 246, 224, .55) 58%, transparent 70%);
+  filter: blur(28px);
+  opacity: .7;
+  animation: slow-breathe 26s ease-in-out infinite alternate;
+}
+
+/* the dark room is not empty: one very deep glow, turning over slowly */
+[data-theme="dark"] #sky::before {
+  inset: 12% -30% -30% 18%;
+  background: radial-gradient(45% 45% at 50% 50%, rgba(140, 110, 220, .22), transparent 70%);
+  filter: blur(40px);
+  opacity: .8;
+  animation: slow-drift 46s ease-in-out infinite alternate;
+}
+
+/* blossom light: the glow of a tree in flower just off the edge of the page */
+[data-theme="sakura"] #sky::before {
+  inset: -14% -10% 46% 28%;
+  background: radial-gradient(50% 60% at 62% 34%, rgba(255, 197, 219, .55), transparent 72%);
+  filter: blur(30px);
+  opacity: .75;
+  animation: slow-breathe 22s ease-in-out infinite alternate;
+}
+/* a branch across the top corner, in silhouette, with a few buds on it */
+[data-theme="sakura"] #sky::after {
+  inset: -2% -2% auto 52%;
+  height: 26vh;
+  background: var(--branch-shape) top right / contain no-repeat;
+  transform-origin: 100% 0;   /* it hangs from the corner, so it pivots there */
+  opacity: .16;
+  animation: branch-breathe 13s ease-in-out infinite alternate;
+}
+
+/* the sun has not cleared the horizon yet — the glow says where it will */
+[data-theme="dawn"] #sky::before {
+  inset: auto -20% -18% -20%;
+  height: 48vh;
+  background: radial-gradient(60% 100% at 34% 100%, rgba(255, 196, 140, .45), transparent 70%);
+  filter: blur(26px);
+  opacity: .85;
+  animation: slow-breathe 30s ease-in-out infinite alternate;
+}
+
+/* two banks of cloud, high and slow enough to read as weather, not as motion */
+[data-theme="day"] #sky::before {
+  inset: 4% -60% auto -60%;
+  height: 34vh;
+  background:
+    radial-gradient(28% 46% at 24% 60%, rgba(255, 255, 255, .60), transparent 70%),
+    radial-gradient(20% 34% at 46% 48%, rgba(255, 255, 255, .48), transparent 72%),
+    radial-gradient(32% 40% at 72% 64%, rgba(255, 255, 255, .52), transparent 70%);
+  filter: blur(16px);
+  opacity: .75;
+  animation: cloud-cross 150s ease-in-out infinite alternate;
+}
+
+/* The last of the sun, over the point it went down at. Kept off the very bottom
+   of the page: dusk's own horizon is already bright orange down there, and a
+   second wash on top of it is what buries the quiet text sitting in it. */
+[data-theme="dusk"] #sky::before {
+  inset: auto -14% 28% 26%;
+  height: 34vh;
+  background: radial-gradient(56% 100% at 68% 100%, rgba(255, 152, 108, .30), transparent 70%);
+  filter: blur(30px);
+  opacity: .8;
+  animation: slow-breathe 34s ease-in-out infinite alternate;
+}
+
+/* a shooting star: almost always nothing, and once in a while something */
+[data-theme="night"] #sky::after {
+  top: 12%;
+  left: 8%;
+  width: 130px;
+  height: 1.5px;
+  border-radius: 2px;
+  background: linear-gradient(90deg, transparent, rgba(255, 255, 255, .9));
+  box-shadow: 0 0 6px 1px rgba(200, 220, 255, .5);
+  animation: shooting-star 23s linear infinite;
+}
+
+/* low mist sitting on the page, the way it does after rain */
+[data-theme="rain"] #sky::before {
+  inset: auto -20% -14% -20%;
+  height: 40vh;
+  background: radial-gradient(70% 100% at 50% 100%, rgba(206, 214, 224, .28), transparent 72%);
+  filter: blur(22px);
+  opacity: .8;
+  animation: slow-drift 40s ease-in-out infinite alternate;
+}
+
+/* The underside of the surface, seen from below: bright, moving, out of reach.
+   Kept to the top of the page and dissolved downward, so it hands over to the
+   shafts instead of striping the whole column with them. Uneven period, for the
+   same reason the aurora has one. */
+[data-theme="aqua"] #sky::before {
+  inset: -6% -10% auto -10%;
+  height: 22vh;
+  background: repeating-linear-gradient(78deg,
+    rgba(198, 246, 255, 0) 0px,
+    rgba(198, 246, 255, .26) 17px,
+    rgba(198, 246, 255, 0) 38px,
+    rgba(160, 226, 246, .11) 55px,
+    rgba(198, 246, 255, 0) 71px,
+    rgba(198, 246, 255, .18) 96px,
+    rgba(198, 246, 255, 0) 124px);
+  -webkit-mask-image: linear-gradient(to bottom, #000 22%, transparent 96%);
+  mask-image: linear-gradient(to bottom, #000 22%, transparent 96%);
+  filter: blur(8px);
+  mix-blend-mode: screen;
+  opacity: .62;
+  animation: surface-ripple 17s linear infinite;
+}
+/* and the pressure of the deep, closing in from the bottom */
+[data-theme="aqua"] #sky::after {
+  inset: 40% -10% -10% -10%;
+  background: linear-gradient(to bottom, transparent, rgba(3, 12, 20, .55));
+  opacity: .9;
+}
+
+/* sun coming through the canopy: dapple, moving as the branches move */
+[data-theme="forest"] #sky::before {
+  inset: -14% -10% auto -10%;
+  height: 40vh;
+  background:
+    radial-gradient(9% 16% at 17% 24%, rgba(255, 250, 206, .50), transparent 70%),
+    radial-gradient(6% 11% at 40% 11%, rgba(255, 251, 218, .42), transparent 72%),
+    radial-gradient(12% 19% at 67% 27%, rgba(252, 249, 198, .36), transparent 70%),
+    radial-gradient(5% 10% at 86% 14%, rgba(255, 252, 220, .44), transparent 72%);
+  filter: blur(14px);
+  opacity: .55;
+  animation: dapple-shift 19s ease-in-out infinite alternate;
+}
+
+/* the horizon a boreal night actually has: a cold band of remaining daylight */
+[data-theme="boreal"] #sky::before {
+  inset: auto -20% -12% -20%;
+  height: 34vh;
+  background: radial-gradient(70% 100% at 50% 100%, rgba(92, 168, 196, .26), transparent 72%);
+  filter: blur(24px);
+  opacity: .85;
+  animation: slow-breathe 38s ease-in-out infinite alternate;
+}
+
+@keyframes slow-breathe {
+  from { opacity: .45; transform: scale(1); }
+  to   { opacity: .95; transform: scale(1.06); }
+}
+@keyframes slow-drift {
+  from { transform: translate3d(-4%, 2%, 0) scale(1); }
+  to   { transform: translate3d(5%, -3%, 0) scale(1.1); }
+}
+@keyframes cloud-cross {
+  from { transform: translateX(-14%); }
+  to   { transform: translateX(14%); }
+}
+@keyframes branch-breathe {
+  from { transform: rotate(-.5deg); }
+  to   { transform: rotate(.7deg); }
+}
+@keyframes surface-ripple {
+  from { transform: translateX(0) scaleY(1); }
+  50%  { transform: translateX(-38px) scaleY(1.12); }
+  to   { transform: translateX(-74px) scaleY(1); }
+}
+@keyframes dapple-shift {
+  from { transform: translate3d(-2%, 0, 0) scale(1); }
+  to   { transform: translate3d(3%, 1.5%, 0) scale(1.05); }
+}
+/* 96% of the cycle is dead time, which is the whole point of a shooting star */
+@keyframes shooting-star {
+  0%, 96%   { opacity: 0; transform: translate3d(0, 0, 0) rotate(24deg) scaleX(.2); }
+  96.5%     { opacity: .9; transform: translate3d(6vw, 3vh, 0) rotate(24deg) scaleX(1); }
+  99%       { opacity: 0; transform: translate3d(58vw, 26vh, 0) rotate(24deg) scaleX(1); }
+  100%      { opacity: 0; transform: translate3d(58vw, 26vh, 0) rotate(24deg) scaleX(1); }
 }
 
 /* GRAIN — one fixed layer of very fine noise. Flat colour fields read as
@@ -336,7 +718,8 @@ body {
 [data-theme="light"] .well-view,
 [data-theme="day"] .well-view,
 [data-theme="dawn"] .well-view,
-[data-theme="rose"] .well-view {
+[data-theme="forest"] .well-view,
+[data-theme="sakura"] .well-view {
   --c-bg: #0e1120;
   --c-surface: #1b2038;
   --c-line: #2b3252;
@@ -506,34 +889,221 @@ body {
   0%, 100% { transform: translate(0, 0); }
   50%      { transform: translate(8px, -26px); }
 }
-/* petals */
+/* PETALS — a real cherry petal is a narrow base opening to a cleft tip, and it
+   never falls flat: it tumbles, so the shape keeps turning edge-on and back. The
+   outline is a mask, so the gradient underneath does the curl on its own; the
+   rotateY is what sells the tumble, since edge-on it foreshortens to a line. */
 .petal {
   position: absolute;
   top: 0;
-  background: #f4b3cc;
-  opacity: .8;
-  border-radius: 12px 2px 12px 2px;
+  background: linear-gradient(155deg, #fff5f8 0%, #f9c3d5 44%, #e483ab 100%);
+  -webkit-mask-image: var(--petal-shape);
+  mask-image: var(--petal-shape);
+  -webkit-mask-size: 100% 100%;
+  mask-size: 100% 100%;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  opacity: .85;
+  will-change: transform;
   animation: petal-fall linear infinite;
 }
 @keyframes petal-fall {
-  0%   { transform: translateY(-12vh) translateX(0) rotate(0deg); opacity: 0; }
-  12%  { opacity: .8; }
-  88%  { opacity: .8; }
-  100% { transform: translateY(112vh) translateX(var(--sway, 30px)) rotate(var(--spin, 360deg)); opacity: 0; }
+  0%   { transform: translate3d(0, -14vh, 0) rotate(0deg) rotateY(0deg); opacity: 0; }
+  8%   { opacity: .85; }
+  25%  { animation-timing-function: ease-in-out;
+         transform: translate3d(calc(var(--sway, 40px) * .55), 20vh, 0)
+                    rotate(calc(var(--spin, 360deg) * .25)) rotateY(260deg); }
+  50%  { animation-timing-function: ease-in-out;
+         transform: translate3d(calc(var(--sway, 40px) * -.45), 48vh, 0)
+                    rotate(calc(var(--spin, 360deg) * .5)) rotateY(540deg); }
+  75%  { animation-timing-function: ease-in-out;
+         transform: translate3d(calc(var(--sway, 40px) * .85), 78vh, 0)
+                    rotate(calc(var(--spin, 360deg) * .75)) rotateY(800deg); }
+  92%  { opacity: .85; }
+  100% { transform: translate3d(var(--sway, 40px), 114vh, 0)
+                    rotate(var(--spin, 360deg)) rotateY(1080deg); opacity: 0; }
 }
-/* bubbles */
+
+/* BUBBLES — the rim and the specular are what make a bubble read as a bubble;
+   a bordered circle reads as a ring. The wobble is per-bubble, so a column of
+   them never rises in step. */
 .bubble2 {
   position: absolute;
   bottom: -8%;
   border-radius: 50%;
-  border: 1px solid rgba(255, 255, 255, 0.45);
-  background: rgba(255, 255, 255, 0.06);
+  background:
+    radial-gradient(circle at 33% 27%,
+      rgba(255, 255, 255, .85), rgba(255, 255, 255, 0) 26%),
+    radial-gradient(circle at 50% 50%,
+      rgba(255, 255, 255, 0) 56%,
+      rgba(178, 238, 255, .26) 80%,
+      rgba(255, 255, 255, .58) 92%,
+      rgba(255, 255, 255, 0) 100%);
+  will-change: transform;
   animation: bubble-rise linear infinite;
 }
 @keyframes bubble-rise {
-  0%   { transform: translateY(0) translateX(0); opacity: 0; }
-  12%  { opacity: .6; }
-  100% { transform: translateY(-115vh) translateX(var(--sway, 20px)); opacity: 0; }
+  0%   { transform: translate3d(0, 0, 0) scale(.92); opacity: 0; }
+  10%  { opacity: .75; }
+  30%  { animation-timing-function: ease-in-out;
+         transform: translate3d(var(--sway, 20px), -34vh, 0) scale(1); }
+  60%  { animation-timing-function: ease-in-out;
+         transform: translate3d(calc(var(--sway, 20px) * -1), -68vh, 0) scale(1.04); }
+  90%  { opacity: .55; }
+  100% { transform: translate3d(var(--sway, 20px), -116vh, 0) scale(1.08); opacity: 0; }
+}
+
+/* SEABED — a floor and its kelp, only ever a silhouette: the water above is what
+   should be lit, not the bottom. Each blade pivots on its own root. */
+.sea-floor {
+  position: absolute;
+  left: -4%;
+  bottom: -2%;
+  width: 108%;
+  height: 16vh;
+  background: radial-gradient(120% 100% at 50% 100%,
+    color-mix(in srgb, var(--c-sky-1) 88%, #000) 40%, transparent 72%);
+  filter: blur(6px);
+  opacity: .8;
+}
+.sea-weed {
+  position: absolute;
+  bottom: 0;
+  transform-origin: 50% 100%;
+  background: linear-gradient(to top,
+    color-mix(in srgb, var(--c-sky-1) 70%, #000) 0%,
+    color-mix(in srgb, var(--c-accent) 34%, transparent) 100%);
+  -webkit-mask-image: var(--weed-shape);
+  mask-image: var(--weed-shape);
+  -webkit-mask-size: 100% 100%;
+  mask-size: 100% 100%;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  opacity: .55;
+  animation: weed-sway ease-in-out infinite alternate;
+}
+@keyframes weed-sway {
+  from { transform: skewX(calc(var(--lean, 8deg) * -1)) rotate(calc(var(--lean, 8deg) * -.4)); }
+  to   { transform: skewX(var(--lean, 8deg)) rotate(calc(var(--lean, 8deg) * .4)); }
+}
+
+/* LIGHT SHAFTS — the surface seen from under it.
+   Two things make these read as sunlight in water rather than as painted bands.
+   They fan: the script tilts each one by its distance from a single point above
+   the surface, so they diverge instead of falling parallel. And they have no
+   edge — the horizontal mask feathers each shaft to nothing on both sides, so
+   what you see is a middle that fades out, which is all a shaft ever is.
+   The blur only softens; the softness itself lives in the gradients. */
+.sea-ray {
+  position: absolute;
+  top: -12%;
+  transform-origin: 50% 0;
+  background: linear-gradient(to bottom,
+    rgba(198, 246, 255, .40) 0%,
+    rgba(168, 232, 248, .21) 30%,
+    rgba(140, 214, 236, .06) 58%,
+    transparent 86%);
+  -webkit-mask-image: linear-gradient(to right, transparent, #000 46%, #000 54%, transparent);
+  mask-image: linear-gradient(to right, transparent, #000 46%, #000 54%, transparent);
+  filter: blur(5px);
+  mix-blend-mode: screen;
+  will-change: transform, opacity;
+  animation: sea-ray-breathe ease-in-out infinite alternate;
+}
+/* the swell passing overhead: a shaft widens and brightens, it does not swing */
+@keyframes sea-ray-breathe {
+  from {
+    transform: rotate(calc(var(--tilt, 0deg) - .8deg)) scaleX(var(--thin, .72));
+    opacity: var(--dim, .30);
+  }
+  to {
+    transform: rotate(calc(var(--tilt, 0deg) + .8deg)) scaleX(var(--wide, 1.18));
+    opacity: var(--lit, .85);
+  }
+}
+
+/* AURORA — a curtain is vertical striations inside a soft envelope. The envelope
+   is the mask on the outer span, the striations scroll inside it; separating the
+   two is what stops it reading as a striped rectangle. */
+.aurora {
+  position: absolute;
+  top: -8%;
+  height: 46%;
+  /* An aurora is a curtain, and a curtain is its hem: the light is strongest
+     along a folded lower edge and dissolves upward into nothing. A rectangle
+     faded at both ends reads as a flag, which is what this was. The hem carries
+     the vertical falloff and the fold; the veil inside carries the striations
+     and its own side fade, and nesting the two multiplies the masks. */
+  filter: blur(7px);
+  mix-blend-mode: screen;
+  -webkit-mask-image: var(--aurora-hem);
+  mask-image: var(--aurora-hem);
+  -webkit-mask-size: 100% 100%;
+  mask-size: 100% 100%;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  animation: aurora-drift ease-in-out infinite alternate;
+}
+.aurora__veil {
+  position: absolute;
+  inset: 0;
+  /* One long period holding six uneven bands. An even period is a barcode, and
+     that is the one thing an aurora never looks like — but it still has to
+     repeat, or the shimmer would run off the end of the gradient. */
+  background:
+    linear-gradient(to top,
+      rgba(150, 120, 240, 0) 34%,
+      rgba(150, 120, 240, .20) 74%,
+      rgba(150, 120, 240, 0) 100%),
+    repeating-linear-gradient(97deg,
+      rgba(96, 236, 168, 0) 0px,
+      rgba(96, 236, 168, .34) 11px,
+      rgba(96, 236, 168, 0) 24px,
+      rgba(126, 226, 255, .16) 39px,
+      rgba(96, 236, 168, 0) 52px,
+      rgba(96, 236, 168, .42) 71px,
+      rgba(96, 236, 168, 0) 88px,
+      rgba(126, 226, 255, .12) 104px,
+      rgba(96, 236, 168, 0) 121px,
+      rgba(96, 236, 168, .26) 143px,
+      rgba(96, 236, 168, 0) 166px,
+      rgba(164, 208, 255, .18) 181px,
+      rgba(96, 236, 168, 0) 204px);
+  -webkit-mask-image: linear-gradient(to right, transparent, #000 24%, #000 76%, transparent);
+  mask-image: linear-gradient(to right, transparent, #000 24%, #000 76%, transparent);
+  animation: aurora-shimmer linear infinite;
+}
+@keyframes aurora-drift {
+  from { transform: translateX(-4%) skewX(-6deg); opacity: .45; }
+  to   { transform: translateX(4%) skewX(5deg); opacity: .82; }
+}
+@keyframes aurora-shimmer {
+  from { background-position: 0 0, 0 0; }
+  to   { background-position: 0 0, 408px 0; }
+}
+
+/* POLLEN — the forest's motes: they rise more than they fall, and they blink as
+   they turn through the light rather than fading in and out on a timer. */
+/* A cream mote is invisible on a pale page, which is where the forest lives, so
+   the grain is warm gold and only its halo is cream. */
+.pollen {
+  position: absolute;
+  border-radius: 50%;
+  background: #e0b653;
+  box-shadow: 0 0 7px 2px rgba(255, 236, 172, .70);
+  opacity: 0;
+  will-change: transform;
+  animation: pollen-rise linear infinite, pollen-blink ease-in-out infinite;
+}
+@keyframes pollen-rise {
+  0%   { transform: translate3d(0, 8vh, 0); }
+  50%  { animation-timing-function: ease-in-out;
+         transform: translate3d(var(--sway, 30px), -34vh, 0); }
+  100% { transform: translate3d(calc(var(--sway, 30px) * -.6), -78vh, 0); }
+}
+@keyframes pollen-blink {
+  0%, 100% { opacity: .10; }
+  45%      { opacity: .75; }
 }
 /* fireflies */
 .firefly {
@@ -689,6 +1259,42 @@ body {
   align-items: center;
   gap: 0;   /* no gap: the hairlines below set the spacing */
 }
+/* the way home sits on the other side, alone */
+.topbar--left {
+  right: auto;
+  left: calc(12px + env(safe-area-inset-left));
+}
+
+/* WINDOW CONTROLS OVERLAY
+   Installed on desktop, the browser drops its title bar and only keeps the three
+   window buttons floating over the page. The app then owns the whole window, and
+   our own icons move into that strip: they line up with the window buttons instead
+   of sitting under a foreign bar. env(titlebar-area-*) is the free part of the
+   strip, so we hug it on both sides (the buttons are right on Windows, left on Mac). */
+#titlebar { display: none; }
+
+@media (display-mode: window-controls-overlay) {
+  #titlebar {
+    display: block;
+    position: fixed;
+    top: env(titlebar-area-y, 0px);
+    left: env(titlebar-area-x, 0px);
+    width: env(titlebar-area-width, 100%);
+    height: env(titlebar-area-height, 33px);
+    z-index: 15;   /* under the topbar: its buttons stay clickable */
+    -webkit-app-region: drag;
+  }
+  .topbar {
+    top: calc(env(titlebar-area-y, 0px)
+      + (env(titlebar-area-height, 33px) - 26px) / 2);   /* centered in the strip */
+    right: calc(100% - env(titlebar-area-x, 0px) - env(titlebar-area-width, 100%) + 12px);
+    -webkit-app-region: no-drag;
+  }
+  .topbar--left {
+    right: auto;
+    left: calc(12px + env(titlebar-area-x, 0px));
+  }
+}
 /* No capsules: bare icons, told apart by a hairline between them. Nothing is
    drawn around a tool, so the bar reads as a row of marks rather than a widget. */
 .topbar__btn {
@@ -704,8 +1310,70 @@ body {
   transition: color .2s ease;
 }
 .topbar__btn:hover { color: var(--accent); }
-.topbar__btn--gear:hover { transform: rotate(40deg); }
 .topbar__btn svg { width: 17px; height: 17px; }
+
+/* THE TOOLS ANSWER — each icon does the thing it stands for, once, on hover.
+   Everything below transforms parts of a drawing, never the button: the gear
+   used to turn its whole 44x26 cell, hairline and all, which is what made it
+   swing the bar about. `transform-box: view-box` puts the origins in the
+   drawing's own 24-unit coordinates, so they can be read off the path data. */
+.ico-star, .ico-orbit, .ico-brush { transform-box: view-box; }
+
+/* the sky: one turn of the star, one orbit of its motes, a little behind it */
+.ico-star, .ico-orbit { transform-origin: 12px 12px; }
+.topbar__btn:hover .ico-star { animation: ico-turn 1.15s cubic-bezier(.5, 0, .18, 1); }
+.topbar__btn:hover .ico-orbit { animation: ico-turn 1.5s cubic-bezier(.42, 0, .22, 1); }
+@keyframes ico-turn { from { rotate: 0deg; } to { rotate: 360deg; } }
+
+/* the canvas: the two columns trade their rhythm, small for tall */
+.ico-cell { transition: y .34s cubic-bezier(.35, 0, .2, 1), height .34s cubic-bezier(.35, 0, .2, 1); }
+.topbar__btn:hover .ico-cell--tl { y: 4px; height: 4px; }
+.topbar__btn:hover .ico-cell--bl { y: 10px; height: 10px; }
+.topbar__btn:hover .ico-cell--tr { y: 4px; height: 7px; }
+.topbar__btn:hover .ico-cell--br { y: 13px; height: 7px; }
+
+/* the brush: one soft stroke, laid down and let go. pathLength="1" on the mark
+   means the dash numbers are fractions of it and need no measuring. */
+.ico-brush { transform-origin: 20px 4px; }
+.ico-stroke {
+  stroke-width: 2.4;
+  stroke-linecap: round;
+  stroke-dasharray: 1;
+  stroke-dashoffset: 1;
+  opacity: 0;
+}
+.topbar__btn:hover .ico-brush { animation: ico-sweep 1.15s ease-in-out; }
+.topbar__btn:hover .ico-stroke { animation: ico-paint 1.15s ease-out; }
+@keyframes ico-sweep {
+  0%, 100% { rotate: 0deg; translate: 0 0; }
+  34%      { rotate: -10deg; translate: -1px 1px; }
+  72%      { rotate: 5deg; translate: .5px -.5px; }
+}
+@keyframes ico-paint {
+  0%   { stroke-dashoffset: 1; opacity: 0; }
+  16%  { opacity: .6; }
+  62%  { stroke-dashoffset: 0; opacity: .6; }
+  100% { stroke-dashoffset: 0; opacity: 0; }
+}
+
+/* the gear: the glyph turns, and only the glyph */
+.ico-gear {
+  display: block;
+  line-height: 1;
+  transition: rotate .5s cubic-bezier(.32, 1.35, .5, 1);
+}
+.topbar__btn--gear:hover .ico-gear { rotate: 90deg; }
+
+/* the way home: the roof lifts a little, the way a door does when you reach it */
+#homeBtn svg { transition: translate .28s cubic-bezier(.3, 1.4, .5, 1); }
+#homeBtn:hover svg { translate: 0 -1.5px; }
+
+/* well-being: the tree grows its branches out from the trunk */
+#wellBtn svg path { transition: opacity .3s ease, translate .3s cubic-bezier(.3, 1.3, .5, 1); }
+#wellBtn:hover svg path:nth-child(2) { translate: -1px -.5px; }
+#wellBtn:hover svg path:nth-child(3) { translate: 1px -.5px; }
+#wellBtn:hover svg path:nth-child(4) { translate: .5px -1.5px; }
+#wellBtn:hover svg path:nth-child(5) { translate: -.5px -1.5px; }
 
 .topbar__weather {
   display: inline-flex;
@@ -783,13 +1451,253 @@ body {
   transform: scale(1.35);
   will-change: transform;
 }
+/* THE THRESHOLD'S INK — whatever stands on the lower half of the raw sky takes
+   its colour from that sky rather than from the page, which the threshold never
+   shows. tuneThresholdInk() reads the sky's own lightness there and flips the
+   class; both inks stay in the theme's family, drawn from its zenith and its
+   horizon, so no theme ever borrows a grey from somewhere else. */
+.welcome { --threshold-ink: var(--c-text); }
+.welcome.is-on-light { --threshold-ink: color-mix(in oklab, var(--c-sky-3) 30%, #16111d); }
+
+/* THE SCENERY — built by the script for whatever theme is on, and only while
+   the threshold is up. It sits under the writing, and it is allowed to be
+   expensive: there is nothing to read here and nothing to get in the way of.
+   Every silhouette is a mask over a colour mixed from the theme's own horizon,
+   so a ridge on dusk is a warm dark and the same ridge on boreal is a cold one.
+
+   Individual transform properties (`rotate`, `scale`, `translate`) rather than
+   `transform`, so a static mirror and an animated sway can live on one element
+   without one clobbering the other. */
+.scene {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+  z-index: 0;
+}
+/* the silhouette ink: the horizon, taken down towards black */
+.scene { --silhouette: color-mix(in srgb, var(--c-sky-1) 52%, #000); }
+
+/* SAKURA — boughs from three corners, at three scales */
+/* the sky's twig is a bare stick on purpose — small and grey it reads as one.
+   At this size it would read as a dead branch, so the threshold gets its own:
+   thicker bark, warm, and already in flower. */
+/* The mirror goes on the element and the sway on its pseudo, because both would
+   otherwise want `transform-origin` for different things: a flip about the
+   attachment corner throws the whole branch to the far side of it, which is
+   where the left-hand boughs went. The element flips about its own middle; the
+   drawing inside it pivots where the wood meets the edge, as wood does. */
+.sc-bough { position: absolute; opacity: .55; }
+.sc-bough::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: var(--bough-shape) top right / contain no-repeat;
+  transform-origin: 100% 0;
+  animation: sc-bough-breathe var(--sway, 14s) ease-in-out infinite alternate;
+  animation-delay: var(--sway-at, 0s);
+}
+.sc-bough--ne { top: -1%; right: -2%; height: 30vh; }
+.sc-bough--nw { top: -3%; left: -2%; height: 23vh; scale: -1 1; }
+/* the lower one hangs clear of the greeting rather than across it */
+.sc-bough--w { bottom: 1%; left: -3%; height: 20vh; scale: -1 -1; opacity: .34; }
+@keyframes sc-bough-breathe {
+  from { rotate: -.7deg; }
+  to   { rotate: .9deg; }
+}
+.sc-blossom {
+  position: absolute;
+  background: var(--blossom-shape) center / contain no-repeat;
+  opacity: .45;
+  animation: sc-blossom-bob ease-in-out infinite alternate;
+}
+@keyframes sc-blossom-bob {
+  from { translate: 0 0; rotate: -8deg; }
+  to   { translate: 3px -5px; rotate: 10deg; }
+}
+/* the sky's own discreet branch stands down while the real boughs are out */
+[data-theme="sakura"] body:has(.welcome:not(.is-leaving)) #sky::after { opacity: 0; }
+
+/* AQUATIC — a kelp bed and a school crossing it */
+.sc-weed {
+  position: absolute;
+  bottom: 0;
+  transform-origin: 50% 100%;
+  background: linear-gradient(to top,
+    color-mix(in srgb, var(--c-sky-1) 62%, #000) 0%,
+    color-mix(in srgb, var(--c-accent) 40%, transparent) 100%);
+  -webkit-mask-image: var(--weed-shape);
+  mask-image: var(--weed-shape);
+  -webkit-mask-size: 100% 100%;
+  mask-size: 100% 100%;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  animation: weed-sway ease-in-out infinite alternate;
+}
+.sc-school {
+  position: absolute;
+  left: -280px;
+  width: 250px;
+  height: 100px;
+  animation: sc-school-cross linear infinite;
+}
+/* the far school is smaller and out of focus, which is the only depth cue the
+   water gives you: nothing here overlaps anything */
+.sc-school--back { opacity: .4; filter: blur(1.6px); scale: .62; }
+/* lit along the back, dark at the belly — the only light down here comes from
+   above, and a flat silhouette simply disappears into the deep */
+.sc-fish {
+  position: absolute;
+  background: linear-gradient(to bottom,
+    color-mix(in srgb, var(--c-sky-3) 78%, transparent) 0%,
+    color-mix(in srgb, var(--c-sky-1) 50%, #000) 66%);
+  -webkit-mask-image: var(--fish-shape);
+  mask-image: var(--fish-shape);
+  -webkit-mask-size: 100% 100%;
+  mask-size: 100% 100%;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  opacity: .55;
+  animation: sc-fish-wiggle ease-in-out infinite alternate;
+}
+@keyframes sc-school-cross {
+  from { translate: 0 0; }
+  to   { translate: calc(100vw + 380px) -6vh; }
+}
+@keyframes sc-fish-wiggle {
+  from { translate: 0 -2px; rotate: -5deg; }
+  to   { translate: 0 2px; rotate: 5deg; }
+}
+
+/* RIDGES — a tree line and a bank of ferns. Tiled across rather
+   than stretched, so the trees keep their proportions on a wide page. */
+.sc-ridge {
+  position: absolute;
+  left: 0; right: 0; bottom: 0;
+  background: var(--silhouette);
+  -webkit-mask-repeat: repeat-x;
+  mask-repeat: repeat-x;
+  -webkit-mask-position: bottom center;
+  mask-position: bottom center;
+  -webkit-mask-size: auto 100%;
+  mask-size: auto 100%;
+}
+.sc-ridge--pines { height: 24vh; -webkit-mask-image: var(--pines-shape); mask-image: var(--pines-shape); opacity: .9; }
+/* undergrowth, not wallpaper: thinned right down, and the tips dissolve so the
+   top of the band never draws a line across the page */
+.sc-ridge--ferns {
+  height: 18vh;
+  -webkit-mask-image: var(--ferns-shape);
+  mask-image: var(--ferns-shape);
+  opacity: .34;
+}
+.sc-ridge--ferns::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(to top, transparent 22%, var(--c-sky-1) 96%);
+  opacity: .55;
+}
+
+/* FOREST — trunks going up out of frame, far enough back to be almost nothing */
+.sc-trunk {
+  position: absolute;
+  bottom: 0;
+  background: linear-gradient(to top, var(--silhouette) 0%, transparent 94%);
+  filter: blur(2px);
+  transform-origin: 50% 100%;
+  animation: sc-trunk-sway ease-in-out infinite alternate;
+}
+@keyframes sc-trunk-sway {
+  from { rotate: -.35deg; }
+  to   { rotate: .35deg; }
+}
+
+/* SUNRISE AND SUNSET — the sun is the one the rule already draws, and --horizon
+   is written by syncSceneHorizon() from that rule's real position, so the cloud
+   sits at the right height however the threshold is laid out. */
+/* A sunset is not a gradient — it is cloud lit from underneath. Each band is a
+   long lens, dark on top and burning along its lower edge, feathered to nothing
+   at both ends so none of them ever shows a border. */
+.sc-band {
+  position: absolute;
+  top: calc(var(--horizon, 50%) - var(--above, 0px));
+  border-radius: 50%;
+  background: linear-gradient(to bottom,
+    color-mix(in srgb, var(--c-sky-3) 46%, transparent) 0%,
+    color-mix(in srgb, #fff 56%, var(--c-sky-1)) 100%);
+  -webkit-mask-image: linear-gradient(to right, transparent, #000 22%, #000 78%, transparent);
+  mask-image: linear-gradient(to right, transparent, #000 22%, #000 78%, transparent);
+  filter: blur(4px);
+  animation: sc-band-drift ease-in-out infinite alternate;
+}
+@keyframes sc-band-drift {
+  from { translate: -3% 0; }
+  to   { translate: 3% 0; }
+}
+
+/* DAY — clouds with somewhere to go, and birds that get there first */
+.sc-cloud {
+  position: absolute;
+  left: -24%;
+  background:
+    radial-gradient(30% 52% at 26% 62%, rgba(255, 255, 255, .95), transparent 70%),
+    radial-gradient(22% 40% at 48% 44%, rgba(255, 255, 255, .85), transparent 72%),
+    radial-gradient(34% 46% at 72% 64%, rgba(255, 255, 255, .9), transparent 70%);
+  filter: blur(10px);
+  animation: sc-cloud-drift linear infinite;
+}
+@keyframes sc-cloud-drift {
+  from { translate: 0 0; }
+  to   { translate: calc(100vw + 44%) 0; }
+}
+.sc-flock {
+  position: absolute;
+  left: -200px;
+  width: 190px; height: 56px;
+  animation: sc-flock-cross linear infinite;
+}
+.sc-bird {
+  position: absolute;
+  background: color-mix(in srgb, var(--c-text) 34%, var(--silhouette));
+  -webkit-mask-image: var(--bird-shape);
+  mask-image: var(--bird-shape);
+  -webkit-mask-size: 100% 100%;
+  mask-size: 100% 100%;
+  -webkit-mask-repeat: no-repeat;
+  mask-repeat: no-repeat;
+  opacity: .5;
+  animation: sc-bird-flap ease-in-out infinite alternate;
+}
+@keyframes sc-flock-cross {
+  from { translate: 0 0; }
+  to   { translate: calc(100vw + 400px) -9vh; }
+}
+/* the wings are the whole bird at this size, so the flap is a vertical squash */
+@keyframes sc-bird-flap {
+  from { scale: 1 .5; }
+  to   { scale: 1 1.15; }
+}
+
 .welcome__hint {
   font-size: .8rem;
   letter-spacing: .08em;
   text-transform: uppercase;
-  color: var(--muted);
-  opacity: .55;
+  /* the hush is in the colour, not in `opacity`: fadeUp fills forwards to 1 and
+     would override any opacity declared here */
+  color: color-mix(in oklab, var(--threshold-ink) 72%, transparent);
   animation: fadeUp 1.6s ease both .8s;
+}
+/* the rule spends the threshold on that same bright band, so its readings and
+   its rings follow the same ink; in the app they go back to the quiet one */
+.welcome__slot .dtl__tick-label,
+.welcome__slot .dtl__marker-caption { color: color-mix(in oklab, var(--threshold-ink) 72%, transparent); }
+/* the reading sits right in the sun's bloom, which is the brightest place on
+   the whole threshold — it needs the full ink, not the softened one */
+.welcome__slot .dtl__marker-time { color: var(--threshold-ink); }
+.welcome__habits .welcome__ring {
+  color: color-mix(in oklab, var(--threshold-ink) 80%, transparent);
+  border-color: color-mix(in oklab, var(--threshold-ink) 42%, transparent);
 }
 /* the sky wears the raw gradient while the threshold is up, and cross-fades
    back to the veiled one on entering */
@@ -798,6 +1706,22 @@ body:has(.welcome:not(.is-leaving)) #sky { background: var(--welcome-bg); }
 /* nothing of the app has business on the threshold */
 body:has(.welcome:not(.is-leaving)) .topbar,
 body:has(.welcome:not(.is-leaving)) .pageflip { opacity: 0; pointer-events: none; }
+
+/* The threshold keeps only its two personal controls. They are the very same
+   brush and settings buttons as in the app, so their state and motion agree. */
+body:has(.welcome:not(.is-leaving)) .topbar:not(.topbar--left) {
+  opacity: 1;
+  pointer-events: auto;
+}
+body:has(.welcome:not(.is-leaving)) :is(#dtlWeather, #skyBtn, #wellBtn, #thinkingBtn) {
+  display: none;
+}
+body:has(.welcome:not(.is-leaving)) :is(#lookBtn, #settingsBtn) {
+  color: color-mix(in oklab, var(--welcome-title) 72%, transparent);
+}
+body:has(.welcome:not(.is-leaving)) :is(#lookBtn, #settingsBtn):hover {
+  color: var(--welcome-title);
+}
 
 .welcome__title {
   font-size: clamp(1.6rem, 5vw, 2.4rem);
@@ -1138,6 +2062,7 @@ button.tgroup__head--day:hover {
 .tgroup--done .tgroup__head { opacity: .7; }
 /* the dateless tails are not part of the run: give them room to detach */
 .tgroup--none {
+  position: relative;
   margin-top: 6px;
   padding: 7px;
   margin-inline: -7px;
@@ -1253,6 +2178,11 @@ button.tgroup__head--day:hover {
   box-shadow: var(--shadow);
   transform: rotate(-1deg) scale(1.015);
   animation: none;
+}
+.task-drag-ghost.is-delete-target {
+  color: var(--danger);
+  border-color: color-mix(in srgb, var(--danger) 62%, var(--border));
+  background: color-mix(in srgb, var(--surface) 88%, var(--danger) 12%);
 }
 /* COMPLETION — a small rounded box whose tick is stroked, not typed. Kept
    light: a quiet outline until it matters, filled only once it is done. */
@@ -1402,6 +2332,11 @@ button.tgroup__head--day:hover {
   display: grid; place-items: center;
 }
 .item__ico svg { width: 20px; height: 20px; }
+.item__ico--editable {
+  padding: 0;
+  font: inherit;
+  cursor: pointer;
+}
 
 /* a task reads as its own rectangle, matching the "add a task" card below it */
 .item--task,
@@ -1415,6 +2350,23 @@ button.tgroup__head--day:hover {
 .item--task:hover { border-color: var(--accent); }
 .item--task.done { background: none; }
 .item--task .item__text { font-size: .98rem; }
+.item--task.is-open {
+  border-color: color-mix(in srgb, var(--c-line) 52%, transparent);
+  border-radius: calc(var(--radius) + 4px);
+  background:
+    linear-gradient(145deg,
+      color-mix(in srgb, var(--c-accent) 5%, transparent),
+      transparent 34%),
+    color-mix(in srgb, var(--c-surface) 38%, transparent);
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--c-surface) 32%, transparent),
+    0 14px 38px color-mix(in srgb, var(--c-sky-3) calc(var(--c-shade) * 58%), transparent);
+  backdrop-filter: blur(14px) saturate(1.06);
+}
+.item--task.is-open > .unfold {
+  margin-top: 12px;
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--c-line) 38%, transparent);
+}
 
 /* A task carried out of a milestone keeps a quiet trace of its source. The
    colour is the dot's live palette colour, so it follows theme customisation. */
@@ -1456,27 +2408,72 @@ button.tgroup__head--day:hover {
   align-items: center;
   gap: 0 12px;
   width: 100%;
-  padding: 16px;
-  border: 1px solid var(--item-border);
-  border-radius: var(--radius);
-  background: var(--surface);
-  transition: border-color .2s ease, background .2s ease;
+  padding: 15px 18px;
+  border: 1px solid color-mix(in srgb, var(--c-line) 52%, transparent);
+  border-radius: calc(var(--radius) + 2px);
+  background:
+    linear-gradient(145deg,
+      color-mix(in srgb, var(--accent) 5%, transparent),
+      transparent 42%),
+    color-mix(in srgb, var(--c-surface) 38%, transparent);
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--c-surface) 30%, transparent),
+    0 8px 24px color-mix(in srgb, var(--c-sky-3) calc(var(--c-shade) * 42%), transparent);
+  backdrop-filter: blur(12px) saturate(1.05);
+  transition: border-color .2s ease, background .2s ease,
+              box-shadow .2s ease, transform .2s ease;
 }
-.item--project:hover > .project-tab { border-color: var(--accent); }
+.item--project:not(.is-inline-open):hover > .project-tab {
+  border-color: color-mix(in srgb, var(--accent) 52%, var(--c-line));
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--c-surface) 34%, transparent),
+    0 11px 28px color-mix(in srgb, var(--c-sky-3) calc(var(--c-shade) * 52%), transparent);
+  transform: translateY(-1px);
+}
 .item--project .item__ico {
   width: 38px; height: 38px;
   border-radius: 11px;
-  background: var(--accent-soft);
+  border: 1px solid color-mix(in srgb, var(--accent) 20%, transparent);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
   color: var(--accent);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--c-surface) 22%, transparent);
 }
 .item--project .item__ico svg { width: 21px; height: 21px; }
 .item--project .item__text { font-size: 1.02rem; font-weight: 600; }
 .item--project.is-inline-open {
-  background: none;
+  position: relative;
+  border: 1px solid color-mix(in srgb, var(--c-line) 52%, transparent);
+  border-radius: calc(var(--radius) + 4px);
+  background:
+    linear-gradient(145deg,
+      color-mix(in srgb, var(--c-accent) 5%, transparent),
+      transparent 34%),
+    color-mix(in srgb, var(--c-surface) 38%, transparent);
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--c-surface) 32%, transparent),
+    0 14px 38px color-mix(in srgb, var(--c-sky-3) calc(var(--c-shade) * 58%), transparent);
+  backdrop-filter: blur(14px) saturate(1.06);
+  transition: border-color .22s ease, background .22s ease, box-shadow .22s ease;
 }
 .item--project.is-inline-open > .project-tab {
-  border-color: color-mix(in srgb, var(--accent) 48%, var(--item-border));
-  background: var(--surface);
+  padding: 18px 20px;
+  border: 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--c-line) 38%, transparent);
+  border-radius: calc(var(--radius) + 3px) calc(var(--radius) + 3px) 0 0;
+  background: linear-gradient(90deg,
+    color-mix(in srgb, var(--accent) 7%, transparent),
+    transparent 48%);
+  box-shadow: none;
+  backdrop-filter: none;
+  transform: none;
+}
+.item--project.is-inline-open:hover > .project-tab {
+  border-bottom-color: color-mix(in srgb, var(--accent) 28%, var(--c-line));
+}
+.item--project.is-inline-open > .project-tab > .item__ico {
+  border: 1px solid color-mix(in srgb, var(--accent) 22%, transparent);
+  background: color-mix(in srgb, var(--accent) 13%, transparent);
+  box-shadow: inset 0 1px 0 color-mix(in srgb, var(--c-surface) 24%, transparent);
 }
 .item--project.is-inline-open > .project-tab > .row-acts { display: none; }
 
@@ -1484,8 +2481,8 @@ button.tgroup__head--day:hover {
 .goal-inline {
   display: flex;
   flex-direction: column;
-  gap: 24px;
-  padding: 26px 2px 8px;
+  gap: 0;
+  padding: 0;
 }
 .goal-inline__name {
   flex: 1 1 auto;
@@ -1501,17 +2498,174 @@ button.tgroup__head--day:hover {
   padding: 3px 0 8px;
 }
 .goal-inline__name:focus { outline: none; border-bottom-color: var(--accent); }
+.item--project.is-inline-open .goal-inline__name {
+  border-bottom-color: transparent;
+  color: var(--text);
+  font-size: 1.13rem;
+  font-weight: 720;
+  letter-spacing: -.01em;
+  padding: 4px 2px;
+  text-shadow: 0 1px 1px color-mix(in srgb, var(--c-bg) 20%, transparent);
+}
+.item--project.is-inline-open .goal-inline__name:hover {
+  border-bottom-color: color-mix(in srgb, var(--c-line) 44%, transparent);
+}
+.item--project.is-inline-open .goal-inline__name:focus {
+  border-bottom-color: color-mix(in srgb, var(--accent) 74%, transparent);
+}
+.goal-inline__journal-toggle {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 9px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: .76rem;
+  cursor: pointer;
+  opacity: .76;
+  transition: color .16s ease, background .16s ease, opacity .16s ease;
+}
+.goal-inline__journal-toggle svg { width: 15px; height: 15px; }
+.goal-inline__journal-toggle:hover,
+.goal-inline__journal-toggle:focus-visible,
+.goal-inline__journal-toggle.is-active {
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 9%, transparent);
+  opacity: 1;
+  outline: none;
+}
+.goal-inline__workspace {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 0fr);
+  align-items: stretch;
+  gap: 0;
+  min-width: 0;
+  transition: grid-template-columns .52s cubic-bezier(.2, .8, .25, 1);
+}
+.goal-inline__workspace.is-journal-open {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+}
+.goal-inline__workspace > .psteps {
+  padding: 22px;
+  transition: padding-right .52s cubic-bezier(.2, .8, .25, 1);
+}
+.goal-inline__workspace.is-journal-open > .psteps {
+  padding-right: clamp(24px, 3vw, 42px);
+}
 .goal-inline__section { min-width: 0; }
 .goal-inline__section > .detail__label { display: block; margin-bottom: 12px; }
+.goal-inline__journal-section[hidden] { display: none; }
 .goal-inline__journal-section {
-  padding-top: 4px;
-  border-top: 1px solid color-mix(in srgb, var(--c-line) 22%, transparent);
+  padding: 22px 22px 24px clamp(24px, 3vw, 42px);
+  border: 0;
+  border-left: 1px solid color-mix(in srgb, var(--c-line) 34%, transparent);
+  border-radius: 0;
+  background: color-mix(in oklab, var(--c-bg) 92%, var(--c-muted) 8%);
+  box-shadow: inset 1px 0 0 color-mix(in srgb, var(--c-surface) 7%, transparent);
+}
+.goal-inline__journal-section > .detail__label {
+  color: color-mix(in srgb, var(--text) 62%, var(--muted));
 }
 .goal-inline__journal-add {
-  width: min(100%, 680px);
-  margin-bottom: 14px;
+  width: 100%;
+  margin-bottom: 8px;
 }
 .goal-inline__journal .detail__empty { margin: 2px 0 0; }
+.goal-inline__journal .jrn__row {
+  border-bottom-color: color-mix(in srgb, var(--c-line) 30%, transparent);
+}
+.goal-inline__journal .jrn__date { color: color-mix(in srgb, var(--muted) 86%, var(--text)); }
+
+/* In the objective, adding is a line in the flow rather than an opaque card.
+   Steps and journal deliberately share the same quiet input language. */
+.goal-inline__workspace .sub-add {
+  gap: 5px;
+  margin: 0 0 9px;
+}
+.goal-inline__workspace .sub-add .add__input {
+  min-width: 0;
+  border: 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--c-line) 42%, transparent);
+  border-radius: 0;
+  background: transparent;
+  padding: 7px 2px 6px;
+  font: inherit;
+  font-size: .88rem;
+  box-shadow: none;
+}
+.goal-inline__workspace .sub-add .add__input:focus {
+  border-bottom-color: color-mix(in srgb, var(--accent) 72%, transparent);
+}
+.goal-inline__workspace .sub-add .add__btn {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: transparent;
+  font-size: 1.15rem;
+  opacity: .72;
+}
+.goal-inline__workspace .sub-add .add__btn:hover,
+.goal-inline__workspace .sub-add .add__btn:focus-visible {
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  opacity: 1;
+}
+
+.project-list-pager {
+  display: flex;
+  justify-content: flex-end;
+  min-height: 16px;
+}
+.project-list-pager--top { margin: -3px 0 1px; }
+.project-list-pager--bottom { margin: 2px 0 -2px; }
+.project-list-pager__button {
+  display: grid;
+  place-items: center;
+  width: 24px;
+  height: 16px;
+  padding: 0;
+  border: 0;
+  border-radius: 6px;
+  background: transparent;
+  color: var(--muted);
+  cursor: pointer;
+  opacity: .48;
+  transition: color .16s ease, opacity .16s ease, background .16s ease;
+}
+.project-list-pager__button svg { width: 15px; height: 15px; }
+.project-list-pager__button:hover,
+.project-list-pager__button:focus-visible {
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+  opacity: 1;
+  outline: none;
+}
+.project-list-pager__button:disabled { cursor: default; opacity: .14; background: transparent; }
+
+@media (max-width: 999px) {
+  .goal-inline__workspace.is-journal-open {
+    grid-template-columns: minmax(0, 1fr);
+  }
+}
+
+@media (max-width: 700px) {
+  .item--project.is-inline-open > .project-tab { padding: 15px 16px; }
+  .goal-inline__journal-toggle span { display: none; }
+  .goal-inline { padding: 0; }
+  .goal-inline__workspace { grid-template-columns: minmax(0, 1fr); gap: 0; }
+  .goal-inline__workspace > .psteps { padding: 19px 16px 21px; }
+  .goal-inline__journal-section {
+    padding: 19px 16px 21px;
+    border-left: 0;
+    border-top: 1px solid color-mix(in srgb, var(--c-line) 34%, transparent);
+    box-shadow: inset 0 1px 0 color-mix(in srgb, var(--c-surface) 7%, transparent);
+  }
+}
 
 /* HORIZONTAL MILESTONES — titles live in a small card below their point. The
    card appears on hover/focus and remains there while that milestone is open. */
@@ -1584,7 +2738,8 @@ button.tgroup__head--day:hover {
   transform: scale(1.12);
   box-shadow: 0 0 0 5px color-mix(in srgb, var(--goal-color) 12%, var(--c-bg));
 }
-.goal-ms__dot--milestone {
+.goal-ms__dot--milestone,
+.goal-ms__dot--step {
   width: 24px;
   height: 24px;
   margin-top: 3px;
@@ -1596,7 +2751,8 @@ button.tgroup__head--day:hover {
   display: grid;
   place-items: center;
 }
-.goal-ms__dot--milestone::after {
+.goal-ms__dot--milestone::after,
+.goal-ms__dot--step::after {
   content: "";
   width: 5px;
   height: 5px;
@@ -1605,18 +2761,24 @@ button.tgroup__head--day:hover {
   transition: transform .18s ease, background .18s ease;
 }
 .goal-ms__dot--milestone:hover,
-.goal-ms__dot--milestone:focus-visible {
+.goal-ms__dot--milestone:focus-visible,
+.goal-ms__dot--step:hover,
+.goal-ms__dot--step:focus-visible {
   box-shadow: 0 0 0 5px color-mix(in srgb, var(--goal-color) 11%, var(--c-bg));
 }
-.goal-ms.is-done .goal-ms__dot--milestone { background: var(--goal-color); }
-.goal-ms.is-done .goal-ms__dot--milestone::after { background: var(--surface-solid); }
-.goal-ms.is-dragging .goal-ms__dot--milestone { opacity: .28; cursor: grabbing; }
+.goal-ms.is-done .goal-ms__dot--milestone,
+.goal-ms.is-done .goal-ms__dot--step { background: var(--goal-color); }
+.goal-ms.is-done .goal-ms__dot--milestone::after,
+.goal-ms.is-done .goal-ms__dot--step::after { background: var(--surface-solid); }
+.goal-ms.is-dragging .goal-ms__dot--milestone,
+.goal-ms.is-dragging .goal-ms__dot--step { opacity: .28; cursor: grabbing; }
 .goal-ms.is-dragging .goal-ms__panel {
   opacity: 0;
   visibility: hidden;
   pointer-events: none;
 }
-.milestone-drag-ghost {
+.milestone-drag-ghost,
+.step-drag-ghost {
   position: fixed;
   z-index: 1000;
   display: flex;
@@ -1634,7 +2796,8 @@ button.tgroup__head--day:hover {
   font-size: .82rem;
   font-weight: 600;
 }
-.milestone-drag-ghost__dot {
+.milestone-drag-ghost__dot,
+.step-drag-ghost__dot {
   flex: 0 0 auto;
   width: 22px;
   height: 22px;
@@ -1644,10 +2807,71 @@ button.tgroup__head--day:hover {
     var(--goal-color) 0 2.5px,
     color-mix(in srgb, var(--surface-solid) 92%, var(--goal-color) 8%) 3px);
 }
-.milestone-drag-ghost > span:last-child {
+.milestone-drag-ghost > span:last-child,
+.step-drag-ghost > span:last-child {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+.step-drop-guide {
+  --guide-scale: .96;
+  position: absolute;
+  z-index: 15;
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  max-width: calc(100% - 20px);
+  padding: 7px 10px;
+  border: 1px dashed color-mix(in srgb, var(--muted) 50%, transparent);
+  border-radius: 11px;
+  background: color-mix(in srgb, var(--surface-solid) 88%, transparent);
+  color: var(--muted);
+  box-shadow: 0 7px 24px color-mix(in srgb, var(--c-sky-3) calc(var(--c-shade) * 34%), transparent);
+  backdrop-filter: blur(10px);
+  pointer-events: none;
+  white-space: nowrap;
+  font-size: .74rem;
+  font-weight: 650;
+  opacity: .7;
+  transition: color .16s ease, border-color .16s ease, background .16s ease,
+              box-shadow .16s ease, opacity .16s ease, transform .16s ease;
+  animation: fade .16s ease both;
+}
+.step-drop-guide__icon {
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+}
+.step-drop-guide__icon svg { width: 18px; height: 18px; }
+.step-drop-guide--timeline {
+  left: 50%;
+  top: -10px;
+  transform: translate(-50%, -50%) scale(var(--guide-scale));
+}
+.step-drop-guide--tasks {
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%) scale(var(--guide-scale));
+}
+.step-drop-guide.is-active {
+  --guide-scale: 1.04;
+  color: var(--accent);
+  border-style: solid;
+  border-color: color-mix(in srgb, var(--accent) 72%, transparent);
+  background: color-mix(in srgb, var(--surface-solid) 88%, var(--accent) 12%);
+  box-shadow: 0 0 22px color-mix(in srgb, var(--accent) 24%, transparent);
+  opacity: 1;
+}
+@media (max-width: 720px) {
+  .step-drop-guide {
+    gap: 5px;
+    padding: 6px 8px;
+    font-size: .68rem;
+  }
+  .step-drop-guide__icon,
+  .step-drop-guide__icon svg { width: 16px; height: 16px; }
 }
 .goal-ms.is-done .goal-ms__dot,
 .goal-ms.is-start .goal-ms__dot {
@@ -1911,72 +3135,6 @@ button.tgroup__head--day:hover {
 }
 
 
-/* FOCUS OVERLAY */
-.focus {
-  position: fixed;
-  inset: 0;
-  z-index: 40;
-  background: #000;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 56px;
-  animation: fade .8s ease;
-}
-.focus[hidden] { display: none; }
-
-.focus__dot {
-  width: 16px;
-  height: 16px;
-  border-radius: 50%;
-  background: #fff;
-  animation: breathe 8s ease-in-out infinite;
-}
-@keyframes breathe {
-  0%, 100% {
-    transform: scale(1);
-    opacity: .45;
-    box-shadow: 0 0 12px 2px rgba(255, 255, 255, 0.25);
-  }
-  50% {
-    transform: scale(1.9);
-    opacity: 1;
-    box-shadow: 0 0 44px 10px rgba(255, 255, 255, 0.45);
-  }
-}
-
-.focus__phrase {
-  color: #fff;
-  font-size: clamp(1.1rem, 3.5vw, 1.6rem);
-  font-weight: 300;
-  letter-spacing: .02em;
-  text-align: center;
-  max-width: 80%;
-  opacity: 0;
-  transition: opacity 2s ease; /* gentle fade in and out */
-}
-.focus__phrase.is-visible { opacity: 1; }
-
-.focus__exit {
-  position: absolute;
-  top: 20px; right: 20px;
-  border: none;
-  background: none;
-  color: rgba(255, 255, 255, 0.4);
-  font-size: 1.8rem;
-  line-height: 1;
-  cursor: pointer;
-  transition: color .3s ease;
-}
-.focus__exit:hover { color: #fff; }
-
-.scuba-gif {
-  width: 170px;
-  height: auto;
-}
-.scuba-gif[hidden] { display: none; }
-
 /* HABITS */
 /* THE TREE — the stage is a canvas with the habit circles laid over it. The
    three inks are the reference's own; they sit here so a theme or the colour
@@ -2003,7 +3161,9 @@ button.tgroup__head--day:hover {
 }
 /* the paler the room, the further the tree leans on the theme to stay legible */
 [data-theme="rain"] .tree { --tree-pull: 24%; }
+[data-theme="aqua"] .tree { --tree-pull: 22%; }
 [data-theme="dusk"] .tree { --tree-pull: 16%; }
+[data-theme="boreal"] .tree { --tree-pull: 12%; }
 [data-theme="dark"] .tree { --tree-pull: 8%; }
 .tree canvas { display: block; width: 100%; }
 .tree__sap { position: absolute; inset: 0; pointer-events: none; }
@@ -2173,6 +3333,7 @@ button.tgroup__head--day:hover {
               grid-template-columns .52s cubic-bezier(.2, .8, .25, 1);
 }
 .pages__track.is-dragging { transition: none; }
+.pages__track.is-habit-dragging { transition: none; }
 
 /* THE TWO COLUMNS — tasks and planning, under the rule of time. Wide, they are a
    row; narrow, a rail of full-width panes. One layout to reason about, not two. */
@@ -2191,11 +3352,23 @@ button.tgroup__head--day:hover {
     padding: 0 32px;
     transform: none;   /* the rail only slides where the panes are stacked */
   }
-  /* An objective is a two-column workspace beside the single task column. The
-     overall rail consequently grows from two column-units to three. */
+  /* The optional journal gives the objective a second unit, forming a third
+     visual column beside tasks and steps. */
   .pages__track.is-goal-open {
     max-width: 1680px;
     grid-template-columns: minmax(300px, 1fr) minmax(0, 2fr);
+  }
+  /* Opening a task note mirrors the objective: the active task owns two visual
+     columns while planning remains available in the third. */
+  .pages__track.is-task-note-open {
+    max-width: 1680px;
+    grid-template-columns: minmax(0, 2fr) minmax(300px, 1fr);
+  }
+  /* Both optional sheets open: each parent column receives the same width, and
+     each of them divides again into two — four readable columns in one row. */
+  .pages__track.is-goal-open.is-task-note-open {
+    max-width: 1920px;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   }
 }
 /* narrow: one pane at a time, swiped left and right */
@@ -2346,33 +3519,76 @@ button.tgroup__head--day:hover {
 @media (min-width: 1000px) { .pane-dots { display: none; } }
 body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: none; }
 
-/* the habit tiles in the planning column: square, as many per row as fit, the
-   empty "+" slot always last */
+/* HABITS — a compact first line in the task column. Projects keep the other
+   column to themselves; the small icons wrap without turning into large tiles. */
+.habits-band {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+}
+.habits-band__inner {
+  display: flex;
+  align-items: center;
+  gap: 20px;
+  min-width: 0;
+  padding: 11px 0 14px;
+  border-bottom: 1px solid color-mix(in srgb, var(--c-line) 38%, transparent);
+}
+.habits-band__head {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 7px;
+}
+.habits-band__title {
+  margin: 0;
+  color: var(--muted);
+  font-size: .8rem;
+  font-weight: 600;
+  letter-spacing: .025em;
+  white-space: nowrap;
+}
+.habits-band .zone__action {
+  width: 28px;
+  height: 28px;
+  border-radius: 8px;
+  background: transparent;
+}
 .habit-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(74px, 1fr));
-  gap: 10px;
+  flex: 1 1 auto;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
 }
 .habit {
+  flex: 0 0 42px;
   position: relative;
-  aspect-ratio: 1;
-  border: none;
-  border-radius: var(--r-md);
-  background: var(--surface);
+  width: 42px;
+  height: 42px;
+  border: 1px solid color-mix(in srgb, var(--c-line) 36%, transparent);
+  border-radius: 12px;
+  background: color-mix(in srgb, var(--c-surface) 30%, transparent);
   cursor: pointer;
+  touch-action: pan-y;
+  user-select: none;
   overflow: hidden;
   display: grid;
   place-items: center;
   padding: 0;
-  transition: transform .15s ease;
+  transition: transform .15s ease, border-color .15s ease, background .15s ease;
 }
-.habit:hover { transform: translateY(-2px); }
+.habit:hover {
+  transform: translateY(-1px);
+  border-color: color-mix(in srgb, var(--accent) 45%, transparent);
+}
 
 .habit__icon {
   position: relative;
   z-index: 1;
-  width: 54%;
-  height: 54%;
+  width: 20px;
+  height: 20px;
   color: var(--muted);
 }
 .habit.done .habit__icon { color: var(--text); }
@@ -2396,41 +3612,112 @@ body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: non
   background: rgba(255, 255, 255, 0.5);
 }
 
-.habit__del {
-  position: absolute;
-  top: 2px; right: 5px;
-  z-index: 3;
-  border: none;
-  background: none;
-  color: var(--muted);
-  font-size: 1.05rem;
-  line-height: 1;
-  cursor: pointer;
-  opacity: .55;
-  transition: opacity .2s ease;
+.habit.is-habit-dragging {
+  opacity: .28;
 }
-.habit__del:hover { opacity: 1; }
+.habit-drag-ghost {
+  position: fixed;
+  z-index: 1000;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  max-width: min(260px, calc(100vw - 28px));
+  padding: 7px 11px 7px 7px;
+  border: 1px solid color-mix(in srgb, var(--accent) 34%, var(--border));
+  border-radius: 13px;
+  background: color-mix(in srgb, var(--surface-solid) 94%, transparent);
+  color: var(--text);
+  box-shadow: var(--shadow);
+  backdrop-filter: blur(10px);
+  pointer-events: none;
+  font-size: .8rem;
+  font-weight: 600;
+  transition: color .14s ease, border-color .14s ease, background .14s ease;
+}
+.habit-drag-ghost__icon {
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  width: 25px;
+  height: 25px;
+  padding: 4px;
+  border-radius: 8px;
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+}
+.habit-drag-ghost__icon svg { width: 18px; height: 18px; }
+.habit-drag-ghost > span:last-child {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.habit-drag-ghost.is-link-target {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--surface-solid) 90%, var(--accent) 10%);
+}
+.habit-drag-ghost.is-delete-target {
+  color: var(--danger);
+  border-color: var(--danger);
+  background: color-mix(in srgb, var(--surface-solid) 90%, var(--danger) 10%);
+}
+.item--project.is-habit-drop-available > .project-tab {
+  outline: 1px dashed color-mix(in srgb, var(--accent) 42%, transparent);
+  outline-offset: -3px;
+}
+.item--project.is-habit-drop-target > .project-tab,
+.item--project.is-inline-open.is-habit-drop-target {
+  outline: 1px solid var(--accent);
+  outline-offset: -2px;
+  box-shadow: 0 0 24px color-mix(in srgb, var(--accent) 20%, transparent);
+}
+.habit-project-drop-guide {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  z-index: 5;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: calc(100% - 24px);
+  padding: 6px 9px;
+  border: 1px dashed color-mix(in srgb, var(--accent) 46%, transparent);
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--surface-solid) 90%, transparent);
+  color: color-mix(in srgb, var(--accent) 74%, var(--muted));
+  box-shadow: 0 5px 18px color-mix(in srgb, var(--c-sky-3) calc(var(--c-shade) * 28%), transparent);
+  pointer-events: none;
+  transform: translateY(-50%);
+  font-size: .7rem;
+  font-weight: 650;
+  white-space: nowrap;
+}
+.habit-project-drop-guide > span:first-child,
+.habit-project-drop-guide svg { width: 16px; height: 16px; }
+.item--project.is-habit-drop-target .habit-project-drop-guide {
+  border-style: solid;
+  border-color: var(--accent);
+  color: var(--accent);
+  background: color-mix(in srgb, var(--surface-solid) 88%, var(--accent) 12%);
+  box-shadow: 0 0 20px color-mix(in srgb, var(--accent) 24%, transparent);
+}
 
-/* empty slot: a + with a soft blurred glow behind it */
-.habit--empty {
-  background: transparent;
-  border: 2px dashed var(--border);
-}
-.habit--empty::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  z-index: 0;
-  background: radial-gradient(circle at 50% 55%, var(--accent-soft), transparent 65%);
-  filter: blur(5px);
-  opacity: .9;
-}
-.habit__plus {
-  position: relative;
-  z-index: 1;
-  color: var(--muted);
-  font-size: 1.6rem;
-  line-height: 1;
+@media (max-width: 999px) {
+  .habits-band__inner { gap: 13px; }
+  .habit-grid {
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    overscroll-behavior-inline: contain;
+    scrollbar-width: none;
+    padding: 2px 0 3px;
+  }
+  .habit-grid::-webkit-scrollbar { display: none; }
+  .habit {
+    flex-basis: 38px;
+    width: 38px;
+    height: 38px;
+    border-radius: 11px;
+  }
+  .habit__icon { width: 18px; height: 18px; }
 }
 
 /* icon catalog */
@@ -2451,6 +3738,12 @@ body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: non
   transition: border-color .2s ease, transform .15s ease;
 }
 .icon-choice:hover { border-color: var(--accent); transform: translateY(-2px); }
+.icon-choice.is-on {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 10%, var(--input-bg));
+  color: var(--accent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 22%, transparent);
+}
 .icon-choice svg { display: block; width: 52%; height: 52%; }
 
 /* preconfigured-habit preset button (in the picker) */
@@ -2989,58 +4282,6 @@ body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: non
 .edit-pin__flower { width: 20px; height: 20px; display: grid; place-items: center; }
 .edit-pin__flower svg { width: 20px; height: 20px; }
 
-/* FLOATING VIEWS — still used by the notes list and the note editor */
-.detail {
-  position: fixed;
-  inset: 0;
-  z-index: 30;
-  display: grid;
-  place-items: center;
-  padding: 28px 24px;
-  overflow: hidden;
-}
-.detail[hidden] { display: none; }
-.detail__backdrop {
-  position: absolute;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.32);
-  backdrop-filter: blur(3px);
-  opacity: 0;
-  transition: opacity .25s ease;
-}
-.detail.is-open .detail__backdrop { opacity: 1; }
-.detail .detail__card {
-  position: relative;
-  z-index: 1;
-  backdrop-filter: blur(18px) saturate(130%);
-  display: flex;
-  flex-direction: column;
-  width: 100%;
-  max-width: 580px;
-  max-height: min(88vh, 880px);
-  background: var(--surface);
-  border-radius: var(--radius);
-  box-shadow: var(--shadow);
-  opacity: 0;
-  transform: translateY(18px) scale(.985);
-  transition: opacity .25s ease, transform .25s cubic-bezier(.2, .8, .3, 1);
-}
-.detail.is-open .detail__card { opacity: 1; transform: none; }
-.detail--wide .detail__card { max-width: 840px; }
-.detail .detail__bar {
-  flex: 0 0 auto;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 14px 22px 8px;
-}
-.detail .detail__body {
-  flex: 1 1 auto;
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  padding: 4px 22px 26px;
-}
-
 /* THE EDITOR — one card, moved into whichever object is unfolded. #detail-park
    is only where it waits when nothing is open. */
 .detail-park { display: none; }
@@ -3090,7 +4331,6 @@ body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: non
    keeps its top margin when a visible one comes before it. */
 .unfold__inner .detail__section { margin-top: 0; }
 .unfold__inner .detail__section:not([hidden]) ~ .detail__section { margin-top: 22px; }
-.unfold__inner .detail__delete { margin-top: 20px; }
 .detail__back {
   width: 40px; height: 40px;
   border: none;
@@ -3121,6 +4361,8 @@ body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: non
 .detail__bell[hidden] { display: none; }
 .detail__bell.is-on { color: var(--danger); opacity: 1; }
 .detail__bell.is-on:hover { color: var(--danger); }
+/* the bin is the one button here that undoes something: it warns on approach */
+.detail__trash:hover { color: var(--danger); background: color-mix(in srgb, var(--danger) 12%, transparent); }
 .detail__pin svg { width: 20px; height: 20px; }
 
 /* on/off switch (event "important" flag) */
@@ -3284,56 +4526,151 @@ body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: non
 }
 .detail__notes:focus { border-color: var(--accent); }
 
-.sub-add { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
-
-.detail__actions { display: flex; gap: 10px; margin-top: 24px; }
-/* a display rule beats the hidden attribute, as it does for .add-card */
-.detail__actions[hidden] { display: none; }
-.detail__delete[hidden] { display: none; }   /* display:flex would beat the attribute */
-.detail__actions .detail__delete { margin-top: 0; }
-/* three actions, three readings: completing affirms, rescheduling is neutral,
-   deleting warns. Same shape throughout, only the colour separates them. */
-.detail__delete.detail__done {
-  border-color: color-mix(in srgb, var(--accent) 45%, transparent);
-  color: var(--accent);
-}
-.detail__delete.detail__done:hover {
-  border-color: var(--accent);
-  background: color-mix(in srgb, var(--accent) 12%, transparent);
-}
-.detail__delete.detail__done.is-on {
-  border-color: var(--accent);
-  background: color-mix(in srgb, var(--accent) 18%, transparent);
-}
-.detail__delete.detail__when {
-  border-color: var(--item-border);
-  color: var(--muted);
-}
-.detail__delete.detail__when:hover {
-  border-color: var(--muted);
-  color: var(--text);
-  background: color-mix(in srgb, var(--muted) 10%, transparent);
-}
-.detail__delete {
-  margin-top: 30px;
-  flex: 1;
-  width: 100%;
-  display: flex;
+/* INLINE TASK — subtasks are the working column; the note is a quiet optional
+   sheet beside it, following the same expandable rhythm as an objective journal. */
+.task-inline__note-toggle {
+  flex: 0 0 auto;
+  display: inline-flex;
   align-items: center;
-  justify-content: center;
-  gap: 8px;
-  border: 1px solid color-mix(in srgb, var(--danger) 40%, var(--border));
-  background: none;
-  color: var(--danger);
-  border-radius: 12px;
-  padding: 12px;
-  font-size: .95rem;
-  font-weight: 600;
+  gap: 6px;
+  padding: 6px 9px;
+  border: 0;
+  border-radius: 9px;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: .76rem;
   cursor: pointer;
-  transition: background .2s ease, border-color .2s ease;
+  opacity: .76;
+  transition: color .16s ease, background .16s ease, opacity .16s ease;
 }
-.detail__delete:hover { background: color-mix(in srgb, var(--danger) 12%, transparent); border-color: var(--danger); }
-.detail__delete svg { width: 17px; height: 17px; }
+.task-inline__note-toggle[hidden] { display: none; }
+.task-inline__note-toggle svg { width: 15px; height: 15px; }
+.task-inline__note-toggle:hover,
+.task-inline__note-toggle:focus-visible,
+.task-inline__note-toggle.is-active {
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 9%, transparent);
+  opacity: 1;
+  outline: none;
+}
+.task-inline__workspace {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 0fr);
+  align-items: stretch;
+  min-width: 0;
+  transition: grid-template-columns .52s cubic-bezier(.2, .8, .25, 1);
+}
+.task-inline__workspace.is-note-open {
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+}
+.task-inline__main {
+  min-width: 0;
+  padding: 10px 0 2px;
+  transition: padding-right .52s cubic-bezier(.2, .8, .25, 1);
+}
+.task-inline__main[hidden] { display: none; }
+.task-inline__workspace.is-note-open > .task-inline__main {
+  padding-right: clamp(24px, 3vw, 42px);
+}
+.task-inline__note-section[hidden] { display: none; }
+.task-inline__workspace:not(.is-event) > .task-inline__note-section {
+  min-width: 0;
+  margin-top: 0;
+  padding: 20px 0 10px clamp(24px, 3vw, 42px);
+  border-left: 1px solid color-mix(in srgb, var(--c-line) 34%, transparent);
+  background: color-mix(in oklab, var(--c-bg) 92%, var(--c-muted) 8%);
+  box-shadow: inset 1px 0 0 color-mix(in srgb, var(--c-surface) 7%, transparent);
+}
+.task-inline__workspace:not(.is-event) .task-inline__note-section > .detail__label {
+  color: color-mix(in srgb, var(--text) 62%, var(--muted));
+}
+.task-inline__workspace:not(.is-event) .task-inline__note-section .detail__notes {
+  min-height: 150px;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+  padding: 5px 0;
+  line-height: 1.55;
+  box-shadow: none;
+}
+.task-inline__workspace .sub-add {
+  gap: 5px;
+  margin: 0 0 9px;
+}
+.task-inline__workspace .sub-add .add__input {
+  min-width: 0;
+  border: 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--c-line) 42%, transparent);
+  border-radius: 0;
+  background: transparent;
+  padding: 7px 2px 6px;
+  font: inherit;
+  font-size: .88rem;
+  box-shadow: none;
+}
+.task-inline__workspace .sub-add .add__input:focus {
+  border-bottom-color: color-mix(in srgb, var(--accent) 72%, transparent);
+}
+.task-inline__workspace .sub-add .add__btn {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: transparent;
+  font-size: 1.15rem;
+  opacity: .72;
+}
+.task-inline__workspace .sub-add .add__btn:hover,
+.task-inline__workspace .sub-add .add__btn:focus-visible {
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  opacity: 1;
+}
+.task-inline__subtasks {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.task-inline__subtasks .step { min-height: 38px; }
+
+/* The fourth column grows with its parent track instead of appearing after it.
+   This small content reveal hides the zero-width starting edge while both grids
+   interpolate through the same duration. */
+@keyframes optionalColumnReveal {
+  from { opacity: 0; transform: translateX(-14px); clip-path: inset(0 0 0 12%); }
+  to { opacity: 1; transform: translateX(0); clip-path: inset(0); }
+}
+.goal-inline__workspace.is-journal-open > .goal-inline__journal-section,
+.task-inline__workspace.is-note-open > .task-inline__note-section {
+  animation: optionalColumnReveal .52s cubic-bezier(.2, .8, .25, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .goal-inline__workspace,
+  .task-inline__workspace,
+  .goal-inline__workspace > .psteps,
+  .task-inline__main { transition: none; }
+  .goal-inline__workspace.is-journal-open > .goal-inline__journal-section,
+  .task-inline__workspace.is-note-open > .task-inline__note-section { animation: none; }
+}
+
+@media (max-width: 999px) {
+  .task-inline__workspace.is-note-open { grid-template-columns: minmax(0, 1fr); }
+  .task-inline__workspace.is-note-open > .task-inline__main { padding-right: 0; }
+  .task-inline__workspace:not(.is-event) > .task-inline__note-section {
+    padding: 19px 0 8px;
+    border-left: 0;
+    border-top: 1px solid color-mix(in srgb, var(--c-line) 34%, transparent);
+    box-shadow: inset 0 1px 0 color-mix(in srgb, var(--c-surface) 7%, transparent);
+  }
+}
+
+@media (max-width: 700px) {
+  .task-inline__note-toggle span { display: none; }
+}
+
+.sub-add { display: flex; align-items: center; gap: 8px; margin-bottom: 8px; }
 
 /* row indicators */
 .item--open { cursor: pointer; }
@@ -3510,6 +4847,83 @@ body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: non
 .wx-fill-bot { stop-color: var(--accent); stop-opacity: 0; }
 .wx-line { fill: none; stroke: var(--accent); stroke-width: 2; vector-effect: non-scaling-stroke; }
 .wx-glyph { color: var(--muted); }
+
+/* THE WEATHER TELLS ITS STORY — one sky is built from a sun, a cloud and what
+   falls out of it, and the day only says which of them are up. Holding those
+   states in custom properties is what lets a single animation end on `var()`
+   and land back on whatever sky the day actually has: a clear afternoon can
+   borrow a cloud for four seconds and give it back without a jump. */
+.wx {
+  --wx-sun: 1; --wx-sun-s: 1; --wx-sun-x: 0px; --wx-sun-y: 0px;
+  --wx-cloud: 0; --wx-drops: 0; --wx-flakes: 0; --wx-bolt: 0; --wx-fog: 0;
+}
+.wx--partly { --wx-cloud: 1; --wx-sun-s: .62; --wx-sun-x: -4px; --wx-sun-y: -4px; }
+.wx--cloud  { --wx-sun: 0; --wx-cloud: 1; }
+.wx--rain   { --wx-sun: 0; --wx-cloud: 1; --wx-drops: 1; }
+.wx--snow   { --wx-sun: 0; --wx-cloud: 1; --wx-flakes: 1; }
+.wx--storm  { --wx-sun: 0; --wx-cloud: 1; --wx-bolt: 1; }
+.wx--fog    { --wx-sun: 0; --wx-fog: 1; }
+
+.wx-sun, .wx-cloud, .wx-drops, .wx-flakes, .wx-bolt, .wx-fogbars, .wx-rays {
+  transform-box: view-box;
+  transform-origin: 12px 12px;
+}
+.wx-sun { opacity: var(--wx-sun); translate: var(--wx-sun-x) var(--wx-sun-y); scale: var(--wx-sun-s); }
+.wx-cloud { opacity: var(--wx-cloud); }
+.wx-drops { opacity: var(--wx-drops); }
+.wx-flakes { opacity: var(--wx-flakes); }
+.wx-bolt { opacity: var(--wx-bolt); }
+.wx-fogbars { opacity: var(--wx-fog); }
+
+/* The story, in order: the sun goes behind the cloud, it rains, the cloud
+   thins out and drifts off, the sun has the sky to itself, then the cloud
+   comes back and everything is as it was. */
+.topbar__weather:hover .wx:not(.wx--fog) .wx-sun { animation: wx-tale-sun 4.4s ease-in-out; }
+.topbar__weather:hover .wx:not(.wx--fog) .wx-rays { animation: wx-tale-rays 4.4s ease-in-out; }
+.topbar__weather:hover .wx:not(.wx--fog) .wx-cloud { animation: wx-tale-cloud 4.4s ease-in-out; }
+.topbar__weather:hover .wx:not(.wx--fog) .wx-drops { animation: wx-tale-drops 4.4s linear; }
+/* fog has no story to tell, so it only stirs */
+.topbar__weather:hover .wx--fog .wx-fogbars { animation: wx-tale-fog 2.6s ease-in-out; }
+
+@keyframes wx-tale-sun {
+  0%   { opacity: var(--wx-sun); translate: var(--wx-sun-x) var(--wx-sun-y); scale: var(--wx-sun-s); }
+  12%  { opacity: 1; translate: -4px -4px; scale: .62; }
+  24%  { opacity: .3; translate: -1px -3px; scale: .55; }   /* behind the cloud */
+  44%  { opacity: .3; translate: -1px -3px; scale: .55; }
+  60%  { opacity: 1; translate: 0 0; scale: 1; }            /* the sky clears */
+  74%  { opacity: 1; translate: 0 0; scale: 1.08; }
+  88%  { opacity: 1; translate: -4px -4px; scale: .62; }
+  100% { opacity: var(--wx-sun); translate: var(--wx-sun-x) var(--wx-sun-y); scale: var(--wx-sun-s); }
+}
+@keyframes wx-tale-rays {
+  0%, 24% { rotate: 0deg; }
+  74%     { rotate: 120deg; }
+  100%    { rotate: 120deg; }
+}
+@keyframes wx-tale-cloud {
+  0%   { opacity: var(--wx-cloud); translate: 0 0; scale: 1; }
+  14%  { opacity: 1; translate: 0 0; scale: 1; }
+  46%  { opacity: 1; translate: 0 0; scale: 1; }
+  62%  { opacity: 0; translate: 9px -2px; scale: .82; }     /* it thins and goes */
+  72%  { opacity: 0; translate: -9px 1px; scale: .82; }     /* and comes back the other way */
+  90%  { opacity: 1; translate: 0 0; scale: 1; }
+  100% { opacity: var(--wx-cloud); translate: 0 0; scale: 1; }
+}
+/* three passes of rain while the cloud is overhead, then nothing */
+@keyframes wx-tale-drops {
+  0%, 20%   { opacity: 0; translate: 0 -3px; }
+  24%       { opacity: .9; translate: 0 -3px; }
+  30%       { opacity: 0; translate: 0 2px; }
+  31%       { opacity: .9; translate: 0 -3px; }
+  37%       { opacity: 0; translate: 0 2px; }
+  38%       { opacity: .9; translate: 0 -3px; }
+  44%       { opacity: 0; translate: 0 2px; }
+  45%, 100% { opacity: var(--wx-drops); translate: 0 0; }
+}
+@keyframes wx-tale-fog {
+  0%, 100% { translate: 0 0; }
+  50%      { translate: 2px 0; }
+}
 .wx-hour { fill: var(--muted); font-size: 11px; text-anchor: middle; }
 .wx-ext { fill: var(--text); font-size: 12px; font-weight: 700; text-anchor: middle; }
 .wx-now { stroke: var(--accent); stroke-width: 1.5; stroke-dasharray: 3 3; opacity: .55; vector-effect: non-scaling-stroke; }
@@ -3806,6 +5220,200 @@ body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: non
   background: color-mix(in srgb, var(--danger) 13%, var(--surface));
   box-shadow: 0 0 22px color-mix(in srgb, var(--danger) 28%, transparent);
 }
+
+
+/* THE CANVAS TOOLS ANSWER — each block's glyph does the thing the block is for,
+   once, on hover. The glyphs are split into named parts in thinkingIconSvg, and
+   everything below moves those parts, never the tile. Origins are in the
+   drawing's own 24-unit coordinates, so they are read straight off the paths. */
+.thinking-tool [class^="ti-"], .thinking-tool [class*=" ti-"],
+.thinking-block [class^="ti-"], .thinking-block [class*=" ti-"] { transform-box: view-box; }
+
+/* PROBLEM — the arrow comes in from outside and finds the middle; the rings
+   take the hit. It was already an arrow leaving a target: now it arrives. */
+.ti-arrow { transform-origin: 18px 6px; }
+.ti-rings { transform-origin: 12px 12px; }
+.thinking-tool--problem:hover .ti-arrow,
+.thinking-block--problem .thinking-block__icon:hover .ti-arrow { animation: ti-loose .75s cubic-bezier(.3, 0, .2, 1); }
+.thinking-tool--problem:hover .ti-rings,
+.thinking-block--problem .thinking-block__icon:hover .ti-rings { animation: ti-hit .75s ease-out; }
+@keyframes ti-loose {
+  0%   { translate: 10px -10px; opacity: 0; }
+  22%  { opacity: 1; }
+  62%  { translate: -1.5px 1.5px; }
+  100% { translate: 0 0; }
+}
+@keyframes ti-hit {
+  0%, 55% { scale: 1; }
+  68%     { scale: 1.14; }
+  100%    { scale: 1; }
+}
+
+/* SOLUTION — it comes on. The rays are not drawn until there is light. */
+.ti-rays { opacity: 0; transform-origin: 12px 10px; }
+/* the coil inside the glass: quiet when the lamp is off, and the thing that
+   actually lights when it comes on — rays alone read as a lamp already lit */
+.ti-wire { opacity: .45; transform-origin: 12px 13px; }
+.ti-glass { transform-origin: 12px 11px; }
+.thinking-tool--solution:hover .ti-rays,
+.thinking-block--solution .thinking-block__icon:hover .ti-rays { animation: ti-lit .9s ease-out; }
+.thinking-tool--solution:hover .ti-glass,
+.thinking-block--solution .thinking-block__icon:hover .ti-glass { animation: ti-filament .9s ease-out; }
+.thinking-tool--solution:hover .ti-wire,
+.thinking-block--solution .thinking-block__icon:hover .ti-wire { animation: ti-burn .9s ease-out; }
+/* the coil dips before it catches, then holds bright while the rays are out */
+@keyframes ti-burn {
+  0%   { opacity: .45; scale: 1; }
+  16%  { opacity: .28; }
+  34%  { opacity: 1; scale: 1.07; }
+  70%  { opacity: 1; scale: 1; }
+  100% { opacity: .45; scale: 1; }
+}
+@keyframes ti-lit {
+  0%   { opacity: 0; scale: .55; }
+  35%  { opacity: 1; scale: 1.05; }
+  60%  { opacity: 1; scale: 1; }
+  100% { opacity: 0; scale: 1.1; }
+}
+@keyframes ti-filament {
+  0%, 100% { scale: 1; }
+  18%      { scale: .94; }   /* the flicker before it catches */
+  34%      { scale: 1.07; }
+}
+
+/* EXAMPLE — the pennant flies, the pole stays where it was planted */
+.ti-flag { transform-origin: 6px 8px; }
+.thinking-tool--example:hover .ti-flag,
+.thinking-block--example .thinking-block__icon:hover .ti-flag { animation: ti-fly 1.1s ease-in-out; }
+@keyframes ti-fly {
+  0%, 100% { scale: 1 1; rotate: 0deg; }
+  25%      { scale: .86 1; rotate: -3.5deg; }
+  55%      { scale: 1.06 1; rotate: 2.5deg; }
+  80%      { scale: .95 1; rotate: -1deg; }
+}
+
+/* QUESTION — the needle casts about, overshoots the turn and settles back */
+.ti-needle { transform-origin: 12px 12px; }
+.thinking-tool--question:hover .ti-needle,
+.thinking-block--question .thinking-block__icon:hover .ti-needle { animation: ti-seek .95s cubic-bezier(.25, 0, .25, 1); }
+@keyframes ti-seek {
+  0%   { rotate: 0deg; }
+  70%  { rotate: 392deg; }
+  100% { rotate: 360deg; }
+}
+
+/* IDEA — the big star leaves by the corner, the small one takes its place and
+   grows into it, and another small one arrives behind. One thought makes room
+   for the next, which is the only thing this block is ever about. */
+.ti-star-big { transform-origin: 12px 10px; }
+.ti-star-mid, .ti-star-new { transform-origin: 19px 19px; }
+.ti-star-new { opacity: 0; }
+.thinking-tool--idea:hover .ti-star-big,
+.thinking-block--idea .thinking-block__icon:hover .ti-star-big { animation: ti-star-out 1.15s cubic-bezier(.4, 0, .3, 1); }
+.thinking-tool--idea:hover .ti-star-mid,
+.thinking-block--idea .thinking-block__icon:hover .ti-star-mid { animation: ti-star-up 1.15s cubic-bezier(.35, 0, .25, 1); }
+.thinking-tool--idea:hover .ti-star-new,
+.thinking-block--idea .thinking-block__icon:hover .ti-star-new { animation: ti-star-in 1.15s ease-out; }
+@keyframes ti-star-out {
+  0%   { translate: 0 0; opacity: 1; scale: 1; }
+  40%  { translate: -14px -14px; opacity: 0; scale: .65; }
+  88%  { translate: 0 0; opacity: 0; scale: 1; }
+  100% { translate: 0 0; opacity: 1; scale: 1; }
+}
+/* The promoted star holds the big slot to the very end and only then hands it
+   back, crossing over with the one that left. Both are the same shape in the
+   same place at that instant, so the exchange cannot be seen — which is the
+   whole point: the first cut had them all leave at once and the icon went bare. */
+@keyframes ti-star-up {
+  0%   { translate: 0 0; scale: 1; opacity: 1; }
+  50%  { translate: -7px -9px; scale: 2.6; opacity: 1; }
+  88%  { translate: -7px -9px; scale: 2.6; opacity: 1; }
+  100% { translate: -7px -9px; scale: 2.6; opacity: 0; }
+}
+@keyframes ti-star-in {
+  0%, 30% { opacity: 0; scale: 0; }
+  58%     { opacity: 1; scale: 1.15; }
+  68%     { opacity: 1; scale: 1; }
+  100%    { opacity: 1; scale: 1; }
+}
+
+/* TEXT — the change of measure runs down the lines and comes back up */
+.ti-line--1 { transform-origin: 5px 7px; }
+.ti-line--2 { transform-origin: 5px 12px; }
+.ti-line--3 { transform-origin: 5px 17px; }
+.thinking-tool--text:hover .ti-line,
+.thinking-block--text .thinking-block__icon:hover .ti-line { animation: ti-measure 1.3s ease-in-out; }
+.thinking-tool--text:hover .ti-line--2,
+.thinking-block--text .thinking-block__icon:hover .ti-line--2 { animation-delay: .11s; }
+.thinking-tool--text:hover .ti-line--3,
+.thinking-block--text .thinking-block__icon:hover .ti-line--3 { animation-delay: .22s; }
+@keyframes ti-measure {
+  0%, 100% { scale: 1 1; }
+  34%      { scale: .42 1; }
+  68%      { scale: 1.22 1; }
+}
+
+/* NOTE AND JOURNAL — a leaf turns over. The sheet on top is a copy of the one
+   underneath, so what you see turning is the page you were reading. */
+.ti-sheet { transform-origin: 6px 12px; }
+.thinking-tool--note:hover .ti-sheet,
+.thinking-block--note .thinking-block__icon:hover .ti-sheet,
+.thinking-tool--journal:hover .ti-sheet,
+.thinking-block--journal .thinking-block__icon:hover .ti-sheet { animation: ti-turn-page .95s cubic-bezier(.45, 0, .3, 1); }
+@keyframes ti-turn-page {
+  0%   { scale: 1 1; opacity: 1; }
+  46%  { scale: .06 1; opacity: .55; }   /* the leaf closes onto its spine */
+  54%  { scale: .06 1; opacity: .55; }
+  100% { scale: 1 1; opacity: 1; }       /* and the next one opens */
+}
+
+/* ANSWER — the reply goes, and comes straight back with something */
+.ti-reply { transform-origin: 12px 12px; }
+.thinking-tool--answer:hover .ti-reply,
+.thinking-block--answer .thinking-block__icon:hover .ti-reply { animation: ti-send .85s cubic-bezier(.35, 0, .25, 1); }
+@keyframes ti-send {
+  0%   { translate: 0 0; scale: 1; }
+  32%  { translate: -5px 0; scale: .9; }
+  40%  { translate: -5px 0; scale: .9; opacity: .35; }
+  56%  { translate: 5px 0; scale: .9; opacity: .35; }
+  78%  { translate: -.8px 0; scale: 1.05; opacity: 1; }
+  100% { translate: 0 0; scale: 1; }
+}
+
+/* THE BINS — one drawing and one behaviour wherever something can be thrown
+   away. The lid hinges on the left end of its own rim: it tilts while the bin
+   is the live target, swings wide as the thing goes in, and falls shut behind
+   it. The object panel has no drag to arm it, so there the hover does that job.
+   `overflow: visible` because an open lid leaves the 24-unit box it is drawn
+   in — clipped at the top was exactly what it looked like without it. */
+.ico-lid {
+  transform-box: view-box;
+  transform-origin: 4px 6px;
+  transition: rotate .18s ease, translate .18s ease;
+}
+.dtl__trash svg,
+.thinking-trash svg,
+.detail__trash svg { overflow: visible; }
+
+.dtl__trash.is-active .ico-lid,
+.thinking-trash.is-active .ico-lid,
+.detail__trash:hover .ico-lid { rotate: -16deg; translate: 0 -.5px; }
+
+.dtl__trash.is-tossing { color: var(--danger); }
+.dtl__trash.is-tossing .ico-lid,
+.thinking-trash.is-tossing .ico-lid { animation: bin-lid .62s cubic-bezier(.3, 1.3, .5, 1); }
+@keyframes bin-lid {
+  0%   { rotate: -16deg; translate: 0 -.5px; }
+  26%  { rotate: -38deg; translate: 0 -1.5px; }
+  52%  { rotate: -34deg; translate: 0 -1.5px; }
+  100% { rotate: 0deg; translate: 0 0; }
+}
+
+/* back to today: the arrow winds itself back round once */
+#dayToday svg { transform-box: view-box; transform-origin: 12px 12px; }
+#dayToday:hover svg { animation: ico-turn-back .8s cubic-bezier(.42, 0, .2, 1); }
+@keyframes ico-turn-back { from { rotate: 0deg; } to { rotate: -360deg; } }
+
 @keyframes timeline-trash-in {
   to { transform: translate(-50%, -50%) scale(1); }
 }
@@ -4460,173 +6068,8 @@ body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: non
 .heat__cell.is-future { visibility: hidden; }
 .heat__cell.is-today { box-shadow: inset 0 0 0 1.5px var(--sig-line); }
 
-/* NOTES TOOL */
-
-.notes__top { flex: 0 0 auto; }
-.notes__add {
-  width: 40px; height: 40px;
-  border: none;
-  border-radius: 10px;
-  background: var(--accent-soft);
-  color: var(--accent);
-  font-size: 1.5rem;
-  line-height: 1;
-  cursor: pointer;
-  display: grid; place-items: center;
-  transition: background .2s ease;
-}
-.notes__add:hover { background: var(--accent-hover); }
-
-.notes__toolbar {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: 6px;
-  padding: 4px 16px 12px;
-  border-bottom: 1px solid var(--border);
-}
-.ntool {
-  min-width: 34px;
-  height: 34px;
-  padding: 0 8px;
-  border: 1px solid var(--border);
-  background: var(--input-bg);
-  color: var(--text);
-  border-radius: 9px;
-  cursor: pointer;
-  font-size: 1rem;
-  display: grid; place-items: center;
-  transition: border-color .15s ease, background .15s ease;
-}
-.ntool:hover { border-color: var(--accent); }
-.ntool:active { background: var(--accent-soft); }
-.ntool[data-cmd="bold"] { font-weight: 700; }
-.ntool[data-cmd="italic"] { font-style: italic; }
-.ntool[data-cmd="underline"] { text-decoration: underline; }
-.ntool svg { width: 20px; height: 20px; }
-.ntool__sep { width: 1px; height: 22px; background: var(--border); margin: 0 2px; }
-.ntool__emojis { display: flex; flex-wrap: wrap; gap: 4px; }
-.ntool--emoji { font-size: 1.05rem; border-color: transparent; background: none; }
-.ntool--emoji:hover { background: var(--input-bg); border-color: var(--border); }
-
-/* notes list */
-.note-search {
-  width: 100%;
-  border: 1px solid var(--border);
-  background: var(--input-bg);
-  border-radius: 12px;
-  padding: 11px 14px;
-  font-size: .95rem;
-  color: var(--text);
-  outline: none;
-  margin-bottom: 16px;
-  transition: border-color .2s ease;
-}
-.note-search:focus { border-color: var(--accent); }
-
-.note-card {
-  position: relative;
-  background: var(--input-bg);
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  padding: 14px 40px 14px 16px;
-  margin-bottom: 10px;
-  cursor: pointer;
-  transition: border-color .15s ease, transform .15s ease, box-shadow .15s ease;
-}
-.note-card:hover { border-color: var(--accent); transform: translateY(-1px); box-shadow: var(--shadow); }
-.note-card__title {
-  font-weight: 600;
-  color: var(--text);
-  margin-bottom: 4px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.note-card__title.is-empty { color: var(--muted); font-weight: 500; font-style: italic; }
-.note-card__preview {
-  color: var(--muted);
-  font-size: .88rem;
-  line-height: 1.4;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-}
-.note-card__preview:empty { display: none; }
-.note-card__date {
-  margin-top: 8px;
-  font-size: .72rem;
-  color: var(--muted);
-}
-.note-card__del {
-  position: absolute;
-  top: 10px; right: 12px;
-  border: none;
-  background: none;
-  color: var(--muted);
-  font-size: 1.2rem;
-  line-height: 1;
-  cursor: pointer;
-  opacity: .5;
-  transition: opacity .2s ease, color .2s ease;
-}
-.note-card__del:hover { opacity: 1; color: var(--danger); }
-
-/* note editor */
-.note-title {
-  width: 100%;
-  border: none;
-  background: none;
-  color: var(--text);
-  font-size: 1.6rem;
-  font-weight: 700;
-  padding: 4px 0 12px;
-  outline: none;
-}
-.note-body {
-  background: var(--input-bg);
-  border: 1px solid var(--border);
-  border-radius: 14px;
-  padding: 18px;
-  min-height: 340px;
-  color: var(--text);
-  line-height: 1.7;
-  outline: none;
-  word-break: break-word;
-}
-.note-body:empty:before {
-  content: attr(data-placeholder);
-  color: var(--muted);
-}
-
-/* NARROW — the tab moves to the bottom edge and is pulled upwards; the two
-   spaces stack on the rail instead of sitting side by side */
-/* MOBILE — the desktop dialogs become bottom sheets, panels stay stacked */
+/* MOBILE — the day panels stay stacked. */
 @media (max-width: 700px) {
-  /* the floating views become bottom sheets; scoped to .detail so the inline
-     editor, which shares the card class, is left alone */
-  .detail { padding: 0; place-items: end stretch; }
-  .detail .detail__card,
-  .detail--wide .detail__card {
-    max-width: none;
-    max-height: 92vh;
-    border-radius: 22px 22px 0 0;
-    /* the sheet sits at the bottom, so the tools above it stay clear */
-    transform: translateY(100%);
-    padding-bottom: env(safe-area-inset-bottom);
-  }
-  .detail.is-open .detail__card { transform: none; }
-  .detail .detail__card::before {   /* grab handle, the usual bottom-sheet affordance */
-    content: "";
-    flex: 0 0 auto;
-    width: 38px; height: 4px;
-    margin: 9px auto 0;
-    border-radius: 999px;
-    background: var(--border);
-  }
-  .detail .detail__bar { padding: 8px 16px 6px; }
-  .detail .detail__body { padding: 4px 16px 22px; }
   .app__col { gap: 34px; }
   .day-line { margin-bottom: 58px; }
 }
@@ -4736,34 +6179,79 @@ body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: non
   min-width: 0;
   display: flex;
   align-items: center;
-  gap: 7px;
+  gap: 10px;
   margin-block: -4px;
+  padding-block: 4px;
+  overflow: hidden;
+}
+.thinking-tools__panel {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 7px;
   padding-block: 4px;
   overflow-x: auto;
   overflow-y: hidden;
   scrollbar-width: none;
-}
-.thinking-tools__additions::-webkit-scrollbar { display: none; }
-/* the palette runs off the edge on purpose; it should fray, not be guillotined */
-.thinking-tools__additions {
   mask-image: linear-gradient(90deg, #000 calc(100% - 26px), transparent);
 }
+.thinking-tools__panel::-webkit-scrollbar { display: none; }
+.thinking-tools__panel[hidden] { display: none; }
 .thinking-tools {
   box-shadow: 0 10px 24px -18px color-mix(in srgb, #000 calc(var(--c-shade) * 130%), transparent);
 }
-/* the sober counterweight: the colour is all in the dabs, so the two group
-   names stay small and quiet */
-.thinking-tools__label {
+.thinking-tools__section-switch {
   flex: 0 0 auto;
-  margin: 0 5px 0 2px;
+  align-self: stretch;
+  display: inline-grid;
+  align-items: center;
+  justify-items: start;
+  border: 0;
+  border-right: 1px solid var(--border);
+  border-radius: 0;
+  padding: 0 14px 0 2px;
+  background: transparent;
   color: var(--muted);
+  font: inherit;
   font-size: .63rem;
-  font-weight: 700;
+  font-weight: 760;
   letter-spacing: .11em;
   text-transform: uppercase;
   opacity: .78;
+  cursor: pointer;
+  transition: color .15s ease, opacity .15s ease;
 }
-.thinking-tools__label:not(:first-child) { margin-left: 9px; }
+.thinking-tools__section-switch:hover,
+.thinking-tools__section-switch:focus-visible {
+  color: var(--text);
+  opacity: 1;
+}
+.thinking-tools__section-label,
+.thinking-tools__section-size {
+  grid-area: 1 / 1;
+  display: inline-block;
+  white-space: nowrap;
+}
+.thinking-tools__section-size {
+  visibility: hidden;
+  pointer-events: none;
+}
+.thinking-tools__section-switch:disabled {
+  cursor: default;
+}
+.thinking-tools__section-switch.is-switching .thinking-tools__section-label {
+  animation: thinking-tool-section-next .22s ease;
+}
+@keyframes thinking-tool-section-next {
+  0% { opacity: .2; transform: translateY(-3px); }
+  100% { opacity: 1; transform: translateY(0); }
+}
+.thinking-tools__panel:not([hidden]) { animation: thinking-tool-panel-in .18s ease; }
+@keyframes thinking-tool-panel-in {
+  0% { opacity: 0; transform: translateX(6px); }
+  100% { opacity: 1; transform: translateX(0); }
+}
 /* THE PALETTE — the board is a cloth, so the row you pick from is a palette and
    each tool is a dab of its own colour, not a grey chip with a coloured dot.
    They lift under the pointer and press when taken, which is the only thing in
@@ -4806,7 +6294,7 @@ body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: non
   padding-left: 9px;
   border-left: 1px solid var(--border);
 }
-.thinking-selection-toggle {
+.thinking-mode-toggle {
   flex: 0 0 auto;
   width: 34px;
   height: 34px;
@@ -4821,16 +6309,16 @@ body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: non
   touch-action: manipulation;
   transition: color .15s ease, background .15s ease, box-shadow .15s ease;
 }
-.thinking-selection-toggle:hover {
+.thinking-mode-toggle:hover {
   color: var(--text);
   background: var(--input-bg);
 }
-.thinking-selection-toggle[aria-pressed="true"] {
+.thinking-mode-toggle[aria-pressed="true"] {
   color: var(--accent);
   background: color-mix(in srgb, var(--accent) 15%, var(--surface-solid));
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 42%, transparent);
 }
-.thinking-selection-toggle svg { width: 19px; height: 19px; }
+.thinking-mode-toggle svg { width: 19px; height: 19px; }
 .thinking-selection-actions {
   flex: 0 0 auto;
   height: 34px;
@@ -4892,7 +6380,8 @@ body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: non
    blocks now speak. */
 .thinking-tool--canvas,
 .thinking-tool--folder,
-.thinking-tool--document {
+.thinking-tool--document,
+.thinking-tool--planner {
   height: 38px;
   border-color: color-mix(in srgb, var(--block-color) 48%, var(--border));
   padding: 0 14px 0 7px;
@@ -4901,7 +6390,8 @@ body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: non
 }
 .thinking-tool--canvas:hover,
 .thinking-tool--folder:hover,
-.thinking-tool--document:hover {
+.thinking-tool--document:hover,
+.thinking-tool--planner:hover {
   background: color-mix(in srgb, var(--block-color) 22%, var(--surface-solid));
 }
 .thinking-tool:disabled {
@@ -4920,13 +6410,13 @@ body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: non
 .thinking-tool__mark svg { width: 14px; height: 14px; }
 /* a container's disc is solid, with the icon knocked out of it — the block's
    "settled" state, borrowed to say "this one holds other things" */
-.thinking-tool:is(.thinking-tool--canvas, .thinking-tool--folder, .thinking-tool--document) .thinking-tool__mark {
+.thinking-tool:is(.thinking-tool--canvas, .thinking-tool--folder, .thinking-tool--document, .thinking-tool--planner) .thinking-tool__mark {
   width: 26px;
   height: 26px;
   background: color-mix(in srgb, var(--block-color) 82%, transparent);
   color: var(--surface-solid);
 }
-.thinking-tool:is(.thinking-tool--canvas, .thinking-tool--folder, .thinking-tool--document) .thinking-tool__mark svg {
+.thinking-tool:is(.thinking-tool--canvas, .thinking-tool--folder, .thinking-tool--document, .thinking-tool--planner) .thinking-tool__mark svg {
   width: 19px;
   height: 19px;
 }
@@ -4944,9 +6434,15 @@ body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: non
 .thinking-tool--canvas, .thinking-block--canvas, .thinking-link--canvas, .thinking-add--canvas { --block-color: var(--c-imp-2); }
 .thinking-tool--folder, .thinking-block--folder, .thinking-link--folder, .thinking-add--folder { --block-color: var(--c-imp-5); }
 .thinking-tool--document, .thinking-block--document, .thinking-link--document, .thinking-add--document { --block-color: var(--c-imp-3); }
+.thinking-tool--planner, .thinking-block--planner, .thinking-link--planner, .thinking-add--planner { --block-color: var(--c-imp-1); }
 .thinking-tool--solution, .thinking-block--solution, .thinking-link--solution { --block-color: var(--c-imp-4); }
 .thinking-tool--answer, .thinking-block--answer, .thinking-link--answer { --block-color: var(--c-imp-4); }
 .thinking-tool--task, .thinking-block--task, .thinking-link--task { --block-color: var(--c-imp-3); }
+.thinking-tool--event, .thinking-block--event, .thinking-link--event { --block-color: var(--c-imp-2); }
+.thinking-tool--project, .thinking-block--project, .thinking-link--project { --block-color: var(--c-imp-5); }
+.thinking-tool--habit, .thinking-block--habit, .thinking-link--habit { --block-color: var(--c-imp-4); }
+.thinking-tool--loop, .thinking-block--loop, .thinking-link--loop { --block-color: var(--c-imp-1); }
+.thinking-tool--condition, .thinking-block--condition, .thinking-link--condition { --block-color: var(--c-imp-3); }
 .thinking-tool--idea, .thinking-block--idea, .thinking-link--idea { --block-color: var(--c-imp-5); }
 .thinking-tool--text, .thinking-block--text, .thinking-link--text { --block-color: var(--muted); }
 .thinking-tool--note, .thinking-block--note, .thinking-link--note { --block-color: var(--muted); }
@@ -5225,10 +6721,6 @@ body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: non
   .thinking-block.is-selected > .thinking-block__head > .thinking-block__delete {
   pointer-events: auto;
 }
-.thinking-board.is-selecting .thinking-block__link-point {
-  opacity: 0;
-  pointer-events: none;
-}
 .thinking-board.is-selecting .thinking-link-hit { pointer-events: none; }
 .thinking-selection-box {
   position: fixed;
@@ -5241,6 +6733,12 @@ body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: non
 }
 .thinking-block.is-link-source {
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--block-color) 25%, transparent), var(--thinking-lift);
+}
+.thinking-board.is-link-tool .thinking-block { cursor: crosshair; }
+.thinking-board.is-link-tool .thinking-block:hover:not(.is-link-source),
+.thinking-block.is-link-drop-target {
+  border-color: color-mix(in srgb, var(--block-color) 78%, var(--border));
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--block-color) 20%, transparent), var(--thinking-lift);
 }
 .thinking-block.is-drop-target {
   border-color: var(--block-color);
@@ -5700,9 +7198,42 @@ body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: non
   text-align: center;
   pointer-events: none;
 }
+.thinking-document-paper {
+  position: absolute;
+  z-index: 0;
+  inset: 14px 18px 18px 20px;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--c-line) 62%, transparent);
+  border-radius: 3px 9px 9px 3px;
+  background:
+    linear-gradient(90deg, transparent 38px,
+      color-mix(in srgb, var(--c-danger) 27%, transparent) 39px,
+      transparent 40px),
+    repeating-linear-gradient(to bottom, transparent 0, transparent 23px,
+      color-mix(in srgb, var(--c-line) 28%, transparent) 24px),
+    color-mix(in srgb, var(--surface-solid) 98%, var(--c-bg));
+  box-shadow: 0 10px 28px color-mix(in srgb, var(--c-sky-3) 18%, transparent);
+  color: var(--text);
+  pointer-events: none;
+}
+.thinking-document-paper::before {
+  content: "";
+  position: absolute;
+  z-index: 1;
+  left: 3px;
+  top: 11px;
+  bottom: 11px;
+  width: 12px;
+  background: radial-gradient(circle, var(--canvas-recess) 2.4px,
+    transparent 3.2px) center top / 12px 22px repeat-y;
+  pointer-events: none;
+}
+.thinking-document-paper > .thinking-canvas__empty {
+  padding-left: 48px;
+}
 .thinking-document-preview {
   position: absolute;
-  inset: 18px 22px;
+  inset: 24px 24px 24px 50px;
   overflow: hidden;
   color: var(--text);
   font-size: .78rem;
@@ -5921,38 +7452,67 @@ body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: non
   position: sticky;
   z-index: 2;
   top: 0;
-  min-height: 48px;
+  min-height: 52px;
   display: flex;
   align-items: center;
-  gap: 5px;
-  padding: 7px 18px 7px 70px;
+  gap: 4px;
+  padding: 8px 18px 8px 70px;
   border-bottom: 1px solid color-mix(in srgb, var(--c-line) 38%, transparent);
   border-radius: 4px 12px 0 0;
-  background: color-mix(in srgb, var(--surface-solid) 94%, transparent);
-  backdrop-filter: blur(10px);
+  background: color-mix(in srgb, var(--surface-solid) 90%, transparent);
+  box-shadow: 0 10px 24px -22px color-mix(in srgb, #000 72%, transparent);
+  -webkit-backdrop-filter: blur(16px) saturate(125%);
+  backdrop-filter: blur(16px) saturate(125%);
 }
 .thinking-document-tool {
-  min-width: 32px;
-  height: 32px;
+  width: 34px;
+  height: 34px;
+  display: inline-grid;
+  place-items: center;
+  flex: 0 0 34px;
   border: 1px solid transparent;
-  border-radius: 7px;
+  border-radius: 9px;
   background: transparent;
-  color: var(--text);
+  color: var(--muted);
   font: inherit;
-  font-size: .82rem;
-  font-weight: 750;
   cursor: pointer;
+  transition: color .15s ease, border-color .15s ease, background .15s ease,
+    transform .15s ease;
 }
 .thinking-document-tool:hover,
 .thinking-document-tool:focus-visible {
   border-color: color-mix(in srgb, var(--block-color, var(--accent)) 42%, var(--border));
   background: var(--input-bg);
+  color: var(--text);
+  transform: translateY(-1px);
+  outline: none;
 }
-.thinking-document-tool.is-italic { font-style: italic; }
-.thinking-document-tool.is-underlined { text-decoration: underline; }
-.thinking-document-tool.is-highlight {
-  text-decoration: underline 5px #ffe08a;
-  text-underline-offset: -3px;
+.thinking-document-tool.is-active {
+  border-color: color-mix(in srgb, var(--block-color, var(--accent)) 46%, var(--border));
+  background: color-mix(in srgb, var(--block-color, var(--accent)) 17%, var(--surface-solid));
+  color: var(--block-color, var(--accent));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb,
+    var(--block-color, var(--accent)) 8%, transparent);
+}
+.thinking-document-tool svg {
+  width: 18px;
+  height: 18px;
+}
+.thinking-document-tool__swatch {
+  stroke: color-mix(in oklab, var(--note-highlight) 72%, var(--text));
+  stroke-width: 3;
+}
+.thinking-document-tool--hilite.is-active {
+  border-color: color-mix(in srgb, var(--note-highlight) 72%, var(--border));
+  background: var(--note-highlight);
+  color: var(--text);
+}
+.thinking-document-toolbar__separator {
+  width: 1px;
+  height: 21px;
+  flex: 0 0 1px;
+  margin: 0 5px;
+  background: color-mix(in srgb, var(--c-line) 58%, transparent);
 }
 .thinking-document-body {
   min-height: 870px;
@@ -5996,6 +7556,219 @@ body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: non
   flex-direction: column;
   gap: 7px;
   padding: 2px 9px 7px;
+}
+.thinking-block__stuck-list {
+  width: 100%;
+  min-width: 0;
+  display: flex;
+  gap: 0;
+}
+.thinking-block__stuck-list--vertical { flex-direction: column; }
+.thinking-block__stuck-list--horizontal {
+  flex-direction: row;
+  align-items: stretch;
+}
+.thinking-block__stuck-list--horizontal:has(> .is-stuck-horizontal-title-raised) {
+  margin-top: 27px;
+}
+.thinking-block__stuck-list--horizontal > .thinking-block {
+  width: auto;
+  min-width: 110px;
+  flex: 1 1 0;
+}
+.thinking-block__stuck-list--vertical > .thinking-block { width: 100%; }
+.thinking-block__stuck-list--grid {
+  display: grid;
+  grid-auto-columns: minmax(110px, 1fr);
+  grid-auto-rows: 1fr;
+}
+.thinking-block__stuck-list--grid > .thinking-block {
+  width: auto;
+  min-width: 110px;
+}
+.thinking-block--flow {
+  --thinking-flow-mouth: 28px;
+  min-width: 320px;
+  min-height: 0;
+  border: 0;
+  border-radius: 12px 0 0 12px;
+  background: transparent;
+  box-shadow: none;
+}
+.thinking-block--flow::before,
+.thinking-block--flow::after {
+  content: "";
+  position: absolute;
+  z-index: 0;
+  pointer-events: none;
+}
+/* The left upright and the empty bottom rail make the control block a literal C. */
+.thinking-block--flow::before {
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 12px;
+  border-radius: 12px 0 0 12px;
+  background: color-mix(in srgb, var(--block-color) 42%, var(--surface-solid));
+}
+.thinking-block--flow::after {
+  right: var(--thinking-flow-mouth);
+  bottom: 0;
+  left: 0;
+  height: 12px;
+  border-radius: 0 2px 2px 12px;
+  background: color-mix(in srgb, var(--block-color) 42%, var(--surface-solid));
+}
+.thinking-block--flow > * { position: relative; z-index: 1; }
+.thinking-block--flow > .thinking-flow__head {
+  width: calc(100% - var(--thinking-flow-mouth));
+  min-height: 42px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 5px 6px 5px 5px;
+  border: 0;
+  border-radius: 12px 2px 2px 0;
+  background: color-mix(in srgb, var(--block-color) 42%, var(--surface-solid));
+  cursor: grab;
+}
+.thinking-block--flow > .thinking-flow__head:active { cursor: grabbing; }
+.thinking-flow__keyword {
+  flex: 0 0 auto;
+  color: var(--text);
+  font: 750 .75rem/1.2 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  white-space: nowrap;
+}
+.thinking-flow__value {
+  min-width: 80px;
+  display: flex;
+  flex: 1 1 auto;
+  align-items: center;
+  color: var(--text);
+  font: 750 .75rem/1.2 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+}
+.thinking-flow__value::before { content: "["; }
+.thinking-flow__value::after { content: "]"; }
+.thinking-flow__hour-input {
+  min-width: 0;
+  height: 29px;
+  border: 0;
+  border-radius: 6px;
+  padding: 0 5px;
+  background: color-mix(in srgb, var(--surface-solid) 42%, transparent);
+  color: var(--text);
+  font: 700 .73rem/1 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  outline: none;
+}
+.thinking-flow__hour-input { width: 92px; }
+.thinking-flow__hour-input:focus {
+  background: color-mix(in srgb, var(--surface-solid) 72%, transparent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--block-color) 42%, transparent);
+}
+.thinking-flow__days-toggle {
+  min-width: 94px;
+  height: 29px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 7px;
+  border: 0;
+  border-radius: 7px;
+  padding: 0 7px;
+  background: color-mix(in srgb, var(--surface-solid) 42%, transparent);
+  color: var(--text);
+  font: 750 .7rem/1 ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  cursor: pointer;
+}
+.thinking-flow__days-toggle:hover,
+.thinking-flow__days-toggle[aria-expanded="true"] {
+  background: color-mix(in srgb, var(--surface-solid) 72%, transparent);
+}
+.thinking-flow__days-chevron {
+  font: 850 .78rem/1 system-ui, sans-serif;
+  transition: transform .15s ease;
+}
+.thinking-flow__days-toggle[aria-expanded="true"] .thinking-flow__days-chevron {
+  transform: rotate(180deg);
+}
+.thinking-flow__days-picker {
+  position: absolute;
+  z-index: 30;
+  top: calc(100% + 6px);
+  left: 48px;
+  width: 178px;
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 3px;
+  border: 1px solid color-mix(in srgb, var(--block-color) 42%, var(--border));
+  border-radius: 10px;
+  padding: 7px;
+  background: color-mix(in srgb, var(--surface-solid) 96%, transparent);
+  box-shadow: 0 14px 34px -12px color-mix(in srgb, #000 64%, transparent);
+  backdrop-filter: blur(14px);
+}
+.thinking-flow__days-picker[hidden] { display: none; }
+.thinking-flow__day-choice {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  border-radius: 7px;
+  padding: 6px;
+  color: var(--text);
+  font-size: .68rem;
+  cursor: pointer;
+}
+.thinking-flow__day-choice:hover { background: var(--input-bg); }
+.thinking-flow__day-choice input {
+  width: 14px;
+  height: 14px;
+  flex: 0 0 14px;
+  accent-color: var(--block-color);
+}
+.thinking-block--flow:has(> .thinking-flow__head .thinking-flow__days-picker:not([hidden])) {
+  z-index: 8;
+}
+.thinking-loop__run {
+  width: 32px;
+  height: 32px;
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  border: 0;
+  border-radius: 8px;
+  padding: 0;
+  background: color-mix(in srgb, var(--block-color) 82%, var(--text));
+  color: var(--surface-solid);
+  cursor: pointer;
+}
+.thinking-loop__run svg { width: 18px; height: 18px; fill: currentColor; }
+.thinking-loop__run.is-rewind {
+  background: color-mix(in srgb, var(--c-danger) 76%, var(--text));
+}
+.thinking-loop__run:hover { filter: brightness(1.08); }
+.thinking-flow__head > .thinking-block__delete {
+  flex: 0 0 auto;
+  margin-left: auto;
+}
+.thinking-block--flow > .thinking-loop__slot {
+  min-height: 38px;
+  gap: 0;
+  padding: 0 0 12px 12px;
+}
+.thinking-block--flow > .thinking-loop__slot:has(> .thinking-block, > .thinking-block__stuck-list) {
+  min-height: 0;
+}
+.thinking-block--flow > .thinking-loop__slot > :is(.thinking-block, .thinking-block__stuck-list) {
+  width: 100%;
+}
+.thinking-canvas__stage--planner {
+  background-image:
+    radial-gradient(circle, color-mix(in srgb, var(--c-imp-1) 28%, transparent) 1px, transparent 1.2px),
+    repeating-linear-gradient(90deg, var(--canvas-thread, transparent) 0 1px,
+      transparent 1px var(--canvas-grid, 18px)),
+    repeating-linear-gradient(0deg, var(--canvas-thread, transparent) 0 1px,
+      transparent 1px var(--canvas-grid, 18px));
 }
 .thinking-block__children .thinking-block__text {
   min-height: 32px;
@@ -6043,40 +7816,6 @@ body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: non
   background: color-mix(in srgb, var(--block-color) 14%, transparent);
 }
 .thinking-block__canvas-action svg { width: 16px; height: 16px; }
-.thinking-block__link-point {
-  position: absolute;
-  z-index: 12;
-  right: -8px;
-  top: 50%;
-  width: 16px;
-  height: 16px;
-  border: 3px solid var(--surface-solid);
-  border-radius: 50%;
-  padding: 0;
-  background: var(--block-color);
-  box-shadow: 0 2px 8px color-mix(in srgb, var(--block-color) 38%, transparent);
-  cursor: crosshair;
-  opacity: 0;
-  transform: translateY(-50%) scale(.6);
-  transition: opacity .14s ease, transform .14s ease, box-shadow .14s ease;
-  pointer-events: none;
-  touch-action: none;
-}
-.thinking-block:hover:not(:has(.thinking-block:hover)) > .thinking-block__link-point,
-.thinking-block__link-point:focus-visible,
-.thinking-board.is-linking .thinking-block > .thinking-block__link-point {
-  opacity: 1;
-  transform: translateY(-50%) scale(1);
-  pointer-events: auto;
-}
-.thinking-block.is-link-source > .thinking-block__link-point {
-  box-shadow: 0 0 0 4px color-mix(in srgb, var(--block-color) 24%, transparent);
-  transform: translateY(-50%) scale(1.08);
-}
-.thinking-block__link-point.is-link-drop-target {
-  box-shadow: 0 0 0 6px color-mix(in srgb, var(--block-color) 28%, transparent);
-  transform: translateY(-50%) scale(1.28) !important;
-}
 .thinking-block__stick-add {
   position: absolute;
   z-index: 21;
@@ -6127,9 +7866,6 @@ body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: non
 }
 .thinking-block__stick-add:hover {
   background: color-mix(in srgb, var(--block-color) 36%, var(--surface-solid));
-}
-.thinking-block:has(> .thinking-block__stick-add--right) > .thinking-block__link-point {
-  top: 24%;
 }
 .thinking-board.is-selecting .thinking-block__stick-add,
 .thinking-block.is-dragging > .thinking-block__stick-add {
@@ -6216,7 +7952,7 @@ body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: non
   .thinking-block__delete { opacity: .65; }
   .thinking-board__saved { display: none; }
   .thinking-tools { padding-left: 12px; padding-right: 12px; }
-  .thinking-tools__label { display: none; }
+  .thinking-tools__section-switch { padding-right: 10px; font-size: .56rem; letter-spacing: .07em; }
   .thinking-tool { height: 32px; padding-right: 9px; font-size: .74rem; }
   .thinking-link-hint { top: calc(max(10px, env(safe-area-inset-top)) + 105px); max-width: calc(100% - 24px); white-space: nowrap; }
   .thinking-board__tip { display: none; }
@@ -6233,137 +7969,144 @@ body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: non
    carried by the star itself (size, glow, ring, colour), so nothing has to be
    read to be understood. */
 .sky-view {
+  --starlight: #eaf1ff;
   position: fixed;
   inset: 0;
   z-index: 60;
   display: flex;
   flex-direction: column;
+  /* Space has its own night: the app's time-of-day sky has no business here, and
+     it was letting the page underneath show through. */
   background:
-    radial-gradient(120% 80% at 50% -10%, color-mix(in srgb, var(--c-sky-3) 90%, transparent), transparent 70%),
-    var(--sky-raw);
+    radial-gradient(120% 90% at 62% 8%, #1b2447 0%, rgba(27,36,71,0) 62%),
+    radial-gradient(90% 70% at 15% 88%, #14213d 0%, rgba(20,33,61,0) 60%),
+    linear-gradient(to bottom, #060a18 0%, #0a1024 45%, #070b1a 100%);
   opacity: 0;
   transition: opacity .3s ease;
 }
 .sky-view[hidden] { display: none; }
 .sky-view.is-open { opacity: 1; }
 
-.sky-view__bar {
-  flex: 0 0 auto;
+/* THE TOOLS — a bar would cut a strip of sky off the top for two buttons. They
+   float over it instead, out of the way of the panel that opens on the right. */
+.sky-tools {
+  position: absolute;
+  top: max(16px, env(safe-area-inset-top));
+  left: 16px;
+  z-index: 3;
   display: flex;
-  align-items: center;
-  gap: 10px;
-  padding: 14px 18px;
-  padding-top: max(14px, env(safe-area-inset-top));
+  gap: 8px;
 }
-.sky-view__title { font-size: 1.05rem; font-weight: 600; margin-right: auto; }
-.sky-view__mode {
-  border: 1px solid var(--border);
-  background: var(--surface);
-  color: var(--muted);
-  font: inherit;
-  font-size: .82rem;
-  padding: 5px 14px;
-  border-radius: 999px;
-  cursor: pointer;
-  transition: color .2s, border-color .2s;
-}
-.sky-view__mode:hover { color: var(--accent); border-color: var(--accent); }
-.sky-view__add {
+.sky-tool {
   width: 34px; height: 34px;
   display: grid; place-items: center;
-  border: 1px solid var(--border);
+  border: 1px solid color-mix(in srgb, var(--starlight) 16%, transparent);
   border-radius: 50%;
-  background: var(--surface);
-  color: var(--text);
+  background: rgba(255, 255, 255, .07);
+  backdrop-filter: blur(10px);
+  color: var(--starlight);
   cursor: pointer;
+  transition: background .2s, border-color .2s;
 }
-.sky-view__add svg { width: 17px; height: 17px; }
-.sky-view__add:hover { background: var(--accent-soft); color: var(--accent); }
+.sky-tool svg { width: 17px; height: 17px; }
+.sky-tool:hover {
+  background: rgba(255, 255, 255, .14);
+  border-color: color-mix(in srgb, var(--starlight) 34%, transparent);
+}
+
+/* THE ROLL — the stars are a map, and a map is scanned, not read. The same
+   projects listed by name in the corner are there for when reading is faster. */
+.skyroll {
+  position: absolute;
+  top: max(16px, env(safe-area-inset-top));
+  right: 16px;
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  width: 210px;
+  max-height: calc(100% - 32px);
+}
+/* only the roll itself scrolls, so adding a project never falls off the bottom */
+.skylist {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-height: 0;
+  overflow-y: auto;
+  scrollbar-width: none;
+}
+.skylist[hidden] { display: none; }
+.skylist__item {
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  padding: 7px 11px;
+  border: 1px solid color-mix(in srgb, var(--starlight) 12%, transparent);
+  border-radius: 9px;
+  background: rgba(255, 255, 255, .06);
+  backdrop-filter: blur(10px);
+  color: color-mix(in srgb, var(--starlight) 78%, transparent);
+  font: inherit;
+  font-size: .82rem;
+  text-align: left;
+  cursor: pointer;
+  transition: background .2s, color .2s, border-color .2s;
+}
+.skylist__item:hover, .skylist__item.is-on {
+  background: rgba(255, 255, 255, .13);
+  border-color: color-mix(in srgb, var(--starlight) 30%, transparent);
+  color: var(--starlight);
+}
+.skylist__ico { display: inline-flex; flex: 0 0 auto; opacity: .8; }
+.skylist__ico svg { width: 14px; height: 14px; }
+.skylist__name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* Adding a project belongs with the projects, not with the back button. Dashed
+   and empty, like every other "one more" in the app: it is an outline to fill. */
+.skylist__add {
+  justify-content: center;
+  border: 1px dashed color-mix(in srgb, var(--starlight) 24%, transparent);
+  background: none;
+  backdrop-filter: none;
+  color: color-mix(in srgb, var(--starlight) 55%, transparent);
+}
+.skylist__add:hover {
+  border-color: color-mix(in srgb, var(--starlight) 46%, transparent);
+  background: rgba(255, 255, 255, .06);
+  color: var(--starlight);
+}
+.skylist__add .skylist__ico { opacity: 1; }
+.skylist__add .skylist__ico svg { width: 15px; height: 15px; }
+
+/* the panel opens over this corner, so the roll steps aside while diving */
+.sky-view.is-diving .skyroll { opacity: 0; pointer-events: none; }
+.skyroll { transition: opacity .3s ease; }
 
 .sky-view__field {
+  cursor: grab;
   position: relative;
   flex: 1 1 auto;
-  margin: 0 8px 8px;
   overflow: hidden;
   touch-action: none;   /* stars are dragged, the space itself does not scroll */
 }
 
 /* THE CAMERA — the layer the whole starfield rides on. Opening a project moves
    this, not the page: the sky travels, the star stays in sight. */
+.sky-view__field.is-panning { cursor: grabbing; }
 .sky-view__camera {
   position: absolute;
+  transform-origin: 0 0;
   inset: 0;
   transform-origin: 0 0;
   transition: transform .62s cubic-bezier(.22,.61,.36,1);
 }
 /* while diving, everything but the chosen star steps back, and the tools move
    off the panel's half so they stay reachable */
-.sky-view.is-diving .pstar { opacity: .28; }
+.sky-view.is-diving .pstar { opacity: .18; }
 .sky-view.is-diving .pstar.is-focused { opacity: 1; }
-.sky-view.is-diving .sky-view__bar { padding-right: calc(min(660px, 56vw) + 18px); }
 .pstar.is-focused .pstar__glow { opacity: 1; }
 .pstar.is-focused { cursor: default; }
 
-/* CONSTELLATIONS — the lines sit under the stars and ride the same camera. They
-   fade out while the sky is being tidied: a line cannot travel with two stars at
-   once, so it is better not to watch it try. */
-.sky-links {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  overflow: visible;
-  transition: opacity .3s ease;
-}
-.sky-links line {
-  stroke: color-mix(in srgb, var(--text) 24%, transparent);
-  stroke-width: 1.1;
-  stroke-linecap: round;
-}
-.sky-view.is-diving .sky-links { opacity: .18; }
-
-/* wiring two stars together: the sky says so, and the first pick waits lit */
-.sky-view.is-linking .pstar { cursor: crosshair; }
-.pstar.is-linking .pstar__core {
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--star-color) 55%, transparent);
-}
-.sky-view__hint {
-  position: absolute;
-  left: 50%;
-  top: 12px;
-  transform: translateX(-50%);
-  font-size: .78rem;
-  color: var(--muted);
-  white-space: nowrap;
-}
-.sky-view__hint[hidden] { display: none; }
-.sky-view__add.is-on { color: var(--accent); border-color: var(--accent); }
-
-/* the line under which the forgotten projects settle */
-.sky-view__horizon {
-  position: absolute;
-  left: 0; right: 0;
-  top: 82%;
-  border-top: 1px dashed color-mix(in srgb, var(--text) 20%, transparent);
-}
-.sky-view__horizon span {
-  position: absolute;
-  right: 10px; top: 5px;
-  font-size: .72rem;
-  color: var(--muted);
-  letter-spacing: .04em;
-}
-
-/* the axes only appear once the sky is tidied: they are what it is tidied onto */
-.sky-view__axis {
-  position: absolute;
-  font-size: .72rem;
-  color: var(--muted);
-  letter-spacing: .04em;
-}
-.sky-view__axis--near { left: 10px; bottom: 20%; }
-.sky-view__axis--far { right: 10px; bottom: 20%; }
-.sky-view__axis--amb { left: 10px; top: 8px; }
 .sky-view__empty[hidden] { display: none; }
 .sky-view__empty {
   position: absolute;
@@ -6382,7 +8125,8 @@ body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: non
 .pstar {
   position: absolute;
   transform: translate(-50%, -50%);
-  width: 44px; height: 44px;
+  width: calc(26px + var(--star-size, 14px) * 1.5);
+  height: calc(26px + var(--star-size, 14px) * 1.5);
   display: grid;
   place-items: center;
   border: 0;
@@ -6393,63 +8137,91 @@ body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: non
   transition: left .55s cubic-bezier(.22,.61,.36,1), top .55s cubic-bezier(.22,.61,.36,1);
 }
 .pstar.is-dragging { cursor: grabbing; transition: none; z-index: 3; }
+/* Brightness is not width. A bright star is the same small point with a stronger
+   halo and longer spikes; growing the disc turned the brightest into a white ball. */
 .pstar__core {
   grid-area: 1 / 1;
-  width: var(--star-size, 14px);
-  height: var(--star-size, 14px);
+  width: calc(4px + var(--star-size, 14px) * 0.17);
+  height: calc(4px + var(--star-size, 14px) * 0.17);
   border-radius: 50%;
-  background: var(--star-color, var(--accent));
+  background: radial-gradient(circle,
+    #fff 0%,
+    #fff 28%,
+    color-mix(in srgb, #fff 55%, var(--starlight)) 52%,
+    transparent 100%);
+}
+/* the four spikes a bright star throws in a lens; they are what says "star" */
+.pstar__core::before,
+.pstar__core::after {
+  content: "";
+  position: absolute;
+  left: 50%; top: 50%;
+  background: linear-gradient(var(--starlight), transparent);
+  opacity: .5;
+}
+.pstar__core::before {
+  width: 1px;
+  height: calc(14px + var(--star-size, 14px) * 2.4);
+  transform: translate(-50%, -50%);
+  background: linear-gradient(to bottom, transparent, var(--starlight) 45%,
+    var(--starlight) 55%, transparent);
+}
+.pstar__core::after {
+  height: 1px;
+  width: calc(14px + var(--star-size, 14px) * 2.4);
+  transform: translate(-50%, -50%);
+  background: linear-gradient(to right, transparent, var(--starlight) 45%,
+    var(--starlight) 55%, transparent);
 }
 .pstar__glow {
   grid-area: 1 / 1;
-  width: 44px; height: 44px;
+  /* the halo is what carries the magnitude now */
+  width: 100%;
+  height: 100%;
   border-radius: 50%;
   background: radial-gradient(circle,
-    color-mix(in srgb, var(--star-color, var(--accent)) 60%, transparent) 0%,
+    color-mix(in srgb, var(--starlight) 60%, transparent) 0%,
     transparent 68%);
   opacity: calc(.18 + var(--star-glow, 0) * .82);
 }
-.pstar__ring { grid-area: 1 / 1; width: 40px; height: 40px; transform: rotate(-90deg); }
-.pstar__track {
-  fill: none;
-  stroke: color-mix(in srgb, var(--text) 14%, transparent);
-  stroke-width: 2;
-}
-.pstar__arc {
-  fill: none;
-  stroke: var(--star-color, var(--accent));
-  stroke-width: 2;
-  stroke-linecap: round;
-  transition: stroke-dashoffset .5s ease;
-}
 .pstar__name {
   position: absolute;
-  top: 46px;
-  left: 50%;
-  transform: translateX(-50%);
+  right: calc(50% + 20px);
+  top: 50%;
+  transform: translateY(-50%);
+  text-align: right;
   white-space: nowrap;
   font-size: .8rem;
   color: var(--text);
   pointer-events: none;
+  opacity: 0;
+  transition: opacity .2s ease;
 }
 .pstar__since {
   position: absolute;
-  top: 63px;
-  left: 50%;
-  transform: translateX(-50%);
+  right: calc(50% + 20px);
+  top: calc(50% + 15px);
+  transform: none;
+  text-align: right;
   white-space: nowrap;
   font-size: .68rem;
   color: var(--muted);
   pointer-events: none;
+  opacity: 0;
+  transition: opacity .2s ease;
 }
 /* nothing has happened for a month: the star has sunk and barely burns. Its
    labels flip above the core, which is the only room left down there. */
 .pstar.is-dormant { animation: none; opacity: .5; cursor: default; }
-.pstar.is-dormant .pstar__name { top: auto; bottom: 30px; }
-.pstar.is-dormant .pstar__since { top: auto; bottom: 16px; }
+.pstar.is-dormant .pstar__since { top: calc(50% + 15px); }
 .pstar.is-dormant .pstar__glow { opacity: .12; }
-.pstar.is-done .pstar__core { box-shadow: 0 0 0 2px color-mix(in srgb, var(--star-color) 40%, transparent); }
+.pstar.is-done .pstar__core { box-shadow: 0 0 0 2px color-mix(in srgb, var(--starlight) 40%, transparent); }
 .pstar:hover { z-index: 2; }
+.pstar:hover .pstar__name,
+.pstar:hover .pstar__since,
+.pstar:focus-visible .pstar__name,
+.pstar.is-focused .pstar__name { opacity: 1; }
+.pstar.is-dragging .pstar__name { opacity: 1; }
 .pstar:hover .pstar__glow { opacity: 1; }
 
 @keyframes star-breathe {
@@ -6466,14 +8238,26 @@ body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: non
 .pview {
   position: fixed;
   top: 0; right: 0; bottom: 0;
-  width: min(660px, 56vw);
+  /* Wider, for reading; and a column laid on the sky rather than a wall built
+     across it. The blur does the separating, so the sky still shows through and
+     the constellation behind is never quite lost. */
+  width: min(860px, 64vw);
   z-index: 70;
   display: flex;
   flex-direction: column;
-  background: color-mix(in srgb, var(--c-bg) 88%, transparent);
-  backdrop-filter: blur(18px) saturate(130%);
-  border-left: 1px solid var(--border);
-  box-shadow: -18px 0 46px color-mix(in srgb, var(--c-sky-3) calc(var(--c-shade) * 90%), transparent);
+  /* Its own ink: the app's text colours are tuned for the page, not for a dark
+     column standing on a sky, and reading is the whole point of the extra width. */
+  --text: #eef3ff;
+  --muted: color-mix(in srgb, #eef3ff 66%, transparent);
+  --border: color-mix(in srgb, #eef3ff 16%, transparent);
+  --input-bg: rgba(255, 255, 255, .06);
+  background: linear-gradient(to right,
+    color-mix(in srgb, #070d1e 62%, transparent) 0%,
+    color-mix(in srgb, #070d1e 86%, transparent) 10%,
+    color-mix(in srgb, #070d1e 91%, transparent) 100%);
+  backdrop-filter: blur(26px) saturate(125%);
+  border-left: 1px solid color-mix(in srgb, var(--starlight, #eaf1ff) 12%, transparent);
+  box-shadow: none;
   opacity: 0;
   transform: translateX(22px);
   transition: opacity .34s ease, transform .34s cubic-bezier(.22,.61,.36,1);
@@ -6534,7 +8318,18 @@ body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: non
   flex-direction: column;
   gap: 28px;
 }
+/* wide enough now to read two columns side by side instead of one long scroll */
+.pview__sec--cap { margin-bottom: 14px; }
+/* the two lines share the width rather than running the whole way across: a
+   question 800px long is read twice before it is understood */
+.pview__caplines { display: grid; grid-template-columns: 1fr; gap: 2px; }
+@media (min-width: 1180px) {
+  .pview__caplines { grid-template-columns: 1fr 1fr; gap: 0 26px; }
+}
 .pview__cols { display: grid; grid-template-columns: 1fr; gap: 28px; }
+@media (min-width: 1180px) {
+  .pview__cols { grid-template-columns: 1fr 1fr; gap: 26px 34px; }
+}
 .pview__col { display: flex; flex-direction: column; gap: 30px; min-width: 0; }
 .pview__sec { min-width: 0; }
 
@@ -6554,22 +8349,6 @@ body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: non
 }
 .pview__line:focus { outline: none; border-bottom-color: var(--accent); }
 .pview__line::placeholder { color: var(--muted); }
-.pview__horizon {
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  margin-top: 8px;
-  border: 1px solid var(--border);
-  background: var(--surface);
-  color: var(--muted);
-  font: inherit;
-  font-size: .82rem;
-  padding: 6px 13px;
-  border-radius: 999px;
-  cursor: pointer;
-}
-.pview__horizon svg { width: 15px; height: 15px; }
-.pview__horizon:hover { color: var(--accent); border-color: var(--accent); }
 
 /* a milestone unfolds into its own strip: rename, aim at a date, drop it */
 .tl-edit {
@@ -6617,6 +8396,28 @@ body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: non
   border-bottom: 1px solid color-mix(in srgb, var(--c-line) 35%, transparent);
 }
 .step:last-child { border-bottom: 0; }
+.step__drag {
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 26px;
+  margin-left: -4px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--muted);
+  cursor: grab;
+  touch-action: none;
+  opacity: .38;
+  transition: color .16s ease, opacity .16s ease;
+}
+.step__drag svg { width: 16px; height: 16px; fill: currentColor; stroke: none; }
+.step:hover .step__drag,
+.step__drag:focus-visible { color: var(--step-color, var(--accent)); opacity: .9; }
+.step__drag:focus-visible { outline: 1px solid currentColor; outline-offset: 1px; border-radius: 6px; }
+.step.is-dragging { opacity: .34; }
+.step.is-dragging .step__drag { cursor: grabbing; }
 .step__text {
   flex: 1 1 auto;
   min-width: 0;
@@ -6792,7 +8593,6 @@ body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: non
     box-shadow: 0 -18px 46px color-mix(in srgb, var(--c-sky-3) calc(var(--c-shade) * 90%), transparent);
     padding-bottom: env(safe-area-inset-bottom);
   }
-  .sky-view.is-diving .sky-view__bar { padding-right: 18px; }
   .pview::before {   /* the grab handle every sheet in the app wears */
     content: "";
     flex: 0 0 auto;
@@ -6821,3 +8621,426 @@ body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: non
 
 /* the milestone whose editor is unfolded holds its title a little brighter */
 .tl-row.is-open .tl-title { color: var(--text); font-weight: 500; }
+
+/* LINKED ELEMENTS — the tasks, events, habits and canvases a project is made of.
+   Drawn identically in the objective unfolded on the dashboard and in the panel
+   a star opens, so the same section is recognised in both places. */
+
+
+/* THE STEPS SECTION — one list, two readings. The switch sits with the label so
+   the choice reads as part of the section, not as a setting somewhere else. */
+.psteps__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  margin-bottom: 8px;
+}
+.psteps__head .detail__label { margin-bottom: 0; }
+.psteps__switch {
+  display: inline-flex;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 2px;
+  gap: 2px;
+}
+.psteps__tab {
+  border: 0;
+  background: none;
+  color: var(--muted);
+  font: inherit;
+  font-size: .74rem;
+  padding: 3px 10px;
+  border-radius: 999px;
+  cursor: pointer;
+  transition: color .2s, background .2s;
+}
+.psteps__tab:hover { color: var(--text); }
+.psteps__tab.is-on { background: var(--accent-soft); color: var(--accent); }
+
+/* the checklist reading; the roadmap keeps its own rules */
+.psteps__body:not(.goal-roadmap) { display: flex; flex-direction: column; }
+.step.is-done .step__text { color: var(--muted); text-decoration: line-through; }
+.step__when.is-late { color: var(--danger); opacity: 1; }
+/* the palette walks the course, so a row carries the colour of its position */
+.psteps__body .step .item__check { border-color: var(--step-color, var(--border)); }
+.psteps__body .step.is-done .item__check {
+  background: var(--step-color, var(--accent));
+  border-color: var(--step-color, var(--accent));
+}
+
+/* a journal block wears its date ahead of the line, the way the journal does */
+.thinking-journal__body { display: flex; align-items: flex-start; gap: 8px; }
+.thinking-journal__date {
+  flex: 0 0 auto;
+  padding-top: 4px;
+  font-size: .7rem;
+  color: var(--muted);
+}
+
+/* THE CONSTELLATIONS — an objective is pursued by several ways at once, each its
+   own series of steps. They stack rather than hide behind a selector: three short
+   courses tell the truth, one course that omits two does not. */
+.pbranch { margin-bottom: 18px; }
+.pbranch:last-child { margin-bottom: 0; }
+.pbranch__head {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 6px;
+}
+.pbranch__icon {
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  padding: 0;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: color-mix(in srgb, var(--accent) 72%, var(--muted));
+  cursor: pointer;
+  opacity: .78;
+  transition: color .16s ease, opacity .16s ease, background .16s ease;
+}
+.pbranch__icon svg { width: 18px; height: 18px; }
+.pbranch__icon:hover,
+.pbranch__icon:focus-visible {
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 9%, transparent);
+  opacity: 1;
+  outline: none;
+}
+.pbranch__icon.is-switch { cursor: pointer; }
+.pbranch__icon:disabled {
+  cursor: default;
+  color: var(--muted);
+  background: transparent;
+  opacity: .5;
+}
+.pbranch__name {
+  flex: 1 1 auto;
+  min-width: 0;
+  border: 0;
+  border-bottom: 1px solid transparent;
+  background: none;
+  color: var(--muted);
+  font: inherit;
+  font-size: .78rem;
+  letter-spacing: .03em;
+  padding: 2px 0;
+}
+.pbranch__name:hover { border-bottom-color: var(--border); }
+.pbranch__name:focus { outline: none; border-bottom-color: var(--accent); color: var(--text); }
+.pbranch__name::placeholder { color: var(--muted); opacity: .6; }
+.pbranch__del {
+  border: 0;
+  background: none;
+  color: var(--muted);
+  font-size: 1rem;
+  line-height: 1;
+  padding: 0 4px;
+  cursor: pointer;
+  opacity: 0;
+}
+.pbranch:hover .pbranch__del { opacity: .6; }
+.pbranch__del:hover { color: var(--danger); opacity: 1; }
+.psteps__addbranch {
+  flex: 0 0 auto;
+  display: inline-flex;
+  width: auto;
+  height: 28px;
+  padding: 0 9px;
+  border-radius: 8px;
+  background: transparent;
+  font: inherit;
+  font-size: .72rem;
+  white-space: nowrap;
+}
+
+/* THE MOONS — a habit does not progress, it returns, so it is drawn as a phase
+   rather than a bar. Full means kept every day of the fortnight; dark means let go.
+   Grey and flat on purpose: a star burns, a moon only reflects. */
+.moons { display: inline-flex; align-items: center; gap: 3px; position: relative; }
+.moon {
+  /* the warm cast its star carries in the sky, mixed into the theme's own ink */
+  --moonlight: color-mix(in srgb, var(--text) 84%, #e0a45a);
+  display: inline-block;
+  width: 11px; height: 11px;
+  border-radius: 50%;
+  background: radial-gradient(circle,
+    color-mix(in srgb, var(--moonlight) 92%, transparent) 0%,
+    color-mix(in srgb, var(--moonlight) 55%, transparent) 38%,
+    transparent 72%);
+  opacity: calc(.3 + var(--mag, .5) * .7);
+}
+.moons__more { font-size: .68rem; color: var(--muted); padding: 0 2px; }
+/* Always there: a control that only exists on hover cannot be found, and on a
+   touch screen cannot be reached at all. */
+.phabits {
+  margin-top: 10px;
+  padding-top: 8px;
+  border-top: 1px solid var(--border);
+}
+.phabits__list { display: flex; flex-direction: column; }
+.phabits__row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 0;
+}
+.phabits__icon {
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  width: 26px;
+  height: 26px;
+  padding: 4px;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: color-mix(in srgb, var(--accent) 74%, var(--muted));
+  cursor: pointer;
+  opacity: .82;
+  transition: color .16s ease, background .16s ease, opacity .16s ease;
+}
+.phabits__icon svg { width: 18px; height: 18px; }
+.phabits__icon:hover,
+.phabits__icon:focus-visible {
+  color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 9%, transparent);
+  opacity: 1;
+  outline: none;
+}
+.phabits__name {
+  flex: 1;
+  min-width: 0;
+  font-size: .84rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.phabits__kept {
+  color: var(--muted);
+  font-size: .74rem;
+  font-variant-numeric: tabular-nums;
+}
+.phabits__off {
+  border: 0;
+  background: none;
+  color: var(--muted);
+  font-size: 1rem;
+  line-height: 1;
+  padding: 0 2px;
+  cursor: pointer;
+  opacity: 0;
+}
+.phabits__row:hover .phabits__off { opacity: .7; }
+.phabits__off:hover { color: var(--danger); opacity: 1; }
+.phabits__add { margin-top: 6px; }
+
+/* the line of a branch carries the aggregate: vivid while its moons are lit */
+.goal-roadmap[style*="--branch-pulse"] .goal-roadmap__track {
+  opacity: calc(.35 + var(--branch-pulse, 1) * .65);
+}
+
+/* THE RAYS — a star sends one out per constellation. The line is dimmed by the
+   pulse of that branch's moons, the beads along it are its steps. */
+.sky-branches {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+}
+.sky-branches polyline.facet { opacity: .55; }
+.sky-branches polyline,
+.sky-branches line {
+  fill: none;
+  stroke: color-mix(in srgb, #cfe0ff 40%, transparent);
+  stroke-width: .8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+/* a stretch already walked burns; the rest of the course is only a hint */
+.sky-branches line.is-lit {
+  stroke: var(--starlight);
+  stroke-width: 1.5;
+  filter: drop-shadow(0 0 3px color-mix(in srgb, var(--starlight) 70%, transparent));
+}
+
+/* a step on a ray: hollow while it waits, filled once it is reached */
+.bstar {
+  position: absolute;
+  transform: translate(-50%, -50%);
+  width: calc(9px + var(--mag, .8) * 9px);
+  height: calc(9px + var(--mag, .8) * 9px);
+  padding: 0;
+  border: 0;
+  border-radius: 50%;
+  background: radial-gradient(circle,
+    color-mix(in srgb, #fff 88%, var(--starlight)) 0%,
+    var(--starlight) 26%,
+    color-mix(in srgb, var(--starlight) 38%, transparent) 46%,
+    transparent 72%);
+  opacity: calc(.3 + var(--mag, .8) * .28);
+  cursor: pointer;
+  transition: transform .18s ease, opacity .25s ease;
+}
+.bstar:hover { transform: translate(-50%, -50%) scale(1.4); opacity: 1; }
+/* a step reached is a star that has lit: it is what the eye lands on first */
+.bstar.is-done { opacity: calc(.8 + var(--mag, .8) * .2); }
+
+/* A habit closes the diamond; it cannot be ticked, but it can be placed. It burns
+   a shade warmer than the steps around it — the way a cooler star reads amber next
+   to a blue-white one, so the eye tells the two apart without being told. */
+.bstar.is-habit {
+  cursor: grab;
+  --starlight: #ffe7c6;
+}
+.bstar.is-dragging { cursor: grabbing; z-index: 3; }
+
+/* diving dims the rest of the sky, rays and beads with it */
+/* the constellation belongs to the objective under the eye, so it stays full */
+.sky-view.is-diving .bstar,
+.sky-view.is-diving .sky-branches { opacity: 1; }
+/* the deep recedes as the camera pulls back, which is where the depth is felt */
+.sky-view.is-diving .skydeep { opacity: .55; transition: opacity .5s ease; }
+.skydeep { transition: opacity .5s ease; }
+
+/* THE DUST — a few hundred faint points behind everything. Depth is what makes a
+   handful of dots read as a sky instead of as a diagram. */
+/* THE DEEP — sheets of sky at their own distances. Each is a tile repeated for
+   ever, so panning never runs out of stars and nothing is held in memory. The
+   camera writes background-position on all of them, scaled by how far each sits:
+   that difference alone is what the eye reads as depth. */
+.skydeep { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+.skydeep > div {
+  position: absolute;
+  inset: -20%;
+  background-repeat: repeat;
+  will-change: background-position;
+}
+/* the gas drifts on its own, slowly enough that you only notice having noticed */
+.skydeep__neb { animation: neb-drift 190s linear infinite; opacity: .95; }
+@keyframes neb-drift {
+  from { transform: translate3d(0, 0, 0) scale(1.04); }
+  50%  { transform: translate3d(2.2%, -1.4%, 0) scale(1.08); }
+  to   { transform: translate3d(0, 0, 0) scale(1.04); }
+}
+.skydeep__gal { opacity: .9; }
+.skydeep__dust--far { opacity: .8; }
+.skydeep__dust--mid { opacity: .9; animation: twinkle-slow 7s ease-in-out infinite; }
+.skydeep__dust--near { animation: twinkle-slow 4.5s ease-in-out infinite reverse; }
+@keyframes twinkle-slow {
+  0%, 100% { opacity: .95; }
+  50% { opacity: .7; }
+}
+
+/* a streak, now and then, gone before you look straight at it */
+.skyshoot { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
+.skyshoot__one {
+  position: absolute;
+  width: var(--reach, 220px);
+  height: 1px;
+  transform-origin: 0 50%;
+  rotate: var(--fall, 20deg);
+  background: linear-gradient(to left, rgba(255,255,255,.95), rgba(190,215,255,.35) 40%,
+    transparent 100%);
+  animation: shoot 1s cubic-bezier(.3,0,.7,1) forwards;
+}
+.skyshoot__one::after {
+  content: "";
+  position: absolute;
+  right: -1px; top: -1px;
+  width: 3px; height: 3px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 0 6px 2px rgba(220,235,255,.8);
+}
+@keyframes shoot {
+  from { opacity: 0; transform: translate(-40%, 0) scaleX(.2); }
+  12%  { opacity: 1; }
+  to   { opacity: 0; transform: translate(120%, 0) scaleX(1); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .skydeep__neb, .skydeep__dust--mid, .skydeep__dust--near { animation: none; }
+  .skyshoot { display: none; }
+}
+
+/* THE RAIL — the panel is a tall column, so the course runs down it and the steps
+   are written beside. One line behind the whole branch rather than a segment per
+   row: it stays unbroken however tall a step's text grows. */
+.psteps__body--rail { position: relative; padding-left: 22px; }
+.vrail {
+  position: absolute;
+  left: 7px;
+  top: 10px;
+  bottom: 34px;                 /* stops above the add row, which is not a step */
+  width: 2px;
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--text) 14%, transparent);
+}
+.vrail__fill {
+  position: absolute;
+  left: 0; right: 0; top: 0;
+  border-radius: 2px;
+  background: linear-gradient(var(--imp-1), var(--imp-3), var(--imp-5));
+  transition: height .35s ease;
+}
+/* the checkbox sits on the thread, so each step reads as a knot on it */
+.psteps__body--rail .step { position: relative; }
+.psteps__body--rail .step .item__check {
+  position: relative;
+  z-index: 1;
+  margin-left: -22px;
+  background: var(--surface-solid);
+}
+.psteps__body--rail form.sub-add { margin-left: -22px; }
+
+/* THE STEP CARD — it opens beside its star on hover and waits while the pointer
+   travels to it. Screen space, not sky space: text must not zoom with the camera. */
+.scard {
+  position: absolute;
+  z-index: 4;
+  transform: translate(-50%, 0) translateY(-4px);
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 6px 8px;
+  border: 1px solid color-mix(in srgb, var(--starlight) 22%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, #0b1226 82%, transparent);
+  backdrop-filter: blur(10px) saturate(130%);
+  box-shadow: 0 10px 28px rgba(0, 0, 0, .45);
+  opacity: 0;
+  transition: opacity .16s ease, transform .16s ease;
+}
+.scard.is-open { opacity: 1; transform: translate(-50%, 0); }
+.scard__name {
+  width: 150px;
+  border: 0;
+  background: none;
+  color: var(--starlight);
+  font: inherit;
+  font-size: .84rem;
+  padding: 2px 4px;
+}
+.scard__name:focus { outline: none; }
+.scard__name::placeholder { color: color-mix(in srgb, var(--starlight) 45%, transparent); }
+.scard__btn {
+  flex: 0 0 auto;
+  border: 0;
+  background: none;
+  color: color-mix(in srgb, var(--starlight) 62%, transparent);
+  font: inherit;
+  font-size: .74rem;
+  padding: 3px 7px;
+  border-radius: 999px;
+  cursor: pointer;
+}
+.scard__btn svg { width: 13px; height: 13px; display: block; }
+.scard__btn:hover { color: var(--starlight); background: rgba(255, 255, 255, .08); }
+.scard__btn--del:hover { color: var(--danger); }

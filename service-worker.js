@@ -1,4 +1,4 @@
-const CACHE = "todo-app-v309";
+const CACHE = "todo-app-v387";
 
 /* app shell precached so everything works offline */
 const ASSETS = [
@@ -9,7 +9,7 @@ const ASSETS = [
   "./manifest.webmanifest",
   "./icons/icon-192.png",
   "./icons/icon-512.png",
-  "./assets/cat-scuba.gif"
+  "./icons/favicon.svg"
 ];
 
 self.addEventListener("install", function (event) {

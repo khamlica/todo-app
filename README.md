@@ -1,7 +1,7 @@
 # Mes tâches — PWA todo
 
 Petite application de tâches (tâches du jour + projets), avec thèmes, choix de langue
-(FR / EN), mode focus et espace de réflexion visuel. 100 % statique, aucune dépendance,
+(FR / EN) et espace de réflexion visuel. 100 % statique, aucune dépendance,
 fonctionne hors-ligne et s'installe sur mobile.
 
 ## Lancer en local
@@ -27,9 +27,9 @@ Ouvrir l'URL dans Chrome, puis menu **⋮ > Ajouter à l'écran d'accueil**.
 
 ## Structure
     index.html            page + écran d'accueil + onglets
-    style.css             styles + thèmes (clair / sombre / rose)
-    app.js                logique, i18n, mode focus, stockage local
+    style.css             styles + thèmes (11, dont sakura / aquatique / forêt / boréal)
+    app.js                logique, i18n, stockage local
     manifest.webmanifest  métadonnées d'installation
     service-worker.js     cache hors-ligne
-    icons/                icônes de l'app (192 / 512)
-    assets/               cat-scuba.gif
+    icons/                icône de l'app : icon.svg est le maître, les PNG 192 / 512
+                          en sont rendus ; favicon.svg est la variante d'onglet

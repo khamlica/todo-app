@@ -2,7 +2,17 @@
   "use strict";
 
   const STORAGE_KEY = "todoAppData";
+  const CONSTELLATION_ICON_KEYS = [
+    "constellation-star", "constellation-orbit", "constellation-dipper",
+    "constellation-crown", "constellation-kite", "constellation-arrow",
+    "constellation-twins", "constellation-wave", "constellation-cluster",
+    "constellation-cross", "constellation-triangle", "constellation-comet"
+  ];
   const state = loadState();
+  // loadState migrates in memory; write it down once so the stored data matches
+  // what the app is actually running on, instead of migrating again every launch
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+  let appReady = false;   // startup draws everything once; nothing may redraw before
 
   /* Load saved data. Falls back to an empty state if nothing is stored
      or the JSON is corrupt, so a bad value can never break startup. */
@@ -24,6 +34,31 @@
   function glassCut(saved) {
     if (saved === "motif" || saved === "etoile") return saved;
     return "motif";
+  }
+
+  /* "rose" became "sakura" — same room, a name and a season. Everything keyed by
+     theme name has to follow, or a user's edits would be stranded on a theme
+     that no longer exists. */
+  function migrateThemeName(saved) {
+    return saved === "rose" ? "sakura" : (saved || "auto");
+  }
+  function renameThemeKeys(store) {
+    if (store && store.rose) {
+      if (!store.sakura) store.sakura = store.rose;
+      delete store.rose;
+    }
+    return store || {};
+  }
+
+  /* The step ramp belongs to the theme now, so "theme" is the default palette
+     and the old bespoke-per-theme palette ("custom") is the same thing — it just
+     starts from the theme's ramp instead of from aurora. Aurora was the former
+     default, so anyone still on it who never touched it moves across; anyone who
+     tuned aurora keeps it. */
+  function paletteName(saved, paletteEdits) {
+    if (!saved || saved === "custom") return "theme";
+    if (saved === "aurora" && !(paletteEdits && paletteEdits.aurora)) return "theme";
+    return saved;
   }
 
   function loadState() {
@@ -58,19 +93,59 @@
         if (!project.dream) project.dream = [];
         if (project.why == null) project.why = "";
         if (project.outcome == null) project.outcome = "";
-        if (project.targetDate === undefined) project.targetDate = null;
+        delete project.targetDate;   // a project no longer has a date of its own
         // the notes box left with the detail card; the text becomes a journal line
         // rather than staying in the data with nowhere to be read
         if (project.notes && project.notes.trim()) {
           project.journal.unshift({ id: project.id + "n", date: todayKey(), text: project.notes.trim() });
         }
         delete project.notes;
+        // milestones and next steps were two names for the same thing: one list now
+        if (project.milestones) {
+          if (!project.steps) project.steps = project.milestones;
+          delete project.milestones;
+        }
+        if (!project.stepsView) project.stepsView = "timeline";
+        // The roadmap used to keep its start and finish caps inside the step list,
+        // which is why the list and the roadmap never quite showed the same thing.
+        // The caps are drawn now, not stored; the finish was the project's own
+        // completion all along.
+        if (project.steps) {
+          for (let j = project.steps.length - 1; j >= 0; j--) {
+            if (project.steps[j].text) continue;
+            if (j === project.steps.length - 1 && project.steps[j].completedDate) {
+              project.done = true;
+            }
+            project.steps.splice(j, 1);
+          }
+        }
+        if (!project.steps) project.steps = [];
+        // An objective is pursued by several distinct ways at once; the one list
+        // becomes the first of them, and nothing is lost doing it.
+        if (!project.constellations || !project.constellations.length) {
+          project.constellations = [{
+            id: project.id + "c", name: "", icon: CONSTELLATION_ICON_KEYS[0],
+            habitIds: [], steps: project.steps
+          }];
+        }
+        delete project.steps;
+        for (let c = 0; c < project.constellations.length; c++) {
+          const branch = project.constellations[c];
+          if (!branch.steps) branch.steps = [];
+          if (!branch.habitIds) branch.habitIds = [];
+          if (branch.name == null) branch.name = "";
+          if (!branch.icon) branch.icon = CONSTELLATION_ICON_KEYS[c % CONSTELLATION_ICON_KEYS.length];
+        }
+        let activeBranchFound = false;
+        for (let c = 0; c < project.constellations.length; c++) {
+          if (project.constellations[c].id === project.activeConstellationId) {
+            activeBranchFound = true;
+            break;
+          }
+        }
+        if (!activeBranchFound) project.activeConstellationId = project.constellations[0].id;
       }
-      // constellations: a plain visual link between two stars
-      const links = saved.links || [];
-      for (let i = links.length - 1; i >= 0; i--) {
-        if (!hasProject(projects, links[i].a) || !hasProject(projects, links[i].b)) links.splice(i, 1);
-      }
+      absorbProjectTasksIntoSteps(projects, saved.tasks || []);
       const tasks = saved.tasks || [];
       for (let i = 0; i < tasks.length; i++) {   // tasks can now belong to a project
         if (tasks[i].projectId === undefined) tasks[i].projectId = null;
@@ -84,10 +159,15 @@
         if (!events[i].icon) events[i].icon = "calendar";
         if (!events[i].date) events[i].date = null;   // it waits over the rule
         if (events[i].date && !events[i].time) events[i].time = "09:00";
+        if (events[i].projectId === undefined) events[i].projectId = null;
+      }
+      // an element carries the project it serves, the same way a task always has
+      for (let i = 0; i < habits.length; i++) {
+        if (habits[i].projectId === undefined) habits[i].projectId = null;
       }
       let canvases = saved.canvases || [];
       for (let i = 0; i < canvases.length; i++) {
-        if ([2, 3, 4, 5, 6, 7, 8, 9, 10, 11].indexOf(canvases[i].thinkingTreeVersion) === -1
+        if ([2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16].indexOf(canvases[i].thinkingTreeVersion) === -1
             || canvases[i].type !== "canvas") {
           canvases = [];
           break;
@@ -107,12 +187,13 @@
         for (let j = 0; j < canvas.blocks.length; j++) {
           const block = canvas.blocks[j];
           if (["problem", "solution", "example", "idea", "question", "answer", "canvas",
-            "folder", "document", "text", "note", "task"]
+            "folder", "document", "planner", "text", "note", "task", "event",
+            "habit", "step", "journal", "loop", "condition"]
             .indexOf(block.type) === -1) block.type = "note";
           delete block.icon;
           delete block.color;
           if (compactOldBlocks) delete block.blockHeight;
-          if (["canvas", "folder", "document"].indexOf(block.type) !== -1) {
+          if (["canvas", "folder", "document", "planner"].indexOf(block.type) !== -1) {
             if (block.canvasWidth == null) block.canvasWidth = 650;
             if (block.canvasHeight == null) block.canvasHeight = 330;
             if (block.cameraX == null) block.cameraX = 9000;
@@ -127,6 +208,26 @@
             delete block.previewY;
           }
           if (block.type === "document" && block.documentHtml == null) block.documentHtml = "";
+          if (block.type === "loop") {
+            if (!Array.isArray(block.loopDays)) {
+              const parsedDays = thinkingParseLoopDays(block.loopDaysText || "");
+              block.loopDays = parsedDays.length ? parsedDays : [1, 2, 3, 4, 5];
+            }
+            delete block.loopDaysText;
+            delete block.loopHour;
+            delete block.blockHeight;
+            if (block.loopWeeks == null) block.loopWeeks = 4;
+          }
+          if (block.type === "condition" && block.conditionHour == null) {
+            block.conditionHour = "19:00";
+          }
+          if (block.type === "condition") delete block.blockHeight;
+          // the objective left the canvas: its blocks and bindings go with it
+          delete block.linkedProjectId;
+          delete block.stepProjectId;
+          delete block.stepId;
+          delete block.journalProjectId;
+          delete block.journalEntryId;
           if (block.x == null) block.x = 80 + (j % 5) * 280;
           if (block.y == null) block.y = 80 + Math.floor(j / 5) * 190;
         }
@@ -137,7 +238,7 @@
         }
         for (let j = 0; j < canvas.blocks.length; j++) {
           const block = canvas.blocks[j];
-          if (["canvas", "folder", "document"].indexOf(block.type) === -1) continue;
+          if (["canvas", "folder", "document", "planner"].indexOf(block.type) === -1) continue;
           if (!(block.title || "").trim()
               || (oldCanvasTitles && ["New canvas", "Nouvelle toile"].indexOf(block.title) !== -1)) {
             block.title = "";
@@ -163,7 +264,7 @@
         for (let j = 0; j < canvas.blocks.length; j++) {
           const block = canvas.blocks[j];
           const parent = canvasBlocks[block.parentId];
-          if (parent && ["canvas", "folder", "document"].indexOf(parent.type) === -1) {
+          if (parent && ["canvas", "folder", "document", "planner"].indexOf(parent.type) === -1) {
             delete block.blockWidth;
             delete block.blockHeight;
           }
@@ -186,7 +287,7 @@
           const parent = canvasBlocks[block.parentId];
           const key = block.stuckToId + ":" + block.stuckSide;
           if (!target || target.id === block.id || target.parentId !== block.parentId
-              || !parent || ["canvas", "folder", "document"].indexOf(parent.type) === -1
+              || !parent || parent.type === "folder"
               || stuckSides.indexOf(block.stuckSide) === -1 || occupiedStuckSides[key]) {
             delete block.stuckToId;
             delete block.stuckSide;
@@ -230,27 +331,31 @@
           directCanvas.parentId = null;
           directCanvas.blocks = canvas.blocks;
           directCanvas.links = canvas.links;
-          directCanvas.thinkingTreeVersion = 11;
+          directCanvas.thinkingTreeVersion = 16;
           canvas = directCanvas;
           canvases[i] = canvas;
         }
         canvas.title = "";
-        canvas.thinkingTreeVersion = 11;
+        // The former desk is now an ordinary canvas. Its blocks and bindings stay,
+        // but there is no second, automatically synchronized reflection space.
+        delete canvas.desk;
+        canvas.thinkingTreeVersion = 16;
       }
+      canvases = migrateStandaloneNotes(canvases, saved.notes || [],
+        saved.settings && saved.settings.language);
       return {
         tasks: tasks,
         projects: projects,
-        links: links,
         habits: habits,
-        notes: saved.notes || [],
         canvases: canvases,
         events: events,
         sun: saved.sun || null,
         settings: {
           name: (saved.settings && saved.settings.name) || "",
-          theme: (saved.settings && saved.settings.theme) || "auto",
+          theme: migrateThemeName(saved.settings && saved.settings.theme),
           language: (saved.settings && saved.settings.language) || "fr",
-          palette: (saved.settings && saved.settings.palette) || "aurora",
+          palette: paletteName(saved.settings && saved.settings.palette,
+                               saved.settings && saved.settings.paletteEdits),
           glass: glassCut(saved.settings && saved.settings.glass),
           decorations: withField((saved.settings && saved.settings.decorations) || [],
                                  saved.settings && saved.settings.fieldOn),
@@ -262,22 +367,239 @@
           treeBranches: !(saved.settings && saved.settings.treeBranches === false),
           treeBlooms: (saved.settings && saved.settings.treeBlooms) || ["corolla"],
           treeSap: !(saved.settings && saved.settings.treeSap === false),
-          themeEdits: (saved.settings && saved.settings.themeEdits) || {},
+          themeDecorLent: (saved.settings && saved.settings.themeDecorLent) || [],
+          themeEdits: renameThemeKeys(saved.settings && saved.settings.themeEdits),
           paletteEdits: (saved.settings && saved.settings.paletteEdits) || {},
-          themePalettes: (saved.settings && saved.settings.themePalettes) || {}
+          themePalettes: renameThemeKeys(saved.settings && saved.settings.themePalettes)
         }
       };
     } catch (err) {
-      return { tasks: [], projects: [], links: [], habits: [], notes: [], canvases: [], events: [], sun: null, settings: { name: "", theme: "auto", language: "fr", palette: "aurora", glass: "motif", decorations: ["field"], fieldOn: true, timeScrub: false, treeFull: false, treeWisps: true, treeTrunk: true, treeBranches: true, treeBlooms: ["corolla"], treeSap: true, themeEdits: {}, paletteEdits: {}, themePalettes: {} } };
+      return { tasks: [], projects: [], habits: [], canvases: [], events: [], sun: null, settings: { name: "", theme: "auto", language: "fr", palette: "theme", glass: "motif", decorations: ["field"], fieldOn: true, timeScrub: false, treeFull: false, treeWisps: true, treeTrunk: true, treeBranches: true, treeBlooms: ["corolla"], treeSap: true, themeDecorLent: [], themeEdits: {}, paletteEdits: {}, themePalettes: {} } };
     }
   }
 
-  function hasProject(projects, id) {
-    for (let i = 0; i < projects.length; i++) {
-      if (projects[i].id === id) return true;
+  /* Notes used to live in a separate app-wide tool. Move them once into real
+     notepad blocks before dropping the retired data key, so removing the old
+     interface never removes what the user wrote. */
+  function migrateStandaloneNotes(canvases, notes, language) {
+    if (!notes.length) return canvases;
+    let stamp = Date.now();
+    for (let i = 0; i < notes.length; i++) {
+      stamp = Math.max(stamp, notes[i].updatedAt || Number(notes[i].id) || 0);
     }
-    return false;
+    let suffix = stamp.toString(36);
+    let canvasId = "cnotes" + suffix;
+    let used = true;
+    while (used) {
+      used = false;
+      for (let i = 0; i < canvases.length; i++) {
+        if (canvases[i].id === canvasId) { used = true; break; }
+      }
+      if (used) canvasId += "m";
+    }
+    const folderId = "fnotes" + suffix;
+    const folder = {
+      id: folderId,
+      type: "folder",
+      title: language === "en" ? "Imported notes" : "Notes importées",
+      text: "",
+      x: 9080,
+      y: 5060,
+      parentId: canvasId,
+      blockWidth: 420,
+      cameraX: 9000,
+      cameraY: 5000,
+      collapsed: false
+    };
+    const blocks = [folder];
+    for (let i = 0; i < notes.length; i++) {
+      blocks.push({
+        id: "dnote" + suffix + i.toString(36),
+        type: "document",
+        title: notes[i].title || "",
+        text: "",
+        documentHtml: notes[i].html || "",
+        x: 9080,
+        y: 5060,
+        parentId: folderId,
+        folderOrder: (i + 1) * 100,
+        canvasWidth: 650,
+        canvasHeight: 330,
+        cameraX: 9000,
+        cameraY: 5000,
+        collapsed: true
+      });
+    }
+    canvases.unshift({
+      id: canvasId,
+      type: "canvas",
+      thinkingTreeVersion: 16,
+      parentId: null,
+      title: "",
+      text: "",
+      x: 0,
+      y: 0,
+      icon: "target",
+      canvasWidth: 650,
+      canvasHeight: 330,
+      cameraX: 9000,
+      cameraY: 5000,
+      collapsed: false,
+      createdAt: stamp,
+      updatedAt: stamp,
+      blocks: blocks,
+      links: []
+    });
+    return canvases;
   }
+
+  /* The project's own tasks were a second list of steps sitting beside the roadmap.
+     They join it, once. A task with no date has nothing keeping it in the day, so it
+     simply becomes a step; a dated one stays a task and gets a step pointing at it,
+     because silently taking a dated task out of someone's day would lose work. */
+  function absorbProjectTasksIntoSteps(projects, tasks) {
+    for (let i = tasks.length - 1; i >= 0; i--) {
+      const task = tasks[i];
+      if (!task.projectId || task.stepId || task.stepId) continue;
+      let project = null;
+      for (let j = 0; j < projects.length; j++) {
+        if (projects[j].id === task.projectId) { project = projects[j]; break; }
+      }
+      if (!project) continue;
+      if (!project.steps) project.steps = [];   // the branches are formed just after
+      const step = {
+        id: task.id + "s",
+        text: task.text,
+        completedDate: task.done ? (task.doneDate || todayKey()) : null,
+        targetDate: task.dueDate || null
+      };
+      project.steps.push(step);
+      if (task.dueDate) task.stepId = step.id;   // it keeps its place in the day
+      else tasks.splice(i, 1);
+    }
+  }
+
+  /* THE CONSTELLATIONS — an objective is not one course but several: the language
+     you learn by lessons, by films, by the people you meet. Each branch is its own
+     series of steps, and they do not advance at the same pace. Everything that used
+     to read one list now reads across the branches through these. */
+  function projectBranches(project) {
+    if (!project.constellations || !project.constellations.length) {
+      project.constellations = [{
+        id: project.id + "c", name: "", icon: CONSTELLATION_ICON_KEYS[0],
+        habitIds: [], steps: []
+      }];
+    }
+    return project.constellations;
+  }
+
+  function findBranch(project, id) {
+    const branches = projectBranches(project);
+    for (let i = 0; i < branches.length; i++) {
+      if (branches[i].id === id) return branches[i];
+    }
+    return null;
+  }
+
+  function activeProjectBranch(project) {
+    const branches = projectBranches(project);
+    const active = findBranch(project, project.activeConstellationId);
+    if (active) return active;
+    project.activeConstellationId = branches[0].id;
+    return branches[0];
+  }
+
+  function switchProjectBranch(project) {
+    const branches = projectBranches(project);
+    if (branches.length < 2) return;
+    const active = activeProjectBranch(project);
+    let index = branches.indexOf(active);
+    if (index < 0) index = 0;
+    project.activeConstellationId = branches[(index + 1) % branches.length].id;
+    saveState();
+    redrawSteps(project);   // the star's panel shows one branch too, redraw it as well
+  }
+
+  /* every step of every branch, in branch order — what progress and momentum read */
+  function allProjectSteps(project) {
+    const branches = projectBranches(project);
+    const all = [];
+    for (let i = 0; i < branches.length; i++) {
+      for (let j = 0; j < branches[i].steps.length; j++) all.push(branches[i].steps[j]);
+    }
+    return all;
+  }
+
+  /* THE MOONS — a constellation is driven by habits as much as by steps, and a
+     habit does not progress, it returns. So it is drawn as a moon, whose phase is
+     its regularity over the last fortnight: full when kept every day, dark when it
+     has been let go. The steps say where you are; the moons say whether you are
+     still at it. The two disagree often, and that is the useful moment. */
+  const MOON_WINDOW = 14;
+
+  function branchHabits(branch) {
+    const found = [];
+    const ids = branch.habitIds || [];
+    for (let i = 0; i < ids.length; i++) {
+      const habit = findItem("habits", ids[i]);
+      if (habit) found.push(habit);        // a deleted habit simply stops being drawn
+    }
+    return found;
+  }
+
+  /* the lit fraction: days kept over the window it is judged on */
+  function habitPhase(habit) {
+    const dates = habit.completedDates || [];
+    const from = shiftDateKey(todayKey(), -(MOON_WINDOW - 1));
+    let kept = 0;
+    for (let i = 0; i < dates.length; i++) {
+      if (dates[i] >= from && dates[i] <= todayKey()) kept++;
+    }
+    return Math.min(1, kept / MOON_WINDOW);
+  }
+
+  /* the branch's own pulse: what its line carries, read from a distance */
+  function branchPulse(branch) {
+    const habits = branchHabits(branch);
+    if (!habits.length) return null;
+    let total = 0;
+    for (let i = 0; i < habits.length; i++) total += habitPhase(habits[i]);
+    return total / habits.length;
+  }
+
+  function toggleBranchHabit(branch, habitId) {
+    if (!branch.habitIds) branch.habitIds = [];
+    const at = branch.habitIds.indexOf(habitId);
+    if (at === -1) branch.habitIds.push(habitId);   // creation order, never sorted
+    else branch.habitIds.splice(at, 1);
+    saveState();
+  }
+
+  function addBranch(project, name) {
+    const branches = projectBranches(project);
+    const branch = {
+      id: Date.now().toString(), name: name || "",
+      icon: CONSTELLATION_ICON_KEYS[branches.length % CONSTELLATION_ICON_KEYS.length],
+      habitIds: [], steps: []
+    };
+    branches.push(branch);
+    saveState();
+    return branch;
+  }
+
+  function removeBranch(project, id) {
+    const branches = projectBranches(project);
+    if (branches.length < 2) return;   // an objective always keeps one way forward
+    let removedAt = 0;
+    for (let i = 0; i < branches.length; i++) {
+      if (branches[i].id === id) { removedAt = i; branches.splice(i, 1); break; }
+    }
+    if (!findBranch(project, project.activeConstellationId)) {
+      project.activeConstellationId = branches[Math.min(removedAt, branches.length - 1)].id;
+    }
+    saveState();
+  }
+
 
   function saveState() {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
@@ -303,9 +625,12 @@
       welcomeQuestion: "Que faites-vous aujourd'hui ?",
       enterAria: "Entrer dans l'application",
       settingsAria: "Paramètres",
+      homeAria: "Retour à l'accueil",
       settingsTitle: "Paramètres",
       tabSystem: "Système",
       tabCustom: "Personnalisation",
+      brushAria: "Changer de thème",
+      brushedTo: "Thème :",
       tasksTitle: "Vos tâches",
       backToToday: "Revenir à aujourd'hui",
       newEventName: "Nouvel événement",
@@ -354,7 +679,10 @@
       themeLabel: "Thème",
       themeLight: "Clair",
       themeDark: "Sombre",
-      themeRose: "Rose",
+      themeSakura: "Sakura",
+      themeAqua: "Aquatique",
+      themeForest: "Forêt",
+      themeBoreal: "Boréal",
       themeAuto: "Adaptatif",
       themeDawn: "Aube",
       themeDay: "Jour",
@@ -373,12 +701,18 @@
       exportDone: "Sauvegarde exportée.",
       addEventTitle: "Ajouter un événement",
       timelineDelete: "Déposer pour supprimer",
+      habitDropProject: "Lier à ce projet",
+      habitLinkedProject: "Habitude liée au projet.",
+      habitAlreadyLinkedProject: "Cette habitude est déjà liée.",
       undoDeleted: "Élément supprimé",
       undoBtn: "Annuler",
       decorLabel: "Décorations",
       decorParticles: "Particules",
       decorPetals: "Pétales",
       decorBubbles: "Bulles",
+      decorSeabed: "Fond marin",
+      decorAurora: "Aurores",
+      decorPollen: "Pollen",
       decorFireflies: "Lucioles",
       decorRain: "Pluie",
       decorSnow: "Neige",
@@ -406,8 +740,6 @@
       treeSapHint: "La s\u00e8ve, l'air en suspension et le souffle du tronc",
       paintLabel: "Couleurs",
       paintOpen: "Ouvrir l'atelier",
-      focusAria: "Passer en mode focus",
-      focusExitAria: "Quitter le mode focus",
       addHabitAria: "Ajouter une habitude",
       pickIconTitle: "Choisir une icône",
       habitDeleteAria: "Supprimer l'habitude",
@@ -469,55 +801,62 @@
       reminderTitle: "Rappel",
       importanceAria: "Importance",
       paletteLabel: "Palette",
+      paletteTheme: "Du thème",
       paletteAurora: "Aurore",
       paletteMeadow: "Prairie",
       paletteSunset: "Coucher",
-      paletteCustom: "Du thème",
       editTitle: "Modifier",
       editNameLabel: "Nom",
       editIconLabel: "Icône",
       editDateNone: "Aucune date",
       notesLabel: "Notes",
       subtasksLabel: "Sous-tâches",
-      milestonesLabel: "Jalons",
+      stepsLabel: "Étapes",
       pinLabel: "Épingler",
       importantLabel: "Important",
       backAria: "Retour",
       notesPlaceholder: "Ajouter des notes…",
+      noteShowAria: "Afficher la note",
+      noteHideAria: "Masquer la note",
       addSubtaskPlaceholder: "Ajouter une sous-tâche…",
-      milestonePlaceholder: "Jalon",
-      milestoneAdd: "Ajouter un jalon",
+      stepPlaceholder: "Étape",
+      stepAdd: "Ajouter une étape",
+      stepDragAria: "Glisser cette étape vers les tâches",
+      stepDropTasks: "Déposer dans les tâches",
+      stepDropTimeline: "Déposer sur la timeline",
+      newerItemsAria: "Voir les éléments plus récents",
+      olderItemsAria: "Voir les éléments plus anciens",
       skyAria: "Le ciel des projets",
       skyTitle: "Le ciel",
       skyEmpty: "Le ciel est vide. Allumez une première étoile.",
-      skyFree: "Libre",
-      skyAligned: "Rangé",
-      skyModeAria: "Ranger le ciel ou le libérer",
-      skyDormant: "En sommeil",
-      skyNear: "Bientôt",
-      skyFar: "Un jour",
-      skyAmbition: "Ambition",
       skyOpenAria: "Ouvrir le projet",
-      skyLinkAria: "Relier deux projets",
-      skyLinkHint: "Choisissez deux étoiles à relier.",
       capLabel: "Le cap",
       whyPlaceholder: "Pourquoi ce projet ?",
       outcomePlaceholder: "À quoi ça ressemble, une fois fini ?",
-      horizonLabel: "Horizon",
-      horizonNone: "Sans date",
-      stepsLabel: "Prochaines étapes",
-      stepAdd: "Une étape concrète…",
-      stepsEmpty: "Aucune étape en cours.",
+      stepsEmptyAdd: "Aucune étape pour l'instant — ajoutez-en une…",
+      stepsViewRoadmap: "Parcours",
+      branchAdd: "Ajouter une liste",
+      branchRemove: "Retirer cette constellation",
+      branchName: "Nom de la constellation",
+      branchIconAria: "Changer l’icône de cette constellation",
+      branchSwitchAria: "Afficher la constellation suivante",
+      moonAttach: "Habitudes de cette constellation",
+      moonNew: "Nouvelle habitude…",
+      moonOff: "Détacher l'habitude",
+      moonEmptyAdd: "Aucune habitude pour l'instant — ajoutez-en une…",
+      stepsViewList: "Liste",
       dreamLabel: "Mur de rêve",
       dreamAdd: "Carte",
       dreamPlaceholder: "Une idée, une référence, une envie…",
       journalLabel: "Journal",
       journalAdd: "Noter une avancée, une idée…",
       journalEmpty: "Rien de consigné pour l'instant.",
+      journalShowAria: "Afficher le journal",
+      journalHideAria: "Masquer le journal",
       promoteStep: "En faire une étape",
       promotedLabel: "Devenu une étape",
       stepCreated: "Étape ajoutée.",
-      milestoneTarget: "Date visée",
+      stepTarget: "Date visée",
       lateLabel: "en retard",
       dormantFor: "sans nouvelles depuis",
       daysShort: "j",
@@ -533,7 +872,6 @@
       cityPlaceholder: "Rechercher une ville…",
       historyLabel: "Historique",
       streakLabel: "Série",
-      notesToolAria: "Prise de notes",
       thinkingAria: "Espace de réflexion",
       thinkingUntitled: "Toile sans titre",
       thinkingSaved: "Enregistré",
@@ -542,6 +880,8 @@
       thinkingAdd: "Ajouter",
       thinkingOrganization: "Organisation",
       thinkingBlocksLabel: "Blocs",
+      thinkingPlanningLabel: "Planification",
+      thinkingSwitchTools: "Changer de catégorie d’outils",
       thinkingAddStuck: "Ajouter un élément collé",
       thinkingMoveStuckSingle: "Déplacer uniquement cet élément",
       thinkingSelect: "Sélection",
@@ -557,9 +897,19 @@
       blockCanvas: "Toile",
       blockFolder: "Dossier",
       blockDocument: "Bloc-note",
+      blockPlanner: "Planificateur",
       blockText: "Texte",
       blockNote: "Note",
       blockTask: "Tâche",
+      blockEvent: "Événement",
+      blockProject: "Projet",
+      blockHabit: "Habitude",
+      blockStep: "Étape",
+      blockJournal: "Journal",
+      blockPlaceholderJournal: "Ce qui a bougé, une idée…",
+      blockPlaceholderStep: "Étape",
+      blockLoop: "Boucle for",
+      blockCondition: "Condition if",
       blockPlaceholderProblem: "Ce qui bloque…",
       blockPlaceholderSolution: "Une solution possible…",
       blockPlaceholderExample: "Un cas concret…",
@@ -572,11 +922,28 @@
       blockPlaceholderText: "Écrivez librement…",
       blockPlaceholderNote: "Un détail à garder…",
       blockPlaceholderTask: "À faire…",
+      blockPlaceholderEvent: "Événement à planifier…",
+      blockPlaceholderProject: "Projet à lancer…",
+      blockPlaceholderHabit: "Habitude à installer…",
+      blockPlaceholderLoop: "Boucle",
+      blockPlaceholderCondition: "Condition",
+      blockPlaceholderPlanner: "Planificateur",
+      thinkingLoopFor: "for day in",
+      thinkingLoopChooseDays: "Choisir les jours",
+      thinkingConditionIfHour: "if hour ==",
+      thinkingConditionNoHour: "Choisissez une heure pour la condition.",
+      thinkingLoopRun: "Marche",
+      thinkingLoopRewind: "Annuler cette boucle",
+      thinkingLoopNoDays: "Sélectionnez au moins un jour.",
+      thinkingLoopNoActions: "Ajoutez au moins une action dans la boucle.",
+      thinkingLoopCreated: "{count} éléments planifiés",
+      thinkingLoopRewound: "Boucle annulée : {count} éléments supprimés",
       thinkingQuestionAddAnswer: "Ajouter une réponse",
       thinkingCanvasEmpty: "Déposez vos blocs ici.",
       thinkingFolderAdd: "Ajouter dans le dossier",
       thinkingDocumentEmpty: "Écrivez, ou déposez un bloc.",
       thinkingDocumentPlaceholder: "Commencez à écrire…",
+      thinkingDocumentFormatting: "Mise en forme de la note",
       thinkingBulletsAria: "Liste à puces",
       thinkingNumberedAria: "Liste numérotée",
       thinkingResizeCanvas: "Redimensionner la toile",
@@ -592,8 +959,8 @@
       thinkingBaseCanvas: "Toile mère de base",
       thinkingExit: "Quitter le laboratoire",
       thinkingTrash: "Déposer pour supprimer",
-      thinkingLink: "Relier ce bloc",
-      thinkingLinkHint: "Choisissez le point de liaison d'un autre bloc.",
+      thinkingLinkHint: "Choisissez un autre bloc à relier.",
+      thinkingLinkTool: "Liaison",
       thinkingCancel: "Annuler",
       thinkingChangeType: "Changer le type du bloc",
       thinkingConnectionOne: "liaison",
@@ -601,21 +968,10 @@
       thinkingBlankTitle: "Commencez par ce qui vous occupe",
       thinkingBlankCopy: "Un problème, une question, une idée.",
       thinkingDeleteLink: "Glissez le fond pour déplacer la caméra · cliquez sur une liaison pour la supprimer.",
-      addNoteAria: "Nouvelle note",
       boldAria: "Gras",
       italicAria: "Italique",
       underlineAria: "Souligner",
-      highlightAria: "Surligner",
-      notePlaceholder: "Votre note…",
-      notesTitle: "Notes",
-      untitledNote: "Note vide",
-      noteTitlePlaceholder: "Titre",
-      searchPlaceholder: "Rechercher…",
-      focusPhrases: [
-        "Hedy est le meilleur",
-        "Hedy est meilleur que bary",
-        "Skuba skubaa"
-      ]
+      highlightAria: "Surligner"
     },
     en: {
       greetingPrefix: "Hello",
@@ -623,9 +979,12 @@
       welcomeQuestion: "What is happening today?",
       enterAria: "Enter the app",
       settingsAria: "Settings",
+      homeAria: "Back to the welcome screen",
       settingsTitle: "Settings",
       tabSystem: "System",
       tabCustom: "Customization",
+      brushAria: "Change the theme",
+      brushedTo: "Theme:",
       tasksTitle: "Your tasks",
       backToToday: "Back to today",
       newEventName: "New event",
@@ -674,7 +1033,10 @@
       themeLabel: "Theme",
       themeLight: "Light",
       themeDark: "Dark",
-      themeRose: "Rose",
+      themeSakura: "Sakura",
+      themeAqua: "Aquatic",
+      themeForest: "Forest",
+      themeBoreal: "Boreal",
       themeAuto: "Adaptive",
       themeDawn: "Dawn",
       themeDay: "Day",
@@ -693,12 +1055,18 @@
       exportDone: "Backup exported.",
       addEventTitle: "Add an event",
       timelineDelete: "Drop to delete",
+      habitDropProject: "Link to this project",
+      habitLinkedProject: "Habit linked to the project.",
+      habitAlreadyLinkedProject: "This habit is already linked.",
       undoDeleted: "Item deleted",
       undoBtn: "Undo",
       decorLabel: "Decorations",
       decorParticles: "Particles",
       decorPetals: "Petals",
       decorBubbles: "Bubbles",
+      decorSeabed: "Seabed",
+      decorAurora: "Aurora",
+      decorPollen: "Pollen",
       decorFireflies: "Fireflies",
       decorRain: "Rain",
       decorSnow: "Snow",
@@ -726,8 +1094,6 @@
       treeSapHint: "The sap, the air hanging around it and the trunk's own breath",
       paintLabel: "Colours",
       paintOpen: "Open the workshop",
-      focusAria: "Enter focus mode",
-      focusExitAria: "Exit focus mode",
       addHabitAria: "Add a habit",
       pickIconTitle: "Choose an icon",
       habitDeleteAria: "Remove habit",
@@ -789,55 +1155,62 @@
       reminderTitle: "Reminder",
       importanceAria: "Importance",
       paletteLabel: "Palette",
+      paletteTheme: "Theme\u2019s own",
       paletteAurora: "Aurora",
       paletteMeadow: "Meadow",
       paletteSunset: "Sunset",
-      paletteCustom: "Theme\u2019s own",
       editTitle: "Edit",
       editNameLabel: "Name",
       editIconLabel: "Icon",
       editDateNone: "No date",
       notesLabel: "Notes",
       subtasksLabel: "Subtasks",
-      milestonesLabel: "Milestones",
+      stepsLabel: "Steps",
       pinLabel: "Pin",
       importantLabel: "Important",
       backAria: "Back",
       notesPlaceholder: "Add notes…",
+      noteShowAria: "Show note",
+      noteHideAria: "Hide note",
       addSubtaskPlaceholder: "Add a subtask…",
-      milestonePlaceholder: "Milestone",
-      milestoneAdd: "Add a milestone",
+      stepPlaceholder: "Step",
+      stepAdd: "Add a step",
+      stepDragAria: "Drag this step to the tasks",
+      stepDropTasks: "Drop into tasks",
+      stepDropTimeline: "Drop onto the timeline",
+      newerItemsAria: "Show newer items",
+      olderItemsAria: "Show older items",
       skyAria: "The project sky",
       skyTitle: "The sky",
       skyEmpty: "The sky is empty. Light a first star.",
-      skyFree: "Free",
-      skyAligned: "Aligned",
-      skyModeAria: "Align the sky or set it free",
-      skyDormant: "Dormant",
-      skyNear: "Soon",
-      skyFar: "Someday",
-      skyAmbition: "Ambition",
       skyOpenAria: "Open the project",
-      skyLinkAria: "Link two projects",
-      skyLinkHint: "Pick two stars to link.",
       capLabel: "The heading",
       whyPlaceholder: "Why this project?",
       outcomePlaceholder: "What does it look like once done?",
-      horizonLabel: "Horizon",
-      horizonNone: "No date",
-      stepsLabel: "Next steps",
-      stepAdd: "One concrete step…",
-      stepsEmpty: "No step in progress.",
+      stepsEmptyAdd: "No step yet — add one…",
+      stepsViewRoadmap: "Roadmap",
+      branchAdd: "Add a list",
+      branchRemove: "Remove this constellation",
+      branchName: "Constellation name",
+      branchIconAria: "Change this constellation’s icon",
+      branchSwitchAria: "Show the next constellation",
+      moonAttach: "Habits of this constellation",
+      moonNew: "New habit…",
+      moonOff: "Detach the habit",
+      moonEmptyAdd: "No habit yet — add one…",
+      stepsViewList: "List",
       dreamLabel: "Dream wall",
       dreamAdd: "Card",
       dreamPlaceholder: "An idea, a reference, a want…",
       journalLabel: "Journal",
       journalAdd: "Log a move, an idea…",
       journalEmpty: "Nothing logged yet.",
+      journalShowAria: "Show journal",
+      journalHideAria: "Hide journal",
       promoteStep: "Make it a step",
       promotedLabel: "Became a step",
       stepCreated: "Step added.",
-      milestoneTarget: "Target date",
+      stepTarget: "Target date",
       lateLabel: "late",
       dormantFor: "nothing for",
       daysShort: "d",
@@ -853,7 +1226,6 @@
       cityPlaceholder: "Search a city…",
       historyLabel: "History",
       streakLabel: "Streak",
-      notesToolAria: "Notes",
       thinkingAria: "Thinking space",
       thinkingUntitled: "Untitled canvas",
       thinkingSaved: "Saved",
@@ -862,6 +1234,8 @@
       thinkingAdd: "Add",
       thinkingOrganization: "Organization",
       thinkingBlocksLabel: "Blocks",
+      thinkingPlanningLabel: "Planning",
+      thinkingSwitchTools: "Switch tool category",
       thinkingAddStuck: "Add a stuck element",
       thinkingMoveStuckSingle: "Move only this element",
       thinkingSelect: "Select",
@@ -877,9 +1251,19 @@
       blockCanvas: "Canvas",
       blockFolder: "Folder",
       blockDocument: "Notepad",
+      blockPlanner: "Planner",
       blockText: "Text",
       blockNote: "Note",
       blockTask: "Task",
+      blockEvent: "Event",
+      blockProject: "Project",
+      blockHabit: "Habit",
+      blockStep: "Step",
+      blockJournal: "Journal",
+      blockPlaceholderJournal: "What moved, an idea…",
+      blockPlaceholderStep: "Step",
+      blockLoop: "For loop",
+      blockCondition: "If condition",
       blockPlaceholderProblem: "What is in the way…",
       blockPlaceholderSolution: "A possible solution…",
       blockPlaceholderExample: "A concrete case…",
@@ -892,11 +1276,28 @@
       blockPlaceholderText: "Write freely…",
       blockPlaceholderNote: "A detail to keep…",
       blockPlaceholderTask: "To do…",
+      blockPlaceholderEvent: "Event to schedule…",
+      blockPlaceholderProject: "Project to start…",
+      blockPlaceholderHabit: "Habit to build…",
+      blockPlaceholderLoop: "Loop",
+      blockPlaceholderCondition: "Condition",
+      blockPlaceholderPlanner: "Planner",
+      thinkingLoopFor: "for day in",
+      thinkingLoopChooseDays: "Choose days",
+      thinkingConditionIfHour: "if hour ==",
+      thinkingConditionNoHour: "Choose a time for the condition.",
+      thinkingLoopRun: "Run",
+      thinkingLoopRewind: "Undo this loop",
+      thinkingLoopNoDays: "Select at least one day.",
+      thinkingLoopNoActions: "Add at least one action to the loop.",
+      thinkingLoopCreated: "{count} items scheduled",
+      thinkingLoopRewound: "Loop undone: {count} items removed",
       thinkingQuestionAddAnswer: "Add an answer",
       thinkingCanvasEmpty: "Drop your blocks here.",
       thinkingFolderAdd: "Add to the folder",
       thinkingDocumentEmpty: "Write, or drop a block.",
       thinkingDocumentPlaceholder: "Start writing…",
+      thinkingDocumentFormatting: "Note formatting",
       thinkingBulletsAria: "Bulleted list",
       thinkingNumberedAria: "Numbered list",
       thinkingResizeCanvas: "Resize canvas",
@@ -912,8 +1313,8 @@
       thinkingBaseCanvas: "Base parent canvas",
       thinkingExit: "Exit the idea laboratory",
       thinkingTrash: "Drop to delete",
-      thinkingLink: "Connect this block",
-      thinkingLinkHint: "Choose the connection point on another block.",
+      thinkingLinkHint: "Choose another block to connect.",
+      thinkingLinkTool: "Link",
       thinkingCancel: "Cancel",
       thinkingChangeType: "Change block type",
       thinkingConnectionOne: "connection",
@@ -921,26 +1322,10 @@
       thinkingBlankTitle: "Start with what is on your mind",
       thinkingBlankCopy: "A problem, a question, an idea.",
       thinkingDeleteLink: "Drag the background to move the camera · click a connection to delete it.",
-      addNoteAria: "New note",
       boldAria: "Bold",
       italicAria: "Italic",
       underlineAria: "Underline",
-      highlightAria: "Highlight",
-      notePlaceholder: "Your note…",
-      notesTitle: "Notes",
-      untitledNote: "Empty note",
-      noteTitlePlaceholder: "Title",
-      searchPlaceholder: "Search…",
-      focusPhrases: [
-        "Breathe.",
-        "One thing at a time.",
-        "You are where you need to be.",
-        "Calm comes before clarity.",
-        "Focus on the present moment.",
-        "Each breath brings you back.",
-        "Move at your own pace.",
-        "What matters is here, now."
-      ]
+      highlightAria: "Highlight"
     }
   };
 
@@ -976,9 +1361,39 @@
   }
 
   const themeBarColors = {
-    light: "#f6ecf7", dark: "#1e1c26", rose: "#fdeef2",
-    dawn: "#ffc9d8", day: "#d0e6ff", dusk: "#e97ba0", night: "#0c0f1a", rain: "#39414c"
+    light: "#f6ecf7", dark: "#1e1c26", sakura: "#fdeef2",
+    dawn: "#ffc9d8", day: "#d0e6ff", dusk: "#e97ba0", night: "#0c0f1a", rain: "#39414c",
+    aqua: "#0d3145", forest: "#e9efdd", boreal: "#0b1c2c"
   };
+
+  /* A theme can bring decorations with it — sakura its petals, aquatic its
+     bubbles and its seabed. They are lent, not given: leaving the theme takes
+     back whatever it lent, or sakura's petals would go on falling underwater.
+     Touch one in the decoration panel and it stops being lent and becomes
+     yours, which is how you keep the petals if you want them everywhere. */
+  const THEME_DECOR = {
+    sakura: ["petals"],
+    aqua: ["bubbles", "seabed"],
+    forest: ["pollen"],
+    boreal: ["aurora"]
+  };
+
+  function applyThemeDecor(effective) {
+    const active = state.settings.decorations;
+    const lent = state.settings.themeDecorLent;
+    for (let i = 0; i < lent.length; i++) {
+      const at = active.indexOf(lent[i]);
+      if (at !== -1) active.splice(at, 1);
+    }
+    lent.length = 0;
+    const wanted = THEME_DECOR[effective] || [];
+    for (let i = 0; i < wanted.length; i++) {
+      if (active.indexOf(wanted[i]) === -1) {
+        active.push(wanted[i]);
+        lent.push(wanted[i]);
+      }
+    }
+  }
 
   /* today's cached weather is rain/drizzle/showers/storm */
   function isRainyNow() {
@@ -1001,8 +1416,11 @@
   }
 
   /* Apply a theme. "auto" resolves to the current time-of-day theme. */
+  let shownTheme = null;
   function applyTheme(themeName) {
     const effective = themeName === "auto" ? timeTheme() : themeName;
+    const changed = effective !== shownTheme;
+    shownTheme = effective;
     document.documentElement.setAttribute("data-theme", effective);
     applyThemeEdits(effective);
     applyPaletteVars();   // a custom palette belongs to the theme, so it follows
@@ -1017,9 +1435,16 @@
       themeButtons[i].classList.toggle("is-active", themeButtons[i].dataset.theme === themeName);
     }
     paintZellige();   // the mosaic is cut from the theme, so it is recut with it
+    tuneThresholdInk();   // a new sky may be a new colour under the threshold
+    if (changed) renderScene();   // and a new theme is a different place entirely
+    // The step ramp is the theme's now, and step colours are written inline by
+    // the script — so they only follow once what carries them is laid out again.
+    // Guarded on a real change: the adaptive theme comes back through here twice
+    // a minute and must not rebuild three lists for nothing.
+    if (changed) repaintPalette();
   }
 
-  /* Apply a color palette (aurora / meadow / sunset) via a root attribute. */
+  /* Apply a color palette (theme / aurora / meadow / sunset) via a root attribute. */
   function applyPalette(paletteName) {
     document.documentElement.setAttribute("data-palette", paletteName);
     applyPaletteVars();
@@ -1028,6 +1453,17 @@
       paletteButtons[i].classList.toggle("is-active", paletteButtons[i].dataset.palette === paletteName);
     }
     paintZellige();
+    repaintPalette();
+  }
+
+  /* everything drawn with a stop read back from the ramp */
+  function repaintPalette() {
+    if (!appReady) return;   // startup lays all of this out anyway
+    renderList("tasks");
+    renderList("projects");
+    renderHabits();
+    renderDailyTimeline();
+    if (!skyView.hidden) renderSky();
   }
 
   /* localized current time: "il est 01:00" / "it is 01:00 am" */
@@ -1071,9 +1507,212 @@
      where it belongs and flown from where it was to where it lands. */
   if (dayLine && welcomeSlot) welcomeSlot.appendChild(dayLine);
 
+  /* THE SCENERY — the threshold is looked at, not worked in, so it can afford
+     what the workspace cannot: silhouettes across the whole page, things that
+     cross it, drawings big enough to be read as drawings. It is built when the
+     threshold is up and torn down on the way in, so none of it costs anything
+     while there is work on screen.
+
+     Everything here is a span with a class; the shapes and the motion live in
+     the stylesheet, and the script only says how many, where, and how fast. */
+  const scene = document.getElementById("scene");
+
+  function sceneEl(cls, host) {
+    const el = document.createElement("span");
+    el.className = cls;
+    (host || scene).appendChild(el);
+    return el;
+  }
+
+  function clearScene() {
+    if (scene) scene.innerHTML = "";
+  }
+
+  const SCENERY = {
+    /* the hanami view: branches from three corners, at three scales, each
+       breathing on its own time so the canopy never moves as one piece */
+    sakura: function () {
+      const corners = [
+        { cls: "sc-bough--ne", w: 46, delay: 0 },
+        { cls: "sc-bough--nw", w: 38, delay: -4 },
+        { cls: "sc-bough--w", w: 26, delay: -8 }
+      ];
+      for (let i = 0; i < corners.length; i++) {
+        const bough = sceneEl("sc-bough " + corners[i].cls);
+        bough.style.width = corners[i].w + "%";
+        // the sway lives on the pseudo-element, so it is handed over as a var
+        bough.style.setProperty("--sway", rand(11, 17) + "s");
+        bough.style.setProperty("--sway-at", corners[i].delay + "s");
+      }
+      for (let i = 0; i < 4; i++) {
+        const cluster = sceneEl("sc-blossom");
+        cluster.style.left = rand(6, 90) + "%";
+        cluster.style.top = rand(8, 30) + "%";
+        const size = rand(22, 38);
+        cluster.style.width = size + "px";
+        cluster.style.height = size + "px";
+        cluster.style.animationDuration = rand(7, 13) + "s";
+        cluster.style.animationDelay = -rand(0, 10) + "s";
+      }
+    },
+
+    /* the kelp bed proper, and a school crossing it: both are far too busy for
+       a page with tasks on it, and exactly right for one with nothing on it */
+    aqua: function () {
+      for (let i = 0; i < 16; i++) {
+        const weed = sceneEl("sc-weed");
+        weed.style.height = rand(14, 40) + "vh";
+        weed.style.width = rand(12, 34) + "px";
+        weed.style.left = rand(-3, 99) + "%";
+        weed.style.setProperty("--lean", rand(6, 15) + "deg");
+        weed.style.opacity = rand(0.22, 0.6).toFixed(2);
+        weed.style.animationDuration = rand(5, 10) + "s";
+        weed.style.animationDelay = -rand(0, 8) + "s";
+      }
+      for (let s = 0; s < 3; s++) {
+        const school = sceneEl("sc-school");
+        school.style.top = rand(18, 48) + "%";   // where there is still light to be seen against
+        school.style.animationDuration = rand(38, 72) + "s";
+        school.style.animationDelay = -rand(0, 60) + "s";
+        if (s % 2) school.classList.add("sc-school--back");
+        for (let f = 0; f < 9; f++) {
+          const fish = sceneEl("sc-fish", school);
+          fish.style.left = rand(0, 190) + "px";
+          fish.style.top = rand(0, 84) + "px";
+          const size = rand(13, 26);
+          fish.style.width = size + "px";
+          fish.style.height = size * 0.5 + "px";
+          fish.style.animationDuration = rand(1.6, 3.2) + "s";
+          fish.style.animationDelay = -rand(0, 3) + "s";
+        }
+      }
+    },
+
+    /* a ridge of pines under the aurora, and the sky above it deepened */
+    boreal: function () { sceneEl("sc-ridge sc-ridge--pines"); },
+
+    /* undergrowth along the bottom edge, in silhouette */
+    forest: function () {
+      sceneEl("sc-ridge sc-ridge--ferns");
+      for (let i = 0; i < 7; i++) {
+        const trunk = sceneEl("sc-trunk");
+        trunk.style.left = rand(-4, 98) + "%";
+        trunk.style.width = rand(6, 18) + "px";
+        trunk.style.height = rand(38, 78) + "vh";
+        trunk.style.opacity = rand(0.05, 0.13).toFixed(2);
+        trunk.style.animationDuration = rand(9, 16) + "s";
+        trunk.style.animationDelay = -rand(0, 12) + "s";
+      }
+    },
+
+    dawn: function () { skyScene(); flock(); },
+    dusk: function () { skyScene(); },
+
+    day: function () {
+      for (let i = 0; i < 4; i++) {
+        const cloud = sceneEl("sc-cloud");
+        cloud.style.top = rand(4, 34) + "%";
+        cloud.style.width = rand(180, 420) + "px";
+        cloud.style.height = rand(48, 96) + "px";
+        cloud.style.opacity = rand(0.3, 0.7).toFixed(2);
+        cloud.style.animationDuration = rand(90, 190) + "s";
+        cloud.style.animationDelay = -rand(0, 160) + "s";
+      }
+      flock();
+    }
+  };
+
+  /* DUSK AND DAWN — here the sky is the whole subject, so the scenery is light
+     and not things. The rule of time is the horizon, and the sun it already
+     carries is the only sun there is. All the scenery adds is cloud, which is
+     what makes a sky read as a sunset rather than as a gradient. */
+  function skyScene() {
+    for (let i = 0; i < 8; i++) {
+      const band = sceneEl("sc-band");
+      band.style.width = rand(16, 52) + "%";
+      band.style.height = rand(6, 18) + "px";
+      band.style.left = rand(-10, 82) + "%";
+      // bands sit above the horizon far more often than below it
+      band.style.setProperty("--above", rand(-4, 30) + "vh");
+      band.style.opacity = rand(0.18, 0.6).toFixed(2);
+      band.style.animationDuration = rand(120, 260) + "s";
+      band.style.animationDelay = -rand(0, 200) + "s";
+    }
+    syncSceneHorizon();
+  }
+
+  /* THE RULE IS THE HORIZON — the cloud bands hang above and below it, so they
+     need to know where it actually sits. Read off the strip, which is the scale
+     the rule draws everything against, and re-run on every redraw, since the
+     weather answers long after the threshold is built. */
+  function syncSceneHorizon() {
+    if (!scene) return;
+    const box = scene.getBoundingClientRect();
+    const strip = welcomeSlot.querySelector(".dtl__strip");
+    if (!box.height || !strip) return;
+    const rule = strip.getBoundingClientRect();
+    if (!rule.width) return;
+    scene.style.setProperty("--horizon", (rule.top + rule.height / 2 - box.top) + "px");
+  }
+
+  /* a handful of birds crossing, in silhouette, flapping out of step */
+  function flock() {
+    const line = sceneEl("sc-flock");
+    line.style.top = rand(14, 30) + "%";
+    line.style.animationDuration = rand(46, 78) + "s";
+    line.style.animationDelay = -rand(0, 40) + "s";
+    for (let i = 0; i < 6; i++) {
+      const bird = sceneEl("sc-bird", line);
+      bird.style.left = rand(0, 120) + "px";
+      bird.style.top = rand(0, 34) + "px";
+      const size = rand(7, 13);
+      bird.style.width = size + "px";
+      bird.style.height = size * 0.62 + "px";
+      bird.style.animationDuration = rand(0.5, 0.9) + "s";
+      bird.style.animationDelay = -rand(0, 1) + "s";
+    }
+  }
+
+  function renderScene() {
+    if (!scene) return;
+    clearScene();
+    if (welcomeScreen.dataset.gone) return;   // nothing to look at, nothing to build
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const build = SCENERY[currentThemeName()];
+    if (build) build();
+  }
+
+  /* the rule is one element flown between two homes; both directions measure it
+     where it is, move it, then play it from there to where it landed */
+  function flyRule(from, scaleFrom) {
+    if (!from || !dayLine) return;
+    const to = dayLine.getBoundingClientRect();
+    dayLine.style.transformOrigin = "50% 50%";
+    dayLine.style.transition = "none";
+    dayLine.style.transform = "translate(" + (from.left - to.left) + "px,"
+      + (from.top - to.top) + "px) scale(" + scaleFrom + ")";
+    dayLine.offsetWidth;                       // commit before releasing
+    dayLine.style.transition = "transform " + APP_ENTER_MS + "ms cubic-bezier(.22,.8,.25,1)";
+    dayLine.style.transform = "";
+    setTimeout(function () {
+      dayLine.style.transition = "";
+      dayLine.style.transformOrigin = "";
+      renderTimeRule();                        // measure it where it landed
+    }, APP_ENTER_MS);
+  }
+
+  /* enterApp arms two timers that undo the threshold; going back has to cancel
+     them or a quick return lands on a screen still being taken down */
+  let thresholdTimers = [];
+  function clearThresholdTimers() {
+    for (let i = 0; i < thresholdTimers.length; i++) clearTimeout(thresholdTimers[i]);
+    thresholdTimers = [];
+  }
+
   function enterApp() {
     if (!welcomeScreen || welcomeScreen.dataset.gone) return;
     welcomeScreen.dataset.gone = "1";
+    clearThresholdTimers();
 
     const from = dayLine ? dayLine.getBoundingClientRect() : null;
     appScreen.hidden = false;
@@ -1083,31 +1722,47 @@
     syncPagesHeight(false);
     requestAnimationFrame(function () {
       syncPagesHeight(false);
-      renderTimeRule();
+      renderDailyTimeline();
     });
 
-    if (from && dayLine) {
-      const to = dayLine.getBoundingClientRect();
-      dayLine.style.transformOrigin = "50% 50%";
-      dayLine.style.transition = "none";
-      dayLine.style.transform = "translate(" + (from.left - to.left) + "px,"
-        + (from.top - to.top) + "px) scale(" + WELCOME_RULE_SCALE + ")";
-      dayLine.offsetWidth;                       // commit before releasing
-      dayLine.style.transition = "transform " + APP_ENTER_MS + "ms cubic-bezier(.22,.8,.25,1)";
-      dayLine.style.transform = "";
-      setTimeout(function () {
-        dayLine.style.transition = "";
-        dayLine.style.transformOrigin = "";
-        renderTimeRule();                        // measure it where it landed
-      }, APP_ENTER_MS);
-    }
+    flyRule(from, WELCOME_RULE_SCALE);
 
     welcomeScreen.classList.add("is-leaving");
+    clearScene();          // the scenery is the threshold's, and goes with it
     setZelligeOn(false);   // parked, but keep the threshold tidy either way
-    setTimeout(function () { welcomeScreen.style.display = "none"; }, 560);
-    setTimeout(function () { setFieldWelcome(false); }, 900);   // let the ground settle
+    thresholdTimers.push(setTimeout(function () {
+      welcomeScreen.style.display = "none";
+    }, 560));
+    thresholdTimers.push(setTimeout(function () {
+      setFieldWelcome(false);   // let the ground settle
+    }, 900));
     ensureSunData();   // ask for location only once the app is entered
   }
+
+  /* Back out to the threshold. Everything enterApp did, undone in the same
+     terms: the same rule flies the other way, the threshold's own ground comes
+     back up, and the scenery is built again for whatever theme is on now. */
+  function leaveApp() {
+    if (!welcomeScreen || !welcomeScreen.dataset.gone) return;
+    clearThresholdTimers();
+    delete welcomeScreen.dataset.gone;
+
+    const from = dayLine ? dayLine.getBoundingClientRect() : null;
+    welcomeScreen.style.display = "";
+    welcomeScreen.classList.remove("is-leaving");
+    if (dayLine && welcomeSlot) welcomeSlot.appendChild(dayLine);
+    appScreen.hidden = true;
+    renderDailyTimeline();
+    // the rule is 1.35x on the threshold, so coming back it starts small
+    flyRule(from, 1 / WELCOME_RULE_SCALE);
+
+    setFieldWelcome(true);
+    renderGreeting();
+    renderWelcomeHabits();
+    renderScene();
+  }
+
+  document.getElementById("homeBtn").addEventListener("click", leaveApp);
 
   // no target to aim at: the whole threshold is the door
   welcomeScreen.addEventListener("click", enterApp);
@@ -1142,6 +1797,38 @@
     });
   }
 
+  /* THE BRUSH — repaints the app with another theme. Semi-random rather than
+     random: it draws from a bag holding every theme once, so it never repeats
+     and never clumps, and refills only when the bag is empty. Straight random
+     gives you the same theme twice in a row often enough to feel broken.
+     "auto" is left out of the bag — it is an hour, not a colour, and the point
+     of the brush is to see somewhere else. */
+  const BRUSH_THEMES = ["light", "dark", "sakura", "aqua", "forest", "boreal",
+                        "dawn", "day", "dusk", "night", "rain"];
+  let brushBag = [];
+
+  function brushNextTheme() {
+    const here = currentThemeName();
+    if (!brushBag.length) {
+      brushBag = BRUSH_THEMES.slice();
+      // never open a fresh bag on the theme already showing
+      const at = brushBag.indexOf(here);
+      if (at !== -1) brushBag.splice(at, 1);
+    }
+    const pick = Math.floor(Math.random() * brushBag.length);
+    return brushBag.splice(pick, 1)[0];
+  }
+
+  document.getElementById("lookBtn").addEventListener("click", function () {
+    const next = brushNextTheme();
+    state.settings.theme = next;
+    applyTheme(next);
+    applyThemeDecor(next);   // it arrives with whatever it brings, as when picked
+    applyDecorations();
+    saveState();
+    showToast(translate("brushedTo") + " " + translate("theme" + next.charAt(0).toUpperCase() + next.slice(1)));
+  });
+
   const nameInput = document.getElementById("nameInput");
   nameInput.value = state.settings.name;
   nameInput.addEventListener("input", function () {
@@ -1155,6 +1842,7 @@
     themeButtons[i].addEventListener("click", function () {
       state.settings.theme = themeButtons[i].dataset.theme;
       applyTheme(state.settings.theme);
+      applyThemeDecor(currentThemeName());   // sakura arrives with its petals
       applyDecorations();   // the adaptive theme adds/removes the weather effect
       saveState();
     });
@@ -1180,7 +1868,8 @@
      everything else in the stylesheet is derived from them. Editing one writes
      the same custom property inline on <html>, so the whole interface follows
      without a single recalculation here. */
-  const PAINT_THEMES = ["light", "dark", "rose", "dawn", "day", "dusk", "night", "rain"];
+  const PAINT_THEMES = ["light", "dark", "sakura", "aqua", "forest", "boreal",
+                        "dawn", "day", "dusk", "night", "rain"];
   const PAINT_GROUPS = [
     { label: "paintBase", slots: [["--c-bg", "slotBg"], ["--c-surface", "slotSurface"], ["--c-line", "slotLine"]] },
     { label: "paintInk", slots: [["--c-text", "slotText"], ["--c-muted", "slotMuted"]] },
@@ -1209,8 +1898,8 @@
      whatever theme happens to be on screen. */
   const slotProbes = {};
   let probeHost = null;
-  function probeFor(attribute, value) {
-    const key = attribute + "=" + value;
+  function probeFor(pairs) {
+    const key = pairs.join("|");
     if (slotProbes[key]) return slotProbes[key];
     if (!probeHost) {
       probeHost = document.createElement("div");
@@ -1219,16 +1908,21 @@
       document.body.appendChild(probeHost);
     }
     const probe = document.createElement("div");
-    probe.setAttribute(attribute, value);
+    for (let i = 0; i < pairs.length; i += 2) probe.setAttribute(pairs[i], pairs[i + 1]);
     probeHost.appendChild(probe);
     slotProbes[key] = probe;
     return probe;
   }
-  function readThemeSlot(themeName, slot) {
-    return getComputedStyle(probeFor("data-theme", themeName)).getPropertyValue(slot).trim();
+  function readThemeSlot(name, slot) {
+    return getComputedStyle(probeFor(["data-theme", name])).getPropertyValue(slot).trim();
   }
-  function readPaletteSlot(paletteName, slot) {
-    return getComputedStyle(probeFor("data-palette", paletteName)).getPropertyValue(slot).trim();
+  function readPaletteSlot(name, slot) {
+    return getComputedStyle(probeFor(["data-palette", name])).getPropertyValue(slot).trim();
+  }
+  /* the theme's own ramp needs both attributes: it is declared on the pair */
+  function readThemeStop(name, slot) {
+    return getComputedStyle(probeFor(["data-palette", "theme", "data-theme", name]))
+      .getPropertyValue(slot).trim();
   }
 
   /* push the edits for whichever theme is on screen; inline props beat the
@@ -1242,10 +1936,10 @@
   }
 
   /* Where the five stops in force are stored. The three presets are shared, so
-     their touch-ups live under the palette name. "custom" belongs to the theme
-     on screen instead — one bespoke palette per theme. */
+     their touch-ups live under the palette name. The theme's own ramp belongs to
+     the theme on screen instead — one editable ramp per theme. */
   function impStore() {
-    if (state.settings.palette !== "custom") {
+    if (state.settings.palette !== "theme") {
       return state.settings.paletteEdits[state.settings.palette] || null;
     }
     return state.settings.themePalettes[currentThemeName()] || null;
@@ -1300,6 +1994,8 @@
         paintTheme = name;
         state.settings.theme = name;   // edit what you can see
         applyTheme(name);
+        applyThemeDecor(currentThemeName());
+        applyDecorations();
         renderPaint();
         saveState();
       });
@@ -1329,7 +2025,7 @@
 
     const palettes = document.getElementById("paintPalettes");
     palettes.innerHTML = "";
-    const names = ["aurora", "meadow", "sunset", "custom"];
+    const names = ["theme", "aurora", "meadow", "sunset"];
     for (let i = 0; i < names.length; i++) {
       const name = names[i];
       const button = document.createElement("button");
@@ -1338,21 +2034,16 @@
       button.dataset.palette = name;
       button.innerHTML = '<span class="palette__sw"></span><span>'
         + translate("palette" + name.charAt(0).toUpperCase() + name.slice(1)) + "</span>";
-      // the swatch bar previews the stops the button stands for
-      if (name === "custom") {
+      // the swatch bar previews the stops the button stands for; the theme's own
+      // ramp is not on this button's attributes, so it is written on by hand
+      if (name === "theme") {
         const own = state.settings.themePalettes[currentThemeName()];
         for (let k = 0; k < IMP_SLOTS.length; k++) {
-          if (own && own[IMP_SLOTS[k]]) button.style.setProperty(IMP_SLOTS[k], own[IMP_SLOTS[k]]);
+          button.style.setProperty(IMP_SLOTS[k], (own && own[IMP_SLOTS[k]])
+            || readThemeStop(currentThemeName(), IMP_SLOTS[k]));
         }
       }
       button.addEventListener("click", function () {
-        // picking the bespoke palette for the first time copies what is on
-        // screen, so there is something to work from rather than a blank slate
-        if (name === "custom" && !state.settings.themePalettes[currentThemeName()]) {
-          const seed = {};
-          for (let k = 0; k < IMP_SLOTS.length; k++) seed[IMP_SLOTS[k]] = toHex(resolvedImp(IMP_SLOTS[k]));
-          state.settings.themePalettes[currentThemeName()] = seed;
-        }
         state.settings.palette = name;
         applyPalette(name);
         renderPaint();
@@ -1375,14 +2066,14 @@
   function resolvedImp(slot) {
     const stored = impStore();
     if (stored && stored[slot]) return stored[slot];
-    const base = state.settings.palette === "custom" ? "aurora" : state.settings.palette;
-    return readPaletteSlot(base, slot);
+    if (state.settings.palette === "theme") return readThemeStop(currentThemeName(), slot);
+    return readPaletteSlot(state.settings.palette, slot);
   }
 
   function editImp(slot, hex) {
     const settings = state.settings;
     let store;
-    if (settings.palette === "custom") {
+    if (settings.palette === "theme") {
       const theme = currentThemeName();
       store = settings.themePalettes[theme] || (settings.themePalettes[theme] = {});
     } else {
@@ -1390,6 +2081,7 @@
     }
     store[slot] = hex;
     applyPaletteVars();
+    repaintPalette();
     saveState();
   }
 
@@ -1421,9 +2113,10 @@
     saveState();
   });
   document.getElementById("paintPaletteReset").addEventListener("click", function () {
-    if (state.settings.palette === "custom") delete state.settings.themePalettes[currentThemeName()];
+    if (state.settings.palette === "theme") delete state.settings.themePalettes[currentThemeName()];
     else delete state.settings.paletteEdits[state.settings.palette];
     applyPaletteVars();
+    repaintPalette();
     renderPaint();
     saveState();
   });
@@ -1515,7 +2208,7 @@
       const p = decorEl("petal");
       const size = rand(9, 16);
       p.style.width = size + "px";
-      p.style.height = size + "px";
+      p.style.height = size * 1.2 + "px";   // a petal is longer than it is wide
       p.style.left = rand(0, 100) + "%";
       p.style.setProperty("--sway", rand(-70, 70) + "px");
       p.style.setProperty("--spin", rand(180, 560) + "deg");
@@ -1537,6 +2230,76 @@
       decor.appendChild(b);
     }
   }
+  /* the seabed: a floor, its kelp, and the shafts coming down from the surface.
+     One layer, so bubbles alone still work without the whole underwater room. */
+  function spawnSeabed() {
+    decor.appendChild(decorEl("sea-floor"));
+    for (let i = 0; i < 9; i++) {
+      const weed = decorEl("sea-weed");
+      const height = rand(9, 26);
+      weed.style.height = height + "vh";
+      weed.style.width = rand(10, 26) + "px";
+      weed.style.left = rand(-2, 98) + "%";
+      weed.style.setProperty("--lean", rand(5, 13) + "deg");
+      weed.style.animationDuration = rand(5, 9) + "s";
+      weed.style.animationDelay = -rand(0, 6) + "s";
+      decor.appendChild(weed);
+    }
+    // The sun sits at one point above the surface, so every shaft leans away
+    // from it by its own distance: that spread is what stops them reading as a
+    // row of painted stripes. Widths are deliberately uneven for the same reason.
+    const sunAt = rand(28, 66);
+    for (let i = 0; i < 7; i++) {
+      const ray = decorEl("sea-ray");
+      const at = rand(-16, 108);
+      ray.style.left = at + "%";
+      ray.style.width = rand(26, 120) + "px";
+      ray.style.height = rand(58, 100) + "vh";
+      ray.style.setProperty("--tilt", (at - sunAt) * 0.17 + "deg");
+      ray.style.setProperty("--thin", rand(0.5, 0.8).toFixed(2));
+      ray.style.setProperty("--wide", rand(1.1, 1.5).toFixed(2));
+      ray.style.setProperty("--dim", rand(0.14, 0.3).toFixed(2));
+      ray.style.setProperty("--lit", rand(0.55, 0.9).toFixed(2));
+      ray.style.animationDuration = rand(8, 19) + "s";
+      ray.style.animationDelay = -rand(0, 16) + "s";
+      decor.appendChild(ray);
+    }
+  }
+
+  /* aurora curtains: the envelope drifts, the striations scroll inside it */
+  function spawnAurora() {
+    // one curtain per third of the width, jittered inside it: left to chance they
+    // stack in the same corner half the time and the sky looks lopsided
+    for (let i = 0; i < 3; i++) {
+      const curtain = decorEl("aurora");
+      curtain.style.width = rand(26, 44) + "%";
+      curtain.style.left = (i * 34 - 10 + rand(-7, 7)) + "%";
+      curtain.style.top = rand(-12, -2) + "%";
+      curtain.style.animationDuration = rand(16, 28) + "s";
+      curtain.style.animationDelay = -rand(0, 20) + "s";
+      const veil = decorEl("aurora__veil");
+      veil.style.animationDuration = rand(14, 24) + "s";
+      veil.style.animationDelay = -rand(0, 18) + "s";
+      curtain.appendChild(veil);
+      decor.appendChild(curtain);
+    }
+  }
+
+  function spawnPollen() {
+    for (let i = 0; i < 22; i++) {
+      const p = decorEl("pollen");
+      const size = rand(2, 5);
+      p.style.width = size + "px";
+      p.style.height = size + "px";
+      p.style.left = rand(0, 100) + "%";
+      p.style.top = rand(20, 100) + "%";
+      p.style.setProperty("--sway", rand(-60, 60) + "px");
+      p.style.animationDuration = rand(16, 30) + "s, " + rand(3, 7) + "s";
+      p.style.animationDelay = -rand(0, 26) + "s, " + -rand(0, 6) + "s";
+      decor.appendChild(p);
+    }
+  }
+
   function spawnFireflies() {
     for (let i = 0; i < 16; i++) {
       const f = decorEl("firefly");
@@ -1632,7 +2395,7 @@
      rects are taken fresh on every frame the field draws, so a scroll drags the
      hollows along with the panels that made them, without a line of extra code. */
   const PANEL_SELECTOR = ".item--task, .item--project, .habit, .hcard,"
-    + " .quick__field, .ecal, .modal__card, .note-card";
+    + " .quick__field, .ecal, .modal__card";
   const PANEL_DEPTH = .55;    // how much of a panel's own opacity is dug
   let panels = [];
   let panelsMoving = false;
@@ -2678,6 +3441,9 @@
       if (active[i] === "particles") spawnParticles();
       else if (active[i] === "petals") spawnPetals();
       else if (active[i] === "bubbles") spawnBubbles();
+      else if (active[i] === "seabed") spawnSeabed();
+      else if (active[i] === "aurora") spawnAurora();
+      else if (active[i] === "pollen") spawnPollen();
       else if (active[i] === "fireflies") spawnFireflies();
       else if (active[i] === "rain") { spawnRain(); rainShown = true; }
       else if (active[i] === "snow") spawnSnow();
@@ -2795,53 +3561,14 @@
       const at = active.indexOf(name);
       if (at === -1) active.push(name);
       else active.splice(at, 1);
+      // touching it takes it off the theme's hands, either way round
+      const lent = state.settings.themeDecorLent;
+      const lentAt = lent.indexOf(name);
+      if (lentAt !== -1) lent.splice(lentAt, 1);
       saveState();
       applyDecorations();
     });
   }
-
-  /* focus mode: black screen, breathing dot, motivational phrases */
-  const focusOverlay = document.getElementById("focus");
-  const focusPhrase = document.getElementById("focusPhrase");
-  const scubaGif = document.getElementById("scubaGif");
-  let focusTimer = null;
-  let focusIndex = 0;
-
-  /* Fade the next phrase in, hold it, fade out, then queue the following one. */
-  function showNextPhrase() {
-    const phrases = translations[state.settings.language].focusPhrases;
-    const phrase = phrases[focusIndex % phrases.length];
-    focusPhrase.textContent = phrase;
-    focusPhrase.classList.add("is-visible");
-    scubaGif.hidden = !/s[ck]uba/i.test(phrase); // easter egg: dancing diver
-    focusIndex++;
-
-    focusTimer = setTimeout(function () {
-      focusPhrase.classList.remove("is-visible");
-      focusTimer = setTimeout(showNextPhrase, 2500); // wait for the fade-out
-    }, 5000);
-  }
-
-  function openFocus() {
-    focusIndex = 0;
-    focusOverlay.hidden = false;
-    showNextPhrase();
-  }
-
-  function closeFocus() {
-    clearTimeout(focusTimer);
-    focusOverlay.hidden = true;
-    focusPhrase.classList.remove("is-visible");
-    scubaGif.hidden = true;
-  }
-
-  document.getElementById("focusBtn").addEventListener("click", openFocus);
-  document.getElementById("focusExit").addEventListener("click", closeFocus);
-  document.addEventListener("keydown", function (event) {
-    if (event.key === "Escape" && !focusOverlay.hidden) {
-      closeFocus();
-    }
-  });
 
   /* While an object is unfolded its row must survive: rebuilding the list would
      tear out the very node the editor lives in, which is what made the panel
@@ -3113,10 +3840,10 @@
     row.className = (item.done ? "item item--open done" : "item item--open") + kindClass;
     row.dataset.id = item.id;
     if (listName === "tasks") {
-      const milestoneColor = milestoneTaskColor(item);
-      if (milestoneColor) {
-        row.classList.add("item--milestone-linked");
-        row.style.setProperty("--task-milestone-color", milestoneColor);
+      const stepColor = stepTaskColor(item);
+      if (stepColor) {
+        row.classList.add("item--step-linked");
+        row.style.setProperty("--task-step-color", stepColor);
       }
     }
     const rowHead = listName === "projects" ? document.createElement("div") : row;
@@ -3127,7 +3854,7 @@
     const fold = createUnfold();
     row.addEventListener("click", function (event) {
       if (eventPathMatches(event,
-        ".unfold, .detail__titlerow, .item__check, .goal-inline__name")) return;
+        ".unfold, .detail__titlerow, .item__check, .goal-inline__name, .goal-inline__journal-toggle")) return;
       if (Date.now() < dragEndedAt) return;          // the click that ends a drag
       // In the main app an objective unfolds in place. Its star in Rêve still
       // opens the complete workspace with the journal and dream wall.
@@ -3140,17 +3867,25 @@
     });
     const reorderable = !item.pinned && draggable;
     if (reorderable) row.dataset.reorder = "1";
-    // Every task can be dropped on the clock. Projects only keep their existing
-    // manual reorder gesture.
-    if (listName === "tasks" || reorderable) {
+    // Every task can be dropped on the clock and every row can reach the bin.
+    // Projects otherwise keep their existing manual reorder behaviour.
+    if (listName === "tasks" || listName === "projects") {
       if (listName === "tasks") row.dataset.schedulable = "1";
       armLongPress(row, listName);
     }
 
     if (listName === "projects") {
-      const icon = document.createElement("span");
-      icon.className = "item__ico";
-      icon.innerHTML = habitSvg(item.icon || "folder");
+      const icon = document.createElement("button");
+      icon.type = "button";
+      icon.className = "item__ico item__ico--editable";
+      icon.setAttribute("aria-label", translate("editIconLabel"));
+      icon.title = translate("editIconLabel");
+      icon.innerHTML = projectSvg(item.icon || "folder");
+      icon.addEventListener("click", function (event) {
+        event.preventDefault();
+        event.stopPropagation();
+        openIconPickerForProject(item);
+      });
       rowHead.appendChild(icon);
     } else {
       rowHead.appendChild(createCheckbox(function () { toggleItem(listName, item.id); }));
@@ -3174,7 +3909,7 @@
       const star = createStarMark(item.projectId);
       if (star) meta.appendChild(star);
     }
-    if (listName === "projects" && item.milestones && item.milestones.length) meta.appendChild(createMilestoneBadge(item));
+    if (listName === "projects" && allProjectSteps(item).length) meta.appendChild(createStepBadge(item));
     if (item.pinned) meta.appendChild(createPinMarker());
     const due = item.dueDate ? createDueBadge(item, dayKnown) : null;
     if (due) meta.appendChild(due);
@@ -3348,7 +4083,8 @@
   function armLongPress(row, listName) {
     row.addEventListener("pointerdown", function (event) {
       if (event.pointerType === "mouse" && event.button !== 0) return;
-      if (event.target.closest(".item__check, .row-acts, .unfold, .detail__titlerow")) return;
+      if (event.target.closest(
+        ".item__check, .row-acts, .unfold, .detail__titlerow, .goal-inline__name, .goal-inline__journal-toggle")) return;
       const from = { x: event.clientX, y: event.clientY };
       let started = false;
       clearTimeout(pressTimer);
@@ -3408,6 +4144,7 @@
       originNext: row.nextSibling,
       canReorder: row.dataset.reorder === "1",
       canSchedule: listName === "tasks" && row.dataset.schedulable === "1",
+      canDelete: listName === "tasks" || listName === "projects",
       ghost: ghost,
       offsetX: Math.max(20, Math.min(rect.width - 20, event.clientX - rect.left)),
       offsetY: Math.max(12, Math.min(rect.height - 12, event.clientY - rect.top)),
@@ -3415,6 +4152,7 @@
       pointerY: event.clientY,
       pointerId: event.pointerId,
       drop: null,
+      deleting: false,
       undatedDrop: false,
       undatedBeforeId: null,
       crossedLists: false,
@@ -3424,6 +4162,7 @@
       try { row.setPointerCapture(event.pointerId); } catch (err) {}
     }
     row.classList.add("is-dragging");
+    if (rowDrag.canDelete) showTimelineTrash(true, false);
     moveRowGhost(event);
     document.addEventListener("pointermove", onRowDragMove, { passive: false });
     document.addEventListener("pointerup", endRowDrag);
@@ -3475,6 +4214,33 @@
     rowDrag.drop = drop;
     showTaskDrop(drop, task);
     return drop;
+  }
+
+  /* List rows use the same bin as timeline markers. Check it before either
+     scheduling destination so a destructive drop is always unambiguous. */
+  function updateRowTrashDrop() {
+    if (!rowDrag || !rowDrag.canDelete) return false;
+    const deleting = timelineTrashHit(rowDrag.pointerX, rowDrag.pointerY);
+    rowDrag.deleting = deleting;
+    rowDrag.ghost.classList.toggle("is-delete-target", deleting);
+    showTimelineTrash(true, deleting);
+    if (!deleting) return false;
+
+    rowDrag.drop = null;
+    showTaskDrop(null);
+    const group = document.querySelector('.tgroup[data-undated-drop="1"]');
+    if (group) group.classList.remove("is-drop-target");
+    rowDrag.undatedDrop = false;
+    rowDrag.undatedBeforeId = null;
+    if (rowDrag.crossedLists) restoreDraggedRowOrigin(rowDrag);
+    return true;
+  }
+
+  function updateRowDragDestinations() {
+    const deleting = updateRowTrashDrop();
+    const drop = deleting ? null : updateRowTimelineDrop();
+    const undatedDrop = deleting ? false : updateUndatedDrop();
+    return { deleting: deleting, drop: drop, undatedDrop: undatedDrop };
   }
 
   function restoreDraggedRowOrigin(drag) {
@@ -3560,8 +4326,7 @@
     }
     if (amount) {
       window.scrollBy(0, amount);
-      updateRowTimelineDrop();
-      updateUndatedDrop();
+      updateRowDragDestinations();
     }
     rowDragScrollFrame = requestAnimationFrame(autoScrollRowDrag);
   }
@@ -3572,9 +4337,8 @@
     rowDrag.pointerX = event.clientX;
     rowDrag.pointerY = event.clientY;
     moveRowGhost(event);
-    const drop = updateRowTimelineDrop();
-    const undatedDrop = updateUndatedDrop();
-    if (drop || undatedDrop || !rowDrag.canReorder) return;
+    const destination = updateRowDragDestinations();
+    if (destination.deleting || destination.drop || destination.undatedDrop || !rowDrag.canReorder) return;
 
     const listEl = rowDrag.listEl;
     const siblings = listEl.querySelectorAll('.item[data-reorder]:not(.is-dragging)');
@@ -3602,6 +4366,7 @@
     }
     if (drag.ghost.parentNode) drag.ghost.remove();
     showTaskDrop(null);
+    if (drag.canDelete) showTimelineTrash(false, false);
     const undatedGroup = document.querySelector('.tgroup[data-undated-drop="1"]');
     if (undatedGroup) undatedGroup.classList.remove("is-drop-target");
     dragEndedAt = Date.now() + 350;   // swallow the click that ends the drag
@@ -3612,11 +4377,21 @@
     document.removeEventListener("pointercancel", cancelRowDrag);
   }
 
-  function endRowDrag() {
+  function endRowDrag(event) {
     if (!rowDrag) return;
+    if (event) {
+      rowDrag.pointerX = event.clientX;
+      rowDrag.pointerY = event.clientY;
+      updateRowDragDestinations();
+    }
     const drag = rowDrag;
     rowDrag = null;
     cleanRowDrag(drag);
+
+    if (drag.deleting && drag.canDelete) {
+      removeItem(drag.listName, drag.row.dataset.id);
+      return;
+    }
 
     if (drag.drop && drag.canSchedule) {
       const task = findTask(drag.row.dataset.id);
@@ -3627,7 +4402,7 @@
       saveState();
       renderList("tasks");
       renderDailyTimeline();
-      if (task.projectId) renderProjectSteps(findItem("projects", task.projectId));
+      if (task.projectId) refreshProjectSteps(findItem("projects", task.projectId));
       ensureNotifyPermission();
       return;
     }
@@ -3643,7 +4418,7 @@
       saveState();
       renderList("tasks");
       renderDailyTimeline();
-      if (task.projectId) renderProjectSteps(findItem("projects", task.projectId));
+      if (task.projectId) refreshProjectSteps(findItem("projects", task.projectId));
       return;
     }
 
@@ -3758,8 +4533,9 @@
   function removeItem(listName, id) {
     if (listName === "projects" && openInlineProject === id) {
       openInlineProject = null;
-      openInlineMilestone = null;
-      inlineMilestoneAdd = null;
+      inlineJournalOpen = false;
+      openInlineStep = null;
+      inlineStepAdd = null;
       setInlineProjectLayout(false);
     }
     removeWithUndo(listName, id, function () {
@@ -3773,13 +4549,13 @@
   function toggleItem(listName, id) {
     const items = state[listName];
     let now = false;
-    let linkedProject = null;
+    let linkedStep = null;
     for (let i = 0; i < items.length; i++) {
       if (items[i].id === id) {
         items[i].done = !items[i].done; // flip done state
         now = items[i].done;
         items[i].doneDate = now ? todayKey() : null;   // feeds the project's momentum
-        if (listName === "tasks" && now) linkedProject = completeTaskMilestone(items[i]);
+        if (listName === "tasks" && now) linkedStep = completeTaskStep(items[i]);
         break;
       }
     }
@@ -3791,12 +4567,12 @@
       renderTasksRing();
       listsDirty[listName] = true;
       if (listName === "tasks") renderDailyTimeline();
-      if (linkedProject) refreshLinkedMilestoneProject(linkedProject);
+      if (linkedStep) refreshLinkedStepProject(linkedStep.project, linkedStep.step);
       return;
     }
     renderList(listName);
     if (listName === "tasks") renderDailyTimeline();
-    if (linkedProject) refreshLinkedMilestoneProject(linkedProject);
+    if (linkedStep) refreshLinkedStepProject(linkedStep.project, linkedStep.step);
   }
 
   /* QUICK ADD — the rectangle unfolds into a single input. "Relire le rapport
@@ -4027,18 +4803,15 @@
 
   /* a new project lands in the sky and opens straight into its workspace */
   function newProject() {
-    const project = {
-      id: Date.now().toString(), text: translate("addProjectAria"), icon: "folder",
-      sky: freeSkySpot(state.projects.length), why: "", outcome: "", targetDate: null,
-      journal: [], dream: []
-    };
-    state.projects.push(project);
+    const project = createProject("");
     saveState();
     renderList("projects");
+    liveSky();                    // its star lights up where it stands
     return project;
   }
 
   document.getElementById("addProjectBtn").addEventListener("click", function () {
+    closeAllInlineRows();
     const project = newProject();
     const row = document.querySelector('#projectsList .item[data-id="' + project.id + '"]');
     if (row) toggleInlineProjectRow(row, project, row.querySelector(".unfold"));
@@ -4053,11 +4826,33 @@
 
   /* line-art icon catalog (same stroke style as the rest of the app) */
   /* an icon path wrapped in the stroke settings they all share */
-  function habitSvg(iconKey) {
+  function catalogIconSvg(iconKey, catalog) {
+    const drawing = (catalog && catalog[iconKey])
+      || HABIT_ICONS[iconKey] || PROJECT_ICONS[iconKey] || CONSTELLATION_ICONS[iconKey] || "";
     return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" '
       + 'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
-      + (HABIT_ICONS[iconKey] || "") + '</svg>';
+      + drawing + '</svg>';
   }
+
+  function habitSvg(iconKey) { return catalogIconSvg(iconKey); }
+  function projectSvg(iconKey) { return catalogIconSvg(iconKey, PROJECT_ICONS); }
+
+  /* A small celestial alphabet reserved for constellation lists. The points and
+     their threads stay legible at the compact size used beside a branch name. */
+  const CONSTELLATION_ICONS = {
+    "constellation-star": '<path d="m12 2 2.2 6.2L21 10l-5.3 4.1.5 6.9-4.2-3.2L7.8 21l.5-6.9L3 10l6.8-1.8L12 2z"/>',
+    "constellation-orbit": '<ellipse cx="12" cy="12" rx="9" ry="4.7" transform="rotate(-28 12 12)"/><circle cx="12" cy="12" r="2"/><circle cx="19" cy="7" r="1.3" fill="currentColor" stroke="none"/>',
+    "constellation-dipper": '<polyline points="3 7 7 9 11 7 14 11 18 9 21 12"/><circle cx="3" cy="7" r="1.2" fill="currentColor"/><circle cx="7" cy="9" r="1.2" fill="currentColor"/><circle cx="11" cy="7" r="1.2" fill="currentColor"/><circle cx="14" cy="11" r="1.2" fill="currentColor"/><circle cx="18" cy="9" r="1.2" fill="currentColor"/><circle cx="21" cy="12" r="1.2" fill="currentColor"/>',
+    "constellation-crown": '<polyline points="3 16 6 8 12 14 18 6 21 16 3 16"/><circle cx="6" cy="8" r="1.2" fill="currentColor"/><circle cx="12" cy="14" r="1.2" fill="currentColor"/><circle cx="18" cy="6" r="1.2" fill="currentColor"/>',
+    "constellation-kite": '<polygon points="12 3 18 10 12 18 6 10 12 3"/><line x1="12" y1="18" x2="9" y2="22"/><circle cx="12" cy="3" r="1.1" fill="currentColor"/><circle cx="18" cy="10" r="1.1" fill="currentColor"/><circle cx="12" cy="18" r="1.1" fill="currentColor"/><circle cx="6" cy="10" r="1.1" fill="currentColor"/>',
+    "constellation-arrow": '<polyline points="3 18 9 12 14 13 21 5"/><polyline points="15 5 21 5 21 11"/><circle cx="3" cy="18" r="1.2" fill="currentColor"/><circle cx="9" cy="12" r="1.2" fill="currentColor"/><circle cx="14" cy="13" r="1.2" fill="currentColor"/>',
+    "constellation-twins": '<polyline points="6 4 9 9 7 15 11 20"/><polyline points="18 4 15 9 17 15 13 20"/><line x1="9" y1="9" x2="15" y2="9"/><line x1="7" y1="15" x2="17" y2="15"/><circle cx="6" cy="4" r="1.2" fill="currentColor"/><circle cx="18" cy="4" r="1.2" fill="currentColor"/>',
+    "constellation-wave": '<polyline points="2 13 6 9 10 14 14 8 18 12 22 6"/><circle cx="2" cy="13" r="1.1" fill="currentColor"/><circle cx="6" cy="9" r="1.1" fill="currentColor"/><circle cx="10" cy="14" r="1.1" fill="currentColor"/><circle cx="14" cy="8" r="1.1" fill="currentColor"/><circle cx="18" cy="12" r="1.1" fill="currentColor"/><circle cx="22" cy="6" r="1.1" fill="currentColor"/>',
+    "constellation-cluster": '<line x1="12" y1="12" x2="5" y2="6"/><line x1="12" y1="12" x2="18" y2="5"/><line x1="12" y1="12" x2="20" y2="16"/><line x1="12" y1="12" x2="7" y2="19"/><circle cx="12" cy="12" r="2"/><circle cx="5" cy="6" r="1.3" fill="currentColor"/><circle cx="18" cy="5" r="1.3" fill="currentColor"/><circle cx="20" cy="16" r="1.3" fill="currentColor"/><circle cx="7" cy="19" r="1.3" fill="currentColor"/>',
+    "constellation-cross": '<polyline points="12 2 12 22 5 9 19 9"/><circle cx="12" cy="2" r="1.2" fill="currentColor"/><circle cx="12" cy="22" r="1.2" fill="currentColor"/><circle cx="5" cy="9" r="1.2" fill="currentColor"/><circle cx="19" cy="9" r="1.2" fill="currentColor"/><circle cx="12" cy="9" r="1.5" fill="currentColor"/>',
+    "constellation-triangle": '<polygon points="12 3 21 19 3 19 12 3"/><line x1="12" y1="3" x2="12" y2="19"/><circle cx="12" cy="3" r="1.3" fill="currentColor"/><circle cx="21" cy="19" r="1.3" fill="currentColor"/><circle cx="3" cy="19" r="1.3" fill="currentColor"/><circle cx="12" cy="19" r="1.3" fill="currentColor"/>',
+    "constellation-comet": '<path d="M4 18 13 9"/><path d="M7 20 15 12"/><path d="M2 15 10 7"/><circle cx="16.5" cy="7.5" r="4"/><circle cx="17.5" cy="6.5" r="1" fill="currentColor" stroke="none"/>'
+  };
 
   const HABIT_ICONS = {
     water: '<path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/>',
@@ -4091,6 +4886,34 @@
     lunge: '<path d="M12 3v6"/><path d="M8 9l4 6 4-6"/><path d="M8 21l4-6 4 6"/>',
     pullup: '<line x1="3" y1="5" x2="21" y2="5"/><line x1="8" y1="5" x2="8" y2="13"/><line x1="16" y1="5" x2="16" y2="13"/><polyline points="6 10 8 13 10 10"/><polyline points="14 10 16 13 18 10"/>',
     dip: '<line x1="5" y1="4" x2="5" y2="20"/><line x1="19" y1="4" x2="19" y2="20"/><polyline points="9 9 12 13 15 9"/>'
+  };
+
+  /* Projects use a focused vocabulary; exercise glyphs stay in habits. */
+  const PROJECT_ICONS = {
+    folder: HABIT_ICONS.folder,
+    target: HABIT_ICONS.target,
+    rocket: HABIT_ICONS.rocket,
+    run: HABIT_ICONS.run,
+    sport: HABIT_ICONS.sport,
+    flag: '<path d="M5 21V4"/><path d="M5 5h11l-2 3 2 3H5"/>',
+    compass: '<circle cx="12" cy="12" r="9"/><path d="m15.8 8.2-2.1 5.5-5.5 2.1 2.1-5.5 5.5-2.1Z"/><circle cx="12" cy="12" r="1"/>',
+    briefcase: '<rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M3 12h18"/><path d="M10 12v2h4v-2"/>',
+    home: '<path d="M3 10.5 12 3l9 7.5"/><path d="M5.5 9.5V21h13V9.5"/><path d="M9.5 21v-6h5v6"/>',
+    lightbulb: '<path d="M9 18h6"/><path d="M10 22h4"/><path d="M8.2 14.5A6 6 0 1 1 15.8 14.5c-.7.6-.8 1.5-.8 2.5H9c0-1-.1-1.9-.8-2.5Z"/>',
+    calendar: HABIT_ICONS.calendar,
+    meeting: HABIT_ICONS.meeting,
+    course: HABIT_ICONS.course,
+    book: HABIT_ICONS.book,
+    write: HABIT_ICONS.write,
+    code: HABIT_ICONS.code,
+    star: HABIT_ICONS.star,
+    meditation: '<path d="M12 20.5c-4.7 0-8.1-1.9-9.5-5.2 3.8-.6 7 .3 9.5 3.3 2.5-3 5.7-3.9 9.5-3.3-1.4 3.3-4.8 5.2-9.5 5.2Z"/><path d="M12 18.4c-3.1-2.3-4.4-5.4-3.7-8.7 1.8.4 3.1 1.4 3.7 3 .6-1.6 1.9-2.6 3.7-3 .7 3.3-.6 6.4-3.7 8.7Z"/><path d="M12 12.8c-1.7-2.2-1.7-4.9 0-7.5 1.7 2.6 1.7 5.3 0 7.5Z"/>',
+    leaf: HABIT_ICONS.leaf,
+    heart: HABIT_ICONS.heart,
+    music: HABIT_ICONS.music,
+    game: HABIT_ICONS.game,
+    gift: HABIT_ICONS.gift,
+    bell: HABIT_ICONS.bell
   };
 
   const EXERCISE_CATALOG = ["pushup", "squat", "crunch", "lunge", "pullup", "dip"];
@@ -4171,27 +4994,46 @@
   function removeHabit(id) {
     removeWithUndo("habits", id, function () {
       renderHabits();
-      renderHabits();
+      renderWelcomeHabits();
+      refreshProjectsForHabit(id);
     });
   }
 
-  /* Fill the picker with one button per catalog icon. */
-  function buildIconPicker() {
+  function refreshProjectsForHabit(habitId) {
+    for (let i = 0; i < state.projects.length; i++) {
+      const project = state.projects[i];
+      const branches = projectBranches(project);
+      let linked = false;
+      for (let j = 0; j < branches.length; j++) {
+        if ((branches[j].habitIds || []).indexOf(habitId) !== -1) {
+          linked = true;
+          break;
+        }
+      }
+      if (linked) refreshStepSections(project);
+    }
+    if (!skyView.hidden) renderSky();
+  }
+
+  /* Fill the shared picker from the catalog relevant to the object being edited. */
+  function buildIconPicker(catalog, activeKey) {
     const grid = document.getElementById("iconGrid");
-    const keys = Object.keys(HABIT_ICONS);
+    const source = catalog || HABIT_ICONS;
+    const keys = Object.keys(source);
     grid.innerHTML = "";
     for (let i = 0; i < keys.length; i++) {
       const key = keys[i];
       const choice = document.createElement("button");
       choice.type = "button";
-      choice.className = "icon-choice";
-      choice.innerHTML = habitSvg(key);
+      choice.className = key === activeKey ? "icon-choice is-on" : "icon-choice";
+      choice.setAttribute("aria-label", translate("pickIconTitle"));
+      choice.innerHTML = catalogIconSvg(key, source);
       choice.addEventListener("click", function () { chooseIcon(key); });
       grid.appendChild(choice);
     }
   }
 
-  let iconPickerMode = { kind: "habit-new" };   // habit-new | habit-edit | detail | project
+  let iconPickerMode = { kind: "habit-new" };
 
   /* Apply a picked icon: create a habit, update a habit's icon, or the open item's. */
   function chooseIcon(iconKey) {
@@ -4205,12 +5047,25 @@
       return;
     }
     if (iconPickerMode.kind === "project") {
-      const project = currentProject();
+      const project = findItem("projects", iconPickerMode.projectId);
       if (project) project.icon = iconKey;
       saveState();
       iconPicker.hidden = true;
-      pviewIcon.innerHTML = habitSvg(iconKey);
-      renderList("projects");
+      if (currentProject() && currentProject().id === iconPickerMode.projectId) {
+        pviewIcon.innerHTML = projectSvg(iconKey);
+      }
+      const rowIcon = document.querySelector('#projectsList .item[data-id="'
+        + iconPickerMode.projectId + '"] .item__ico--editable');
+      if (rowIcon) rowIcon.innerHTML = projectSvg(iconKey);
+      return;
+    }
+    if (iconPickerMode.kind === "branch") {
+      const project = findItem("projects", iconPickerMode.projectId);
+      const branch = project && findBranch(project, iconPickerMode.branchId);
+      if (branch) branch.icon = iconKey;
+      saveState();
+      iconPicker.hidden = true;
+      if (project) refreshStepSections(project);
       return;
     }
     if (iconPickerMode.kind === "habit-new") {
@@ -4225,7 +5080,15 @@
       nameInput.value = "";
     } else {
       const habit = findItem("habits", iconPickerMode.id);
-      if (habit) habit.icon = iconKey;
+      if (habit) {
+        habit.icon = iconKey;
+        const inlineIcons = document.querySelectorAll(".phabits__icon");
+        for (let i = 0; i < inlineIcons.length; i++) {
+          if (inlineIcons[i].dataset.habitId === habit.id) {
+            inlineIcons[i].innerHTML = habitSvg(iconKey);
+          }
+        }
+      }
     }
     saveState();
     iconPicker.hidden = true;
@@ -4236,6 +5099,7 @@
   /* open to create a new habit (name field shown) */
   function openIconPicker() {
     iconPickerMode = { kind: "habit-new" };
+    buildIconPicker(HABIT_ICONS);
     document.getElementById("habitNameField").hidden = false;
     document.getElementById("habitNameInput").value = "";
     document.getElementById("iconPresets").hidden = false;   // presets only when creating
@@ -4245,6 +5109,8 @@
   /* open to change an existing habit's icon (name field hidden) */
   function openIconPickerForEdit(habitId) {
     iconPickerMode = { kind: "habit-edit", id: habitId };
+    const habit = findItem("habits", habitId);
+    buildIconPicker(HABIT_ICONS, habit && habit.icon);
     document.getElementById("habitNameField").hidden = true;
     document.getElementById("iconPresets").hidden = true;
     iconPicker.hidden = false;
@@ -4253,16 +5119,29 @@
   /* open to change the icon of the event in the detail view */
   function openIconPickerForDetail() {
     iconPickerMode = { kind: "detail" };
+    const item = currentDetailItem();
+    buildIconPicker(HABIT_ICONS, item && item.icon);
     document.getElementById("habitNameField").hidden = true;
     document.getElementById("iconPresets").hidden = true;
     iconPicker.hidden = false;
   }
 
   /* same, for the project on screen in its workspace */
-  function openIconPickerForProject() {
-    iconPickerMode = { kind: "project" };
+  function openIconPickerForProject(projectOrEvent) {
+    const project = projectOrEvent && projectOrEvent.id ? projectOrEvent : currentProject();
+    if (!project) return;
+    iconPickerMode = { kind: "project", projectId: project.id };
+    buildIconPicker(PROJECT_ICONS, project.icon);
     document.getElementById("habitNameField").hidden = true;
     document.getElementById("iconPresets").hidden = true;
+    iconPicker.hidden = false;
+  }
+
+  function openIconPickerForBranch(project, branch) {
+    iconPickerMode = { kind: "branch", projectId: project.id, branchId: branch.id };
+    document.getElementById("habitNameField").hidden = true;
+    document.getElementById("iconPresets").hidden = true;
+    buildIconPicker(CONSTELLATION_ICONS, branch.icon);
     iconPicker.hidden = false;
   }
 
@@ -4781,8 +5660,8 @@
 
   /* AGENDA — date/time picker, reused for a task's due date and an event's reschedule */
   const calendarModal = document.getElementById("calendar");
-  let pickerContext = "new";                      // an id, or {projectId, milestoneId}
-  let pickerKind = "tasks";                        // tasks | events | project | milestone
+  let pickerContext = "new";                      // an id, or {projectId, stepId}
+  let pickerKind = "tasks";                        // tasks | events | project | step
   let pickerSelected = null;                      // "YYYY-MM-DD" chosen in the grid
   let pickerYear = 0;
   let pickerMonth = 0;
@@ -4942,8 +5821,8 @@
     }
   }
 
-  /* Open the calendar on a task, an event, a project horizon or a milestone
-     target. The context is an id, except for a milestone which needs both. */
+  /* Open the calendar on a task, an event, a project horizon or a step
+     target. The context is an id, except for a step which needs both. */
   function openCalendar(context, kind) {
     pickerContext = context;
     pickerKind = kind || "tasks";
@@ -4952,13 +5831,10 @@
     if (pickerKind === "events") {
       const event = findItem("events", context);
       if (event) { date = event.date || null; time = event.time || ""; }
-    } else if (pickerKind === "project") {
-      const project = findItem("projects", context);
-      if (project) date = project.targetDate || null;
-    } else if (pickerKind === "milestone") {
+    } else if (pickerKind === "step") {
       const project = findItem("projects", context.projectId);
-      const milestone = project && findMilestone(project, context.milestoneId);
-      if (milestone) date = milestone.targetDate || null;
+      const step = project && findStep(project, context.stepId);
+      if (step) date = step.targetDate || null;
     } else {
       const task = findTask(context);
       if (task) { date = task.dueDate || null; time = task.dueTime || ""; }
@@ -4968,10 +5844,9 @@
     pickerYear = base.getFullYear();
     pickerMonth = base.getMonth();
     setPickerTime(time);
-    // a horizon and a milestone target are dates only; setPickerTime already
-    // shut the sliders since they were loaded with no time
-    document.getElementById("calTimeRow").hidden =
-      pickerKind === "project" || pickerKind === "milestone";
+    // a step target is a date only; setPickerTime already shut the sliders
+    // since they were loaded with no time
+    document.getElementById("calTimeRow").hidden = pickerKind === "step";
     document.getElementById("calClear").hidden = pickerKind === "events";   // an event always has a date
     renderCalendar();
     calendarModal.hidden = false;
@@ -4991,26 +5866,14 @@
       calendarModal.hidden = true;
       return;
     }
-    // a project horizon and a milestone target are dates only, no time
-    if (pickerKind === "project") {
-      const project = findItem("projects", pickerContext);
-      if (project) {
-        project.targetDate = date;
-        saveState();
-        fillProjectView(project);
-        renderList("projects");
-      }
-      calendarModal.hidden = true;
-      return;
-    }
-    if (pickerKind === "milestone") {
+    // a step target is a date only, no time
+    if (pickerKind === "step") {
       const project = findItem("projects", pickerContext.projectId);
-      const milestone = project && findMilestone(project, pickerContext.milestoneId);
-      if (milestone) {
-        milestone.targetDate = date;
+      const step = project && findStep(project, pickerContext.stepId);
+      if (step) {
+        step.targetDate = date;
         saveState();
-        renderTimeline(project);
-        if (!refreshInlineRoadmap(project)) renderList("projects");
+        refreshStepSections(project);
       }
       calendarModal.hidden = true;
       return;
@@ -5024,7 +5887,7 @@
       renderList("tasks");
       renderDailyTimeline();
       if (task.projectId) {
-        renderProjectSteps(findItem("projects", task.projectId));
+        refreshProjectSteps(findItem("projects", task.projectId));
       }
     }
     if (date) ensureNotifyPermission();
@@ -5115,43 +5978,6 @@
       }
     }
     if (changed) saveState();
-  }
-
-  /* FLOATING VIEWS — the rectangle the user just clicked, captured before any
-     re-render, so the card that opens can grow out of it */
-  const OPEN_MS = 280;
-  const ORIGIN_SELECTOR = ".item, .event-row, .add-card, .ecal__day, .tl-row,"
-    + " .note-card, .zone__action, .topbar__btn, .notes__add, .dtl__event";
-  let clickOrigin = null;
-  document.addEventListener("click", function (event) {
-    const source = event.target.closest ? event.target.closest(ORIGIN_SELECTOR) : null;
-    clickOrigin = source ? source.getBoundingClientRect() : null;
-  }, true);
-
-  /* Show a floating view. On desktop the card expands from the clicked rectangle;
-     on mobile it stays a bottom sheet, so the slide-up is left alone. onSettled
-     runs once the motion is done — measuring inside a transform would be wrong. */
-  function openFloating(view, onSettled) {
-    view.hidden = false;
-    const card = view.querySelector(".detail__card");
-    const origin = clickOrigin;
-    if (origin && !window.matchMedia("(max-width: 700px)").matches) {
-      card.style.transition = "none";
-      card.style.transform = "none";
-      const target = card.getBoundingClientRect();
-      const scale = Math.max(.62, Math.min(1, origin.width / target.width));
-      const dx = origin.left + origin.width / 2 - (target.left + target.width / 2);
-      const dy = origin.top + origin.height / 2 - (target.top + target.height / 2);
-      card.style.transform = "translate(" + Math.round(dx) + "px, " + Math.round(dy)
-        + "px) scale(" + scale.toFixed(3) + ")";
-      card.offsetWidth;              // flush the start state before animating away from it
-      card.style.transition = "";
-    }
-    requestAnimationFrame(function () {
-      card.style.transform = "";
-      view.classList.add("is-open");
-    });
-    if (onSettled) setTimeout(onSettled, OPEN_MS);
   }
 
   /* SHARED — small helpers used across the views */
@@ -7004,10 +7830,10 @@
     }
   }
 
-  /* THE HABIT CELLS — the yes-or-no habits as tiles in the planning column, the
-     water rising over the icon once ticked. They always tick today, whatever day
-     the grid is showing: a habit is lived now, it is not planned. Sleep and
-     exercise are left out — they are a value to enter, not a box to tick. */
+  /* THE HABIT BAND — compact yes-or-no icons atop the task column, with water
+     rising over an icon once ticked. They always tick today, whatever day the
+     grid is showing: a habit is lived now, it is not planned. Sleep and exercise
+     are left out — they are a value to enter, not a box to tick. */
   function renderHabitCells() {
     const box = document.getElementById("habitCells");
     box.innerHTML = "";
@@ -7017,7 +7843,224 @@
       if (habit.type === "sleep" || habit.type === "exercise") continue;
       box.appendChild(habitCell(habit, today));
     }
-    box.appendChild(addHabitCell());
+  }
+
+  let habitDrag = null;
+  let habitDragUntil = 0;
+  let habitDragScrollFrame = 0;
+
+  function armHabitDrag(handle, habit) {
+    handle.addEventListener("pointerdown", function (event) {
+      if (event.pointerType === "mouse" && event.button !== 0) return;
+      const from = { x: event.clientX, y: event.clientY };
+      let started = false;
+      let timer = null;
+      const stopWaiting = function () {
+        clearTimeout(timer);
+        document.removeEventListener("pointermove", consider);
+        document.removeEventListener("pointerup", stopWaiting);
+        document.removeEventListener("pointercancel", stopWaiting);
+      };
+      const begin = function (pointerEvent) {
+        if (started) return;
+        started = true;
+        stopWaiting();
+        startHabitDrag(pointerEvent, handle, habit);
+      };
+      const consider = function (move) {
+        const distance = Math.abs(move.clientX - from.x) + Math.abs(move.clientY - from.y);
+        if (event.pointerType === "mouse" && distance > 5) begin(move);
+        else if (event.pointerType !== "mouse" && distance > 8) stopWaiting();
+      };
+      if (event.pointerType !== "mouse") {
+        timer = setTimeout(function () { begin(event); }, LONG_PRESS_MS);
+      }
+      document.addEventListener("pointermove", consider);
+      document.addEventListener("pointerup", stopWaiting);
+      document.addEventListener("pointercancel", stopWaiting);
+    });
+  }
+
+  function habitProjectGuide() {
+    const guide = document.createElement("span");
+    guide.className = "habit-project-drop-guide";
+    const icon = document.createElement("span");
+    icon.innerHTML = iconSvg('<path d="M10 13a5 5 0 0 0 7.5.5l2-2a5 5 0 0 0-7-7l-1.1 1.1"/>'
+      + '<path d="M14 11a5 5 0 0 0-7.5-.5l-2 2a5 5 0 0 0 7 7l1.1-1.1"/>');
+    const text = document.createElement("span");
+    text.textContent = translate("habitDropProject");
+    guide.append(icon, text);
+    return guide;
+  }
+
+  function showHabitProjectTargets() {
+    const rows = document.querySelectorAll("#projectsList .item--project");
+    for (let i = 0; i < rows.length; i++) {
+      rows[i].classList.add("is-habit-drop-available");
+      const tab = rows[i].querySelector(".project-tab");
+      if (tab) tab.appendChild(habitProjectGuide());
+    }
+  }
+
+  function clearHabitProjectTargets() {
+    const rows = document.querySelectorAll("#projectsList .item--project");
+    for (let i = 0; i < rows.length; i++) {
+      rows[i].classList.remove("is-habit-drop-available", "is-habit-drop-target");
+    }
+    const guides = document.querySelectorAll(".habit-project-drop-guide");
+    for (let i = 0; i < guides.length; i++) guides[i].remove();
+  }
+
+  function habitProjectDropAt(clientX, clientY) {
+    const at = document.elementFromPoint(clientX, clientY);
+    const row = at && at.closest ? at.closest("#projectsList .item--project") : null;
+    if (!row) return null;
+    const project = findItem("projects", row.dataset.id);
+    return project ? { row: row, project: project } : null;
+  }
+
+  function startHabitDrag(event, handle, habit) {
+    if (habitDrag) return;
+    const ghost = document.createElement("div");
+    ghost.className = "habit-drag-ghost";
+    const icon = document.createElement("span");
+    icon.className = "habit-drag-ghost__icon";
+    icon.innerHTML = habitSvg(habit.icon || "star");
+    const name = document.createElement("span");
+    name.textContent = habit.name || translate("habitsTitle");
+    ghost.append(icon, name);
+    document.body.appendChild(ghost);
+
+    habitDrag = {
+      handle: handle,
+      habit: habit,
+      ghost: ghost,
+      pointerId: event.pointerId,
+      pointerX: event.clientX,
+      pointerY: event.clientY,
+      deleting: false,
+      projectTarget: null,
+      paneSwitchAt: 0
+    };
+    if (handle.setPointerCapture) {
+      try { handle.setPointerCapture(event.pointerId); } catch (err) {}
+    }
+    handle.classList.add("is-habit-dragging");
+    handle.blur();
+    showTimelineTrash(true, false);
+    showHabitProjectTargets();
+    moveHabitGhost(event.clientX, event.clientY);
+    updateHabitDragTargets(event.clientX, event.clientY);
+    document.addEventListener("pointermove", moveHabitDrag, { passive: false });
+    document.addEventListener("pointerup", endHabitDrag);
+    document.addEventListener("pointercancel", cancelHabitDrag);
+    cancelAnimationFrame(habitDragScrollFrame);
+    habitDragScrollFrame = requestAnimationFrame(autoScrollHabitDrag);
+  }
+
+  function moveHabitGhost(clientX, clientY) {
+    if (!habitDrag) return;
+    habitDrag.ghost.style.left = (clientX + 14) + "px";
+    habitDrag.ghost.style.top = (clientY + 12) + "px";
+  }
+
+  function maybeSwitchHabitPane() {
+    if (!habitDrag || !railed() || Date.now() < habitDrag.paneSwitchAt) return;
+    let next = paneAt;
+    if (habitDrag.pointerX > window.innerWidth - 26 && paneAt === 0) next = 1;
+    else if (habitDrag.pointerX < 26 && paneAt === 1) next = 0;
+    if (next === paneAt) return;
+    pagesTrack.classList.add("is-habit-dragging");
+    setPane(next);
+    habitDrag.paneSwitchAt = Date.now() + 650;
+  }
+
+  function updateHabitDragTargets(clientX, clientY) {
+    if (!habitDrag) return;
+    habitDrag.pointerX = clientX;
+    habitDrag.pointerY = clientY;
+    maybeSwitchHabitPane();
+    const deleting = timelineTrashHit(clientX, clientY);
+    const target = deleting ? null : habitProjectDropAt(clientX, clientY);
+    if (habitDrag.projectTarget) {
+      habitDrag.projectTarget.row.classList.remove("is-habit-drop-target");
+    }
+    habitDrag.deleting = deleting;
+    habitDrag.projectTarget = target;
+    if (target) target.row.classList.add("is-habit-drop-target");
+    showTimelineTrash(true, deleting);
+    habitDrag.ghost.classList.toggle("is-delete-target", deleting);
+    habitDrag.ghost.classList.toggle("is-link-target", !!target);
+  }
+
+  function moveHabitDrag(event) {
+    if (!habitDrag) return;
+    event.preventDefault();
+    moveHabitGhost(event.clientX, event.clientY);
+    updateHabitDragTargets(event.clientX, event.clientY);
+  }
+
+  function autoScrollHabitDrag() {
+    if (!habitDrag) return;
+    const edge = Math.min(100, window.innerHeight * .17);
+    let amount = 0;
+    if (habitDrag.pointerY < edge) {
+      amount = -Math.ceil((edge - habitDrag.pointerY) / edge * 16);
+    } else if (habitDrag.pointerY > window.innerHeight - edge) {
+      amount = Math.ceil((habitDrag.pointerY - (window.innerHeight - edge)) / edge * 16);
+    }
+    if (amount) {
+      window.scrollBy(0, amount);
+      updateHabitDragTargets(habitDrag.pointerX, habitDrag.pointerY);
+    }
+    habitDragScrollFrame = requestAnimationFrame(autoScrollHabitDrag);
+  }
+
+  function cleanHabitDrag(drag) {
+    drag.handle.classList.remove("is-habit-dragging");
+    if (drag.handle.hasPointerCapture && drag.handle.hasPointerCapture(drag.pointerId)) {
+      drag.handle.releasePointerCapture(drag.pointerId);
+    }
+    drag.ghost.remove();
+    showTimelineTrash(false, false);
+    clearHabitProjectTargets();
+    pagesTrack.classList.remove("is-habit-dragging");
+    habitDragUntil = Date.now() + 350;
+    cancelAnimationFrame(habitDragScrollFrame);
+    habitDragScrollFrame = 0;
+    document.removeEventListener("pointermove", moveHabitDrag);
+    document.removeEventListener("pointerup", endHabitDrag);
+    document.removeEventListener("pointercancel", cancelHabitDrag);
+  }
+
+  function linkHabitToProject(habit, project) {
+    const branch = activeProjectBranch(project);
+    if ((branch.habitIds || []).indexOf(habit.id) !== -1) {
+      showToast(translate("habitAlreadyLinkedProject"));
+      return;
+    }
+    if (!branch.habitIds) branch.habitIds = [];
+    branch.habitIds.push(habit.id);
+    saveState();
+    refreshBranchHabits(project);
+    showToast(translate("habitLinkedProject"));
+  }
+
+  function endHabitDrag(event) {
+    if (!habitDrag) return;
+    updateHabitDragTargets(event.clientX, event.clientY);
+    const drag = habitDrag;
+    habitDrag = null;
+    cleanHabitDrag(drag);
+    if (drag.deleting) removeHabit(drag.habit.id);
+    else if (drag.projectTarget) linkHabitToProject(drag.habit, drag.projectTarget.project);
+  }
+
+  function cancelHabitDrag() {
+    if (!habitDrag) return;
+    const drag = habitDrag;
+    habitDrag = null;
+    cleanHabitDrag(drag);
   }
 
   function habitCell(habit, today) {
@@ -7035,22 +8078,16 @@
     if (HABIT_ICONS[habit.icon]) icon.innerHTML = habitSvg(habit.icon);
     tile.append(water, icon);
 
-    tile.addEventListener("click", function () {
+    armHabitDrag(tile, habit);
+    tile.addEventListener("click", function (event) {
+      if (Date.now() < habitDragUntil) {
+        event.preventDefault();
+        return;
+      }
       toggleHabit(habit.id, tile);   // flips the "done" class the water reads
       tile.setAttribute("aria-pressed", tile.classList.contains("done") ? "true" : "false");
       renderWelcomeHabits();         // the rings on the threshold show the same day
     });
-    return tile;
-  }
-
-  /* the last slot is always an empty one, so a habit can be started from here */
-  function addHabitCell() {
-    const tile = document.createElement("button");
-    tile.type = "button";
-    tile.className = "habit habit--empty";
-    tile.setAttribute("aria-label", translate("addHabitAria"));
-    tile.innerHTML = '<span class="habit__plus">+</span>';
-    tile.addEventListener("click", openIconPicker);
     return tile;
   }
 
@@ -7318,14 +8355,16 @@
   const detail = document.getElementById("detail");
   const detailName = document.getElementById("detailName");
   const detailIcon = document.getElementById("detailIcon");
-  const detailWhen = document.getElementById("detailWhen");
   const detailPin = document.getElementById("detailPin");
   const detailBell = document.getElementById("detailBell");
-  const detailActions = document.getElementById("detailActions");
+  const detailTrash = document.getElementById("detailTrash");
+  const detailNoteToggle = document.getElementById("detailNoteToggle");
+  const detailWorkspace = document.getElementById("detailWorkspace");
+  const detailMain = document.getElementById("detailMain");
+  const detailNoteSection = document.getElementById("detailNoteSection");
   const detailNotes = document.getElementById("detailNotes");
   const subtaskList = document.getElementById("subtaskList");
   const subtaskSection = document.getElementById("subtaskSection");
-  const timeline = document.getElementById("timeline");
   // kind: "tasks" | "events"
   let detailTarget = { kind: null, id: null };
 
@@ -7368,11 +8407,11 @@
     return badge;
   }
 
-  /* milestone progress badge on a project row, as a percentage */
-  function createMilestoneBadge(item) {
+  /* step progress badge on a project row, as a percentage */
+  function createStepBadge(item) {
     const badge = document.createElement("span");
     badge.className = "item__sub";
-    badge.textContent = Math.round(milestoneProgress(item) * 100) + "%";
+    badge.textContent = Math.round(stepProgress(item) * 100) + "%";
     return badge;
   }
 
@@ -7414,6 +8453,8 @@
     detailPin.hidden = kind === "events";   // an event is not pinnable
     if (!detailPin.hidden) detailPin.classList.toggle("is-on", !!item.pinned);
     // the bell is the event's own flag, and the only way to take it back off
+    // the bin travels with the bell: an event has no actions row to hold one
+    detailTrash.hidden = kind !== "events";
     detailBell.hidden = kind !== "events";
     if (kind === "events") {
       detailBell.classList.toggle("is-on", !!item.important);
@@ -7423,14 +8464,16 @@
     detailIcon.hidden = kind !== "events";
     if (kind === "events") detailIcon.innerHTML = habitSvg(item.icon || "calendar");
     detailNotes.value = item.notes || "";
-    fitNotes();
 
+    detailNoteToggle.hidden = kind !== "tasks";
+    detailMain.hidden = kind === "events";
+    detailWorkspace.classList.toggle("is-event", kind === "events");
     subtaskSection.hidden = kind === "events";   // an event just has notes
     if (kind !== "events") renderSubtasks(item);
-    // An event's editor is its icon, its name and its note, and nothing more.
-    // It is placed by dragging it on the rule of time, and unmade by dropping it
-    // on the bin — so it needs neither a scheduler nor a delete button here.
-    detailActions.hidden = kind === "events";
+    // Scheduling and deletion stay on the row and through drag-and-drop; the
+    // unfolded surface remains focused on the object's content.
+    setInlineTaskNote(false);
+    fitNotes();
     detailBody.scrollTop = 0;
   }
 
@@ -7443,6 +8486,27 @@
   const detailBody = detail.querySelector(".detail__body");
   const detailHead = document.getElementById("detailHead");
   let openHost = null;   // the .unfold__inner currently holding the editor
+  let inlineTaskNoteOpen = false;
+
+  function setInlineTaskLayout(open) {
+    const track = document.getElementById("pagesTrack");
+    if (track) track.classList.toggle("is-task-note-open", !!open);
+  }
+
+  function setInlineTaskNote(open) {
+    inlineTaskNoteOpen = !!open && detailTarget.kind === "tasks";
+    setInlineTaskLayout(inlineTaskNoteOpen);
+    detailWorkspace.classList.toggle("is-note-open", inlineTaskNoteOpen);
+    detailNoteSection.hidden = detailTarget.kind === "tasks" ? !inlineTaskNoteOpen : false;
+    const row = openHost && hostRow(openHost);
+    if (row) row.classList.toggle("is-note-open", inlineTaskNoteOpen);
+    const label = translate(inlineTaskNoteOpen ? "noteHideAria" : "noteShowAria");
+    detailNoteToggle.classList.toggle("is-active", inlineTaskNoteOpen);
+    detailNoteToggle.setAttribute("aria-pressed", inlineTaskNoteOpen ? "true" : "false");
+    detailNoteToggle.setAttribute("aria-label", label);
+    detailNoteToggle.title = label;
+    if (inlineTaskNoteOpen) requestAnimationFrame(fitNotes);
+  }
 
   function hostRow(host) { return host.closest(".item"); }
 
@@ -7486,6 +8550,7 @@
   /* fold the row shut, then park the editor back out of the way */
   function releaseHost(host) {
     const row = hostRow(host);
+    setInlineTaskNote(false);
     shutFold(host);
     if (row) row.classList.remove("is-open");
     setTimeout(function () {
@@ -7504,14 +8569,16 @@
     detailTarget = { kind: null, id: null };
   }
 
-  /* a click anywhere outside the open object folds it back */
+  /* A task and an objective may stay open side by side. Leaving both working
+     surfaces closes them together, so no orphaned fold remains in either column. */
   document.addEventListener("click", function (event) {
-    if (!openHost || !event.target.closest) return;
+    if ((!openHost && !openInlineProject) || !event.target.closest) return;
     // a square and the fold it opens are one object, even though they are apart
     // a chip and the fold it opens are one object, though they sit apart
-    if (event.target.closest(".item.is-open, .dtl__event:not(.dtl__add), .undated__chip, .day-fold")) return;
+    if (event.target.closest(".item.is-open, .item--project.is-inline-open, "
+      + ".dtl__event:not(.dtl__add), .undated__chip, .day-fold, #addProjectBtn")) return;
     if (event.target.closest(".modal, .detail")) return;   // pickers the editor opens
-    closeDetail();
+    closeAllInlineRows();
   });
 
 
@@ -7519,25 +8586,33 @@
   function renderSubtasks(item) {
     subtaskList.innerHTML = "";
     const subs = item.subtasks || [];
-    for (let i = 0; i < subs.length; i++) {
-      subtaskList.appendChild(createSubtaskRow(item, subs[i]));
+    for (let i = subs.length - 1; i >= 0; i--) {
+      subtaskList.appendChild(createSubtaskRow(item, subs[i], i, subs.length));
     }
   }
 
-  function createSubtaskRow(item, sub) {
+  function createSubtaskRow(item, sub, index, total) {
     const row = document.createElement("li");
-    row.className = sub.done ? "item done" : "item";
+    row.className = sub.done ? "step is-done" : "step";
+    row.dataset.subtaskId = sub.id;
+    const color = paletteColorAt(paletteStops(), total > 1 ? index / (total - 1) : 0);
+    row.style.setProperty("--step-color", color);
 
     const checkbox = createCheckbox(function () { toggleSubtask(item, sub.id); });
 
-    const label = document.createElement("span");
-    label.className = "item__text";
-    label.textContent = sub.text;
-    label.addEventListener("click", function () { toggleSubtask(item, sub.id); });
+    const label = document.createElement("input");
+    label.type = "text";
+    label.className = "step__text";
+    label.maxLength = 200;
+    label.value = sub.text || "";
+    label.addEventListener("input", function () {
+      sub.text = label.value;
+      saveState();
+    });
 
     const del = document.createElement("button");
     del.type = "button";
-    del.className = "item__del";
+    del.className = "step__del";
     del.setAttribute("aria-label", translate("deleteAria"));
     del.textContent = "×";
     del.addEventListener("click", function () { removeSubtask(item, sub.id); });
@@ -7575,29 +8650,51 @@
      the concrete steps so they remain beside today's tasks. */
   const INLINE_PROJECT_MS = 420;
   let openInlineProject = null;
-  let openInlineMilestone = null;
-  let inlineMilestoneAdd = null;
-  let milestoneDrag = null;
-  let milestoneDragUntil = 0;
-  let milestoneDragScrollFrame = 0;
+  let inlineJournalOpen = false;
+  let openInlineStep = null;
+  let inlineStepAdd = null;
+  let stepDrag = null;
+  let stepDragUntil = 0;
+  let stepDragScrollFrame = 0;
 
-  /* On desktop an opened objective becomes the working surface, not merely a
-     taller card in the planning column. The track grows from two column-units
-     to three: tasks keep one, while planning (and therefore the objective)
-     receives the other two. The mobile rail deliberately keeps its proportions. */
+  /* The objective stays in the planning column by default. On desktop, opening
+     its optional journal grows that workspace into a third visual column. */
   function setInlineProjectLayout(open) {
     const track = document.getElementById("pagesTrack");
     if (track) track.classList.toggle("is-goal-open", !!open);
+  }
+
+  function setInlineJournal(open, row) {
+    inlineJournalOpen = !!open;
+    setInlineProjectLayout(inlineJournalOpen);
+    if (!row) return;
+    row.classList.toggle("is-journal-open", inlineJournalOpen);
+    const workspace = row.querySelector(".goal-inline__workspace");
+    if (workspace) workspace.classList.toggle("is-journal-open", inlineJournalOpen);
+    const journal = row.querySelector(".goal-inline__journal-section");
+    if (journal) journal.hidden = !inlineJournalOpen;
+    const toggle = row.querySelector(".goal-inline__journal-toggle");
+    if (toggle) {
+      const label = translate(inlineJournalOpen ? "journalHideAria" : "journalShowAria");
+      toggle.classList.toggle("is-active", inlineJournalOpen);
+      toggle.setAttribute("aria-pressed", inlineJournalOpen ? "true" : "false");
+      toggle.setAttribute("aria-label", label);
+      toggle.title = label;
+    }
   }
 
   function closeInlineProjectRow(row) {
     if (!row) return;
     const fold = row.querySelector(".unfold");
     const tabName = row.querySelector(".project-tab > .goal-inline__name");
+    const journalToggle = row.querySelector(".project-tab > .goal-inline__journal-toggle");
     const rowName = row.querySelector(".project-tab > .item__text");
     if (tabName) tabName.remove();
+    if (journalToggle) journalToggle.remove();
     if (rowName) rowName.hidden = false;
-    row.classList.remove("is-inline-open");
+    row.classList.remove("is-inline-open", "is-journal-open");
+    inlineJournalOpen = false;
+    setInlineProjectLayout(false);
     row.setAttribute("aria-expanded", "false");
     fold.style.height = fold.getBoundingClientRect().height + "px";
     fold.offsetWidth;
@@ -7607,15 +8704,28 @@
     }, INLINE_PROJECT_MS);
   }
 
+  function closeOpenInlineProject() {
+    if (!openInlineProject) return;
+    const row = document.querySelector("#projectsList .item--project.is-inline-open");
+    openInlineProject = null;
+    openInlineStep = null;
+    inlineStepAdd = null;
+    if (row) closeInlineProjectRow(row);
+    else {
+      inlineJournalOpen = false;
+      setInlineProjectLayout(false);
+    }
+  }
+
+  function closeAllInlineRows() {
+    if (openHost) closeDetail();
+    closeOpenInlineProject();
+  }
+
   function toggleInlineProjectRow(row, project, fold) {
     fieldWake();
-    if (openHost) closeDetail();
     if (openInlineProject === project.id) {
-      openInlineProject = null;
-      openInlineMilestone = null;
-      inlineMilestoneAdd = null;
-      setInlineProjectLayout(false);
-      closeInlineProjectRow(row);
+      closeOpenInlineProject();
       return;
     }
 
@@ -7623,9 +8733,10 @@
     if (previous && previous !== row) closeInlineProjectRow(previous);
 
     openInlineProject = project.id;
-    openInlineMilestone = null;
-    inlineMilestoneAdd = null;
-    setInlineProjectLayout(true);
+    inlineJournalOpen = false;
+    openInlineStep = null;
+    inlineStepAdd = null;
+    setInlineProjectLayout(false);
     renderInlineProject(fold.firstChild, project);
     row.classList.add("is-inline-open");
     row.setAttribute("aria-expanded", "true");
@@ -7653,8 +8764,7 @@
     name.maxLength = 120;
     name.value = project.text || "";
     name.addEventListener("input", function () {
-      project.text = name.value;
-      saveState();
+      renameProject(project, name.value);
       if (rowName) rowName.textContent = project.text;
     });
     name.addEventListener("change", function () {
@@ -7663,16 +8773,24 @@
     if (rowName) rowName.hidden = true;
     tab.insertBefore(name, rowName || tab.querySelector(".item__slot"));
 
-    const roadmapSection = document.createElement("section");
-    roadmapSection.className = "goal-inline__section";
-    const roadmapLabel = document.createElement("span");
-    roadmapLabel.className = "detail__label";
-    roadmapLabel.textContent = translate("milestonesLabel");
-    const roadmap = document.createElement("div");
-    roadmap.className = "goal-roadmap";
-    renderInlineTimeline(roadmap, project);
-    roadmapSection.append(roadmapLabel, roadmap);
-    view.appendChild(roadmapSection);
+    const journalToggle = document.createElement("button");
+    journalToggle.type = "button";
+    journalToggle.className = "goal-inline__journal-toggle";
+    journalToggle.innerHTML = iconSvg(ICON_NOTE);
+    const journalToggleText = document.createElement("span");
+    journalToggleText.textContent = translate("journalLabel");
+    journalToggle.appendChild(journalToggleText);
+    journalToggle.addEventListener("click", function (event) {
+      event.preventDefault();
+      event.stopPropagation();
+      setInlineJournal(!inlineJournalOpen, row);
+    });
+    tab.insertBefore(journalToggle, rowName || tab.querySelector(".item__slot"));
+
+    // The dashboard objective is a working view: steps stay in their concrete
+    // list here, while Rêve keeps the choice between its list and roadmap.
+    const stepsSection = createProjectStepsHost(project, true);
+    stepsSection.classList.add("goal-inline__section");
 
     const journalSection = document.createElement("section");
     journalSection.className = "goal-inline__section goal-inline__journal-section";
@@ -7702,40 +8820,35 @@
       event.preventDefault();
       const text = journalInput.value.trim();
       if (!text) return;
-      project.journal.push({ id: Date.now().toString(), date: todayKey(), text: text });
-      saveState();
+      addProjectJournal(project, text);
       journalInput.value = "";
-      refreshProjectJournals(project);
       try { journalInput.focus({ preventScroll: true }); }
       catch (err) { journalInput.focus(); }
     });
 
     journalSection.append(journalLabel, journalForm, journal);
-    view.appendChild(journalSection);
+    const workspace = document.createElement("div");
+    workspace.className = "goal-inline__workspace";
+    workspace.append(stepsSection, journalSection);
+    view.appendChild(workspace);
 
     host.appendChild(view);
+    setInlineJournal(inlineJournalOpen, row);
   }
 
-  function ensureProjectMilestones(project) {
-    if (project.milestones && project.milestones.length) return;
-    project.milestones = [
-      { id: Date.now().toString(), completedDate: null },
-      { id: (Date.now() + 1).toString(), completedDate: null }
-    ];
-    saveState();
-  }
-
-  function renderInlineTimeline(host, project) {
-    ensureProjectMilestones(project);
+  /* The roadmap's start and finish are drawn, never stored: the list holds steps
+     and nothing else, which is what lets the roadmap and the checklist show the
+     same thing. The finish is the project's own completion. */
+  function renderInlineSteps(host, project, branchIn) {
     host.innerHTML = "";
-    const milestones = project.milestones;
-    const lastIndex = milestones.length - 1;
-    const canAdd = !milestones[lastIndex].completedDate;
-    const entries = [];
-    for (let i = 0; i < milestones.length; i++) {
-      if (i === lastIndex && canAdd) entries.push({ kind: "add" });
-      entries.push({ kind: "milestone", milestone: milestones[i], index: i });
+    const branch = branchIn || projectBranches(project)[0];
+    const steps = branch.steps;
+    const entries = [{ kind: "start" }];
+    for (let i = 0; i < steps.length; i++) {
+      entries.push({ kind: "step", step: steps[i], index: i });
     }
+    if (!project.done) entries.push({ kind: "add" });
+    entries.push({ kind: "finish" });
 
     const canvas = document.createElement("div");
     canvas.className = "goal-roadmap__canvas";
@@ -7746,18 +8859,23 @@
     track.className = "goal-roadmap__track";
     const fill = document.createElement("span");
     fill.className = "goal-roadmap__fill";
-    fill.style.width = (milestoneProgress(project) * 100).toFixed(1) + "%";
+    fill.style.width = (stepProgress(project) * 100).toFixed(1) + "%";
     track.appendChild(fill);
     const nodes = document.createElement("div");
     nodes.className = "goal-roadmap__nodes";
 
     const stops = paletteStops();
+    const span = Math.max(1, steps.length + 1);
     for (let i = 0; i < entries.length; i++) {
-      if (entries[i].kind === "add") nodes.appendChild(createInlineMilestoneAdd(project));
+      const entry = entries[i];
+      if (entry.kind === "add") nodes.appendChild(createInlineStepAdd(project, branch));
+      else if (entry.kind === "start") nodes.appendChild(createInlineStepCap("start", project,
+        paletteColorAt(stops, 0)));
+      else if (entry.kind === "finish") nodes.appendChild(createInlineStepCap("finish", project,
+        paletteColorAt(stops, 1)));
       else {
-        const position = lastIndex ? entries[i].index / lastIndex : 0;
-        nodes.appendChild(createInlineMilestoneNode(project, entries[i].milestone,
-          entries[i].index, lastIndex, paletteColorAt(stops, position)));
+        nodes.appendChild(createInlineStepNode(project, entry.step, entry.index,
+          paletteColorAt(stops, (entry.index + 1) / span)));
       }
     }
     canvas.append(track, nodes);
@@ -7767,33 +8885,52 @@
   /* Repaint only the roadmap that changed. Rebuilding #projectsList replaces
      the browser's scroll anchor and is the source of the visible page jumps.
      This keeps both axes fixed and uses preventScroll for the add field. */
-  function refreshInlineRoadmap(project, options) {
-    const roadmap = document.querySelector('#projectsList .item[data-id="' + project.id
-      + '"] .goal-roadmap');
-    if (!roadmap) return false;
+  /* Redrawing the objective must not rebuild #projectsList: replacing the row also
+     replaces the browser's scroll anchor, which is what made the page jump. An
+     objective now carries several courses, so every one of them is redrawn and every
+     one keeps the place it was scrolled to. */
+  function refreshInlineSteps(project, options) {
+    const host = document.querySelector('#projectsList .item[data-id="' + project.id
+      + '"] .psteps');
+    if (!host) return false;
     const pageX = window.scrollX;
     const pageY = window.scrollY;
-    const roadLeft = roadmap.scrollLeft;
-    const rightGap = Math.max(0, roadmap.scrollWidth - roadmap.clientWidth - roadLeft);
-    const followedEnd = rightGap < 36;
+    const before = [];
+    const maps = host.querySelectorAll(".goal-roadmap");
+    for (let i = 0; i < maps.length; i++) {
+      const gap = Math.max(0, maps[i].scrollWidth - maps[i].clientWidth - maps[i].scrollLeft);
+      before.push({ left: maps[i].scrollLeft, gap: gap, followedEnd: gap < 36 });
+    }
 
-    renderInlineTimeline(roadmap, project);
-    const targetLeft = followedEnd
-      ? Math.max(0, roadmap.scrollWidth - roadmap.clientWidth - rightGap)
-      : roadLeft;
+    renderStepsInto(host, project);
+
     const restore = function () {
-      if (!roadmap.isConnected) return;
-      roadmap.scrollLeft = targetLeft;
+      if (!host.isConnected) return;
+      const after = host.querySelectorAll(".goal-roadmap");
+      for (let i = 0; i < after.length && i < before.length; i++) {
+        after[i].scrollLeft = before[i].followedEnd
+          ? Math.max(0, after[i].scrollWidth - after[i].clientWidth - before[i].gap)
+          : before[i].left;
+      }
       if (window.scrollX !== pageX || window.scrollY !== pageY) window.scrollTo(pageX, pageY);
     };
     restore();
 
-    const row = roadmap.closest(".item--project");
+    const row = host.closest(".item--project");
     const badge = row && row.querySelector(".project-tab .item__sub");
-    if (badge) badge.textContent = Math.round(milestoneProgress(project) * 100) + "%";
+    if (badge) badge.textContent = Math.round(stepProgress(project) * 100) + "%";
 
     if (options && options.focusAdd) {
-      const input = roadmap.querySelector(".goal-ms--add.is-open input");
+      const input = host.querySelector(".goal-ms--add.is-open input");
+      if (input) {
+        try { input.focus({ preventScroll: true }); }
+        catch (err) { input.focus(); restore(); }
+      }
+    }
+    if (options && options.focusBranch) {
+      const body = host.querySelector('.psteps__body[data-branch="'
+        + options.focusBranch + '"]');
+      const input = body && body.querySelector("form.sub-add .add__input");
       if (input) {
         try { input.focus({ preventScroll: true }); }
         catch (err) { input.focus(); restore(); }
@@ -7803,59 +8940,71 @@
     return true;
   }
 
-  function createInlineMilestoneNode(project, milestone, index, lastIndex, color) {
-    const start = index === 0;
-    const finish = index === lastIndex;
-    const anchor = start || finish;
+  function createInlineStepCap(role, project, color) {
+    const node = document.createElement("div");
+    node.className = "goal-ms is-anchor is-" + role;
+    node.style.setProperty("--goal-color", color);
+    if (role === "finish" && project.done) node.classList.add("is-done");
+    const dot = document.createElement("button");
+    dot.type = "button";
+    dot.className = "goal-ms__dot";
+    if (role === "start") {
+      dot.disabled = true;
+      dot.setAttribute("aria-label", translate("stepsLabel"));
+    } else {
+      dot.setAttribute("aria-label", translate("completeLabel"));
+      dot.setAttribute("aria-pressed", project.done ? "true" : "false");
+      dot.addEventListener("click", function () {
+        project.done = !project.done;
+        saveState();
+        refreshProjectSteps(project);
+        renderList("projects");
+        if (!skyView.hidden) renderSky();
+      });
+    }
+    node.appendChild(dot);
+    return node;
+  }
+
+  function createInlineStepNode(project, step, index, color) {
     const node = document.createElement("div");
     node.className = "goal-ms";
+    node.dataset.stepId = step.id;
     node.style.setProperty("--goal-color", color);
-    if (anchor) node.classList.add("is-anchor");
-    if (start) node.classList.add("is-start");
-    if (finish) node.classList.add("is-finish");
-    if (milestone.completedDate) node.classList.add("is-done");
+    if (step.completedDate) node.classList.add("is-done");
 
     const dot = document.createElement("button");
     dot.type = "button";
     dot.className = "goal-ms__dot";
-    if (start) {
-      dot.disabled = true;
-      dot.setAttribute("aria-label", translate("milestonesLabel"));
-    } else if (finish) {
-      dot.setAttribute("aria-label", translate("completeLabel"));
-      dot.setAttribute("aria-pressed", milestone.completedDate ? "true" : "false");
-      dot.addEventListener("click", function () {
-        toggleMilestone(project, milestone.id, node);
-      });
-    } else {
-      dot.classList.add("goal-ms__dot--milestone");
-      dot.setAttribute("aria-label", milestone.text || translate("milestonePlaceholder"));
-      dot.setAttribute("aria-pressed", milestone.completedDate ? "true" : "false");
+    {
+      dot.classList.add("goal-ms__dot--step");
+      dot.setAttribute("aria-label", step.text || translate("stepPlaceholder"));
+      dot.setAttribute("aria-pressed", step.completedDate ? "true" : "false");
       dot.addEventListener("click", function (event) {
-        if (Date.now() < milestoneDragUntil) {
+        if (Date.now() < stepDragUntil) {
           event.preventDefault();
           return;
         }
-        openInlineMilestone = null;
-        toggleMilestone(project, milestone.id, node);
+        openInlineStep = null;
+        toggleStep(project, step.id, node);
       });
-      armInlineMilestoneDrag(dot, node, project, milestone);
+      armInlineStepDrag(dot, node, project, step);
     }
     node.appendChild(dot);
 
-    if (!anchor) {
+    {
       const panel = document.createElement("div");
       panel.className = "goal-ms__panel";
-      panel.appendChild(createInlineMilestoneEditor(project, milestone));
+      panel.appendChild(createInlineStepEditor(project, step));
       node.appendChild(panel);
     }
     return node;
   }
 
-  /* A milestone can become concrete by being carried onto the task flow or the
+  /* A step can become concrete by being carried onto the task flow or the
      clock. A mouse drag starts on movement; touch waits for the same long press
      as task rows so an ordinary tap remains a completion toggle. */
-  function armInlineMilestoneDrag(dot, node, project, milestone) {
+  function armInlineStepDrag(dot, node, project, step) {
     dot.addEventListener("pointerdown", function (event) {
       if (event.pointerType === "mouse" && event.button !== 0) return;
       const from = { x: event.clientX, y: event.clientY };
@@ -7872,7 +9021,7 @@
         if (started) return;
         started = true;
         stopWaiting();
-        startMilestoneDrag(pointerEvent, dot, node, project, milestone);
+        startStepDrag(pointerEvent, dot, node, project, step);
       };
       const consider = function (move) {
         const distance = Math.abs(move.clientX - from.x) + Math.abs(move.clientY - from.y);
@@ -7889,23 +9038,62 @@
     });
   }
 
-  function startMilestoneDrag(event, dot, node, project, milestone) {
-    if (milestoneDrag) return;
+  function createStepDropGuide(kind, label, icon) {
+    const guide = document.createElement("div");
+    guide.className = "step-drop-guide step-drop-guide--" + kind;
+    guide.setAttribute("aria-hidden", "true");
+    const mark = document.createElement("span");
+    mark.className = "step-drop-guide__icon";
+    mark.innerHTML = iconSvg(icon);
+    const text = document.createElement("span");
+    text.textContent = label;
+    guide.append(mark, text);
+    return guide;
+  }
+
+  function showStepDropGuides(drag) {
+    const group = document.querySelector('.tgroup[data-undated-drop="1"]');
+    const stage = document.getElementById("dayLineStage");
+    const tasks = createStepDropGuide("tasks", translate("stepDropTasks"),
+      '<circle cx="7" cy="7" r="2"/><circle cx="7" cy="17" r="2"/>'
+      + '<line x1="12" y1="7" x2="21" y2="7"/><line x1="12" y1="17" x2="21" y2="17"/>');
+    const timeline = createStepDropGuide("timeline", translate("stepDropTimeline"),
+      '<circle cx="12" cy="12" r="9"/><polyline points="12 7 12 12 16 14"/>');
+    if (group) group.appendChild(tasks);
+    if (stage) stage.appendChild(timeline);
+    drag.guides = { tasks: group ? tasks : null, timeline: stage ? timeline : null };
+  }
+
+  function updateStepDropGuides(drag, drop, undated) {
+    if (!drag.guides) return;
+    if (drag.guides.timeline) drag.guides.timeline.classList.toggle("is-active", !!drop);
+    if (drag.guides.tasks) drag.guides.tasks.classList.toggle("is-active", !!undated);
+  }
+
+  function removeStepDropGuides(drag) {
+    if (!drag.guides) return;
+    if (drag.guides.tasks) drag.guides.tasks.remove();
+    if (drag.guides.timeline) drag.guides.timeline.remove();
+    drag.guides = null;
+  }
+
+  function startStepDrag(event, dot, node, project, step) {
+    if (stepDrag) return;
     const ghost = document.createElement("div");
-    ghost.className = "milestone-drag-ghost";
+    ghost.className = "step-drag-ghost";
     const ghostDot = document.createElement("span");
-    ghostDot.className = "milestone-drag-ghost__dot";
+    ghostDot.className = "step-drag-ghost__dot";
     const ghostLabel = document.createElement("span");
-    ghostLabel.textContent = milestone.text || translate("milestonePlaceholder");
+    ghostLabel.textContent = step.text || translate("stepPlaceholder");
     ghost.append(ghostDot, ghostLabel);
     ghost.style.setProperty("--goal-color", node.style.getPropertyValue("--goal-color"));
     document.body.appendChild(ghost);
 
-    milestoneDrag = {
+    stepDrag = {
       dot: dot,
       node: node,
       project: project,
-      milestone: milestone,
+      step: step,
       ghost: ghost,
       pointerId: event.pointerId,
       pointerX: event.clientX,
@@ -7920,105 +9108,108 @@
     node.classList.add("is-dragging");
     const undated = document.querySelector('.tgroup[data-undated-drop="1"]');
     if (undated) undated.classList.add("is-drop-available");
-    moveMilestoneGhost(event.clientX, event.clientY);
-    updateMilestoneDragTargets(event.clientX, event.clientY);
-    document.addEventListener("pointermove", moveMilestoneDrag, { passive: false });
-    document.addEventListener("pointerup", endMilestoneDrag);
-    document.addEventListener("pointercancel", cancelMilestoneDrag);
-    cancelAnimationFrame(milestoneDragScrollFrame);
-    milestoneDragScrollFrame = requestAnimationFrame(autoScrollMilestoneDrag);
+    showStepDropGuides(stepDrag);
+    moveStepGhost(event.clientX, event.clientY);
+    updateStepDragTargets(event.clientX, event.clientY);
+    document.addEventListener("pointermove", moveStepDrag, { passive: false });
+    document.addEventListener("pointerup", endStepDrag);
+    document.addEventListener("pointercancel", cancelStepDrag);
+    cancelAnimationFrame(stepDragScrollFrame);
+    stepDragScrollFrame = requestAnimationFrame(autoScrollStepDrag);
   }
 
-  function moveMilestoneGhost(clientX, clientY) {
-    if (!milestoneDrag) return;
-    milestoneDrag.ghost.style.left = (clientX + 14) + "px";
-    milestoneDrag.ghost.style.top = (clientY + 12) + "px";
+  function moveStepGhost(clientX, clientY) {
+    if (!stepDrag) return;
+    stepDrag.ghost.style.left = (clientX + 14) + "px";
+    stepDrag.ghost.style.top = (clientY + 12) + "px";
   }
 
-  function updateMilestoneDragTargets(clientX, clientY) {
-    if (!milestoneDrag) return;
-    milestoneDrag.pointerX = clientX;
-    milestoneDrag.pointerY = clientY;
+  function updateStepDragTargets(clientX, clientY) {
+    if (!stepDrag) return;
+    stepDrag.pointerX = clientX;
+    stepDrag.pointerY = clientY;
     const drop = taskDropAt(clientX, clientY);
-    milestoneDrag.drop = drop;
-    showTaskDrop(drop, { text: milestoneDrag.milestone.text || translate("milestonePlaceholder") });
+    stepDrag.drop = drop;
+    showTaskDrop(drop, { text: stepDrag.step.text || translate("stepPlaceholder") });
 
     const group = document.querySelector('.tgroup[data-undated-drop="1"]');
     const undated = drop ? null : undatedDropPosition(clientX, clientY);
-    milestoneDrag.undated = undated;
+    stepDrag.undated = undated;
     if (group) group.classList.toggle("is-drop-target", !!undated);
+    updateStepDropGuides(stepDrag, drop, undated);
   }
 
-  function moveMilestoneDrag(event) {
-    if (!milestoneDrag) return;
+  function moveStepDrag(event) {
+    if (!stepDrag) return;
     event.preventDefault();
-    moveMilestoneGhost(event.clientX, event.clientY);
-    updateMilestoneDragTargets(event.clientX, event.clientY);
+    moveStepGhost(event.clientX, event.clientY);
+    updateStepDragTargets(event.clientX, event.clientY);
   }
 
-  function autoScrollMilestoneDrag() {
-    if (!milestoneDrag) return;
+  function autoScrollStepDrag() {
+    if (!stepDrag) return;
     const edge = Math.min(110, window.innerHeight * .18);
     let amount = 0;
-    if (milestoneDrag.pointerY < edge) {
-      amount = -Math.ceil((edge - milestoneDrag.pointerY) / edge * 18);
-    } else if (milestoneDrag.pointerY > window.innerHeight - edge) {
-      amount = Math.ceil((milestoneDrag.pointerY - (window.innerHeight - edge)) / edge * 18);
+    if (stepDrag.pointerY < edge) {
+      amount = -Math.ceil((edge - stepDrag.pointerY) / edge * 18);
+    } else if (stepDrag.pointerY > window.innerHeight - edge) {
+      amount = Math.ceil((stepDrag.pointerY - (window.innerHeight - edge)) / edge * 18);
     }
     if (amount) {
       window.scrollBy(0, amount);
-      updateMilestoneDragTargets(milestoneDrag.pointerX, milestoneDrag.pointerY);
+      updateStepDragTargets(stepDrag.pointerX, stepDrag.pointerY);
     }
-    milestoneDragScrollFrame = requestAnimationFrame(autoScrollMilestoneDrag);
+    stepDragScrollFrame = requestAnimationFrame(autoScrollStepDrag);
   }
 
-  function cleanMilestoneDrag(drag) {
+  function cleanStepDrag(drag) {
     drag.node.classList.remove("is-dragging");
     if (drag.dot.hasPointerCapture && drag.dot.hasPointerCapture(drag.pointerId)) {
       drag.dot.releasePointerCapture(drag.pointerId);
     }
     drag.ghost.remove();
     showTaskDrop(null);
+    removeStepDropGuides(drag);
     const undated = document.querySelector('.tgroup[data-undated-drop="1"]');
     if (undated) undated.classList.remove("is-drop-available", "is-drop-target");
-    milestoneDragUntil = Date.now() + 350;
-    cancelAnimationFrame(milestoneDragScrollFrame);
-    milestoneDragScrollFrame = 0;
-    document.removeEventListener("pointermove", moveMilestoneDrag);
-    document.removeEventListener("pointerup", endMilestoneDrag);
-    document.removeEventListener("pointercancel", cancelMilestoneDrag);
+    stepDragUntil = Date.now() + 350;
+    cancelAnimationFrame(stepDragScrollFrame);
+    stepDragScrollFrame = 0;
+    document.removeEventListener("pointermove", moveStepDrag);
+    document.removeEventListener("pointerup", endStepDrag);
+    document.removeEventListener("pointercancel", cancelStepDrag);
   }
 
-  function endMilestoneDrag(event) {
-    if (!milestoneDrag) return;
-    updateMilestoneDragTargets(event.clientX, event.clientY);
-    const drag = milestoneDrag;
-    milestoneDrag = null;
-    cleanMilestoneDrag(drag);
-    if (drag.drop) createTaskFromMilestone(drag.project, drag.milestone, drag.drop, null);
+  function endStepDrag(event) {
+    if (!stepDrag) return;
+    updateStepDragTargets(event.clientX, event.clientY);
+    const drag = stepDrag;
+    stepDrag = null;
+    cleanStepDrag(drag);
+    if (drag.drop) createTaskFromStep(drag.project, drag.step, drag.drop, null);
     else if (drag.undated) {
-      createTaskFromMilestone(drag.project, drag.milestone, null, drag.undated.beforeId);
+      createTaskFromStep(drag.project, drag.step, null, drag.undated.beforeId);
     }
   }
 
-  function cancelMilestoneDrag() {
-    if (!milestoneDrag) return;
-    const drag = milestoneDrag;
-    milestoneDrag = null;
-    cleanMilestoneDrag(drag);
+  function cancelStepDrag() {
+    if (!stepDrag) return;
+    const drag = stepDrag;
+    stepDrag = null;
+    cleanStepDrag(drag);
   }
 
-  function createTaskFromMilestone(project, milestone, drop, beforeId) {
-    const completedDate = milestone.completedDate || null;
+  function createTaskFromStep(project, step, drop, beforeId) {
+    const completedDate = step.completedDate || null;
     const task = {
       id: Date.now().toString(),
-      text: milestone.text || translate("milestonePlaceholder"),
+      text: step.text || translate("stepPlaceholder"),
       done: !!completedDate,
       doneDate: completedDate,
       dueDate: drop ? drop.date : null,
       dueTime: drop ? drop.time : null,
       projectId: project.id,
-      milestoneId: milestone.id,
+      stepId: step.id,
       notified: false
     };
     state.tasks.push(task);
@@ -8029,33 +9220,32 @@
     saveState();
     renderList("tasks");
     renderDailyTimeline();
-    renderProjectSteps(project);
     if (drop) ensureNotifyPermission();
     showToast(translate("stepCreated"));
   }
 
-  function createInlineMilestoneEditor(project, milestone) {
+  function createInlineStepEditor(project, step) {
     const editor = document.createElement("div");
     editor.className = "goal-ms__editor";
     const top = document.createElement("div");
     top.className = "goal-ms__editor-top";
     const done = document.createElement("button");
     done.type = "button";
-    done.className = milestone.completedDate ? "goal-ms__check is-on" : "goal-ms__check";
+    done.className = step.completedDate ? "goal-ms__check is-on" : "goal-ms__check";
     done.setAttribute("aria-label", translate("doneAria"));
-    done.setAttribute("aria-pressed", milestone.completedDate ? "true" : "false");
+    done.setAttribute("aria-pressed", step.completedDate ? "true" : "false");
     done.innerHTML = iconSvg(ICON_TICK);
     done.addEventListener("click", function () {
-      toggleMilestone(project, milestone.id, done.closest(".goal-ms"));
+      toggleStep(project, step.id, done.closest(".goal-ms"));
     });
     const name = document.createElement("input");
     name.type = "text";
     name.className = "goal-ms__name";
     name.maxLength = 120;
-    name.value = milestone.text || "";
-    name.placeholder = translate("milestonePlaceholder");
+    name.value = step.text || "";
+    name.placeholder = translate("stepPlaceholder");
     name.addEventListener("input", function () {
-      milestone.text = name.value;
+      step.text = name.value;
       saveState();
     });
     top.append(done, name);
@@ -8065,10 +9255,10 @@
     const when = document.createElement("button");
     when.type = "button";
     when.className = "goal-ms__action";
-    when.textContent = milestone.targetDate
-      ? milestoneDateLabel(milestone.targetDate) : translate("milestoneTarget");
+    when.textContent = step.targetDate
+      ? shortDateLabel(step.targetDate) : translate("stepTarget");
     when.addEventListener("click", function () {
-      openCalendar({ projectId: project.id, milestoneId: milestone.id }, "milestone");
+      openCalendar({ projectId: project.id, stepId: step.id }, "step");
     });
     const del = document.createElement("button");
     del.type = "button";
@@ -8076,38 +9266,38 @@
     del.setAttribute("aria-label", translate("deleteAria"));
     del.innerHTML = iconSvg(ICON_TRASH);
     del.addEventListener("click", function () {
-      openInlineMilestone = null;
-      removeMilestone(project, milestone.id, del.closest(".goal-roadmap"));
+      openInlineStep = null;
+      removeStep(project, step.id, del.closest(".goal-roadmap"));
     });
     actions.append(when, del);
     editor.append(top, actions);
     return editor;
   }
 
-  function createInlineMilestoneAdd(project) {
+  function createInlineStepAdd(project, branch) {
     const node = document.createElement("div");
     node.className = "goal-ms goal-ms--add";
-    if (inlineMilestoneAdd === project.id) node.classList.add("is-open");
+    if (inlineStepAdd === branch.id) node.classList.add("is-open");
     const button = document.createElement("button");
     button.type = "button";
     button.className = "goal-ms__dot goal-ms__dot--add";
     button.textContent = "+";
-    button.setAttribute("aria-label", translate("milestoneAdd"));
-    button.setAttribute("aria-expanded", inlineMilestoneAdd === project.id ? "true" : "false");
+    button.setAttribute("aria-label", translate("stepAdd"));
+    button.setAttribute("aria-expanded", inlineStepAdd === branch.id ? "true" : "false");
     button.addEventListener("click", function () {
-      inlineMilestoneAdd = inlineMilestoneAdd === project.id ? null : project.id;
-      openInlineMilestone = null;
-      refreshInlineRoadmap(project, { focusAdd: inlineMilestoneAdd === project.id });
+      inlineStepAdd = inlineStepAdd === branch.id ? null : branch.id;
+      openInlineStep = null;
+      redrawSteps(project, { focusAdd: inlineStepAdd === branch.id });
     });
     const panel = document.createElement("div");
     panel.className = "goal-ms__panel";
-    if (inlineMilestoneAdd === project.id) {
+    if (inlineStepAdd === branch.id) {
       const form = document.createElement("form");
       form.className = "goal-ms__add-form";
       const input = document.createElement("input");
       input.type = "text";
       input.maxLength = 120;
-      input.placeholder = translate("milestoneAdd");
+      input.placeholder = translate("stepAdd");
       const submit = document.createElement("button");
       submit.type = "submit";
       submit.textContent = "+";
@@ -8117,247 +9307,560 @@
         event.preventDefault();
         const text = input.value.trim();
         if (!text) return;
-        const created = { id: Date.now().toString(), text: text, completedDate: null, targetDate: null };
-        project.milestones.splice(Math.max(0, project.milestones.length - 1), 0, created);
-        openInlineMilestone = null;
-        inlineMilestoneAdd = null;
-        saveState();
-        renderTimeline(project);
-        refreshInlineRoadmap(project);
+        openInlineStep = null;
+        inlineStepAdd = null;
+        addStep(project, text, branch.id);
       });
       panel.appendChild(form);
     } else {
       const label = document.createElement("span");
       label.className = "goal-ms__title";
-      label.textContent = translate("milestoneAdd");
+      label.textContent = translate("stepAdd");
       panel.appendChild(label);
     }
     node.append(button, panel);
     return node;
   }
 
-  /* MILESTONE TIMELINE (projects) — a vertical line of dots, text on the right,
-     a gauge that fills down to the last completed dot, and a "+" node to extend it.
-     A milestone behaves like a task (its own detail view) but lives inside a project.
-     First and last dots are unnamed start/finish anchors; the "+" sits before finish. */
-  let openMilestone = null;   // the milestone unfolded in the timeline, if any
+  /* THE STEPS — Rêve can still read them as a roadmap or a checklist. The task
+     dashboard is the working surface, so its host is marked list-only and keeps
+     that mode through every local redraw. */
+  function renderStepsInto(host, project) {
+    host.innerHTML = "";
+    host.dataset.project = project.id;
+    const listOnly = host.dataset.listOnly === "1";
 
-  function renderTimeline(project) {
-    ensureProjectMilestones(project);
+    const head = document.createElement("div");
+    head.className = "psteps__head";
+    const label = document.createElement("span");
+    label.className = "detail__label";
+    label.textContent = translate("stepsLabel");
+    const add = document.createElement("button");
+    add.type = "button";
+    add.className = "zone__action psteps__addbranch";
+    add.setAttribute("aria-label", translate("branchAdd"));
+    add.textContent = translate("branchAdd");
+    add.addEventListener("click", function () {
+      const branch = addBranch(project, "");
+      if (listOnly) {
+        project.activeConstellationId = branch.id;
+        saveState();
+      }
+      refreshStepSections(project);
+    });
+    head.appendChild(label);
+    if (!listOnly) head.appendChild(createStepsViewSwitch(project));
+    head.appendChild(add);
+    host.appendChild(head);
 
-    timeline.innerHTML = "";
-    const line = document.createElement("div");
-    line.className = "tl-line";
-    const fill = document.createElement("div");
-    fill.className = "tl-fill";
-    line.appendChild(fill);
-    timeline.appendChild(line);
-
-    const milestones = project.milestones;
-    const lastIndex = milestones.length - 1;
-    // once the finish milestone is completed the timeline is closed: no more adding
-    const finishDone = !!milestones[lastIndex].completedDate;
-    for (let i = 0; i < milestones.length; i++) {
-      if (i === lastIndex && !finishDone) timeline.appendChild(createAddRow(project));
-      const role = i === 0 ? "start" : (i === lastIndex ? "finish" : "");
-      timeline.appendChild(createMilestoneRow(project, milestones[i], role));
+    const branches = projectBranches(project);
+    const upright = host.id === "pviewSteps";   // the panel is a column, not a strip
+    if (listOnly) {
+      host.appendChild(createBranchBlock(project, activeProjectBranch(project),
+        branches.length > 1, true, upright));
+      return;
     }
-    layoutTimeline();
+    for (let i = 0; i < branches.length; i++) {
+      host.appendChild(createBranchBlock(project, branches[i], branches.length > 1,
+        listOnly, upright));
+    }
   }
 
-  /* one dot on the line. Anchors are just a highlighted dot; a named milestone
-     shows its title and its date, and unfolds a small editor when clicked.
-     role: "start" (origin, not clickable), "finish", or "" (a normal milestone). */
-  function createMilestoneRow(project, milestone, role) {
-    const isAnchor = role === "start" || role === "finish";
-    const done = !!milestone.completedDate;
+  /* Up to four moons in an arc, then a pill for the rest: four phases are read at
+     a glance, eight are noise. The order never changes — a moon that moved as it
+     waned would make the sky unreadable, so the dark one is found by looking. */
+  const MOONS_SHOWN = 4;
+
+  function createMoonStrip(branch) {
+    const strip = document.createElement("span");
+    strip.className = "moons";
+    const habits = branchHabits(branch);
+    for (let i = 0; i < habits.length && i < MOONS_SHOWN; i++) {
+      strip.appendChild(createMoon(habits[i]));
+    }
+    if (habits.length > MOONS_SHOWN) {
+      const more = document.createElement("span");
+      more.className = "moons__more";
+      more.textContent = "+" + (habits.length - MOONS_SHOWN);
+      strip.appendChild(more);
+    }
+    return strip;
+  }
+
+  /* The same star the sky draws, in miniature: kept every day it burns, let go it
+     barely shows. One vocabulary for a habit, here and in the sky. */
+  function createMoon(habit) {
+    const phase = habitPhase(habit);
+    const mark = document.createElement("span");
+    mark.className = "moon";
+    mark.style.setProperty("--mag", (0.25 + phase * 0.75).toFixed(2));
+    mark.title = (habit.name || "") + " · " + Math.round(phase * 100) + "%";
+    return mark;
+  }
+
+  /* Habits live under the steps: the steps say what to do once, these say what to
+     keep doing. Typing a name makes the habit right here — but a name already taken
+     attaches that habit instead of raising a twin. */
+  function createBranchHabits(project, branch) {
+    const section = document.createElement("div");
+    section.className = "phabits";
+
+    const list = document.createElement("div");
+    list.className = "phabits__list";
+    const habits = branchHabits(branch);
+    for (let i = 0; i < habits.length; i++) {
+      list.appendChild(createBranchHabitRow(project, branch, habits[i]));
+    }
+    section.appendChild(list);
+
+    const form = document.createElement("form");
+    form.className = "sub-add phabits__add";
+    const input = document.createElement("input");
+    input.type = "text";
+    input.className = "add__input";
+    input.maxLength = 80;
+    input.placeholder = translate(habits.length ? "moonNew" : "moonEmptyAdd");
+    const submit = document.createElement("button");
+    submit.type = "submit";
+    submit.className = "add__btn";
+    submit.textContent = "+";
+    form.append(input, submit);
+    form.addEventListener("submit", function (event) {
+      event.preventDefault();
+      const name = input.value.trim();
+      if (!name) return;
+      attachHabitNamed(project, branch, name);
+      input.value = "";
+    });
+    section.appendChild(form);
+    return section;
+  }
+
+  function createBranchHabitRow(project, branch, habit) {
     const row = document.createElement("div");
-    row.className = "tl-row";
-    if (done) row.classList.add("is-done");
-    if (isAnchor) row.classList.add("tl-row--anchor");
-
-    const dot = document.createElement("button");
-    dot.type = "button";
-    dot.className = "tl-dot";
-    if (role === "start") {
-      dot.disabled = true;   // the origin is fixed, not a completable step
-      dot.classList.add("tl-dot--fixed");
-    } else {
-      dot.setAttribute("aria-label", translate("habitToggleAria"));
-      dot.addEventListener("click", function (event) {
-        event.stopPropagation();   // the dot toggles; the row unfolds the editor
-        toggleMilestone(project, milestone.id);
-      });
-    }
-    row.appendChild(dot);
-
-    if (!isAnchor) {
-      const content = document.createElement("div");
-      content.className = "tl-content";
-
-      const title = document.createElement("span");
-      title.className = milestone.text ? "tl-title" : "tl-title is-empty";
-      title.textContent = milestone.text || translate("milestonePlaceholder");
-      content.appendChild(title);
-
-      const when = milestoneWhen(milestone);
-      if (when) content.appendChild(when);
-      if (openMilestone === milestone.id) content.appendChild(createMilestoneEditor(project, milestone));
-
-      row.appendChild(content);
-      row.classList.add("tl-row--clickable");
-      if (openMilestone === milestone.id) row.classList.add("is-open");
-      row.addEventListener("click", function (event) {
-        if (event.target.closest(".tl-edit")) return;   // clicks inside the editor stay there
-        openMilestone = openMilestone === milestone.id ? null : milestone.id;
-        renderTimeline(project);
-      });
-    }
+    row.className = "phabits__row";
+    const icon = document.createElement("button");
+    icon.type = "button";
+    icon.className = "phabits__icon";
+    icon.dataset.habitId = habit.id;
+    icon.setAttribute("aria-label", translate("pickIconTitle"));
+    icon.title = translate("pickIconTitle");
+    icon.innerHTML = habitSvg(habit.icon || "star");
+    icon.addEventListener("click", function () {
+      openIconPickerForEdit(habit.id);
+    });
+    const name = document.createElement("span");
+    name.className = "phabits__name";
+    name.textContent = habit.name || translate("blockHabit");
+    const kept = document.createElement("span");
+    kept.className = "phabits__kept";
+    kept.textContent = Math.round(habitPhase(habit) * 100) + "%";
+    const off = document.createElement("button");
+    off.type = "button";
+    off.className = "phabits__off";
+    off.setAttribute("aria-label", translate("moonOff"));
+    off.title = translate("moonOff");
+    off.textContent = "\u00d7";
+    off.addEventListener("click", function () {
+      toggleBranchHabit(branch, habit.id);
+      refreshBranchHabits(project);
+    });
+    row.append(icon, name, kept, off);
     return row;
   }
 
-  /* the date shown on a milestone: when it was reached, or when it is aimed at.
-     A target already gone by and still not reached reads as late. */
-  function milestoneWhen(milestone) {
-    if (milestone.completedDate) {
-      const date = document.createElement("span");
-      date.className = "tl-date";
-      date.textContent = milestoneDateLabel(milestone.completedDate);
-      return date;
+  function attachHabitNamed(project, branch, name) {
+    const lowered = name.toLowerCase();
+    let habit = null;
+    for (let i = 0; i < state.habits.length; i++) {
+      if ((state.habits[i].name || "").trim().toLowerCase() === lowered) {
+        habit = state.habits[i];
+        break;
+      }
     }
-    if (!milestone.targetDate) return null;
-    const date = document.createElement("span");
-    date.className = "tl-date tl-date--target";
-    date.textContent = milestoneDateLabel(milestone.targetDate);
-    if (milestone.targetDate < todayKey()) {
-      date.classList.add("is-late");
-      date.textContent += " · " + translate("lateLabel");
+    if (!habit) {
+      habit = { id: Date.now().toString(), name: name, icon: "star", completedDates: [] };
+      state.habits.push(habit);
     }
-    return date;
+    if ((branch.habitIds || []).indexOf(habit.id) === -1) toggleBranchHabit(branch, habit.id);
+    else saveState();
+    renderHabits();
+    refreshBranchHabits(project);
   }
 
-  /* rename, aim at a date, delete — the whole milestone in one strip */
-  function createMilestoneEditor(project, milestone) {
-    const edit = document.createElement("div");
-    edit.className = "tl-edit";
+  /* the moons hang off the star, so a change here redraws the sky too */
+  function refreshBranchHabits(project) {
+    refreshStepSections(project);
+    if (!skyView.hidden) renderSky();
+  }
 
-    const input = document.createElement("input");
-    input.type = "text";
-    input.className = "tl-edit__name";
-    input.maxLength = 120;
-    input.value = milestone.text || "";
-    input.placeholder = translate("milestonePlaceholder");
-    input.addEventListener("input", function () {
-      milestone.text = input.value;
-      saveState();
-      const title = edit.parentNode.querySelector(".tl-title");
-      title.textContent = milestone.text || translate("milestonePlaceholder");
-      title.classList.toggle("is-empty", !milestone.text);
+  /* one branch: its name, then the same two readings the objective had before */
+  function createBranchBlock(project, branch, removable, listOnly, vertical) {
+    const block = document.createElement("section");
+    block.className = "pbranch";
+
+    const head = document.createElement("div");
+    head.className = "pbranch__head";
+    const icon = document.createElement("button");
+    icon.type = "button";
+    icon.className = listOnly && removable ? "pbranch__icon is-switch" : "pbranch__icon";
+    icon.disabled = listOnly && !removable;
+    const iconAction = translate(listOnly ? "branchSwitchAria" : "branchIconAria");
+    icon.setAttribute("aria-label", iconAction);
+    icon.title = iconAction;
+    icon.innerHTML = habitSvg(branch.icon || CONSTELLATION_ICON_KEYS[0]);
+    icon.addEventListener("click", function (event) {
+      event.stopPropagation();
+      if (listOnly) switchProjectBranch(project);
+      else openIconPickerForBranch(project, branch);
     });
+    const name = document.createElement("input");
+    name.type = "text";
+    name.className = "pbranch__name";
+    name.maxLength = 80;
+    name.value = branch.name || "";
+    name.placeholder = translate("branchName");
+    name.addEventListener("input", function () {
+      branch.name = name.value;
+      saveState();
+    });
+    head.append(icon, name);
+    head.appendChild(createMoonStrip(branch));
+    if (removable) {
+      const drop = document.createElement("button");
+      drop.type = "button";
+      drop.className = "pbranch__del";
+      drop.setAttribute("aria-label", translate("branchRemove"));
+      drop.textContent = "×";
+      drop.addEventListener("click", function () {
+        removeBranch(project, branch.id);
+        refreshStepStructure(project);
+      });
+      head.appendChild(drop);
+    }
+    block.appendChild(head);
+
+    const body = document.createElement("div");
+    const roadmap = !listOnly && project.stepsView !== "list";
+    // The dashboard row is wide and short, the star's panel is a narrow column.
+    // Same course, laid the way the space it sits in can actually read it.
+    const upright = roadmap && vertical;
+    body.className = roadmap
+      ? (upright ? "psteps__body psteps__body--rail" : "psteps__body goal-roadmap")
+      : "psteps__body";
+    body.dataset.branch = branch.id;
+    if (listOnly) body.dataset.listOnly = "1";
+    const pulse = branchPulse(branch);
+    if (pulse !== null) body.style.setProperty("--branch-pulse", pulse.toFixed(2));
+    if (upright) renderRailSteps(body, project, branch);
+    else if (roadmap) renderInlineSteps(body, project, branch);
+    else renderStepChecklist(body, project, branch);
+    block.appendChild(body);
+    block.appendChild(createBranchHabits(project, branch));
+    return block;
+  }
+
+  /* A thread running down, the steps written beside it. The line is drawn by the
+     rail rather than by each row, so it stays unbroken however tall a step grows. */
+  function renderRailSteps(host, project, branch) {
+    const rail = document.createElement("span");
+    rail.className = "vrail";
+    const fill = document.createElement("span");
+    fill.className = "vrail__fill";
+    const steps = branch.steps;
+    let done = 0;
+    for (let i = 0; i < steps.length; i++) {
+      if (steps[i].completedDate) done++;
+    }
+    // the thread is lit as far as the last step reached
+    fill.style.height = steps.length ? (done / steps.length * 100).toFixed(1) + "%" : "0";
+    rail.appendChild(fill);
+    host.appendChild(rail);
+    renderStepChecklist(host, project, branch);
+  }
+
+  function createStepsViewSwitch(project) {
+    const wrap = document.createElement("div");
+    wrap.className = "psteps__switch";
+    const views = [
+      { key: "timeline", label: "stepsViewRoadmap" },
+      { key: "list", label: "stepsViewList" }
+    ];
+    for (let i = 0; i < views.length; i++) {
+      const view = views[i];
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = (project.stepsView === view.key) ? "psteps__tab is-on" : "psteps__tab";
+      button.textContent = translate(view.label);
+      button.addEventListener("click", function () {
+        project.stepsView = view.key;
+        saveState();
+        refreshProjectSteps(project);
+      });
+      wrap.appendChild(button);
+    }
+    return wrap;
+  }
+
+  /* The dashboard has a scroll-preserving path of its own; everywhere else — the
+     panel a star opens — there is no row to spare, so the section is simply redrawn.
+     Anything that changes the steps goes through here rather than picking one. */
+  function redrawSteps(project, options) {
+    const inline = refreshInlineSteps(project, options);
+    refreshProjectSteps(project, inline ? "#projectsList" : null);
+    if (inline) return;
+    if (options && options.focusAdd) {
+      const input = document.querySelector(".psteps .goal-ms--add.is-open input");
+      if (input) {
+        try { input.focus({ preventScroll: true }); }
+        catch (err) { input.focus(); }
+      }
+    }
+  }
+
+  /* Refresh only the steps surfaces. Structural changes use this instead of
+     rebuilding #projectsList, so the title, journal and open objective survive. */
+  function refreshStepSections(project, options) {
+    const inline = refreshInlineSteps(project, options);
+    refreshProjectSteps(project, inline ? "#projectsList" : null);
+    return inline;
+  }
+
+  function refreshStepStructure(project, options) {
+    const inline = refreshStepSections(project, options);
+    if (!inline) renderList("projects");   // update the badge of a closed objective
+    return inline;
+  }
+
+  /* every steps section on screen, redrawn */
+  function refreshProjectSteps(project, skipInside) {
+    const hosts = document.querySelectorAll('.psteps[data-project="' + project.id + '"]');
+    for (let i = 0; i < hosts.length; i++) {
+      if (skipInside && hosts[i].closest(skipInside)) continue;   // already redrawn
+      renderStepsInto(hosts[i], project);
+    }
+    liveSky();
+  }
+
+  function createProjectStepsHost(project, listOnly) {
+    const host = document.createElement("section");
+    host.className = "psteps";
+    if (listOnly) host.dataset.listOnly = "1";
+    renderStepsInto(host, project);
+    return host;
+  }
+
+  const PROJECT_LIST_PAGE_SIZE = 6;
+  const stepListPages = {};
+  const journalListPages = {};
+
+  function boundedListPage(store, key, total) {
+    const last = Math.max(0, Math.ceil(total / PROJECT_LIST_PAGE_SIZE) - 1);
+    const page = Math.max(0, Math.min(last, store[key] || 0));
+    store[key] = page;
+    return { page: page, last: last };
+  }
+
+  /* The same quiet navigation frames both columns. The upper chevron returns to
+     newer work; the lower one reveals the preceding group of six. */
+  function createProjectListPager(position, pageState, onMove) {
+    const nav = document.createElement("div");
+    nav.className = "project-list-pager project-list-pager--" + position;
+    const button = document.createElement("button");
+    button.type = "button";
+    button.className = "project-list-pager__button";
+    const newer = position === "top";
+    button.disabled = newer ? pageState.page === 0 : pageState.page === pageState.last;
+    button.setAttribute("aria-label", translate(newer ? "newerItemsAria" : "olderItemsAria"));
+    button.innerHTML = iconSvg(newer
+      ? '<polyline points="6 15 12 9 18 15"/>'
+      : '<polyline points="6 9 12 15 18 9"/>');
+    button.addEventListener("click", function () {
+      onMove(pageState.page + (newer ? -1 : 1));
+    });
+    nav.appendChild(button);
+    return nav;
+  }
+
+  /* The checklist follows the journal: its add line and newest six steps are at
+     the top. Older groups are reached without making the objective grow forever. */
+  function renderStepChecklist(host, project, branch) {
+    const steps = branch.steps;
+    const limited = host.dataset.listOnly === "1";
+    if (!limited) {
+      for (let i = 0; i < steps.length; i++) {
+        host.appendChild(createStepChecklistRow(project, steps[i], i, steps.length, branch));
+      }
+      host.appendChild(createStepChecklistAdd(project, branch));
+      return;
+    }
+    const pageKey = project.id + "|" + branch.id;
+    const pageState = boundedListPage(stepListPages, pageKey, steps.length);
+    host.appendChild(createStepChecklistAdd(project, branch));
+    if (pageState.last > 0) {
+      host.appendChild(createProjectListPager("top", pageState, function (page) {
+        stepListPages[pageKey] = page;
+        refreshInlineSteps(project);
+      }));
+    }
+
+    const newest = steps.length - 1 - pageState.page * PROJECT_LIST_PAGE_SIZE;
+    const oldest = Math.max(0, newest - PROJECT_LIST_PAGE_SIZE + 1);
+    for (let i = newest; i >= oldest; i--) {
+      host.appendChild(createStepChecklistRow(project, steps[i], i, steps.length, branch));
+    }
+    if (pageState.last > 0) {
+      host.appendChild(createProjectListPager("bottom", pageState, function (page) {
+        stepListPages[pageKey] = page;
+        refreshInlineSteps(project);
+      }));
+    }
+  }
+
+  function createStepChecklistRow(project, step, index, total, branch) {
+    const row = document.createElement("div");
+    row.className = step.completedDate ? "step is-done" : "step";
+    row.dataset.stepId = step.id;
+    const color = paletteColorAt(paletteStops(), total > 1 ? index / (total - 1) : 0);
+    row.style.setProperty("--step-color", color);
+    row.style.setProperty("--goal-color", color);
+
+    const drag = document.createElement("button");
+    drag.type = "button";
+    drag.className = "step__drag";
+    drag.setAttribute("aria-label", translate("stepDragAria"));
+    drag.title = translate("stepDragAria");
+    drag.innerHTML = iconSvg('<circle cx="8" cy="7" r="1"/><circle cx="16" cy="7" r="1"/>'
+      + '<circle cx="8" cy="12" r="1"/><circle cx="16" cy="12" r="1"/>'
+      + '<circle cx="8" cy="17" r="1"/><circle cx="16" cy="17" r="1"/>');
+    armInlineStepDrag(drag, row, project, step);
+    row.appendChild(drag);
+
+    row.appendChild(createCheckbox(function () { toggleStep(project, step.id, row); }));
+
+    const label = document.createElement("input");
+    label.type = "text";
+    label.className = "step__text";
+    label.value = step.text || "";
+    label.maxLength = 200;
+    label.addEventListener("input", function () {
+      step.text = label.value;
+      saveState();
+    });
+    row.appendChild(label);
 
     const when = document.createElement("button");
     when.type = "button";
-    when.className = "tl-edit__btn";
-    when.textContent = milestone.targetDate
-      ? milestoneDateLabel(milestone.targetDate) : translate("milestoneTarget");
+    when.className = step.targetDate ? "step__when is-set" : "step__when";
+    when.innerHTML = iconSvg('<rect x="3" y="4" width="18" height="18" rx="2"/>'
+      + '<line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/>'
+      + '<line x1="3" y1="10" x2="21" y2="10"/>');
+    if (step.targetDate) {
+      const tag = document.createElement("span");
+      tag.textContent = shortDateLabel(step.targetDate);
+      if (!step.completedDate && step.targetDate < todayKey()) when.classList.add("is-late");
+      when.appendChild(tag);
+    }
     when.addEventListener("click", function () {
-      openCalendar({ projectId: project.id, milestoneId: milestone.id }, "milestone");
+      openCalendar({ projectId: project.id, stepId: step.id }, "step");
     });
-
-    // a milestone can need several steps to be reached, so this one never locks
-    const promote = createPromoteButton("tl-edit__btn", function () {
-      promoteToStep(project, milestone.text || translate("milestonePlaceholder"));
-    });
+    row.appendChild(when);
 
     const del = document.createElement("button");
     del.type = "button";
-    del.className = "tl-edit__btn tl-edit__btn--del";
+    del.className = "step__del";
     del.setAttribute("aria-label", translate("deleteAria"));
-    del.innerHTML = iconSvg('<polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>');
-    del.addEventListener("click", function () {
-      openMilestone = null;
-      removeMilestone(project, milestone.id);
-    });
+    del.textContent = "×";
+    del.addEventListener("click", function () { removeStep(project, step.id); });
+    row.appendChild(del);
+    return row;
+  }
 
-    edit.append(input, when, promote, del);
-    return edit;
+  function createStepChecklistAdd(project, branch) {
+    const form = document.createElement("form");
+    form.className = "sub-add";
+    const input = document.createElement("input");
+    input.type = "text";
+    input.className = "add__input";
+    input.placeholder = translate(branch.steps.length ? "stepAdd" : "stepsEmptyAdd");
+    input.required = true;
+    const button = document.createElement("button");
+    button.type = "submit";
+    button.className = "add__btn";
+    button.setAttribute("aria-label", translate("addAria"));
+    button.textContent = "+";
+    form.append(input, button);
+    form.addEventListener("submit", function (event) {
+      event.preventDefault();
+      const text = input.value.trim();
+      if (text) addStep(project, text, branch.id, { focusBranch: branch.id });
+    });
+    return form;
   }
 
   /* "12 juil." — localized short date */
-  function milestoneDateLabel(isoDate) {
+  function shortDateLabel(isoDate) {
     const locale = state.settings.language === "fr" ? "fr-FR" : "en-US";
     return new Date(isoDate + "T00:00").toLocaleDateString(locale, { day: "numeric", month: "short" });
   }
 
-  /* the add row: a "+" dot and a title field; typing + Enter creates a milestone */
-  function createAddRow(project) {
-    const add = document.createElement("form");
-    add.className = "tl-add";
-
-    const dot = document.createElement("span");
-    dot.className = "tl-add__dot";
-    dot.textContent = "+";
-
-    const input = document.createElement("input");
-    input.type = "text";
-    input.className = "tl-add__input";
-    input.maxLength = 120;
-    input.placeholder = translate("milestoneAdd");
-
-    add.addEventListener("submit", function (event) {
-      event.preventDefault();
-      const text = input.value.trim();
-      if (text) addMilestone(project, text);
-    });
-
-    add.append(dot, input);
-    return add;
-  }
-
-  /* insert a titled milestone just before the last one, keeping the finish at the end */
-  function addMilestone(project, text) {
-    if (!project.milestones) project.milestones = [];
-    const at = Math.max(0, project.milestones.length - 1);
-    project.milestones.splice(at, 0,
-      { id: Date.now().toString(), text: text, completedDate: null, targetDate: null });
+  function addStep(project, text, branchId, options) {
+    const branch = (branchId && findBranch(project, branchId)) || projectBranches(project)[0];
+    const step = { id: Date.now().toString(), text: text, completedDate: null, targetDate: null };
+    branch.steps.push(step);
+    stepListPages[project.id + "|" + branch.id] = 0;
     saveState();
-    renderTimeline(project);
-    renderList("projects");
-    const input = timeline.querySelector(".tl-add__input");
-    if (input) input.focus();   // ready for the next one
+    refreshStepStructure(project, options);
+    return step;
   }
 
   /* mark done (stamps today's date) or clear it, then refill the gauge */
-  function toggleMilestone(project, id, inlineNode) {
-    const milestone = findMilestone(project, id);
-    if (!milestone) return;
-    milestone.completedDate = milestone.completedDate ? null : todayKey();
-    const completedTasks = milestone.completedDate
-      ? completeMilestoneTasks(project, milestone) : [];
+  function toggleStep(project, id, inlineNode) {
+    const step = findStep(project, id);
+    if (!step) return;
+    step.completedDate = step.completedDate ? null : todayKey();
+    const completedTasks = step.completedDate
+      ? completeStepTasks(project, step) : [];
     saveState();
-    renderTimeline(project);
-    if (completedTasks.length) refreshTasksCompletedByMilestone(project, completedTasks);
-    if (inlineNode && inlineNode.isConnected) {
-      refreshInlineMilestone(project, milestone, inlineNode);
+    const localDashboardNode = inlineNode && inlineNode.isConnected
+      && inlineNode.closest("#projectsList");
+    if (localDashboardNode) refreshInlineStep(project, step, inlineNode);
+    if (completedTasks.length) refreshTasksCompletedByStep(project, completedTasks);
+    if (localDashboardNode) {
+      // Keep a simultaneously open Rêve panel current without replacing the
+      // objective row that was just clicked.
+      refreshProjectSteps(project, "#projectsList");
       return;
     }
+    refreshProjectSteps(project);
     renderList("projects");
   }
 
   /* A click in the dashboard must not rebuild the project list: replacing the
      whole row also replaces the browser's scroll anchor, which made the page
-     jump. Named milestones update in place. The finish anchor is the sole case
+     jump. Named steps update in place. The finish anchor is the sole case
      that changes the number of nodes (+ appears/disappears), so only its local
      roadmap is rebuilt while both page and horizontal positions are retained. */
-  function refreshInlineMilestone(project, milestone, node) {
-    const done = !!milestone.completedDate;
+  function refreshInlineStep(project, step, node) {
+    const done = !!step.completedDate;
+    if (node.classList.contains("step")) {
+      node.classList.toggle("is-done", done);
+      const checkbox = node.querySelector(".item__check");
+      if (checkbox) checkbox.setAttribute("aria-pressed", done ? "true" : "false");
+      const when = node.querySelector(".step__when");
+      if (when) {
+        when.classList.toggle("is-late",
+          !done && !!step.targetDate && step.targetDate < todayKey());
+      }
+      const projectRow = node.closest(".item--project");
+      const badge = projectRow && projectRow.querySelector(".project-tab .item__sub");
+      if (badge) badge.textContent = Math.round(stepProgress(project) * 100) + "%";
+      return;
+    }
     const roadmap = node.closest(".goal-roadmap");
     if (!roadmap) return;
 
-    if (node.classList.contains("is-finish")) {
-      if (done) inlineMilestoneAdd = null;
-      refreshInlineRoadmap(project);
-    } else {
+    {
       node.classList.toggle("is-done", done);
       const dot = node.querySelector(".goal-ms__dot");
       const check = node.querySelector(".goal-ms__check");
@@ -8367,80 +9870,96 @@
         check.setAttribute("aria-pressed", done ? "true" : "false");
       }
       const fill = roadmap.querySelector(".goal-roadmap__fill");
-      if (fill) fill.style.width = (milestoneProgress(project) * 100).toFixed(1) + "%";
+      if (fill) fill.style.width = (stepProgress(project) * 100).toFixed(1) + "%";
     }
 
     const row = roadmap.closest(".item--project");
     const badge = row && row.querySelector(".project-tab .item__sub");
-    if (badge) badge.textContent = Math.round(milestoneProgress(project) * 100) + "%";
+    if (badge) badge.textContent = Math.round(stepProgress(project) * 100) + "%";
   }
 
-  function removeMilestone(project, id, inlineRoadmap) {
-    const milestones = project.milestones || [];
-    for (let i = 0; i < milestones.length; i++) {
-      if (milestones[i].id === id) { milestones.splice(i, 1); break; }
+  function removeStep(project, id) {
+    const branch = branchOfStep(project, id);
+    if (branch) {
+      for (let i = 0; i < branch.steps.length; i++) {
+        if (branch.steps[i].id === id) { branch.steps.splice(i, 1); break; }
+      }
     }
     saveState();
-    renderTimeline(project);
-    if (inlineRoadmap && inlineRoadmap.isConnected && refreshInlineRoadmap(project)) return;
-    renderList("projects");
+    refreshStepStructure(project);
   }
 
-  function findMilestone(project, id) {
-    const milestones = project.milestones || [];
-    for (let i = 0; i < milestones.length; i++) {
-      if (milestones[i].id === id) return milestones[i];
-    }
-    return null;
-  }
-
-  /* A task born from a milestone keeps both ids. Resolve that relation in one
-     place so its colour and its completion always point at the same dot. */
-  function taskMilestoneLink(task) {
-    if (!task || !task.projectId || !task.milestoneId) return null;
-    const project = findItem("projects", task.projectId);
-    if (!project) return null;
-    const milestones = project.milestones || [];
-    for (let i = 0; i < milestones.length; i++) {
-      if (milestones[i].id === task.milestoneId) {
-        return { project: project, milestone: milestones[i], index: i, total: milestones.length };
+  function findStep(project, id) {
+    const branches = projectBranches(project);
+    for (let i = 0; i < branches.length; i++) {
+      for (let j = 0; j < branches[i].steps.length; j++) {
+        if (branches[i].steps[j].id === id) return branches[i].steps[j];
       }
     }
     return null;
   }
 
-  function milestoneTaskColor(task) {
-    const link = taskMilestoneLink(task);
+  /* the branch a step belongs to, needed to take it out again */
+  function branchOfStep(project, id) {
+    const branches = projectBranches(project);
+    for (let i = 0; i < branches.length; i++) {
+      for (let j = 0; j < branches[i].steps.length; j++) {
+        if (branches[i].steps[j].id === id) return branches[i];
+      }
+    }
+    return null;
+  }
+
+  /* A task born from a step keeps both ids. Resolve that relation in one
+     place so its colour and its completion always point at the same dot. */
+  function taskStepLink(task) {
+    if (!task || !task.projectId || !task.stepId) return null;
+    const project = findItem("projects", task.projectId);
+    if (!project) return null;
+    const branches = projectBranches(project);
+    for (let b = 0; b < branches.length; b++) {
+      const steps = branches[b].steps;
+      for (let i = 0; i < steps.length; i++) {
+        if (steps[i].id === task.stepId) {
+          return { project: project, step: steps[i], index: i, total: steps.length };
+        }
+      }
+    }
+    return null;
+  }
+
+  function stepTaskColor(task) {
+    const link = taskStepLink(task);
     if (!link) return null;
     const position = link.total > 1 ? link.index / (link.total - 1) : 0;
     return paletteColorAt(paletteStops(), position);
   }
 
-  /* Completion travels from the concrete task back to its source milestone.
-     Reopening the task does not reopen the milestone: reaching a milestone is
+  /* Completion travels from the concrete task back to its source step.
+     Reopening the task does not reopen the step: reaching a step is
      a durable event, while the task can still be reviewed independently. */
-  function completeTaskMilestone(task) {
-    const link = taskMilestoneLink(task);
-    if (!link || link.milestone.completedDate) return null;
-    link.milestone.completedDate = task.doneDate || todayKey();
-    return link.project;
+  function completeTaskStep(task) {
+    const link = taskStepLink(task);
+    if (!link || link.step.completedDate) return null;
+    link.step.completedDate = task.doneDate || todayKey();
+    return link;
   }
 
-  /* The relation also travels back to concrete work: reaching a milestone
+  /* The relation also travels back to concrete work: reaching a step
      completes every task that was created from that exact dot. */
-  function completeMilestoneTasks(project, milestone) {
+  function completeStepTasks(project, step) {
     const completed = [];
     for (let i = 0; i < state.tasks.length; i++) {
       const task = state.tasks[i];
-      if (task.projectId !== project.id || task.milestoneId !== milestone.id || task.done) continue;
+      if (task.projectId !== project.id || task.stepId !== step.id || task.done) continue;
       task.done = true;
-      task.doneDate = milestone.completedDate;
+      task.doneDate = step.completedDate;
       completed.push(task.id);
     }
     return completed;
   }
 
-  function refreshTasksCompletedByMilestone(project, taskIds) {
+  function refreshTasksCompletedByStep(project, taskIds) {
     renderList("tasks");
     // If an editor currently freezes the task list, update its visible source
     // rows immediately and leave the structural move to the deferred repaint.
@@ -8450,20 +9969,25 @@
     }
     renderTasksRing();
     renderDailyTimeline();
-    if (openProject === project.id) renderProjectSteps(project);
   }
 
   /* Keep every visible representation current without rebuilding the complete
      project list (which would move the scroll anchor of an open objective). */
-  function refreshLinkedMilestoneProject(project) {
+  function refreshLinkedStepProject(project, step) {
     if (!project) return;
-    const refreshed = refreshInlineRoadmap(project);
-    if (!refreshed) {
-      const row = document.querySelector('#projectsList .item[data-id="' + project.id + '"]');
-      const badge = row && row.querySelector(".project-tab .item__sub");
-      if (badge) badge.textContent = Math.round(milestoneProgress(project) * 100) + "%";
+    const projectRow = document.querySelector('#projectsList .item[data-id="' + project.id + '"]');
+    if (projectRow && step) {
+      const nodes = projectRow.querySelectorAll("[data-step-id]");
+      for (let i = 0; i < nodes.length; i++) {
+        if (nodes[i].dataset.stepId === step.id) {
+          refreshInlineStep(project, step, nodes[i]);
+          break;
+        }
+      }
     }
-    if (openProject === project.id) renderTimeline(project);
+    const badge = projectRow && projectRow.querySelector(".project-tab .item__sub");
+    if (badge) badge.textContent = Math.round(stepProgress(project) * 100) + "%";
+    refreshProjectSteps(project, "#projectsList");
   }
 
   /* current palette as five parsed rgb stops (--imp-1 .. --imp-5) */
@@ -8486,6 +10010,54 @@
     };
   }
 
+  function relLuminance(rgb) {
+    const channel = [rgb.r, rgb.g, rgb.b];
+    let out = 0;
+    const weight = [0.2126, 0.7152, 0.0722];
+    for (let i = 0; i < 3; i++) {
+      const s = channel[i] / 255;
+      out += weight[i] * (s <= 0.03928 ? s / 12.92 : Math.pow((s + 0.055) / 1.055, 2.4));
+    }
+    return out;
+  }
+
+  /* The sky is one gradient from --c-sky-1 at the bottom to --c-sky-3 at the
+     top, with --c-sky-2 at --c-sky-mid. Resolve what colour it holds a given
+     way up, so anything standing on it can ask what it is standing on. */
+  /* the sun ramp further down owns `mixRgb`, and it speaks in [r,g,b] arrays
+     while hexToRgb speaks in objects; blending here rather than adding a second
+     function under the same name, which is exactly how this first went wrong */
+  function skyColorAt(t) {
+    const css = getComputedStyle(document.documentElement);
+    const low = hexToRgb(css.getPropertyValue("--c-sky-1").trim());
+    const mid = hexToRgb(css.getPropertyValue("--c-sky-2").trim());
+    const high = hexToRgb(css.getPropertyValue("--c-sky-3").trim());
+    const at = (parseFloat(css.getPropertyValue("--c-sky-mid")) || 45) / 100;
+    const a = t <= at ? low : mid;
+    const b = t <= at ? mid : high;
+    const k = t <= at ? (at ? t / at : 0) : (t - at) / (1 - at);
+    return {
+      r: a.r + (b.r - a.r) * k,
+      g: a.g + (b.g - a.g) * k,
+      b: a.b + (b.b - a.b) * k
+    };
+  }
+
+  /* THE THRESHOLD'S INK — the welcome screen shows the sky raw and at full
+     strength; the app lays the page colour over it, and its text leans on that
+     floor. Most horizons sit close enough to their own page for the theme's
+     inks to hold. Dusk's does not: it runs dark violet overhead to hot orange
+     at the horizon, so the pale ink meant for a dark page lands on a bright one
+     and the hint measured 1.01:1 — invisible. The threshold therefore asks the
+     sky what colour it is, at the height the lower writing actually sits. */
+  const THRESHOLD_SAMPLE = 0.26;   // how far up from the bottom that writing is
+
+  function tuneThresholdInk() {
+    if (!welcomeScreen) return;
+    const lit = relLuminance(skyColorAt(THRESHOLD_SAMPLE)) > 0.30;
+    welcomeScreen.classList.toggle("is-on-light", lit);
+  }
+
   /* color at position t (0..1) along the five evenly-spaced palette stops */
   function paletteColorAt(stops, t) {
     const scaled = Math.max(0, Math.min(1, t)) * (stops.length - 1);
@@ -8500,50 +10072,6 @@
     return "rgb(" + r + ", " + g + ", " + blue + ")";
   }
 
-  /* run the line from the first dot to the "+" node, fill down to the last done dot,
-     and tint every dot with its palette color at that height */
-  function layoutTimeline() {
-    const line = timeline.querySelector(".tl-line");
-    const fill = timeline.querySelector(".tl-fill");
-    if (!line || !fill) return;
-    const dots = timeline.querySelectorAll(".tl-dot, .tl-add__dot");
-    if (dots.length === 0) { line.style.height = "0"; fill.style.height = "0"; return; }
-
-    const base = timeline.getBoundingClientRect().top;
-    const centerY = function (dot) {
-      const rect = dot.getBoundingClientRect();
-      return rect.top + rect.height / 2 - base;
-    };
-    const firstY = centerY(dots[0]);
-    const lastY = centerY(dots[dots.length - 1]);
-    const span = lastY - firstY;
-    line.style.top = firstY + "px";
-    line.style.height = span + "px";
-
-    // palette gradient mapped to the whole line, revealed as the fill grows
-    fill.style.backgroundSize = "100% " + span + "px";
-
-    const doneDots = timeline.querySelectorAll(".tl-row.is-done .tl-dot");
-    const fillY = doneDots.length ? centerY(doneDots[doneDots.length - 1]) : firstY;
-    fill.style.height = Math.max(0, fillY - firstY) + "px";   // fill sits inside the line
-
-    // tint each milestone dot with the palette color at its height
-    const stops = paletteStops();
-    const milestoneDots = timeline.querySelectorAll(".tl-dot");
-    for (let i = 0; i < milestoneDots.length; i++) {
-      const dot = milestoneDots[i];
-      const row = dot.parentNode;
-      const color = paletteColorAt(stops, span > 0 ? (centerY(dot) - firstY) / span : 0);
-      const isDone = row.classList.contains("is-done");
-      const isAnchor = row.classList.contains("tl-row--anchor");
-      const isFinish = i === milestoneDots.length - 1;
-      // the finish anchor only fills once completed; the start anchor stays solid
-      const solid = isDone || (isAnchor && !isFinish);
-      dot.style.borderColor = color;
-      dot.style.background = solid ? color : "var(--surface)";
-    }
-  }
-
   /* PROJECT VIEW — the workspace a star opens into. A project is not a task with
      extra fields: it gets a heading, a dated trajectory, its own steps, a wall to
      think on and a journal. The dashboard list stays a reminder; work happens here. */
@@ -8554,7 +10082,6 @@
   const pviewWhy = document.getElementById("pviewWhy");
   const pviewOutcome = document.getElementById("pviewOutcome");
   const pviewDone = document.getElementById("pviewDone");
-  const pviewHorizonLabel = document.getElementById("pviewHorizonLabel");
   const pviewSteps = document.getElementById("pviewSteps");
   const pviewJournal = document.getElementById("pviewJournal");
   const pviewWall = document.getElementById("pviewWall");
@@ -8573,14 +10100,12 @@
     if (openProject === id) return;   // already dived on this one
     if (skyView.hidden) openSky();
     openProject = id;
-    openMilestone = null;
     projectView.hidden = false;
     fillProjectView(project);
     requestAnimationFrame(function () {
       projectView.classList.add("is-open");
       focusStar(project);
     });
-    setTimeout(layoutTimeline, PVIEW_MS);   // the line can only be measured once settled
   }
 
   function closeProjectView() {
@@ -8594,7 +10119,7 @@
 
   function fillProjectView(project) {
     pviewName.value = project.text || "";
-    pviewIcon.innerHTML = habitSvg(project.icon || "folder");
+    pviewIcon.innerHTML = projectSvg(project.icon || "folder");
     pviewImp.innerHTML = "";
     pviewImp.appendChild(createImportanceBars(project.importance || 0, function (level) {
       project.importance = project.importance === level ? 0 : level;
@@ -8605,25 +10130,15 @@
     pviewOutcome.value = project.outcome || "";
     fitLine(pviewWhy);
     fitLine(pviewOutcome);
-    pviewHorizonLabel.textContent = project.targetDate
-      ? horizonLabel(project.targetDate) : translate("horizonNone");
     pviewDone.classList.toggle("is-on", !!project.done);
     document.getElementById("pviewDoneLabel").textContent =
       translate(project.done ? "reopenLabel" : "completeLabel");
-    renderTimeline(project);
-    renderProjectSteps(project);
+    // In the sky the constellation is the course: showing it again as a roadmap
+    // beside it says the same thing twice. The panel keeps the plain list.
+    pviewSteps.dataset.listOnly = "1";
+    renderStepsInto(pviewSteps, project);
     renderJournal(project);
     renderWall(project);
-  }
-
-  /* "12 juil. · dans 34 j" — the date and how far off it still is */
-  function horizonLabel(isoDate) {
-    const locale = state.settings.language === "fr" ? "fr-FR" : "en-US";
-    const text = new Date(isoDate + "T00:00").toLocaleDateString(locale,
-      { day: "numeric", month: "short", year: "numeric" });
-    const days = daysUntil(isoDate);
-    if (days < 0) return text + " · " + translate("lateLabel");
-    return text + " · " + days + " " + translate("daysShort");
   }
 
   function daysUntil(isoDate) {
@@ -8638,101 +10153,15 @@
     field.style.height = field.scrollHeight + "px";
   }
 
-  /* NEXT STEPS — real tasks, tagged with the project. A dated one shows up in the
-     day like any other: this is what stops a project from being a decoration. */
-  function renderProjectSteps(project) {
-    if (!project) return;
-    pviewSteps.innerHTML = "";
-    const steps = projectTasks(project.id);
-    if (steps.length === 0) {
-      const empty = document.createElement("p");
-      empty.className = "detail__empty";
-      empty.textContent = translate("stepsEmpty");
-      pviewSteps.appendChild(empty);
-      return;
-    }
-    for (let i = 0; i < steps.length; i++) {
-      pviewSteps.appendChild(createStepRow(project, steps[i]));
-    }
-  }
-
-  function projectTasks(projectId) {
-    const found = [];
-    for (let i = 0; i < state.tasks.length; i++) {
-      if (state.tasks[i].projectId === projectId) found.push(state.tasks[i]);
-    }
-    return found;
-  }
-
-  function createStepRow(project, task) {
-    const row = document.createElement("div");
-    row.className = task.done ? "step is-done" : "step";
-
-    row.appendChild(createCheckbox(function () {
-      task.done = !task.done;
-      task.doneDate = task.done ? todayKey() : null;
-      const linkedProject = task.done ? completeTaskMilestone(task) : null;
-      saveState();
-      renderProjectSteps(project);
-      renderList("tasks");
-      renderDailyTimeline();
-      if (linkedProject) refreshLinkedMilestoneProject(linkedProject);
-    }));
-
-    const label = document.createElement("input");
-    label.type = "text";
-    label.className = "step__text";
-    label.value = task.text;
-    label.maxLength = 200;
-    label.addEventListener("input", function () {
-      task.text = label.value;
-      saveState();
-      renderList("tasks");
-      renderDailyTimeline();
-    });
-    row.appendChild(label);
-
-    const when = document.createElement("button");
-    when.type = "button";
-    when.className = task.dueDate ? "step__when is-set" : "step__when";
-    when.innerHTML = iconSvg('<rect x="3" y="4" width="18" height="18" rx="2"/>'
-      + '<line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/>'
-      + '<line x1="3" y1="10" x2="21" y2="10"/>');
-    if (task.dueDate) {
-      const tag = document.createElement("span");
-      tag.textContent = dueLabel(task);
-      when.appendChild(tag);
-    }
-    when.addEventListener("click", function () { openCalendar(task.id, "tasks"); });
-    row.appendChild(when);
-
-    const del = document.createElement("button");
-    del.type = "button";
-    del.className = "step__del";
-    del.setAttribute("aria-label", translate("deleteAria"));
-    del.textContent = "×";
-    del.addEventListener("click", function () {
-      removeItem("tasks", task.id);
-      renderProjectSteps(project);
-    });
-    row.appendChild(del);
-    return row;
-  }
-
-  /* PROMOTION — an idea in the journal and a milestone on the line are both things
+  /* PROMOTION — an idea in the journal and a step on the line are both things
      you can only act on once they become a step. One button turns either into one,
      without leaving the workspace. */
   const ICON_PROMOTE = '<polyline points="4 12 8.5 16.5 20 5"/><line x1="4" y1="19" x2="14" y2="19"/>';
 
+  /* an idea in the journal becomes a step on the project's own list, not a loose
+     task: the list of steps is the project's single course now */
   function promoteToStep(project, text) {
-    const step = {
-      id: Date.now().toString(), text: text, done: false,
-      dueDate: null, dueTime: null, projectId: project.id
-    };
-    state.tasks.push(step);
-    saveState();
-    renderProjectSteps(project);
-    renderList("tasks");
+    const step = addStep(project, text);
     showToast(translate("stepCreated"));
     return step;
   }
@@ -8751,23 +10180,6 @@
     return button;
   }
 
-  document.getElementById("pviewStepForm").addEventListener("submit", function (event) {
-    event.preventDefault();
-    const input = document.getElementById("pviewStepInput");
-    const text = input.value.trim();
-    const project = currentProject();
-    if (!text || !project) return;
-    state.tasks.push({
-      id: Date.now().toString(), text: text, done: false,
-      dueDate: null, dueTime: null, projectId: project.id
-    });
-    saveState();
-    input.value = "";
-    input.focus();
-    renderProjectSteps(project);
-    renderList("tasks");
-  });
-
   /* JOURNAL — dated lines, newest first. It is both a log of what moved and the
      place ideas land before they become steps; it also feeds the star's glow. */
   function renderJournal(project) {
@@ -8777,6 +10189,7 @@
   function renderJournalInto(host, project) {
     host.innerHTML = "";
     const entries = project.journal || (project.journal = []);
+    const pageState = boundedListPage(journalListPages, project.id, entries.length);
     if (entries.length === 0) {
       const empty = document.createElement("p");
       empty.className = "detail__empty";
@@ -8784,16 +10197,96 @@
       host.appendChild(empty);
       return;
     }
-    for (let i = entries.length - 1; i >= 0; i--) {
+    if (pageState.last > 0) {
+      host.appendChild(createProjectListPager("top", pageState, function (page) {
+        journalListPages[project.id] = page;
+        refreshProjectJournals(project);
+      }));
+    }
+    const newest = entries.length - 1 - pageState.page * PROJECT_LIST_PAGE_SIZE;
+    const oldest = Math.max(0, newest - PROJECT_LIST_PAGE_SIZE + 1);
+    for (let i = newest; i >= oldest; i--) {
       host.appendChild(createJournalRow(project, entries[i]));
+    }
+    if (pageState.last > 0) {
+      host.appendChild(createProjectListPager("bottom", pageState, function (page) {
+        journalListPages[project.id] = page;
+        refreshProjectJournals(project);
+      }));
     }
   }
 
   function refreshProjectJournals(project) {
+    liveSky();                    // a line written feeds the star's own glow
     if (openProject === project.id) renderJournal(project);
     const inline = document.querySelector('#projectsList .item[data-id="' + project.id
       + '"] .goal-inline__journal');
     if (inline) renderJournalInto(inline, project);
+  }
+
+  /* THE PROJECT MODEL — a project is worked on in three places: the panel a star
+     opens, the objective unfolded in the dashboard list, and a block on a canvas.
+     Everything that makes or changes one goes through here, so the three cannot
+     drift apart, and a project made on a canvas is the same object as any other. */
+  function createProject(text, extra) {
+    const project = {
+      id: (extra && extra.id) || Date.now().toString(),
+      text: text || translate("addProjectAria"),
+      icon: "folder",
+      sky: freeSkySpot(state.projects.length),
+      why: "", outcome: "",
+      journal: [], dream: []
+    };
+    if (extra) {
+      const keys = Object.keys(extra);
+      for (let i = 0; i < keys.length; i++) project[keys[i]] = extra[keys[i]];
+    }
+    state.projects.push(project);
+    return project;
+  }
+
+  function renameProject(project, text) {
+    project.text = text;
+    saveState();
+  }
+
+  function addProjectJournal(project, text) {
+    if (!project.journal) project.journal = [];
+    const entry = { id: Date.now().toString(), date: todayKey(), text: text };
+    project.journal.push(entry);
+    journalListPages[project.id] = 0;
+    saveState();
+    refreshProjectJournals(project);
+    return entry;
+  }
+
+  function removeProjectJournal(project, entryId) {
+    if (!project || !project.journal) return;
+    for (let i = 0; i < project.journal.length; i++) {
+      if (project.journal[i].id === entryId) { project.journal.splice(i, 1); break; }
+    }
+    saveState();
+    refreshProjectJournals(project);
+  }
+
+  /* every surface a project shows on, refreshed at once */
+  /* The sky is a live view of the same objects, not a picture taken on entering.
+     Redrawing it is cheap, but never while a star is in hand or a constellation is
+     still swinging: the simulation holds the very elements a redraw would replace. */
+  function liveSky() {
+    if (skyView.hidden || skyChain || thinkingDragging) return;
+    renderSky();
+  }
+
+  function refreshProjectViews(project) {
+    renderList("projects");
+    if (!skyView.hidden) renderSky();
+    if (project) {
+      refreshProjectJournals(project);
+      if (openProject === project.id) fillProjectView(project);
+    }
+    const canvas = currentCanvas();
+    if (canvas && !thinkingView.hidden) renderThinkingCanvas(canvas);
   }
 
   function createJournalRow(project, entry) {
@@ -8802,7 +10295,7 @@
 
     const date = document.createElement("span");
     date.className = "jrn__date";
-    date.textContent = milestoneDateLabel(entry.date);
+    date.textContent = shortDateLabel(entry.date);
 
     const text = document.createElement("p");
     text.className = "jrn__text";
@@ -8851,10 +10344,8 @@
     const text = input.value.trim();
     const project = currentProject();
     if (!text || !project) return;
-    project.journal.push({ id: Date.now().toString(), date: todayKey(), text: text });
-    saveState();
+    addProjectJournal(project, text);
     input.value = "";
-    refreshProjectJournals(project);
   });
 
   /* DREAM WALL — free canvas of text cards. Nothing is arranged for you: the
@@ -8947,9 +10438,7 @@
 
   pviewName.addEventListener("input", function () {
     const project = currentProject();
-    if (!project) return;
-    project.text = pviewName.value;
-    saveState();
+    if (project) renameProject(project, pviewName.value);
   });
 
   pviewWhy.addEventListener("input", function () {
@@ -8966,10 +10455,6 @@
     project.outcome = pviewOutcome.value;
     fitLine(pviewOutcome);
     saveState();
-  });
-
-  document.getElementById("pviewHorizon").addEventListener("click", function () {
-    if (openProject) openCalendar(openProject, "project");
   });
 
   pviewIcon.addEventListener("click", openIconPickerForProject);
@@ -8993,96 +10478,819 @@
 
   /* THE SKY — one star per project, read at a glance on four channels: its size is
      ambition, its glow is momentum, its ring is how far the trajectory has come and
-     its colour walks the palette with that same progress. Stars are placed by hand.
-     "Rangé" drops them onto axes instead — time to the horizon across, ambition up —
-     and under the horizon line lie the projects nothing has happened on in a month. */
+     its colour walks the palette with that same progress. Stars are placed by hand:
+     where a project sits is the user's own map, and nothing rearranges it. */
   const skyView = document.getElementById("skyView");
   const skyField = document.getElementById("skyField");
   const skyCamera = document.getElementById("skyCamera");
-  const skyLinks = document.getElementById("skyLinks");
+  const skyBranches = document.getElementById("skyBranches");
+  const skyDeep = document.getElementById("skyDeep");
+  const skyShoot = document.getElementById("skyShoot");
   const skyEmptyMsg = document.getElementById("skyEmpty");
-  const skyHint = document.getElementById("skyHint");
   const DORMANT_DAYS = 30;
-  let skyAligned = false;
   let starDragEnd = 0;   // a drag must not read as a click on the star
-  let linkMode = false;
-  let linkFrom = null;   // the star waiting for its pair
+
+  /* THE DEEP — three sheets of stars at three distances, each a tile of scattered
+     points repeated for ever. Tiling is what makes the sky endless without holding
+     a single star in memory, and the different tile sizes keep the repeat from
+     ever being seen. The scatter is deterministic: the same sky every night. */
+  function seedRandom(seed) {
+    let value = seed;
+    return function () {
+      value = (value * 1103515245 + 12345) % 2147483648;
+      return value / 2147483648;
+    };
+  }
+
+  /* Each sheet is drawn once into a bitmap and then tiled. Hundreds of live CSS
+     gradients brought the compositor to its knees — the view took seconds to even
+     fade in. One raster, repeated, costs nothing and looks the same.
+     Dots near an edge are drawn again on the opposite side so the tile is seamless
+     and the repeat never shows as a grid. */
+  function tilePaint(size, draw) {
+    const canvas = document.createElement("canvas");
+    canvas.width = size;
+    canvas.height = size;
+    const ctx = canvas.getContext("2d");
+    draw(ctx, function (x, y, radius, paint) {
+      for (let ox = -1; ox <= 1; ox++) {
+        for (let oy = -1; oy <= 1; oy++) {
+          const cx = x + ox * size;
+          const cy = y + oy * size;
+          if (cx < -radius || cy < -radius || cx > size + radius || cy > size + radius) continue;
+          paint(ctx, cx, cy);
+        }
+      }
+    });
+    return "url(" + canvas.toDataURL("image/png") + ")";
+  }
+
+  /* A star is a point, not a blob: a hard bright core barely wider than a pixel,
+     with a small halo around it. Most are faint and tiny; a few carry the eye.
+     Softening them evenly is what made the first sky look like out-of-focus lights. */
+  function dustTile(seed, count, tile, maxSize, brightness) {
+    const rand = seedRandom(seed);
+    return tilePaint(tile, function (ctx, wrapped) {
+      for (let i = 0; i < count; i++) {
+        const x = rand() * tile;
+        const y = rand() * tile;
+        const roll = rand();
+        // cubed, so the sky is mostly faint pinpricks and rarely a bright one
+        const core = 0.32 + roll * roll * roll * maxSize;
+        const glow = 0.28 + roll * roll * brightness;
+        const reach = core + 1.6;
+        wrapped(x, y, reach, function (c, cx, cy) {
+          const halo = c.createRadialGradient(cx, cy, 0, cx, cy, reach);
+          halo.addColorStop(0, "rgba(226,238,255," + (glow * 0.55).toFixed(3) + ")");
+          halo.addColorStop(1, "rgba(200,220,255,0)");
+          c.fillStyle = halo;
+          c.beginPath();
+          c.arc(cx, cy, reach, 0, Math.PI * 2);
+          c.fill();
+          c.fillStyle = "rgba(248,251,255," + Math.min(1, glow + 0.25).toFixed(3) + ")";
+          c.beginPath();
+          c.arc(cx, cy, core, 0, Math.PI * 2);
+          c.fill();
+        });
+      }
+    });
+  }
+
+  function buildStarfield() {
+    if (skyDeep.dataset.built) return;
+    skyDeep.dataset.built = "1";
+    const sheets = [
+      { sel: ".skydeep__dust--far", seed: 20260804, count: 260, tile: 420, size: 0.5, glow: 0.30 },
+      { sel: ".skydeep__dust--mid", seed: 77003311, count: 150, tile: 560, size: 0.9, glow: 0.45 },
+      { sel: ".skydeep__dust--near", seed: 991221, count: 70, tile: 700, size: 1.5, glow: 0.62 }
+    ];
+    for (let i = 0; i < sheets.length; i++) {
+      const el = skyDeep.querySelector(sheets[i].sel);
+      el.style.backgroundImage = dustTile(sheets[i].seed, sheets[i].count, sheets[i].tile,
+        sheets[i].size, sheets[i].glow);
+      el.style.backgroundSize = sheets[i].tile + "px " + sheets[i].tile + "px";
+    }
+    buildNebula();
+    buildGalaxies();
+  }
+
+  /* Clouds of gas: broad, faint, never twice the same colour, which is what keeps
+     them from reading as a gradient someone drew. */
+  function buildNebula() {
+    const rand = seedRandom(5150607);
+    const tile = 1400;
+    const hues = [252, 266, 284, 300, 318];      // violet drifting to mauve and rose
+    const neb = skyDeep.querySelector(".skydeep__neb");
+    neb.style.backgroundImage = tilePaint(tile, function (ctx, wrapped) {
+      for (let i = 0; i < 11; i++) {
+        const x = rand() * tile;
+        const y = rand() * tile;
+        const wide = 240 + rand() * 460;
+        const tall = 140 + rand() * 280;
+        const hue = hues[Math.floor(rand() * hues.length)];
+        const alpha = 0.06 + rand() * 0.10;
+        wrapped(x, y, wide, function (c, cx, cy) {
+          c.save();
+          c.translate(cx, cy);
+          c.scale(1, tall / wide);
+          const cloud = c.createRadialGradient(0, 0, 0, 0, 0, wide);
+          cloud.addColorStop(0, "hsla(" + hue + ",66%,66%," + alpha.toFixed(3) + ")");
+          cloud.addColorStop(0.55, "hsla(" + (hue - 14) + ",64%,54%," + (alpha * 0.42).toFixed(3) + ")");
+          cloud.addColorStop(1, "hsla(" + (hue - 14) + ",64%,50%,0)");
+          c.fillStyle = cloud;
+          c.beginPath();
+          c.arc(0, 0, wide, 0, Math.PI * 2);
+          c.fill();
+          c.restore();
+        });
+      }
+      carveRifts(ctx, rand, tile, wrapped);
+    });
+    neb.style.backgroundSize = tile + "px " + tile + "px";
+  }
+
+  /* THE RIFTS — the dark lanes across the Milky Way are not shadow painted on, they
+     are dust standing in front of the gas. So they are cut out of the cloud rather
+     than drawn over it: a chain of soft blots walking a curve, erasing as it goes,
+     which leaves the ragged channels the band actually has. */
+  function carveRifts(ctx, rand, tile, wrapped) {
+    ctx.save();
+    ctx.globalCompositeOperation = "destination-out";
+    for (let i = 0; i < 4; i++) {
+      let x = rand() * tile;
+      let y = rand() * tile;
+      let heading = rand() * Math.PI * 2;
+      const steps = 26 + Math.floor(rand() * 18);
+      const stride = tile / 34;
+      for (let k = 0; k < steps; k++) {
+        heading += (rand() - 0.5) * 0.55;        // it wanders, it does not run straight
+        x += Math.cos(heading) * stride;
+        y += Math.sin(heading) * stride;
+        const blot = 26 + rand() * 46;
+        const bite = 0.1 + rand() * 0.16;
+        wrapped(x, y, blot, function (c, cx, cy) {
+          const hole = c.createRadialGradient(cx, cy, 0, cx, cy, blot);
+          hole.addColorStop(0, "rgba(0,0,0," + bite.toFixed(3) + ")");
+          hole.addColorStop(0.6, "rgba(0,0,0," + (bite * 0.5).toFixed(3) + ")");
+          hole.addColorStop(1, "rgba(0,0,0,0)");
+          c.fillStyle = hole;
+          c.beginPath();
+          c.arc(cx, cy, blot, 0, Math.PI * 2);
+          c.fill();
+        });
+      }
+    }
+    ctx.restore();
+  }
+
+  /* Far galaxies are clouds, not lamps. A single ellipse with a bright middle read
+     as a lens flare — a heap of light. Each is built instead from several faint
+     lobes, offset and turned a little, so the edge is ragged and the light comes
+     from the gas rather than from a point. Violet, because that is what a dust
+     cloud lit from within actually leans towards. */
+  function buildGalaxies() {
+    const rand = seedRandom(31415926);
+    const tile = 1800;
+    const gal = skyDeep.querySelector(".skydeep__gal");
+    gal.style.backgroundImage = tilePaint(tile, function (ctx, wrapped) {
+      for (let i = 0; i < 5; i++) {
+        const x = rand() * tile;
+        const y = rand() * tile;
+        const wide = 52 + rand() * 66;
+        const tilt = rand() * Math.PI;
+        const hue = 262 + rand() * 26;              // violet, drifting towards mauve
+        const lobes = [];
+        for (let k = 0; k < 5; k++) {
+          lobes.push({
+            dx: (rand() - 0.5) * wide * 0.5,
+            dy: (rand() - 0.5) * wide * 0.28,
+            size: wide * (0.45 + rand() * 0.5),
+            squash: 0.3 + rand() * 0.3,
+            turn: (rand() - 0.5) * 0.8,
+            alpha: 0.025 + rand() * 0.035
+          });
+        }
+        wrapped(x, y, wide * 1.4, function (c, cx, cy) {
+          c.save();
+          c.translate(cx, cy);
+          c.rotate(tilt);
+          for (let k = 0; k < lobes.length; k++) {
+            const lobe = lobes[k];
+            c.save();
+            c.translate(lobe.dx, lobe.dy);
+            c.rotate(lobe.turn);
+            c.scale(1, lobe.squash);
+            const cloud = c.createRadialGradient(0, 0, 0, 0, 0, lobe.size);
+            cloud.addColorStop(0, "hsla(" + hue.toFixed(0) + ",70%,72%," + lobe.alpha.toFixed(3) + ")");
+            cloud.addColorStop(0.5, "hsla(" + (hue - 12).toFixed(0) + ",68%,62%,"
+              + (lobe.alpha * 0.55).toFixed(3) + ")");
+            cloud.addColorStop(1, "hsla(" + (hue - 12).toFixed(0) + ",68%,58%,0)");
+            c.fillStyle = cloud;
+            c.beginPath();
+            c.arc(0, 0, lobe.size, 0, Math.PI * 2);
+            c.fill();
+            c.restore();
+          }
+          // the middle is only a little denser, never a point of light
+          c.scale(1, 0.34);
+          const heart = c.createRadialGradient(0, 0, 0, 0, 0, wide * 0.42);
+          heart.addColorStop(0, "hsla(" + (hue + 8).toFixed(0) + ",60%,82%,0.075)");
+          heart.addColorStop(1, "hsla(" + (hue + 8).toFixed(0) + ",60%,78%,0)");
+          c.fillStyle = heart;
+          c.beginPath();
+          c.arc(0, 0, wide * 0.42, 0, Math.PI * 2);
+          c.fill();
+          c.restore();
+        });
+      }
+    });
+    gal.style.backgroundSize = tile + "px " + tile + "px";
+  }
+
+  /* One streak now and then, never on a schedule you could learn. */
+  let shootTimer = 0;
+  function startShootingStars() {
+    clearTimeout(shootTimer);
+    const again = function () {
+      shootTimer = setTimeout(function () {
+        if (!skyView.hidden) shootOnce();
+        again();
+      }, 5000 + Math.random() * 12000);
+    };
+    again();
+  }
+
+  function shootOnce() {
+    const streak = document.createElement("i");
+    streak.className = "skyshoot__one";
+    streak.style.left = (5 + Math.random() * 60) + "%";
+    streak.style.top = (2 + Math.random() * 45) + "%";
+    streak.style.setProperty("--fall", (14 + Math.random() * 22).toFixed(0) + "deg");
+    streak.style.setProperty("--reach", (180 + Math.random() * 260).toFixed(0) + "px");
+    streak.style.animationDuration = (0.7 + Math.random() * 0.7).toFixed(2) + "s";
+    streak.addEventListener("animationend", function () { streak.remove(); });
+    skyShoot.appendChild(streak);
+  }
 
   function openSky() {
     skyView.hidden = false;
+    buildStarfield();
+    placeCamera();
+    applyCamera();
+    startShootingStars();
     renderSky();
     requestAnimationFrame(function () { skyView.classList.add("is-open"); });
   }
 
   function closeSky() {
+    clearTimeout(shootTimer);
     if (openProject) closeProjectView();   // the panel cannot outlive the sky it sits in
-    if (linkMode) setLinkMode(false);
     skyView.classList.remove("is-open");
     setTimeout(function () { skyView.hidden = true; }, PVIEW_MS);
   }
 
   function renderSky() {
+    closeStepCard(true);
     const stars = skyCamera.querySelectorAll(".pstar");
     for (let i = 0; i < stars.length; i++) stars[i].remove();
     skyEmptyMsg.hidden = state.projects.length > 0;
-    syncSkyMode();
-    const stops = paletteStops();
     const spots = {};
     for (let i = 0; i < state.projects.length; i++) {
       const project = state.projects[i];
-      const star = createStar(project, stops, i);
+      const star = createStar(project, i);
       spots[project.id] = { x: parseFloat(star.style.left), y: parseFloat(star.style.top) };
       skyCamera.appendChild(star);
     }
-    renderLinks(spots);
+    renderBranches(spots);
+    renderSkyRoll();
     if (openProject) markFocusedStar(openProject);   // a redraw must not lose the dive
   }
 
-  /* CONSTELLATIONS — a line between two stars, and nothing else. It carries no
-     rule and blocks nothing; it is there to say that these two belong together.
-     The SVG spans the field in a 0-100 box, so a star's percent spot is its
-     coordinate; non-scaling-stroke keeps the line thin under the camera zoom. */
-  function renderLinks(spots) {
+  /* THE ROLL — the same projects, listed by name in the corner. Twelve stars are a
+     map, and a map is scanned; when what you want is one you already have in mind,
+     reading its name is quicker than finding its light. Finished ones drop off. */
+  function renderSkyRoll() {
+    const host = document.getElementById("skyList");
+    host.innerHTML = "";
+    for (let i = 0; i < state.projects.length; i++) {
+      const project = state.projects[i];
+      if (project.done) continue;
+      host.appendChild(createRollRow(project));
+    }
+    host.hidden = !host.children.length;
+  }
+
+  function createRollRow(project) {
+    const row = document.createElement("button");
+    row.type = "button";
+    row.className = openProject === project.id ? "skylist__item is-on" : "skylist__item";
+    const icon = document.createElement("span");
+    icon.className = "skylist__ico";
+    icon.innerHTML = projectSvg(project.icon || "folder");
+    const name = document.createElement("span");
+    name.className = "skylist__name";
+    name.textContent = project.text || translate("addProjectAria");
+    row.append(icon, name);
+    row.addEventListener("click", function () {
+      openProjectView(project.id);
+    });
+    return row;
+  }
+
+  /* THE CONSTELLATIONS — a star does not stand alone: each way of pursuing the
+     objective leaves it as a ray, its steps strung along it and its moons at the
+     root. Read from the star outwards: how many ways, how far each has gone, and
+     whether anyone is still walking it. */
+  const BRANCH_FAN = 104;      // degrees the rays spread over
+  const BRANCH_FIRST = 74;     // pixels from the star to the first node
+  const BRANCH_GAP = 40;       // pixels between two nodes of a ray
+  const BRANCH_MOON = 42;      // where the moons sit: clear of the star's own halo
+
+  /* Where every piece of an objective's constellation sits, worked out in one place
+     so that drawing it and dragging it can never disagree about the shape. */
+  function layoutConstellation(project, centre, area) {
+    const branches = projectBranches(project);
+    const out = [];
+    for (let b = 0; b < branches.length; b++) {
+      const angle = branchAngle(b, branches.length);
+      const nodes = branchNodes(centre, angle, branches[b].steps, area);
+      const habits = branchHabits(branches[b]).slice(0, MOONS_SHOWN);
+      const habitSpots = [];
+      for (let h = 0; h < habits.length; h++) {
+        habitSpots.push(habitSpot(centre, angle, nodes, h, area, branches[b], habits[h]));
+      }
+      out.push({
+        branch: branches[b],
+        nodes: nodes,
+        moons: habits,
+        moonSpots: habitSpots
+      });
+    }
+    return out;
+  }
+
+  function renderBranches(spots) {
+    const old = skyCamera.querySelectorAll(".bstar, .bmoon");
+    for (let i = 0; i < old.length; i++) old[i].remove();
+    const area = skyField.getBoundingClientRect();
+    if (!area.width || !area.height) { skyBranches.innerHTML = ""; return; }
     let markup = "";
-    for (let i = 0; i < state.links.length; i++) {
-      const from = spots[state.links[i].a];
-      const to = spots[state.links[i].b];
-      if (!from || !to) continue;   // one end is deleted and waiting on Undo
-      markup += '<line x1="' + from.x + '" y1="' + from.y + '" x2="' + to.x + '" y2="' + to.y
+
+    for (let p = 0; p < state.projects.length; p++) {
+      const project = state.projects[p];
+      const centre = spots[project.id];
+      if (!centre) continue;
+      const laid = layoutConstellation(project, centre, area);
+      for (let b = 0; b < laid.length; b++) {
+        markup += branchRay(centre, laid[b].nodes, laid[b].branch, project.id, b);
+        markup += habitFacets(laid[b], project.id, b);
+        for (let i = 0; i < laid[b].nodes.length; i++) {
+          const star = createBranchStar(project, laid[b].branch.steps[i], laid[b].nodes[i]);
+          star.dataset.project = project.id;
+          skyCamera.appendChild(star);
+        }
+        for (let m = 0; m < laid[b].moons.length; m++) {
+          const habitStar = createHabitStar(laid[b].moons[m], laid[b].moonSpots[m],
+            project, laid[b].branch);
+          habitStar.dataset.project = project.id;
+          skyCamera.appendChild(habitStar);
+        }
+      }
+    }
+    skyBranches.innerHTML = markup;
+  }
+
+  /* A CONSTELLATION ON A STRING — dragging the star does not carry the shape rigidly.
+     Each star follows the one before it, arriving late and overshooting a little, so
+     the branch trails and settles the way a line of beads pulled by its head does.
+     Every node is a spring towards where it ought to be relative to its predecessor;
+     the lag compounds down the chain on its own, which is what gives the whip. */
+  const CHAIN_STIFF = 0.3;
+  const CHAIN_DAMP = 0.66;
+  const CHAIN_REST = 0.012;    // percent of a field: below this it has settled
+
+  let skyChain = null;   // the running simulation, if a star is in hand
+
+  function startChain(project, centre, held) {
+    const area = skyField.getBoundingClientRect();
+    if (!area.width || !area.height) return;
+    const laid = layoutConstellation(project, centre, area);
+    const parts = [];
+    const stars = skyCamera.querySelectorAll('.bstar:not(.is-habit)[data-project="'
+      + project.id + '"]');
+    const moons = skyCamera.querySelectorAll('.bmoon[data-project="' + project.id + '"]');
+    let starAt = 0;
+    let moonAt = 0;
+    for (let b = 0; b < laid.length; b++) {
+      const chain = [];
+      let previous = centre;
+      for (let i = 0; i < laid[b].nodes.length && starAt < stars.length; i++, starAt++) {
+        const node = laid[b].nodes[i];
+        chain.push({
+          el: stars[starAt],
+          offset: { x: node.x - previous.x, y: node.y - previous.y },
+          at: { x: node.x, y: node.y },
+          v: { x: 0, y: 0 }
+        });
+        previous = node;
+      }
+      const hangs = [];
+      for (let m = 0; m < laid[b].moonSpots.length && moonAt < moons.length; m++, moonAt++) {
+        const spot = laid[b].moonSpots[m];
+        hangs.push({
+          el: moons[moonAt],
+          offset: { x: spot.x - centre.x, y: spot.y - centre.y },
+          at: { x: spot.x, y: spot.y },
+          v: { x: 0, y: 0 }
+        });
+      }
+      parts.push({ chain: chain, hangs: hangs });
+    }
+    skyChain = { project: project, centre: { x: centre.x, y: centre.y }, parts: parts,
+      area: area, frame: 0, held: !!held };
+    stepChain();   // held, so it cannot end the simulation before the drag begins
+  }
+
+  function aimChain(centre) {
+    if (skyChain) { skyChain.centre.x = centre.x; skyChain.centre.y = centre.y; }
+  }
+
+  /* One tick of the spring. The aspect of the field is folded in so a pull sideways
+     and a pull downwards travel at the same speed, instead of the sky being springier
+     in its narrow direction. */
+  function stepChain() {
+    if (!skyChain) return;
+    const ratio = skyChain.area.width / skyChain.area.height;
+    let awake = false;
+
+    for (let p = 0; p < skyChain.parts.length; p++) {
+      const part = skyChain.parts[p];
+      let previous = skyChain.centre;
+      for (let i = 0; i < part.chain.length; i++) {
+        awake = pullTowards(part.chain[i], previous, ratio) || awake;
+        previous = part.chain[i].at;
+      }
+      for (let m = 0; m < part.hangs.length; m++) {
+        awake = pullTowards(part.hangs[m], skyChain.centre, ratio) || awake;
+      }
+      const nodes = [];
+      for (let i = 0; i < part.chain.length; i++) nodes.push(part.chain[i].at);
+      setRaySegments(skyChain.project.id, p, skyChain.centre, nodes);
+    }
+
+    if (awake || skyChain.held) {
+      skyChain.frame = requestAnimationFrame(stepChain);
+    } else {
+      // once it has stopped swinging, put it exactly where it belongs: a shape left
+      // a hair off by the damping would drift a little further with every drag
+      moveConstellation(skyChain.project, skyChain.centre);
+      skyChain = null;
+    }
+  }
+
+  function pullTowards(bead, anchor, ratio) {
+    const wantX = anchor.x + bead.offset.x;
+    const wantY = anchor.y + bead.offset.y;
+    bead.v.x = (bead.v.x + (wantX - bead.at.x) * CHAIN_STIFF) * CHAIN_DAMP;
+    bead.v.y = (bead.v.y + (wantY - bead.at.y) * CHAIN_STIFF) * CHAIN_DAMP;
+    bead.at.x += bead.v.x;
+    bead.at.y += bead.v.y;
+    bead.el.style.left = bead.at.x + "%";
+    bead.el.style.top = bead.at.y + "%";
+    const offX = (wantX - bead.at.x) * ratio;
+    return Math.abs(offX) + Math.abs(wantY - bead.at.y) > CHAIN_REST
+      || Math.abs(bead.v.x) + Math.abs(bead.v.y) > CHAIN_REST;
+  }
+
+  /* the shape without the physics, for a redraw that is not a drag */
+  function moveConstellation(project, centre) {
+    const area = skyField.getBoundingClientRect();
+    if (!area.width || !area.height) return;
+    const laid = layoutConstellation(project, centre, area);
+    const stars = skyCamera.querySelectorAll('.bstar:not(.is-habit)[data-project="'
+      + project.id + '"]');
+    const moons = skyCamera.querySelectorAll('.bmoon[data-project="' + project.id + '"]');
+    let starAt = 0;
+    let moonAt = 0;
+    for (let b = 0; b < laid.length; b++) {
+      for (let i = 0; i < laid[b].nodes.length && starAt < stars.length; i++, starAt++) {
+        stars[starAt].style.left = laid[b].nodes[i].x + "%";
+        stars[starAt].style.top = laid[b].nodes[i].y + "%";
+      }
+      for (let m = 0; m < laid[b].moonSpots.length && moonAt < moons.length; m++, moonAt++) {
+        moons[moonAt].style.left = laid[b].moonSpots[m].x + "%";
+        moons[moonAt].style.top = laid[b].moonSpots[m].y + "%";
+      }
+      setRaySegments(project.id, b, centre, laid[b].nodes);
+    }
+  }
+
+  /* rays fan out to the right of the star rather than all around it, so a sky of
+     several objectives stays readable instead of turning into a web */
+  /* Constellations are not fans. Every node is nudged off the perfect ray by an
+     amount drawn from its own id, so the shape is irregular and yet never moves. */
+  function idNoise(id, salt) {
+    let hash = 2166136261;
+    const text = String(id) + ":" + salt;
+    for (let i = 0; i < text.length; i++) {
+      hash ^= text.charCodeAt(i);
+      hash = Math.imul(hash, 16777619);
+    }
+    return ((hash >>> 0) % 1000) / 1000;
+  }
+
+  function branchAngle(index, total) {
+    if (total < 2) return 0;
+    return (-BRANCH_FAN / 2 + index * (BRANCH_FAN / (total - 1))) * Math.PI / 180;
+  }
+
+  /* a point at `pixels` from the star along the ray, given back in field percent:
+     the field is not square, so a circle in percent would read as an ellipse */
+  function alongRay(centre, angle, pixels, area) {
+    return {
+      x: centre.x + Math.cos(angle) * pixels / area.width * 100,
+      y: centre.y + Math.sin(angle) * pixels / area.height * 100
+    };
+  }
+
+  function branchNodes(centre, angle, steps, area) {
+    const nodes = [];
+    let walked = BRANCH_FIRST;
+    for (let i = 0; i < steps.length; i++) {
+      const id = steps[i].id;
+      walked += i ? BRANCH_GAP * (0.72 + idNoise(id, "far") * 0.75) : 0;
+      let spot;
+      if (steps[i].dx != null) {                            // placed by hand, and kept
+        spot = { x: centre.x + steps[i].dx, y: centre.y + steps[i].dy };
+      } else {
+        const swing = (idNoise(id, "side") - 0.5) * 0.5;    // radians off the ray
+        spot = alongRay(centre, angle + swing, walked, area);
+      }
+      spot.magnitude = 0.55 + idNoise(id, "mag") * 0.45;    // stars are not all equal
+      nodes.push(spot);
+    }
+    return nodes;
+  }
+
+  /* A habit sits opposite one of the branch's stars, across the line its neighbours
+     make: the four then close a diamond, the shape a constellation actually has.
+     With too few stars to reflect against, it simply steps aside from the ray. */
+  function habitSpot(centre, angle, nodes, index, area, branch, habit) {
+    const placed = branch && branch.habitSky && branch.habitSky[habit.id];
+    if (placed) return { x: centre.x + placed.dx, y: centre.y + placed.dy };
+    const at = index + 1;
+    if (nodes.length >= at + 2) {
+      const before = nodes[at - 1];
+      const star = nodes[at];
+      const after = nodes[at + 1];
+      const midX = (before.x + after.x) / 2;
+      const midY = (before.y + after.y) / 2;
+      return { x: midX * 2 - star.x, y: midY * 2 - star.y };   // mirrored across the axis
+    }
+    const side = index % 2 ? -1 : 1;
+    const reach = BRANCH_MOON + Math.floor(index / 2) * 22;
+    return alongRay(centre, angle + side * 0.85, reach, area);
+  }
+
+  /* the ray itself, dimmed by the pulse of its moons: lit while someone walks it */
+  /* Move the segments of one branch onto the positions given, without rebuilding
+     them: the chain simulation calls this on every frame. */
+  function setRaySegments(projectId, index, centre, nodes) {
+    const segs = skyBranches.querySelectorAll('[data-project="' + projectId
+      + '"][data-branch="' + index + '"]');
+    let from = centre;
+    for (let i = 0; i < segs.length && i < nodes.length; i++) {
+      segs[i].setAttribute("x1", from.x);
+      segs[i].setAttribute("y1", from.y);
+      segs[i].setAttribute("x2", nodes[i].x);
+      segs[i].setAttribute("y2", nodes[i].y);
+      from = nodes[i];
+    }
+  }
+
+  /* the two sides that turn a lone habit star into the fourth corner of a diamond */
+  function habitFacets(part, projectId, index) {
+    let markup = "";
+    for (let h = 0; h < part.moonSpots.length; h++) {
+      const at = h + 1;
+      if (part.nodes.length < at + 2) continue;
+      const spot = part.moonSpots[h];
+      markup += '<polyline class="facet" data-project="' + projectId + '" data-facet="'
+        + index + "-" + h + '" points="' + part.nodes[at - 1].x + "," + part.nodes[at - 1].y
+        + " " + spot.x + "," + spot.y + " " + part.nodes[at + 1].x + "," + part.nodes[at + 1].y
         + '" vector-effect="non-scaling-stroke"/>';
     }
-    skyLinks.innerHTML = markup;
+    return markup;
   }
 
-  function syncSkyMode() {
-    document.getElementById("skyAxes").hidden = !skyAligned;
-    document.getElementById("skyModeLabel").textContent =
-      translate(skyAligned ? "skyAligned" : "skyFree");
-  }
-
-  /* Tidying the sky moves the stars that are already there rather than drawing
-     new ones: the rearrangement is the whole point, and it has to be watchable. */
-  function layoutStars() {
-    const stars = skyCamera.querySelectorAll(".pstar");
-    const spots = {};
-    for (let i = 0; i < stars.length; i++) {
-      const project = findItem("projects", stars[i].dataset.id);
-      if (!project) continue;
-      const spot = starSpot(project, i, stars[i].classList.contains("is-dormant"));
-      stars[i].style.left = spot.x + "%";
-      stars[i].style.top = spot.y + "%";
-      spots[project.id] = spot;
+  /* The line between two steps already reached is lit: the course shows how far it
+     has actually been walked, not merely where it goes. The central star counts as
+     reached — it is where the walking started. */
+  function branchRay(centre, nodes, branch, projectId, index) {
+    if (!nodes.length) return "";
+    const pulse = branchPulse(branch);
+    const faint = pulse === null ? 0.34 : (0.12 + pulse * 0.42).toFixed(2);
+    const steps = branch.steps;
+    let markup = "";
+    let from = centre;
+    let reached = true;                       // the star itself is the first landfall
+    for (let i = 0; i < nodes.length; i++) {
+      const here = !!(steps[i] && steps[i].completedDate);
+      const lit = reached && here;
+      markup += '<line class="ray' + (lit ? " is-lit" : "") + '" data-project="' + projectId
+        + '" data-branch="' + index + '" data-seg="' + i + '"'
+        + ' x1="' + from.x + '" y1="' + from.y + '" x2="' + nodes[i].x + '" y2="' + nodes[i].y
+        + '" opacity="' + (lit ? 1 : faint) + '" vector-effect="non-scaling-stroke"/>';
+      from = nodes[i];
+      reached = here;
     }
-    renderLinks(spots);   // the constellations follow the stars they join
+    return markup;
   }
 
-  function createStar(project, stops, index) {
-    const progress = milestoneProgress(project);
+  function createBranchStar(project, step, spot) {
+    const dot = document.createElement("button");
+    dot.type = "button";
+    dot.className = step.completedDate ? "bstar is-done" : "bstar";
+    dot.style.left = spot.x + "%";
+    dot.style.top = spot.y + "%";
+    dot.style.setProperty("--mag", (spot.magnitude || 0.8).toFixed(2));
+    dot.setAttribute("aria-label", step.text || translate("stepPlaceholder"));
+    dot.title = step.text || "";
+    dot.addEventListener("click", function (event) {
+      event.stopPropagation();
+      if (Date.now() < nodeDragEnd) return;   // the click that ends a drag
+      toggleStep(project, step.id);
+      liveSky();
+    });
+    dot.addEventListener("pointerenter", function () { openStepCard(project, step, dot); });
+    dot.addEventListener("pointerleave", function () { closeStepCard(false); });
+    armNodeDrag(dot, project, function (dx, dy) {
+      step.dx = dx;
+      step.dy = dy;
+    });
+    return dot;
+  }
+
+  /* Any star of a constellation can be taken and put where it looks right. What is
+     stored is its offset from its objective, so the shape still travels as one. */
+  let nodeDragEnd = 0;
+  let nodeDragging = false;
+
+  function armNodeDrag(el, project, place) {
+    el.addEventListener("pointerdown", function (event) {
+      if (openProject) return;
+      event.stopPropagation();
+      try { el.setPointerCapture(event.pointerId); } catch (err) { /* pointer already gone */ }
+      const area = skyField.getBoundingClientRect();
+      const start = { x: event.clientX, y: event.clientY,
+        left: parseFloat(el.style.left), top: parseFloat(el.style.top) };
+      let moved = false;
+
+      const move = function (moveEvent) {
+        const dx = moveEvent.clientX - start.x;
+        const dy = moveEvent.clientY - start.y;
+        if (!moved && Math.abs(dx) + Math.abs(dy) < 4) return;
+        moved = true;
+        nodeDragging = true;
+        closeStepCard(true);        // the card belongs to a star standing still
+        el.classList.add("is-dragging");
+        const at = {
+          x: Math.max(1, Math.min(99, start.left + dx / area.width / sky.scale * 100)),
+          y: Math.max(1, Math.min(95, start.top + dy / area.height / sky.scale * 100))
+        };
+        el.style.left = at.x + "%";
+        el.style.top = at.y + "%";
+        place(at.x - project.sky.x, at.y - project.sky.y);
+        redrawRays(project);
+      };
+      const up = function () {
+        el.removeEventListener("pointermove", move);
+        el.removeEventListener("pointerup", up);
+        el.removeEventListener("pointercancel", up);
+        el.removeEventListener("lostpointercapture", up);
+        el.classList.remove("is-dragging");
+        nodeDragging = false;
+        if (!moved) return;
+        nodeDragEnd = Date.now() + 250;
+        saveState();
+      };
+      el.addEventListener("pointermove", move);
+      el.addEventListener("pointerup", up);
+      el.addEventListener("pointercancel", up);
+      el.addEventListener("lostpointercapture", up);
+    });
+  }
+
+  /* only the lines, so a star being dragged is not fought over by the layout */
+  function redrawRays(project) {
+    const area = skyField.getBoundingClientRect();
+    if (!area.width || !area.height) return;
+    const laid = layoutConstellation(project, project.sky, area);
+    for (let b = 0; b < laid.length; b++) {
+      setRaySegments(project.id, b, project.sky, laid[b].nodes);
+      for (let h = 0; h < laid[b].moonSpots.length; h++) {
+        const facet = skyBranches.querySelector('[data-project="' + project.id
+          + '"][data-facet="' + b + "-" + h + '"]');
+        const at = h + 1;
+        if (!facet || laid[b].nodes.length < at + 2) continue;
+        facet.setAttribute("points", laid[b].nodes[at - 1].x + "," + laid[b].nodes[at - 1].y
+          + " " + laid[b].moonSpots[h].x + "," + laid[b].moonSpots[h].y
+          + " " + laid[b].nodes[at + 1].x + "," + laid[b].nodes[at + 1].y);
+      }
+    }
+  }
+
+  /* Its brightness is what the phase of a moon used to say: kept every day, it burns;
+     let go, it barely shows. */
+  /* EDITING A STEP IN THE SKY — a plain click still ticks it, because that is the
+     move you make twenty times a day. Everything else waits on hover: the card
+     opens beside the star and stays while the pointer travels to it, so reaching it
+     never means crossing a gap that closes behind you. */
+  let stepCardFor = null;
+  let stepCardTimer = 0;
+
+  function openStepCard(project, step, star) {
+    if (nodeDragging) return;
+    if (stepCardFor === step.id) { clearTimeout(stepCardTimer); return; }
+    closeStepCard(true);
+    stepCardFor = step.id;
+    const card = document.createElement("div");
+    card.className = "scard";
+    const area = skyField.getBoundingClientRect();
+    const at = star.getBoundingClientRect();
+    card.style.left = (at.left + at.width / 2 - area.left) + "px";
+    card.style.top = (at.top + at.height / 2 - area.top + 16) + "px";
+
+    const name = document.createElement("input");
+    name.type = "text";
+    name.className = "scard__name";
+    name.maxLength = 200;
+    name.value = step.text || "";
+    name.placeholder = translate("stepPlaceholder");
+    name.addEventListener("input", function () {
+      step.text = name.value;
+      saveState();
+      star.title = step.text || "";
+    });
+
+    const when = document.createElement("button");
+    when.type = "button";
+    when.className = "scard__btn";
+    when.textContent = step.targetDate ? shortDateLabel(step.targetDate) : translate("stepTarget");
+    when.addEventListener("click", function () {
+      openCalendar({ projectId: project.id, stepId: step.id }, "step");
+    });
+
+    const drop = document.createElement("button");
+    drop.type = "button";
+    drop.className = "scard__btn scard__btn--del";
+    drop.setAttribute("aria-label", translate("deleteAria"));
+    drop.innerHTML = iconSvg('<polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>');
+    drop.addEventListener("click", function () {
+      closeStepCard(true);
+      removeStep(project, step.id);
+      liveSky();
+    });
+
+    card.append(name, when, drop);
+    card.addEventListener("pointerenter", function () { clearTimeout(stepCardTimer); });
+    card.addEventListener("pointerleave", function () { closeStepCard(false); });
+    skyField.appendChild(card);
+    requestAnimationFrame(function () { card.classList.add("is-open"); });
+  }
+
+  function closeStepCard(now) {
+    clearTimeout(stepCardTimer);
+    const shut = function () {
+      const card = skyField.querySelector(".scard");
+      if (card) card.remove();
+      stepCardFor = null;
+    };
+    if (now) shut();
+    else stepCardTimer = setTimeout(shut, 260);   // time to travel from star to card
+  }
+
+  function createHabitStar(habit, spot, project, branch) {
+    const star = document.createElement("span");
+    star.className = "bstar bmoon is-habit";
+    star.style.left = spot.x + "%";
+    star.style.top = spot.y + "%";
+    star.style.setProperty("--mag", (0.4 + habitPhase(habit) * 0.6).toFixed(2));
+    star.title = (habit.name || "") + " · " + Math.round(habitPhase(habit) * 100) + "%";
+    armNodeDrag(star, project, function (dx, dy) {
+      if (!branch.habitSky) branch.habitSky = {};
+      branch.habitSky[habit.id] = { dx: dx, dy: dy };
+    });
+    return star;
+  }
+
+
+  function createStar(project, index) {
+    const progress = stepProgress(project);
     const momentum = projectMomentum(project);
     const silence = projectSilence(project);
     const dormant = silence >= DORMANT_DAYS && !project.done;
-    const color = paletteColorAt(stops, progress);
-    const spot = starSpot(project, index, dormant);
+    const spot = project.sky;
 
     const star = document.createElement("button");
     star.type = "button";
@@ -9093,14 +11301,11 @@
     star.dataset.id = project.id;
     star.style.left = spot.x + "%";
     star.style.top = spot.y + "%";
-    star.style.setProperty("--star-color", color);
     star.style.setProperty("--star-size", (11 + (project.importance || 0) * 3.4) + "px");
     star.style.setProperty("--star-glow", momentum.toFixed(2));
     star.style.animationDuration = (7 - momentum * 4).toFixed(1) + "s";
 
     star.innerHTML = STAR_MARKUP;
-    star.querySelector(".pstar__arc").setAttribute("stroke-dashoffset",
-      (STAR_RING_LENGTH * (1 - progress)).toFixed(1));
 
     const name = document.createElement("span");
     name.className = "pstar__name";
@@ -9118,47 +11323,23 @@
     // diving in leaves the sky open underneath, so going back surfaces into it
     star.addEventListener("click", function () {
       if (Date.now() < starDragEnd) return;   // the click that ends a drag
-      if (linkMode) { pickForLink(project.id); return; }
       openProjectView(project.id);
     });
     return star;
   }
 
-  /* halo, ring and core; JS only writes the arc offset and the custom properties */
-  const STAR_RING_LENGTH = 100.5;   // 2 * PI * 16
+  /* halo and core; the trajectory is told by which stars are lit, not by a gauge */
   const STAR_MARKUP = '<span class="pstar__glow"></span>'
-    + '<svg class="pstar__ring" viewBox="0 0 36 36" aria-hidden="true">'
-    + '<circle class="pstar__track" cx="18" cy="18" r="16"/>'
-    + '<circle class="pstar__arc" cx="18" cy="18" r="16" stroke-dasharray="'
-    + STAR_RING_LENGTH + '"/></svg>'
     + '<span class="pstar__core"></span>';
 
   /* share of the trajectory reached, the start anchor not counting as a step */
-  function milestoneProgress(project) {
-    const milestones = project.milestones || [];
+  function stepProgress(project) {
+    const steps = allProjectSteps(project);
     let done = 0;
-    let total = 0;
-    for (let i = 1; i < milestones.length; i++) {
-      total++;
-      if (milestones[i].completedDate) done++;
+    for (let i = 0; i < steps.length; i++) {
+      if (steps[i].completedDate) done++;
     }
-    return total ? done / total : 0;
-  }
-
-  /* Where a star is drawn. Placed by hand normally; on the axes when the sky is
-     tidied; and pulled down to the dormant band when nothing has happened for a
-     month — the stored spot is left alone, so reviving it puts it back. */
-  function starSpot(project, index, dormant) {
-    if (dormant) return { x: project.sky.x, y: 87 + (index % 3) * 2 };
-    if (!skyAligned) return project.sky;
-    let x;
-    if (!project.targetDate) x = 92;                 // no horizon: parked at "someday"
-    else {
-      const days = Math.max(0, daysUntil(project.targetDate));
-      x = 9 + Math.min(1, Math.log(days + 1) / Math.log(366)) * 74;
-    }
-    // same importance and no date would stack them, so fan them out slightly
-    return { x: x, y: 64 - (project.importance || 0) * 9 + (index % 3 - 1) * 4 };
+    return steps.length ? done / steps.length : 0;
   }
 
   /* how alive a project is: what happened over the last three weeks, the most
@@ -9174,17 +11355,27 @@
     return Math.min(1, score / 3);
   }
 
-  /* every dated trace a project leaves: milestones reached, journal lines, steps ticked */
+  /* every dated trace a project leaves: steps reached, journal lines, tasks ticked */
   function activityDates(project) {
     const dates = [];
-    const milestones = project.milestones || [];
-    for (let i = 0; i < milestones.length; i++) {
-      if (milestones[i].completedDate) dates.push(milestones[i].completedDate);
+    const steps = allProjectSteps(project);
+    for (let i = 0; i < steps.length; i++) {
+      if (steps[i].completedDate) dates.push(steps[i].completedDate);
     }
     for (let i = 0; i < project.journal.length; i++) dates.push(project.journal[i].date);
-    const steps = projectTasks(project.id);
-    for (let i = 0; i < steps.length; i++) {
-      if (steps[i].doneDate) dates.push(steps[i].doneDate);
+    // a habit kept is work on the objective too, even between two steps
+    const branches = projectBranches(project);
+    for (let b = 0; b < branches.length; b++) {
+      const habits = branchHabits(branches[b]);
+      for (let h = 0; h < habits.length; h++) {
+        const kept = habits[h].completedDates || [];
+        for (let k = 0; k < kept.length; k++) dates.push(kept[k]);
+      }
+    }
+    // tasks the project spawned onto a day still count as movement
+    for (let i = 0; i < state.tasks.length; i++) {
+      const task = state.tasks[i];
+      if (task.projectId === project.id && task.doneDate) dates.push(task.doneDate);
     }
     return dates;
   }
@@ -9210,21 +11401,92 @@
      whole starfield slides instead, until the chosen star sits on the left (up top
      on a narrow screen) with the workspace opening in the space it just left. The
      star stays on screen the whole time, so nothing is ever lost sight of. */
-  const STAR_ZOOM = 1.18;
+  const STAR_ZOOM = 1.45;   // how much closer than wherever the wheel left the sky
+
+  /* THE CAMERA — one state for the whole sky. Panning by hand and diving onto a star
+     write the same three numbers, so the deep layers, which read those numbers to
+     place themselves, always travel with whatever moved the view. */
+  const ZOOM_MIN = 0.4;
+  const ZOOM_MAX = 2.4;
+  const SKY_REST = 0.8;         // the sky opens pulled back a little
+  const sky = { x: 0, y: 0, scale: SKY_REST };
+  const skyWant = { x: 0, y: 0, scale: SKY_REST };
+  let skyRest = SKY_REST;       // where the wheel left it, to come back to after a dive
+  let skyPlaced = false;
+  let skyRolling = 0;
+  let skyLayers = null;
+
+  /* The sky opens centred at rest zoom, but only the first time: coming back to a
+     map you have panned and left where it was is the whole point of placing stars. */
+  function placeCamera() {
+    if (skyPlaced) return;
+    const area = skyField.getBoundingClientRect();
+    if (!area.width) return;
+    skyPlaced = true;
+    sky.scale = skyWant.scale = skyRest;
+    sky.x = skyWant.x = area.width * (1 - skyRest) / 2;
+    sky.y = skyWant.y = area.height * (1 - skyRest) / 2;
+  }
+
+  /* Zoom around a point: whatever sits under it stays under it. Reading off the
+     aimed camera rather than the eased one keeps a fast wheel from fighting itself. */
+  function zoomSky(scale, px, py) {
+    const worldX = (px - skyWant.x) / skyWant.scale;
+    const worldY = (py - skyWant.y) / skyWant.scale;
+    skyRest = scale;
+    aimCamera(px - worldX * scale, py - worldY * scale, scale);
+  }
+
+  function applyCamera() {
+    skyCamera.style.transform = "translate(" + sky.x.toFixed(1) + "px,"
+      + sky.y.toFixed(1) + "px) scale(" + sky.scale.toFixed(3) + ")";
+    if (!skyLayers) skyLayers = skyDeep.querySelectorAll("[data-far]");
+    for (let i = 0; i < skyLayers.length; i++) {
+      const far = parseFloat(skyLayers[i].dataset.far);
+      // the further a layer, the less it answers: that difference is the depth
+      skyLayers[i].style.backgroundPosition =
+        (sky.x * far).toFixed(1) + "px " + (sky.y * far).toFixed(1) + "px";
+    }
+  }
+
+  function aimCamera(x, y, scale) {
+    skyWant.x = x;
+    skyWant.y = y;
+    skyWant.scale = scale;
+    if (!skyRolling) skyRolling = requestAnimationFrame(rollCamera);
+  }
+
+  function rollCamera() {
+    const ease = 0.13;
+    sky.x += (skyWant.x - sky.x) * ease;
+    sky.y += (skyWant.y - sky.y) * ease;
+    sky.scale += (skyWant.scale - sky.scale) * ease;
+    applyCamera();
+    if (Math.abs(skyWant.x - sky.x) + Math.abs(skyWant.y - sky.y) > 0.4
+        || Math.abs(skyWant.scale - sky.scale) > 0.002) {
+      skyRolling = requestAnimationFrame(rollCamera);
+    } else {
+      sky.x = skyWant.x;
+      sky.y = skyWant.y;
+      sky.scale = skyWant.scale;
+      applyCamera();
+      skyRolling = 0;
+    }
+  }
 
   function focusStar(project) {
     markFocusedStar(project.id);
-    const star = skyCamera.querySelector('.pstar[data-id="' + project.id + '"]');
-    if (!star) return;
     const area = skyField.getBoundingClientRect();
-    const x = parseFloat(star.style.left) / 100 * area.width;
-    const y = parseFloat(star.style.top) / 100 * area.height;
+    if (!area.width) return;
+    const x = project.sky.x / 100 * area.width;
+    const y = project.sky.y / 100 * area.height;
     // the panel takes the right half, or the bottom of a narrow screen
     const narrow = window.matchMedia("(max-width: 860px)").matches;
-    const restX = narrow ? area.width * 0.5 : area.width * 0.2;
-    const restY = narrow ? area.height * 0.17 : area.height * 0.42;
-    skyCamera.style.transform = "translate(" + Math.round(restX - x * STAR_ZOOM) + "px, "
-      + Math.round(restY - y * STAR_ZOOM) + "px) scale(" + STAR_ZOOM + ")";
+    const restX = narrow ? area.width * 0.5 : area.width * 0.22;
+    const restY = narrow ? area.height * 0.17 : area.height * 0.44;
+    // the dive is relative: the sky the user zoomed to is the one it moves in on
+    const scale = Math.min(ZOOM_MAX, skyRest * STAR_ZOOM);
+    aimCamera(restX - x * scale, restY - y * scale, scale);
   }
 
   function markFocusedStar(projectId) {
@@ -9236,7 +11498,8 @@
   }
 
   function resetCamera() {
-    skyCamera.style.transform = "";
+    const area = skyField.getBoundingClientRect();
+    zoomSky(skyRest, area.width / 2, area.height / 2);   // pull back, keep the place
     skyView.classList.remove("is-diving");
     const stars = skyCamera.querySelectorAll(".pstar");
     for (let i = 0; i < stars.length; i++) stars[i].classList.remove("is-focused");
@@ -9248,20 +11511,102 @@
     if (project && !skyView.hidden) focusStar(project);
   });
 
-  // clicking the empty sky drops the pending link, or surfaces back out of the project
+  // clicking the empty sky surfaces back out of the project
   skyField.addEventListener("click", function (event) {
     if (event.target.closest(".pstar")) return;
-    if (linkFrom) { linkFrom = null; markLinkPending(); return; }
+    if (Date.now() < skyPanEnd) return;      // the click that ends a pan
     if (openProject) closeProjectView();
   });
 
-  /* Drag a star anywhere in the free sky; the tidied sky is arranged, not moved. */
+  /* PANNING — the sky has no edges. Taking hold of the empty black and pulling moves
+     the camera, and everything reads that camera: the constellations at full rate,
+     the deep sheets each at their own. Letting go, it glides on a little. */
+  let skyPanEnd = 0;
+
+  /* A wheel event carries no word on what made it. Two fingers on a trackpad and a
+     mouse wheel arrive the same way, and every rule for telling them apart reads the
+     shape of the numbers: notches, round steps, a sideways amount. They all break on
+     the same case — a straight vertical push lands on round numbers with nothing
+     sideways in it, which is exactly what a notch looks like, and the turn that
+     follows arrives in the middle of a zoom that should never have started.
+
+     So we stop guessing and take the convention every canvas tool uses: the wheel
+     moves the sky, ctrl (or cmd) with it pulls the sky closer. A pinch on a trackpad
+     already reaches the page as ctrl+wheel, so it zooms without asking for anything. */
+  skyField.addEventListener("wheel", function (event) {
+    if (openProject) return;                 // a dive owns the camera
+    event.preventDefault();
+    if (!event.ctrlKey && !event.metaKey) {
+      sky.x = skyWant.x = sky.x - event.deltaX;
+      sky.y = skyWant.y = sky.y - event.deltaY;
+      applyCamera();
+      return;
+    }
+    const area = skyField.getBoundingClientRect();
+    // a line-mode wheel reports notches where a trackpad reports pixels
+    const amount = event.deltaMode === 1 ? event.deltaY * 16 : event.deltaY;
+    const next = Math.max(ZOOM_MIN, Math.min(ZOOM_MAX,
+      skyWant.scale * Math.pow(0.998, amount)));
+    zoomSky(next, event.clientX - area.left, event.clientY - area.top);
+  }, { passive: false });
+
+  skyField.addEventListener("pointerdown", function (event) {
+    if (event.target.closest(".pstar, .bstar")) return;
+    event.preventDefault();                  // no native drag to steal the pointer
+    const from = { x: event.clientX, y: event.clientY, camX: sky.x, camY: sky.y };
+    let panned = false;
+    let last = { x: event.clientX, y: event.clientY, at: Date.now() };
+    const drift = { x: 0, y: 0 };
+    try { skyField.setPointerCapture(event.pointerId); } catch (err) { /* pointer already gone */ }
+
+    const move = function (moveEvent) {
+      const dx = moveEvent.clientX - from.x;
+      const dy = moveEvent.clientY - from.y;
+      if (!panned && Math.abs(dx) + Math.abs(dy) < 5) return;
+      panned = true;
+      skyField.classList.add("is-panning");
+      const now = Date.now();
+      const span = Math.max(16, now - last.at);
+      drift.x = (moveEvent.clientX - last.x) / span * 16;
+      drift.y = (moveEvent.clientY - last.y) / span * 16;
+      last = { x: moveEvent.clientX, y: moveEvent.clientY, at: now };
+      sky.x = from.camX + dx;
+      sky.y = from.camY + dy;
+      skyWant.x = sky.x;
+      skyWant.y = sky.y;
+      applyCamera();
+    };
+    const up = function (endEvent) {
+      skyField.removeEventListener("pointermove", move);
+      skyField.removeEventListener("pointerup", up);
+      skyField.removeEventListener("pointercancel", up);
+      skyField.removeEventListener("lostpointercapture", up);
+      skyField.classList.remove("is-panning");
+      if (!panned) return;
+      skyPanEnd = Date.now() + 250;
+      // a pointer taken away is not a flick: stop where it stands rather than
+      // gliding on from a gesture the user never finished
+      if (endEvent && endEvent.type !== "pointerup") {
+        aimCamera(sky.x, sky.y, sky.scale);
+        return;
+      }
+      // a flick keeps going a moment, the way a star chart does under the hand
+      aimCamera(sky.x + drift.x * 9, sky.y + drift.y * 9, sky.scale);
+    };
+    skyField.addEventListener("pointermove", move);
+    skyField.addEventListener("pointerup", up);
+    // A pointer can be taken away without ever sending pointerup: the cursor
+    // leaves the window, a native drag starts, a touch is interrupted. Without
+    // these the gesture never ends and the sky follows a mouse nobody holds.
+    skyField.addEventListener("pointercancel", up);
+    skyField.addEventListener("lostpointercapture", up);
+  });
+
+  /* Drag a star anywhere: where it sits is the map the user drew. */
   function armStarDrag(star, project) {
     star.addEventListener("pointerdown", function (event) {
-      // the tidied sky is arranged, a sunk star is not where it was put, and a
-      // dive has the camera moving under us
-      if (skyAligned || openProject || star.classList.contains("is-dormant")) return;
-      star.setPointerCapture(event.pointerId);
+      if (openProject) return;   // a dive has the camera moving under us
+      try { star.setPointerCapture(event.pointerId); } catch (err) { /* pointer already gone */ }
       const area = skyField.getBoundingClientRect();
       const start = { x: event.clientX, y: event.clientY, sx: project.sky.x, sy: project.sky.y };
       let moved = false;
@@ -9272,21 +11617,32 @@
         if (!moved && Math.abs(dx) + Math.abs(dy) < 4) return;   // a plain click stays a click
         moved = true;
         star.classList.add("is-dragging");
-        project.sky.x = Math.max(3, Math.min(97, start.sx + dx / area.width * 100));
-        project.sky.y = Math.max(4, Math.min(80, start.sy + dy / area.height * 100));
+        project.sky.x = Math.max(3, Math.min(97,
+          start.sx + dx / area.width / sky.scale * 100));
+        project.sky.y = Math.max(4, Math.min(80,
+          start.sy + dy / area.height / sky.scale * 100));
         star.style.left = project.sky.x + "%";
         star.style.top = project.sky.y + "%";
+        // built from where the shape still is, not from where the star has gone:
+        // that gap is the whole point of the string
+        if (!skyChain) startChain(project, { x: start.sx, y: start.sy }, true);
+        aimChain(project.sky);
       };
       const up = function () {
         star.removeEventListener("pointermove", move);
         star.removeEventListener("pointerup", up);
+        star.removeEventListener("pointercancel", up);
+        star.removeEventListener("lostpointercapture", up);
         star.classList.remove("is-dragging");
         if (!moved) return;
         starDragEnd = Date.now() + 250;
+        if (skyChain) skyChain.held = false;   // let it swing itself to a stop
         saveState();
       };
       star.addEventListener("pointermove", move);
       star.addEventListener("pointerup", up);
+      star.addEventListener("pointercancel", up);
+      star.addEventListener("lostpointercapture", up);
     });
   }
 
@@ -9295,59 +11651,9 @@
      arrival before the stars get there. */
   const STAR_MOVE_MS = 560;   // matches the left/top transition on .pstar
 
-  function pickForLink(projectId) {
-    if (!linkFrom || linkFrom === projectId) {
-      linkFrom = linkFrom === projectId ? null : projectId;
-      markLinkPending();
-      return;
-    }
-    toggleLink(linkFrom, projectId);
-    linkFrom = null;
-    renderSky();
-  }
 
-  function toggleLink(a, b) {
-    for (let i = 0; i < state.links.length; i++) {
-      const link = state.links[i];
-      if ((link.a === a && link.b === b) || (link.a === b && link.b === a)) {
-        state.links.splice(i, 1);
-        saveState();
-        return;
-      }
-    }
-    state.links.push({ a: a, b: b });
-    saveState();
-  }
 
-  function markLinkPending() {
-    const stars = skyCamera.querySelectorAll(".pstar");
-    for (let i = 0; i < stars.length; i++) {
-      stars[i].classList.toggle("is-linking", stars[i].dataset.id === linkFrom);
-    }
-  }
 
-  function setLinkMode(on) {
-    linkMode = on;
-    linkFrom = null;
-    skyView.classList.toggle("is-linking", on);
-    skyHint.hidden = !on;
-    const button = document.getElementById("skyLink");
-    button.classList.toggle("is-on", on);
-    button.setAttribute("aria-pressed", on ? "true" : "false");
-    markLinkPending();
-  }
-
-  document.getElementById("skyLink").addEventListener("click", function () {
-    setLinkMode(!linkMode);
-  });
-
-  document.getElementById("skyMode").addEventListener("click", function () {
-    skyAligned = !skyAligned;
-    syncSkyMode();
-    skyLinks.style.opacity = "0";
-    layoutStars();
-    setTimeout(function () { skyLinks.style.opacity = ""; }, STAR_MOVE_MS);
-  });
 
   document.getElementById("skyAdd").addEventListener("click", function () {
     const project = newProject();
@@ -9380,10 +11686,8 @@
 
   document.getElementById("skyBack").addEventListener("click", closeSky);
   document.getElementById("skyBtn").addEventListener("click", openSky);
-
   document.addEventListener("keydown", function (event) {
     if (event.key !== "Escape") return;
-    if (linkMode) setLinkMode(false);
     else if (!projectView.hidden) closeProjectView();
     else if (!skyView.hidden) closeSky();
   });
@@ -9413,6 +11717,11 @@
     refreshDetailSource();   // refresh the note mark
   });
 
+  detailTrash.addEventListener("click", function () {
+    const item = currentDetailItem();
+    if (item) deleteTimelineMarker("events", item);   // it closes the editor first
+  });
+
   detailBell.addEventListener("click", function () {
     const item = currentDetailItem();
     if (!item) return;
@@ -9434,10 +11743,6 @@
     detailPin.classList.toggle("is-on", !!item.pinned);
   });
 
-  detailWhen.addEventListener("click", function () {
-    const item = currentDetailItem();
-    if (item) openCalendar(item.id, detailTarget.kind === "events" ? "events" : "tasks");
-  });
   detailIcon.addEventListener("click", openIconPickerForDetail);
 
   document.getElementById("subtaskForm").addEventListener("submit", function (event) {
@@ -9456,13 +11761,14 @@
     refreshDetailSource();
   });
 
-  document.getElementById("detailDelete").addEventListener("click", function () {
-    if (detailTarget.kind === "events") removeEvent(detailTarget.id);
-    else removeItem(detailTarget.kind, detailTarget.id);
-    closeDetail();   // deleting steps back out of the row
+  detailNoteToggle.addEventListener("click", function (event) {
+    event.preventDefault();
+    event.stopPropagation();
+    setInlineTaskNote(!inlineTaskNoteOpen);
   });
+
   document.addEventListener("keydown", function (event) {
-    if (event.key === "Escape" && openHost) closeDetail();
+    if (event.key === "Escape" && (openHost || openInlineProject)) closeAllInlineRows();
   });
 
   /* EVENTS — the calendar selects the day rendered by the timeline. */
@@ -9878,7 +12184,6 @@
       weekStart = shiftDateKey(drag.targetKey, -3);
       syncMonthToWeek();
       renderEventCal();
-      openTaskDay(drag.targetKey);
 
       const focus = ecalGrid.querySelector('.ecal__day.is-focus[data-key="' + drag.targetKey + '"]');
       if (!focus || !from || window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
@@ -10178,9 +12483,23 @@
   }
   function windowStartMs() { return timelineTime() - spanMs * nowAnchor; }
 
+  function onThreshold() {
+    return !!welcomeScreen && !welcomeScreen.dataset.gone;
+  }
+
+  /* Until the day's real sunrise and sunset come back, the cursor runs on these.
+     They are only ever used to place and colour the sun itself — the sunrise and
+     sunset markers stay away, since those carry a time and must not be invented. */
+  const CIVIL_RISE = 7 * 60;
+  const CIVIL_SET = 19 * 60;
+
   function fitTimelineWindow() {
     spanMs = DAY_MS;
-    if (sectionDay) { nowAnchor = .5; return; }
+    // On the threshold the rule is the only thing on screen, so the present sits
+    // dead centre and the sun is in view whatever the hour. Pinned to midnight
+    // the way the app frames it, an evening sun ends up squashed against the
+    // right edge and a small-hours one against the left.
+    if (sectionDay || onThreshold()) { nowAnchor = .5; return; }
     const start = new Date(todayKey() + "T00:00").getTime();
     nowAnchor = Math.max(0, Math.min(1, (Date.now() - start) / DAY_MS));
   }
@@ -10278,6 +12597,8 @@
     const marker = document.createElement("div");
     marker.className = "dtl__marker";
     marker.style.left = pct + "%";
+    // the threshold hangs its whole sunset on this dot, and needs to know which
+    marker.dataset.sun = captionKey === "sunriseLabel" ? "rise" : "set";
 
     const time = document.createElement("span");
     time.className = "dtl__marker-time";
@@ -10352,18 +12673,22 @@
         if (rise >= 0 && rise <= 100) markers.appendChild(sunMarker(sun.sunrise, "sunriseLabel", rise));
         if (set >= 0 && set <= 100) markers.appendChild(sunMarker(sun.sunset, "sunsetLabel", set));
       }
-      if (sectionDay) {
-        cursor.hidden = true;
-      } else {
-        updateCursor(cursor, srMin, ssMin);
-        cursor.hidden = false;
-      }
-    } else {
+    }
+
+    // the sun shows even before the real times are known: hiding it left the
+    // threshold with a rule and no sun on the first opening of any day
+    if (sectionDay) {
       cursor.hidden = true;
+    } else {
+      updateCursor(cursor,
+        sun ? toMinutes(sun.sunrise) : CIVIL_RISE,
+        sun ? toMinutes(sun.sunset) : CIVIL_SET);
+      cursor.hidden = false;
     }
 
     renderTimelineItems(windowStart);
     fieldWake();   // the block field carries the sun's light, so it repaints too
+    syncSceneHorizon();   // and the threshold's cloud hangs off the rule
   }
 
   function renderDailyTimeline() {
@@ -10491,7 +12816,25 @@
   let eventDragUntil = 0;
   const dtlTrashEl = document.getElementById("dtlTrash");
 
+  let trashTossTimer = null;
+
+  /* Going away while it was the live target means something was just dropped in
+     it — the one moment the bin actually swallows anything. So the lid takes it
+     and falls shut, and only then does the bin go. Catching it here rather than
+     at each of the four drag ends is what keeps them from drifting apart. */
   function showTimelineTrash(show, active) {
+    clearTimeout(trashTossTimer);
+    if (!show && dtlTrashEl.classList.contains("is-active")) {
+      dtlTrashEl.classList.remove("is-active");
+      dtlTrashEl.classList.add("is-tossing");
+      trashTossTimer = setTimeout(function () {
+        dtlTrashEl.classList.remove("is-tossing");
+        dtlTrashEl.hidden = true;
+        dtlTrashEl.setAttribute("aria-hidden", "true");
+      }, 620);
+      return;
+    }
+    dtlTrashEl.classList.remove("is-tossing");
     dtlTrashEl.hidden = !show;
     dtlTrashEl.classList.toggle("is-active", !!active);
     dtlTrashEl.setAttribute("aria-hidden", show ? "false" : "true");
@@ -10780,14 +13123,14 @@
           if (detailTarget.kind === "tasks" && detailTarget.id === task.id) closeDetail();
           renderList("tasks");
           renderDailyTimeline();
-          if (task.projectId) renderProjectSteps(findItem("projects", task.projectId));
+          if (task.projectId) refreshProjectSteps(findItem("projects", task.projectId));
           return;
         }
         task.notified = false;
         saveState();
         renderList("tasks");
         renderDailyTimeline();
-        if (task.projectId) renderProjectSteps(findItem("projects", task.projectId));
+        if (task.projectId) refreshProjectSteps(findItem("projects", task.projectId));
         ensureNotifyPermission();
       };
 
@@ -10867,10 +13210,10 @@
       if (isTask) {
         marker.className = "dtl__event dtl__task "
           + (data.done ? "is-done" : "is-" + eventStatus({ date: data.dueDate, time: time }));
-        const milestoneColor = milestoneTaskColor(data);
-        if (milestoneColor) {
-          marker.classList.add("dtl__task--milestone-linked");
-          marker.style.setProperty("--task-milestone-color", milestoneColor);
+        const stepColor = stepTaskColor(data);
+        if (stepColor) {
+          marker.classList.add("dtl__task--step-linked");
+          marker.style.setProperty("--task-step-color", stepColor);
         }
       } else {
         marker.className = "dtl__event is-" + eventStatus(data)
@@ -10927,8 +13270,8 @@
 
   let sectionDay = null;   // null means today
 
-  /* During a calendar drag only the calendar/timeline pair previews the next
-     day. The task flow waits for release, avoiding a vertical jump mid-gesture. */
+  /* The calendar and timeline travel together. The task flow is independent:
+     changing the day must never rebuild, reorder or fold its rows. */
   function previewTimelineDay(key) {
     sectionDay = key === todayKey() ? null : key;
     scrubOffset = 0;
@@ -10939,21 +13282,6 @@
 
   function showDay(key) {
     previewTimelineDay(key);
-    openTaskDay(key);
-  }
-
-  /* The grid drives the tasks too, but it does not filter them: the flow stays
-     whole and only unfolds the day picked, folding the days opened before it so
-     the run mirrors the grid instead of piling up. Today is never folded, so it
-     stays in sight alongside. The timeline switches to that complete day without
-     moving the task flow away from the calendar. */
-  function openTaskDay(key) {
-    const opened = Object.keys(collapsedGroups);
-    for (let i = 0; i < opened.length; i++) {
-      if (opened[i].indexOf("day:") === 0) delete collapsedGroups[opened[i]];
-    }
-    collapsedGroups["day:" + key] = false;
-    renderList("tasks");
   }
 
   /* An event written without a day stays without one: it waits over the rule of
@@ -11065,36 +13393,42 @@
   }
 
   /* inner SVG paths for a WMO weather code (0 clear … 95+ storm) */
-  function weatherGlyph(code) {
-    const sun = '<circle cx="12" cy="12" r="4"/><line x1="12" y1="3" x2="12" y2="5"/>'
-      + '<line x1="12" y1="19" x2="12" y2="21"/><line x1="3" y1="12" x2="5" y2="12"/>'
-      + '<line x1="19" y1="12" x2="21" y2="12"/><line x1="6" y1="6" x2="7.4" y2="7.4"/>'
-      + '<line x1="16.6" y1="16.6" x2="18" y2="18"/><line x1="6" y1="18" x2="7.4" y2="16.6"/>'
-      + '<line x1="16.6" y1="7.4" x2="18" y2="6"/>';
-    const cloud = '<path d="M7 18a4 4 0 0 1 0-8 5 5 0 0 1 9.5-1.4A3.6 3.6 0 0 1 18 18z"/>';
-    const partly = '<circle cx="8" cy="8" r="2.6"/><line x1="8" y1="3" x2="8" y2="4.2"/>'
-      + '<line x1="3.4" y1="8" x2="4.6" y2="8"/><line x1="4.8" y1="4.8" x2="5.6" y2="5.6"/>'
-      + '<path d="M9 19a3.5 3.5 0 0 1 0-7 4.5 4.5 0 0 1 8.5-1.2A3.2 3.2 0 0 1 18 19z"/>';
-    const rain = cloud + '<line x1="8" y1="20" x2="7" y2="22"/><line x1="12" y1="20" x2="11" y2="22"/>'
-      + '<line x1="16" y1="20" x2="15" y2="22"/>';
-    const snow = cloud + '<line x1="8" y1="20.5" x2="8" y2="20.51"/><line x1="12" y1="21" x2="12" y2="21.01"/>'
-      + '<line x1="16" y1="20.5" x2="16" y2="20.51"/>';
-    const storm = cloud + '<polyline points="12 19 10 22.5 13 22 11 25.5"/>';
-    const fog = '<line x1="4" y1="9" x2="20" y2="9"/><line x1="3" y1="13" x2="21" y2="13"/>'
-      + '<line x1="5" y1="17" x2="19" y2="17"/>';
+  /* Every sky is cut from the same three pieces — a sun, a cloud, and what falls
+     out of it — so the button can play one weather story over any of them and
+     still land back on the sky the day actually has. The code decides only which
+     pieces are up and where the sun sits; the stylesheet holds both, per code,
+     in custom properties the story's last keyframe reads back. That is what lets
+     a clear day borrow a cloud for four seconds and then give it back. */
+  const WX_PARTS =
+      '<g class="wx-sun"><circle cx="12" cy="12" r="4"/>'
+    + '<g class="wx-rays"><line x1="12" y1="3" x2="12" y2="5"/>'
+    + '<line x1="12" y1="19" x2="12" y2="21"/><line x1="3" y1="12" x2="5" y2="12"/>'
+    + '<line x1="19" y1="12" x2="21" y2="12"/><line x1="6" y1="6" x2="7.4" y2="7.4"/>'
+    + '<line x1="16.6" y1="16.6" x2="18" y2="18"/><line x1="6" y1="18" x2="7.4" y2="16.6"/>'
+    + '<line x1="16.6" y1="7.4" x2="18" y2="6"/></g></g>'
+    + '<g class="wx-cloud"><path d="M7 18a4 4 0 0 1 0-8 5 5 0 0 1 9.5-1.4A3.6 3.6 0 0 1 18 18z"/></g>'
+    + '<g class="wx-drops"><line x1="8" y1="20" x2="7" y2="22"/>'
+    + '<line x1="12" y1="20" x2="11" y2="22"/><line x1="16" y1="20" x2="15" y2="22"/></g>'
+    + '<g class="wx-flakes"><line x1="8" y1="20.5" x2="8" y2="20.51"/>'
+    + '<line x1="12" y1="21" x2="12" y2="21.01"/><line x1="16" y1="20.5" x2="16" y2="20.51"/></g>'
+    + '<g class="wx-bolt"><polyline points="12 19 10 22.5 13 22 11 25.5"/></g>'
+    + '<g class="wx-fogbars"><line x1="4" y1="9" x2="20" y2="9"/>'
+    + '<line x1="3" y1="13" x2="21" y2="13"/><line x1="5" y1="17" x2="19" y2="17"/></g>';
 
-    if (code === 0) return sun;
-    if (code <= 2) return partly;
-    if (code === 45 || code === 48) return fog;
-    if ((code >= 51 && code <= 67) || (code >= 80 && code <= 82)) return rain;
-    if ((code >= 71 && code <= 77) || code === 85 || code === 86) return snow;
-    if (code >= 95) return storm;
-    return cloud;
+  function weatherKind(code) {
+    if (code === 0) return "clear";
+    if (code <= 2) return "partly";
+    if (code === 45 || code === 48) return "fog";
+    if ((code >= 51 && code <= 67) || (code >= 80 && code <= 82)) return "rain";
+    if ((code >= 71 && code <= 77) || code === 85 || code === 86) return "snow";
+    if (code >= 95) return "storm";
+    return "cloud";
   }
 
   function weatherIcon(code) {
-    return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" '
-      + 'stroke-linecap="round" stroke-linejoin="round">' + weatherGlyph(code) + '</svg>';
+    return '<svg class="wx wx--' + weatherKind(code) + '" viewBox="0 0 24 24" fill="none" '
+      + 'stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">'
+      + WX_PARTS + '</svg>';
   }
 
   /* WEATHER GRAPH — today's hourly temperature as a line+area chart, with condition
@@ -11180,7 +13514,8 @@
       const gx = xAt(i);
       svg += '<svg x="' + (gx - 10).toFixed(1) + '" y="6" width="20" height="20" viewBox="0 0 24 24" '
            + 'fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" '
-           + 'stroke-linejoin="round" class="wx-glyph">' + weatherGlyph(codes[i]) + '</svg>';
+           + 'stroke-linejoin="round" class="wx wx-glyph wx--' + weatherKind(codes[i]) + '">'
+           + WX_PARTS + '</svg>';
       if (i % 6 === 0) svg += '<text class="wx-hour" x="' + gx.toFixed(1) + '" y="' + (H - 8) + '">' + i + 'h</text>';
     }
     svg += '<line class="wx-now" x1="' + nowX.toFixed(1) + '" y1="' + yTop + '" x2="' + nowX.toFixed(1) + '" y2="' + yBot + '"/>';
@@ -11286,11 +13621,29 @@
   const thinkingLinkHint = document.getElementById("thinkingLinkHint");
   const thinkingTrash = document.getElementById("thinkingTrash");
   const thinkingSelect = document.getElementById("thinkingSelect");
+  const thinkingLinkTool = document.getElementById("thinkingLinkTool");
   const thinkingSelectionActions = document.getElementById("thinkingSelectionActions");
   const thinkingSelectionCount = document.getElementById("thinkingSelectionCount");
   const thinkingSelectionCanvas = document.getElementById("thinkingSelectionCanvas");
-  const THINKING_BLOCK_TYPES = ["problem", "solution", "example", "idea", "question", "answer", "note", "task"];
-  const THINKING_ORGANIZATION_TYPES = ["canvas", "folder", "document"];
+  const thinkingToolSectionSwitch = document.getElementById("thinkingToolSectionSwitch");
+  const thinkingToolPanels = document.querySelectorAll("[data-thinking-tool-panel]");
+  /* Two closed families. A thinking block cycles among thinking blocks, a planning
+     block among planning blocks; nothing crosses, and a project is neither — it is
+     not something another block turns into. */
+  const THINKING_BLOCK_TYPES = ["problem", "solution", "example", "idea", "question",
+    "answer", "note", "journal"];
+  const THINKING_PLANNING_TYPES = ["task", "step", "event", "habit"];
+  const THINKING_ACTION_TYPES = ["task", "event", "habit", "step", "journal"];
+  const THINKING_FLOW_TYPES = ["loop", "condition"];
+
+  /* the list a block may cycle through, or null when it may not change at all */
+  function thinkingTypeFamily(type) {
+    if (THINKING_PLANNING_TYPES.indexOf(type) !== -1) return THINKING_PLANNING_TYPES;
+    if (THINKING_BLOCK_TYPES.indexOf(type) !== -1) return THINKING_BLOCK_TYPES;
+    return null;
+  }
+  const THINKING_ORGANIZATION_TYPES = ["canvas", "folder", "document", "planner"];
+  const THINKING_TOOL_SECTIONS = ["blocks", "organization", "planning"];
   const THINKING_WORLD_WIDTH = 20000;
   const THINKING_WORLD_HEIGHT = 12000;
   const THINKING_WORLD_X = 9000;
@@ -11299,6 +13652,7 @@
   const THINKING_STICK_SIDES = ["top", "right", "bottom", "left"];
   let openCanvasId = null;
   let thinkingLinkFrom = null;
+  let thinkingDragging = false;
   let thinkingCounter = 0;
   let thinkingLinkFrame = null;
   let thinkingCameraTimer = null;
@@ -11308,12 +13662,71 @@
   let thinkingCanvasAnimationTimer = null;
   let thinkingTrashTimer = null;
   let thinkingSelectionMode = false;
+  let thinkingLinkMode = false;
   let thinkingSelectionParentId = null;
   let thinkingSelectedIds = {};
   let thinkingSelectionClickSuppressed = false;
   let thinkingClipboard = null;
   let thinkingPasteCount = 0;
+  let thinkingToolContext = null;
+  let thinkingAvailableToolSections = THINKING_TOOL_SECTIONS.slice();
   const thinkingCanvasFoldLocks = {};
+
+  function setThinkingToolSection(section) {
+    if (thinkingAvailableToolSections.indexOf(section) === -1) {
+      section = thinkingAvailableToolSections[0] || "blocks";
+    }
+    const changed = thinkingToolSectionSwitch.dataset.thinkingToolSection !== section;
+    thinkingToolSectionSwitch.dataset.thinkingToolSection = section;
+    const key = section === "organization" ? "thinkingOrganization"
+      : section === "planning" ? "thinkingPlanningLabel" : "thinkingBlocksLabel";
+    const label = thinkingToolSectionSwitch.querySelector(".thinking-tools__section-label");
+    label.dataset.i18n = key;
+    label.textContent = translate(key);
+    for (let i = 0; i < thinkingToolPanels.length; i++) {
+      thinkingToolPanels[i].hidden = thinkingToolPanels[i].dataset.thinkingToolPanel !== section;
+    }
+    if (changed) {
+      thinkingToolSectionSwitch.classList.remove("is-switching");
+      requestAnimationFrame(function () {
+        thinkingToolSectionSwitch.classList.add("is-switching");
+      });
+    }
+  }
+
+  function cycleThinkingToolSection() {
+    const current = thinkingAvailableToolSections.indexOf(
+      thinkingToolSectionSwitch.dataset.thinkingToolSection);
+    setThinkingToolSection(thinkingAvailableToolSections[
+      (current + 1) % thinkingAvailableToolSections.length]);
+  }
+
+  function syncThinkingToolSections(canvasNode) {
+    const usefulSections = {};
+    for (let i = 0; i < thinkingToolPanels.length; i++) {
+      const tools = thinkingToolPanels[i].querySelectorAll(".thinking-tool[data-block-type]");
+      for (let j = 0; j < tools.length; j++) {
+        if (!tools[j].disabled) {
+          usefulSections[thinkingToolPanels[i].dataset.thinkingToolPanel] = true;
+          break;
+        }
+      }
+    }
+    const available = THINKING_TOOL_SECTIONS.filter(function (section) {
+      return usefulSections[section];
+    });
+    thinkingAvailableToolSections = available;
+    thinkingToolSectionSwitch.disabled = available.length < 2;
+
+    const context = canvasNode.id + ":" + canvasNode.type;
+    let section = thinkingToolSectionSwitch.dataset.thinkingToolSection;
+    if (thinkingToolContext !== context) {
+      section = canvasNode.type === "planner" ? "planning"
+        : canvasNode.type === "folder" ? "organization" : "blocks";
+      thinkingToolContext = context;
+    }
+    setThinkingToolSection(section);
+  }
 
   function isThinkingOrganization(block) {
     return !!block && THINKING_ORGANIZATION_TYPES.indexOf(block.type) !== -1;
@@ -11323,6 +13736,11 @@
     if (!isThinkingOrganization(parent) || !child) return false;
     if (parent.type === "folder") {
       return THINKING_ORGANIZATION_TYPES.indexOf(child.type) !== -1;
+    }
+    if (parent.type === "planner") {
+      return THINKING_ACTION_TYPES.indexOf(child.type) !== -1
+        || THINKING_FLOW_TYPES.indexOf(child.type) !== -1
+        || ["note", "text"].indexOf(child.type) !== -1;
     }
     return true;
   }
@@ -11455,6 +13873,76 @@
     return task;
   }
 
+  function createThinkingEvent(text) {
+    const item = {
+      id: thinkingId("e"), text: text || translate("blockEvent"), important: false,
+      icon: "calendar", date: null, time: null
+    };
+    state.events.push(item);
+    return item;
+  }
+
+
+  function createThinkingHabit(text) {
+    const item = {
+      id: thinkingId("h"), name: text || translate("blockHabit"), icon: "sun",
+      completedDates: []
+    };
+    state.habits.push(item);
+    return item;
+  }
+
+  function thinkingActionItem(block) {
+    if (!block) return null;
+    if (block.type === "task") return thinkingTaskItem(block);
+    if (block.type === "event") return block.eventId ? findItem("events", block.eventId) : null;
+    if (block.type === "habit") return block.habitId ? findItem("habits", block.habitId) : null;
+    return null;
+  }
+
+
+
+
+
+  function linkThinkingBlockToNewAction(block, text) {
+    let item = null;
+    if (block.type === "task") return linkThinkingBlockToNewTask(block, text);
+    if (block.type === "event") {
+      item = createThinkingEvent(text);
+      block.eventId = item.id;
+      block.text = item.text;
+    } else if (block.type === "habit") {
+      item = createThinkingHabit(text);
+      block.habitId = item.id;
+      block.text = item.name;
+    } else if (block.type === "step") {
+      block.text = text || "";              // a step block stands for itself
+      return null;
+    } else if (block.type === "journal") {
+      block.text = text || "";
+      if (!block.journalDate) block.journalDate = todayKey();
+      return null;
+    }
+    return item;
+  }
+
+  function syncThinkingActionText(block) {
+    const item = thinkingActionItem(block);
+    if (!item) return null;
+    if (block.type === "habit") item.name = block.text;
+    else item.text = block.text;
+    return item;
+  }
+
+  function refreshThinkingActionViews() {
+    renderList("tasks");
+    renderList("projects");
+    renderHabits();
+    renderEventCal();
+    renderDailyTimeline();
+    renderUndated();
+  }
+
   function removeThinkingTaskItem(block) {
     const owner = thinkingTaskOwner(block);
     if (!owner) return null;
@@ -11539,22 +14027,46 @@
   }
 
   function changeThinkingBlockType(canvas, block, nextType) {
-    const linkedTask = thinkingTaskItem(block);
+    // Changing a planning block's type moves the thing it stands for: the text
+    // travels and the old object goes, or the app would keep a twin nobody sees.
+    if (block.type === "journal" && nextType !== "journal") delete block.journalDate;
+    if (THINKING_PLANNING_TYPES.indexOf(block.type) !== -1 && block.type !== nextType) {
+      const leaving = thinkingActionItem(block);
+      if (leaving) {
+        block.text = block.type === "habit" ? (leaving.name || "") : (leaving.text || "");
+      }
+      dropPlanningItem(block);
+      if (block.type === "step") delete block.stepDone;
+    }
+    const linkedAction = thinkingActionItem(block);
     const linkedNote = thinkingTaskForNote(canvas, block);
     const parent = findThinkingParent(canvas, block.parentId);
+    if (parent && parent.type === "planner"
+        && !thinkingOrganizationAllows(parent, { type: nextType })) return;
+    if (parent && THINKING_FLOW_TYPES.indexOf(parent.type) !== -1
+        && THINKING_ACTION_TYPES.indexOf(nextType) === -1) return;
     if (nextType === "task" && parent && parent.type === "task" && parent.subtaskId) return;
-    if (linkedTask) block.text = linkedTask.text || "";
+    if (linkedAction) {
+      block.text = block.type === "habit" ? linkedAction.name || "" : linkedAction.text || "";
+    }
     else if (linkedNote) block.text = linkedNote.notes || "";
-    const wasTask = block.type === "task";
+    const wasAction = THINKING_ACTION_TYPES.indexOf(block.type) !== -1;
+    delete block.taskId;
+    delete block.subtaskId;
+    delete block.eventId;
+    delete block.habitId;
+    delete block.stepId;
+    delete block.stepProjectId;
+    delete block.journalEntryId;
+    delete block.journalProjectId;
+    delete block.projectId;   // it is no longer a canvas a project can hold
     block.type = nextType;
-    if (nextType === "task") {
-      linkThinkingBlockToNewTask(block, block.text);
+    if (THINKING_ACTION_TYPES.indexOf(nextType) !== -1) {
+      linkThinkingBlockToNewAction(block, block.text);
       if (parent && parent.type === "task") {
         syncThinkingBlockTaskPlacement(canvas, block, parent);
       }
     } else {
-      delete block.taskId;
-      delete block.subtaskId;
       if (nextType === "note" && parent && parent.type === "task") {
         const task = thinkingTaskItem(parent);
         if (task) {
@@ -11564,9 +14076,9 @@
       }
     }
     touchCanvas(canvas);
-    if (wasTask || nextType === "task"
+    if (wasAction || THINKING_ACTION_TYPES.indexOf(nextType) !== -1
         || (nextType === "note" && parent && parent.type === "task")) {
-      refreshThinkingTaskViews();
+      refreshThinkingActionViews();
     }
     renderThinkingCanvas(canvas);
   }
@@ -11620,11 +14132,24 @@
 
   function setThinkingSelectionMode(active) {
     thinkingSelectionMode = !!active;
+    if (thinkingSelectionMode) thinkingLinkMode = false;
     thinkingLinkFrom = null;
     clearThinkingLinkPreview();
     if (!thinkingSelectionMode) clearThinkingSelection();
     syncThinkingLinkMode();
     syncThinkingSelection();
+  }
+
+  function setThinkingLinkToolMode(active) {
+    thinkingLinkMode = !!active;
+    thinkingLinkFrom = null;
+    clearThinkingLinkPreview();
+    if (thinkingLinkMode) {
+      thinkingSelectionMode = false;
+      clearThinkingSelection();
+    }
+    syncThinkingSelection();
+    syncThinkingLinkMode();
   }
 
   function thinkingShortcutIsEditing(target) {
@@ -11684,10 +14209,12 @@
     for (let i = 0; i < canvas.blocks.length; i++) {
       if (included[canvas.blocks[i].id]) {
         const snapshot = JSON.parse(JSON.stringify(canvas.blocks[i]));
-        const task = snapshot.type === "task" ? thinkingTaskItem(canvas.blocks[i]) : null;
+        const action = THINKING_ACTION_TYPES.indexOf(snapshot.type) !== -1
+          ? thinkingActionItem(canvas.blocks[i]) : null;
         const noteTask = snapshot.type === "note"
           ? thinkingTaskForNote(canvas, canvas.blocks[i]) : null;
-        if (task) snapshot.text = task.text || "";
+        if (action) snapshot.text = snapshot.type === "habit"
+          ? action.name || "" : action.text || "";
         if (noteTask) snapshot.text = noteTask.notes || "";
         blocks.push(snapshot);
       }
@@ -11803,11 +14330,14 @@
         delete clone.stuckToId;
         delete clone.stuckSide;
       }
-      if (clone.type === "task") {
+      if (THINKING_ACTION_TYPES.indexOf(clone.type) !== -1) {
         delete clone.taskId;
         delete clone.subtaskId;
-        linkThinkingBlockToNewTask(clone, clone.text);
+        delete clone.eventId;
+        delete clone.habitId;
+        linkThinkingBlockToNewAction(clone, clone.text);
       }
+      if (clone.type === "loop") delete clone.loopRun;
       canvas.blocks.push(clone);
       pastedBlocks.push(clone);
     }
@@ -11850,7 +14380,7 @@
     thinkingPasteCount++;
     setThinkingSelectionMode(true);
     touchCanvas(canvas);
-    refreshThinkingTaskViews();
+    refreshThinkingActionViews();
     renderThinkingCanvas(canvas);
     if (target.type === "folder") {
       requestAnimationFrame(function () {
@@ -12012,6 +14542,7 @@
         if (!moved && Math.hypot(dx, dy) < 4) return;
         moveEvent.preventDefault();
         if (!moved) {
+          thinkingDragging = true;
           stickSnapshot = thinkingStickSnapshot(canvas);
           const detached = {};
           for (let i = 0; i < selected.length; i++) detached[selected[i].id] = true;
@@ -12056,6 +14587,7 @@
             starts[i].block.y = starts[i].y;
           }
         }
+        thinkingDragging = false;
         if (!moved) return;
         if (cancelled) restoreThinkingStickSnapshot(canvas, stickSnapshot);
         if (deleted) {
@@ -12149,18 +14681,33 @@
     if (type === "canvas") return "canvas";
     if (type === "folder") return "folder";
     if (type === "document") return "document";
+    if (type === "planner") return "planner";
     if (type === "solution") return "bulb";
     if (type === "answer") return "reply";       // shares the colour, not the glyph
     if (type === "example") return "flag";
     if (type === "question") return "compass";
     if (type === "idea") return "spark";
     if (type === "task") return "check";
+    if (type === "event") return "calendar";
+    if (type === "habit") return "habit";
+    if (type === "step") return "check";
+    if (type === "journal") return "note";
+    if (type === "loop") return "loop";
+    if (type === "condition") return "condition";
     if (type === "note") return "note";
     if (type === "text") return "lines";
     return "spark";
   }
 
   function thinkingIconSvg(name) {
+    if (name === "planner") {
+      return '<svg viewBox="0 0 48 48" fill="none" aria-hidden="true">'
+        + '<rect x="6" y="8" width="36" height="34" rx="7" fill="currentColor" opacity=".15"/>'
+        + '<rect x="8" y="10" width="32" height="29" rx="5" stroke="currentColor" stroke-width="2.6"/>'
+        + '<path d="M15 6v8M33 6v8M8 18h32" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/>'
+        + '<path d="M16 25h6v6h-6zM27 25h6M27 31h6" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>'
+        + '</svg>';
+    }
     if (name === "folder") {
       return '<svg viewBox="0 0 48 48" fill="none" aria-hidden="true">'
         + '<path d="M5 13a4 4 0 0 1 4-4h10l4.5 4.5H39a4 4 0 0 1 4 4V38a4 4 0 0 1-4 4H9a4 4 0 0 1-4-4Z" fill="currentColor" opacity=".46"/>'
@@ -12186,27 +14733,51 @@
     }
     let paths = "";
     if (name === "target") {
-      paths = '<circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/>'
-        + '<path d="m15 9 5-5M16 4h4v4"/>';
+      paths = '<g class="ti-rings"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/></g>'
+        + '<g class="ti-arrow"><path d="m15 9 5-5M16 4h4v4"/></g>';
     } else if (name === "spark") {
-      paths = '<path d="m12 2 1.6 6.4L20 10l-6.4 1.6L12 18l-1.6-6.4L4 10l6.4-1.6Z"/>'
-        + '<path d="m19 16 .6 2.4L22 19l-2.4.6L19 22l-.6-2.4L16 19l2.4-.6Z"/>';
+      paths = '<g class="ti-star-big"><path d="m12 2 1.6 6.4L20 10l-6.4 1.6L12 18l-1.6-6.4L4 10l6.4-1.6Z"/></g>'
+        + '<g class="ti-star-mid"><path vector-effect="non-scaling-stroke" d="m19 16 .6 2.4L22 19l-2.4.6L19 22l-.6-2.4L16 19l2.4-.6Z"/></g>'
+        + '<g class="ti-star-new"><path vector-effect="non-scaling-stroke" d="m19 16 .6 2.4L22 19l-2.4.6L19 22l-.6-2.4L16 19l2.4-.6Z"/></g>';
     } else if (name === "bulb") {
-      paths = '<path d="M9 18h6M10 21h4M8.5 15.5C7 14.3 6 12.5 6 10.5a6 6 0 1 1 12 0c0 2-1 3.8-2.5 5-.6.5-.8 1-.8 1.5H9.3c0-.5-.2-1-.8-1.5Z"/>';
+      paths = '<g class="ti-rays"><path d="M12 1.5v1.6M4.4 4.4l1.1 1.1M19.6 4.4l-1.1 1.1M2 11h1.6M20.4 11H22"/></g>'
+        + '<g class="ti-glass"><path d="M8.5 15.5C7 14.3 6 12.5 6 10.5a6 6 0 1 1 12 0c0 2-1 3.8-2.5 5-.6.5-.8 1-.8 1.5H9.3c0-.5-.2-1-.8-1.5Z"/></g>'
+        + '<g class="ti-wire"><path stroke-width="1.15" d="M10.5 15.4v-2.5M13.5 15.4v-2.5'
+        + 'M10.5 12.9l.75-1.6.75 1.6.75-1.6.75 1.6"/></g>'
+        + '<path d="M9 18h6M10 21h4"/>';
     } else if (name === "flag") {
-      paths = '<path d="M6 21V4m0 1h11l-2 3 2 3H6"/>';
+      paths = '<path d="M6 21V4"/><g class="ti-flag"><path d="M6 5h11l-2 3 2 3H6"/></g>';
     } else if (name === "compass") {
-      paths = '<circle cx="12" cy="12" r="9"/><path d="m15.5 8.5-2 5-5 2 2-5Z"/>';
+      paths = '<circle cx="12" cy="12" r="9"/><g class="ti-needle"><path d="m15.5 8.5-2 5-5 2 2-5Z"/></g>';
     } else if (name === "check") {
       paths = '<rect x="3" y="3" width="18" height="18" rx="5"/>'
         + '<path d="m7 12 3 3 7-7"/>';
+    } else if (name === "calendar") {
+      paths = '<rect x="3" y="5" width="18" height="16" rx="4"/>'
+        + '<path d="M7 3v4M17 3v4M3 10h18M8 14h3v3H8Z"/>';
+    } else if (name === "project") {
+      paths = '<path d="M3 7a3 3 0 0 1 3-3h4l2 3h6a3 3 0 0 1 3 3v8a3 3 0 0 1-3 3H6a3 3 0 0 1-3-3Z"/>'
+        + '<path d="m8 15 2 2 5-5"/>';
+    } else if (name === "habit") {
+      paths = '<path d="M19 5c-8 0-13 4-13 10 0 3 2 5 5 5 6 0 9-7 8-15Z"/>'
+        + '<path d="M5 21c2-6 6-9 11-12"/>';
+    } else if (name === "loop") {
+      paths = '<path d="M18 7a8 8 0 1 0 1 9"/><path d="M18 3v4h-4"/>'
+        + '<path d="M7 9v6M7 9h3M7 15h3"/>';
+    } else if (name === "condition") {
+      paths = '<path d="M5 4v16M5 4h14M5 20h14"/>'
+        + '<path d="m10 12 2 2 4-4"/>';
     } else if (name === "reply") {
-      paths = '<path d="M10 8V4L3 11l7 7v-4c4.5 0 7.6 1.5 10 5-1-5.5-4-10-10-11Z"/>';
+      paths = '<g class="ti-reply"><path d="M10 8V4L3 11l7 7v-4c4.5 0 7.6 1.5 10 5-1-5.5-4-10-10-11Z"/></g>';
     } else if (name === "note") {
-      paths = '<path d="M6 3h8l4 4v14H6Z"/><path d="M14 3v4h4"/>'
-        + '<path d="M9.5 12h5M9.5 16h3"/>';
+      paths = '<g class="ti-sheet" vector-effect="non-scaling-stroke">'
+        + '<path vector-effect="non-scaling-stroke" d="M6 3h8l4 4v14H6Z"/>'
+        + '<path vector-effect="non-scaling-stroke" d="M14 3v4h4"/>'
+        + '<path vector-effect="non-scaling-stroke" d="M9.5 12h5M9.5 16h3"/></g>';
     } else if (name === "lines") {
-      paths = '<path d="M5 7h14M5 12h10M5 17h6"/>';
+      paths = '<path class="ti-line ti-line--1" vector-effect="non-scaling-stroke" d="M5 7h14"/>'
+        + '<path class="ti-line ti-line--2" vector-effect="non-scaling-stroke" d="M5 12h10"/>'
+        + '<path class="ti-line ti-line--3" vector-effect="non-scaling-stroke" d="M5 17h6"/>';
     } else {
       paths = '<path d="M20.8 4.7a5.5 5.5 0 0 0-7.8 0L12 5.8l-1.1-1.1a5.5 5.5 0 0 0-7.8 7.8L12 21l8.8-8.5a5.5 5.5 0 0 0 0-7.8Z"/>';
     }
@@ -12215,6 +14786,7 @@
   }
 
   function openThinking() {
+    setThinkingLinkToolMode(false);
     setThinkingSelectionMode(false);
     thinkingLinkFrom = null;
     thinkingView.hidden = false;
@@ -12237,10 +14809,12 @@
 
   function closeThinking() {
     hideThinkingTrash();
+    setThinkingLinkToolMode(false);
     setThinkingSelectionMode(false);
     thinkingView.classList.remove("is-open");
     openCanvasId = null;
     viewedCanvasId = null;
+    thinkingToolContext = null;
     thinkingLinkFrom = null;
     setTimeout(function () {
       thinkingView.hidden = true;
@@ -12248,12 +14822,26 @@
     }, 280);
   }
 
+  /* Take the object a planning block stood for out of the app, quietly: its text
+     is already on its way into the block's next shape, so this is a move. */
+  function dropPlanningItem(block) {
+    if (block.type === "step") return;   // it stands for itself, nothing to remove
+    const lists = { task: "tasks", event: "events", habit: "habits" };
+    const listName = lists[block.type];
+    const id = block.type === "task" ? block.taskId
+      : block.type === "event" ? block.eventId : block.habitId;
+    if (!listName || !id || block.subtaskId) return;   // a subtask belongs to its task
+    const items = state[listName];
+    for (let i = 0; i < items.length; i++) {
+      if (items[i].id === id) { items.splice(i, 1); break; }
+    }
+  }
   function makeThinkingCanvas() {
     const now = Date.now();
     const canvas = {
       id: thinkingId("c"),
       type: "canvas",
-      thinkingTreeVersion: 11,
+      thinkingTreeVersion: 16,
       parentId: null,
       title: "",
       text: "",
@@ -12273,11 +14861,13 @@
     state.canvases.unshift(canvas);
     saveState();
     openThinkingCanvas(canvas.id);
+    return canvas;
   }
 
   function openThinkingCanvas(id) {
     const canvas = findCanvas(id);
     if (!canvas) return;
+    setThinkingLinkToolMode(false);
     setThinkingSelectionMode(false);
     if (!canvas.blocks) canvas.blocks = [];
     if (!canvas.links) canvas.links = [];
@@ -12318,6 +14908,7 @@
         type: tools[i].dataset.blockType
       });
     }
+    syncThinkingToolSections(canvasNode);
   }
 
   function thinkingCanvasTransition(kind, origin, targetId) {
@@ -12364,6 +14955,7 @@
       syncThinkingCanvasPreview(current);
     }
     prepareThinkingWorld(tree, canvasNode);
+    setThinkingLinkToolMode(false);
     setThinkingSelectionMode(false);
     viewedCanvasId = canvasNode.id;
     canvasNode.lastOpenedAt = Date.now();
@@ -12390,14 +14982,237 @@
     navigateThinkingCanvas(parent.id, { kind: "close", targetId: canvasNode.id });
   }
 
-  function applyThinkingDocumentFormat(command, body) {
+  function thinkingDocumentFormatIcon(command) {
+    const paths = {
+      bold: '<path d="M7 4h6.5a4 4 0 0 1 0 8H7Z"/><path d="M7 12h7a4 4 0 0 1 0 8H7Z"/>',
+      italic: '<path d="M19 4h-9M14 20H5M15 4 9 20"/>',
+      underline: '<path d="M6 3v7a6 6 0 0 0 12 0V3M4 21h16"/>',
+      hilite: '<path d="m14 4 6 6-8.5 8.5H5.5v-6Z"/><path d="m11 7 6 6"/>'
+        + '<path class="thinking-document-tool__swatch" d="M4 21h16"/>',
+      insertUnorderedList: '<path d="M9 6h11M9 12h11M9 18h11"/>'
+        + '<path d="M4 6h.01M4 12h.01M4 18h.01" stroke-width="3"/>',
+      insertOrderedList: '<path d="M10 6h10M10 12h10M10 18h10"/>'
+        + '<path d="M4 4h1v4M3.5 15.5c.3-.9 2.5-1.1 2.5.3 0 1-2.5 2.1-2.5 3.7H6"/>'
+    };
+    return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"'
+      + ' stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
+      + (paths[command] || "") + '</svg>';
+  }
+
+  function noteResolvedColor(value) {
+    const probe = document.createElement("span");
+    probe.style.position = "fixed";
+    probe.style.pointerEvents = "none";
+    probe.style.backgroundColor = value;
+    document.body.appendChild(probe);
+    const resolved = getComputedStyle(probe).backgroundColor;
+    probe.remove();
+    const canvas = document.createElement("canvas");
+    canvas.width = 1;
+    canvas.height = 1;
+    const context = canvas.getContext("2d", { willReadFrequently: true });
+    context.clearRect(0, 0, 1, 1);
+    context.fillStyle = resolved;
+    context.fillRect(0, 0, 1, 1);
+    const pixel = context.getImageData(0, 0, 1, 1).data;
+    return pixel[3] === 255
+      ? "rgb(" + pixel[0] + "," + pixel[1] + "," + pixel[2] + ")"
+      : "rgba(" + pixel[0] + "," + pixel[1] + "," + pixel[2] + ","
+        + (pixel[3] / 255).toFixed(3) + ")";
+  }
+
+  function noteHighlightColor() {
+    return noteResolvedColor("var(--note-highlight)");
+  }
+
+  function normalizeNoteHighlights(body, allBackgrounds) {
+    const styled = body.querySelectorAll("[style]");
+    let changed = false;
+    for (let i = 0; i < styled.length; i++) {
+      const inline = styled[i].style.backgroundColor;
+      if (!inline || inline === "var(--note-highlight)") continue;
+      const normalized = inline.toLowerCase().replace(/\s/g, "");
+      if (normalized === "transparent" || normalized === "rgba(0,0,0,0)") continue;
+      const legacy = normalized === "#ffe08a" || normalized === "rgb(255,224,138)"
+        || normalized === "rgba(255,224,138,1)";
+      if (!allBackgrounds && !legacy) continue;
+      styled[i].style.backgroundColor = "var(--note-highlight)";
+      changed = true;
+    }
+    return changed;
+  }
+
+  function materializeNoteHighlights(body) {
+    const color = noteHighlightColor();
+    const styled = body.querySelectorAll("[style]");
+    for (let i = 0; i < styled.length; i++) {
+      if (styled[i].style.backgroundColor === "var(--note-highlight)") {
+        styled[i].style.backgroundColor = color;
+      }
+    }
+  }
+
+  function noteInlineIsHighlight(inline) {
+    if (!inline) return false;
+    const normalized = inline.toLowerCase().replace(/\s/g, "");
+    return normalized === "var(--note-highlight)" || normalized === "#ffe08a"
+      || normalized === "rgb(255,224,138)" || normalized === "rgba(255,224,138,1)";
+  }
+
+  function liftNoteTransparentRuns(body) {
+    const styled = body.querySelectorAll("[style]");
+    let changed = false;
+    for (let i = 0; i < styled.length; i++) {
+      const transparent = styled[i];
+      const background = transparent.style.backgroundColor.toLowerCase().replace(/\s/g, "");
+      if (background !== "transparent" && background !== "rgba(0,0,0,0)") continue;
+      let highlight = transparent.parentElement;
+      while (highlight && highlight !== body
+          && (!highlight.style || !noteInlineIsHighlight(highlight.style.backgroundColor))) {
+        highlight = highlight.parentElement;
+      }
+      if (!highlight || highlight === body || !highlight.parentNode) continue;
+      const selection = window.getSelection();
+      const moveCaret = !!(selection && selection.isCollapsed
+        && transparent.contains(selection.anchorNode));
+
+      const tailRange = document.createRange();
+      tailRange.setStartAfter(transparent);
+      tailRange.setEnd(highlight, highlight.childNodes.length);
+      const tail = tailRange.extractContents();
+      const tailHasContent = !!tail.textContent || !!tail.querySelector("br, img, svg");
+      const tailHighlight = tailHasContent ? highlight.cloneNode(false) : null;
+      if (tailHighlight) tailHighlight.appendChild(tail);
+
+      let content = document.createDocumentFragment();
+      while (transparent.firstChild) content.appendChild(transparent.firstChild);
+      let ancestor = transparent.parentElement;
+      while (ancestor && ancestor !== highlight) {
+        const shell = ancestor.cloneNode(false);
+        shell.style.removeProperty("background-color");
+        if (!shell.getAttribute("style")) shell.removeAttribute("style");
+        shell.appendChild(content);
+        content = document.createDocumentFragment();
+        content.appendChild(shell);
+        ancestor = ancestor.parentElement;
+      }
+      const caretTarget = content.lastChild;
+      transparent.remove();
+
+      const parent = highlight.parentNode;
+      const next = highlight.nextSibling;
+      parent.insertBefore(content, next);
+      if (tailHighlight) parent.insertBefore(tailHighlight, next);
+      if (!highlight.textContent && !highlight.querySelector("br, img, svg")) highlight.remove();
+      if (moveCaret && caretTarget) {
+        const outside = document.createRange();
+        outside.selectNodeContents(caretTarget);
+        outside.collapse(false);
+        selection.removeAllRanges();
+        selection.addRange(outside);
+      }
+      changed = true;
+    }
+    return changed;
+  }
+
+  function exitNoteHighlightAtCaret(body) {
+    const selection = window.getSelection();
+    if (!selection || !selection.isCollapsed || !selection.rangeCount) return false;
+    const caret = selection.getRangeAt(0);
+    let highlight = caret.startContainer.nodeType === Node.ELEMENT_NODE
+      ? caret.startContainer : caret.startContainer.parentElement;
+    while (highlight && highlight !== body
+        && (!highlight.style || !noteInlineIsHighlight(highlight.style.backgroundColor))) {
+      highlight = highlight.parentElement;
+    }
+    if (!highlight || highlight === body || !highlight.parentNode) return false;
+
+    const tailRange = document.createRange();
+    tailRange.setStart(caret.startContainer, caret.startOffset);
+    tailRange.setEnd(highlight, highlight.childNodes.length);
+    const tail = tailRange.extractContents();
+    const tailHasContent = !!tail.textContent || !!tail.querySelector("br, img, svg");
+    const tailHighlight = tailHasContent ? highlight.cloneNode(false) : null;
+    if (tailHighlight) tailHighlight.appendChild(tail);
+
+    const boundaryShell = highlight.cloneNode(false);
+    boundaryShell.style.removeProperty("background-color");
+    if (!boundaryShell.getAttribute("style")) boundaryShell.removeAttribute("style");
+    const keepShell = boundaryShell.tagName !== "SPAN" || boundaryShell.attributes.length > 0;
+    const boundaryMarker = document.createElement("span");
+    boundaryMarker.dataset.noteHighlightBoundary = "1";
+    boundaryMarker.setAttribute("aria-hidden", "true");
+    const boundary = keepShell ? boundaryShell : boundaryMarker;
+    if (keepShell) boundaryShell.appendChild(boundaryMarker);
+
+    const parent = highlight.parentNode;
+    const next = highlight.nextSibling;
+    parent.insertBefore(boundary, next);
+    if (tailHighlight) parent.insertBefore(tailHighlight, next);
+    if (!highlight.textContent && !highlight.querySelector("br, img, svg")) highlight.remove();
+
+    const outside = document.createRange();
+    outside.setStartAfter(boundaryMarker);
+    outside.collapse(true);
+    selection.removeAllRanges();
+    selection.addRange(outside);
+    return true;
+  }
+
+  function thinkingDocumentHighlightActive(body) {
+    try {
+      const selection = window.getSelection();
+      const commandColor = noteResolvedColor(
+        String(document.queryCommandValue("hiliteColor") || "transparent"));
+      const commandActive = commandColor === noteHighlightColor()
+        || commandColor === noteResolvedColor("#ffe08a");
+      /* With a caret there is no selected node to inspect: Firefox stores a
+         pending typing style. Its command value is the source of truth, even
+         when the caret still lives inside the previous highlighted span. */
+      if (selection && selection.isCollapsed) return commandActive;
+      if (commandActive) return true;
+      const highlightedAncestor = function (node) {
+        let element = node && node.nodeType === Node.ELEMENT_NODE ? node : node && node.parentElement;
+        while (element && element !== body) {
+          if (element.style && noteInlineIsHighlight(element.style.backgroundColor)) return true;
+          element = element.parentElement;
+        }
+        return false;
+      };
+      if (selection && highlightedAncestor(selection.anchorNode)
+          && highlightedAncestor(selection.focusNode)) return true;
+      if (selection && selection.rangeCount) {
+        const range = selection.getRangeAt(0);
+        const styled = body.querySelectorAll("[style]");
+        for (let i = 0; i < styled.length; i++) {
+          if (noteInlineIsHighlight(styled[i].style.backgroundColor)
+              && range.intersectsNode(styled[i])) return true;
+        }
+      }
+      return false;
+    } catch (error) {
+      return false;
+    }
+  }
+
+  function applyThinkingDocumentFormat(command, body, highlightWasActive) {
     body.focus();
     if (command === "hilite") {
       document.execCommand("styleWithCSS", false, true);
-      document.execCommand("hiliteColor", false, "#ffe08a");
+      const active = highlightWasActive == null
+        ? thinkingDocumentHighlightActive(body) : highlightWasActive;
+      if (active) {
+        exitNoteHighlightAtCaret(body);
+        materializeNoteHighlights(body);
+      }
+      document.execCommand("hiliteColor", false, active ? "transparent" : noteHighlightColor());
+      normalizeNoteHighlights(body, true);
+      return !active;
     } else {
       document.execCommand(command, false, null);
     }
+    return null;
   }
 
   function createThinkingDocumentSheet(tree, documentNode) {
@@ -12416,13 +15231,15 @@
 
     const toolbar = document.createElement("div");
     toolbar.className = "thinking-document-toolbar";
+    toolbar.setAttribute("role", "toolbar");
+    toolbar.setAttribute("aria-label", translate("thinkingDocumentFormatting"));
     const tools = [
-      { command: "bold", label: "boldAria", content: "B" },
-      { command: "italic", label: "italicAria", content: "I" },
-      { command: "underline", label: "underlineAria", content: "U" },
-      { command: "hilite", label: "highlightAria", content: "H" },
-      { command: "insertUnorderedList", label: "thinkingBulletsAria", content: "•" },
-      { command: "insertOrderedList", label: "thinkingNumberedAria", content: "1." }
+      { command: "bold", label: "boldAria" },
+      { command: "italic", label: "italicAria" },
+      { command: "underline", label: "underlineAria" },
+      { command: "hilite", label: "highlightAria" },
+      { command: "insertUnorderedList", label: "thinkingBulletsAria", separated: true },
+      { command: "insertOrderedList", label: "thinkingNumberedAria" }
     ];
 
     const body = document.createElement("div");
@@ -12430,29 +15247,165 @@
     body.contentEditable = "true";
     body.setAttribute("data-placeholder", translate("thinkingDocumentPlaceholder"));
     body.innerHTML = documentNode.documentHtml || "";
-    body.addEventListener("input", function () {
+    const liftedLegacyHighlight = liftNoteTransparentRuns(body);
+    const normalizedLegacyHighlight = normalizeNoteHighlights(body, false);
+    if (liftedLegacyHighlight || normalizedLegacyHighlight) {
       documentNode.documentHtml = body.innerHTML;
       touchCanvas(tree);
+    }
+    let savedSelection = null;
+    let pendingHighlight = false;
+    let managesHighlightTyping = false;
+
+    function serializedDocumentHtml() {
+      const clone = body.cloneNode(true);
+      const boundaries = clone.querySelectorAll("[data-note-highlight-boundary]");
+      for (let i = 0; i < boundaries.length; i++) boundaries[i].remove();
+      return clone.innerHTML;
+    }
+
+    function caretHighlightElement() {
+      const selection = window.getSelection();
+      if (!selection || !selection.isCollapsed) return null;
+      let element = selection.anchorNode && selection.anchorNode.nodeType === Node.ELEMENT_NODE
+        ? selection.anchorNode : selection.anchorNode && selection.anchorNode.parentElement;
+      while (element && element !== body) {
+        if (element.style && noteInlineIsHighlight(element.style.backgroundColor)) return element;
+        element = element.parentElement;
+      }
+      return null;
+    }
+
+    function caretIsInsideHighlight() {
+      return !!caretHighlightElement();
+    }
+
+    function rememberSelection() {
+      const selection = window.getSelection();
+      if (!selection || !selection.rangeCount) return;
+      const range = selection.getRangeAt(0);
+      const common = range.commonAncestorContainer;
+      if (common !== body && !body.contains(common)) return;
+      savedSelection = range.cloneRange();
+    }
+
+    function restoreSelection() {
+      if (!savedSelection || !body.isConnected) return;
+      body.focus();
+      const selection = window.getSelection();
+      selection.removeAllRanges();
+      selection.addRange(savedSelection);
+    }
+    function commitDocumentInput() {
+      const boundaries = body.querySelectorAll("[data-note-highlight-boundary]");
+      for (let i = 0; i < boundaries.length; i++) boundaries[i].remove();
+      liftNoteTransparentRuns(body);
+      normalizeNoteHighlights(body, true);
+      documentNode.documentHtml = serializedDocumentHtml();
+      touchCanvas(tree);
+      /* Typing must never override the explicit toolbar choice. The DOM caret
+         can briefly remain next to the previous highlighted wrapper while the
+         browser dispatches input, which used to turn the tool back on. */
+      syncToolbarState(true);
+    }
+
+    body.addEventListener("input", commitDocumentInput);
+    body.addEventListener("beforeinput", function (event) {
+      if (!managesHighlightTyping || event.inputType !== "insertText"
+          || event.data == null) return;
+      const selection = window.getSelection();
+      if (!selection || !selection.isCollapsed || !selection.rangeCount) return;
+      event.preventDefault();
+
+      if (!pendingHighlight && caretIsInsideHighlight()) exitNoteHighlightAtCaret(body);
+      const currentSelection = window.getSelection();
+      if (!currentSelection || !currentSelection.rangeCount) return;
+      const range = currentSelection.getRangeAt(0);
+      const textNode = document.createTextNode(event.data);
+      if (pendingHighlight && !caretHighlightElement()) {
+        const highlight = document.createElement("span");
+        highlight.style.backgroundColor = "var(--note-highlight)";
+        highlight.appendChild(textNode);
+        range.insertNode(highlight);
+      } else {
+        range.insertNode(textNode);
+      }
+      const after = document.createRange();
+      after.setStart(textNode, textNode.data.length);
+      after.collapse(true);
+      currentSelection.removeAllRanges();
+      currentSelection.addRange(after);
+      commitDocumentInput();
     });
 
+    function syncToolbarState(preservePendingHighlight) {
+      rememberSelection();
+      const selection = window.getSelection();
+      const insideBody = !!(selection && selection.anchorNode
+        && body.contains(selection.anchorNode));
+      if (insideBody && selection.isCollapsed && !preservePendingHighlight) {
+        pendingHighlight = caretIsInsideHighlight();
+      }
+      const buttons = toolbar.querySelectorAll(".thinking-document-tool");
+      for (let i = 0; i < buttons.length; i++) {
+        const command = buttons[i].dataset.command;
+        let active = false;
+        if (insideBody) {
+          active = command === "hilite" && selection.isCollapsed ? pendingHighlight
+            : command === "hilite" ? thinkingDocumentHighlightActive(body)
+            : !!document.queryCommandState(command);
+        }
+        buttons[i].classList.toggle("is-active", active);
+        buttons[i].setAttribute("aria-pressed", active ? "true" : "false");
+      }
+    }
+
     for (let i = 0; i < tools.length; i++) {
+      if (tools[i].separated) {
+        const separator = document.createElement("span");
+        separator.className = "thinking-document-toolbar__separator";
+        separator.setAttribute("aria-hidden", "true");
+        toolbar.appendChild(separator);
+      }
       const button = document.createElement("button");
       button.type = "button";
       button.className = "thinking-document-tool";
+      button.classList.add("thinking-document-tool--" + tools[i].command.toLowerCase());
       button.dataset.command = tools[i].command;
       button.setAttribute("aria-label", translate(tools[i].label));
-      button.textContent = tools[i].content;
-      if (tools[i].command === "italic") button.classList.add("is-italic");
-      if (tools[i].command === "underline") button.classList.add("is-underlined");
-      if (tools[i].command === "hilite") button.classList.add("is-highlight");
-      button.addEventListener("pointerdown", function (event) { event.preventDefault(); });
+      button.setAttribute("aria-pressed", "false");
+      button.title = translate(tools[i].label);
+      button.innerHTML = thinkingDocumentFormatIcon(tools[i].command);
+      button.addEventListener("pointerdown", function (event) {
+        rememberSelection();
+        event.preventDefault();
+      });
       button.addEventListener("click", function () {
-        applyThinkingDocumentFormat(this.dataset.command, body);
-        documentNode.documentHtml = body.innerHTML;
+        restoreSelection();
+        const selection = window.getSelection();
+        const collapsedHighlight = this.dataset.command === "hilite"
+          && selection && selection.isCollapsed;
+        if (collapsedHighlight) {
+          managesHighlightTyping = true;
+          if (pendingHighlight) exitNoteHighlightAtCaret(body);
+          pendingHighlight = !pendingHighlight;
+        } else {
+          applyThinkingDocumentFormat(this.dataset.command, body, null);
+        }
+        rememberSelection();
+        documentNode.documentHtml = serializedDocumentHtml();
         touchCanvas(tree);
+        syncToolbarState(true);
       });
       toolbar.appendChild(button);
     }
+    body.addEventListener("focus", function () { syncToolbarState(false); });
+    body.addEventListener("keyup", function (event) {
+      const movedCaret = event.key.indexOf("Arrow") === 0
+        || ["Home", "End", "PageUp", "PageDown"].indexOf(event.key) !== -1;
+      syncToolbarState(!movedCaret);
+    });
+    body.addEventListener("mouseup", function () { syncToolbarState(false); });
     sheet.append(toolbar, body);
     return sheet;
   }
@@ -12802,6 +15755,10 @@
     }
     if (block.type === "text") return { width: thinkingBlockNaturalWidth(block),
       height: block.blockHeight || 56 };
+    if (THINKING_FLOW_TYPES.indexOf(block.type) !== -1) {
+      return { width: thinkingBlockNaturalWidth(block),
+      height: block.blockHeight || 210 };
+    }
     return { width: thinkingBlockNaturalWidth(block),
       height: block.blockHeight || (block.type === "question" ? 90 : 64) };
   }
@@ -12965,6 +15922,84 @@
       }
     }
     return blocks;
+  }
+
+  function thinkingNestedChildGroups(canvas, parentId) {
+    const items = [];
+    const byId = {};
+    for (let i = 0; i < canvas.blocks.length; i++) {
+      if (canvas.blocks[i].parentId !== parentId) continue;
+      const item = { block: canvas.blocks[i], index: i, x: 0, y: 0 };
+      items.push(item);
+      byId[item.block.id] = item;
+    }
+    const visited = {};
+    const groups = [];
+    for (let i = 0; i < items.length; i++) {
+      if (visited[items[i].block.id]) continue;
+      const component = [];
+      const queue = [items[i]];
+      visited[items[i].block.id] = true;
+      for (let cursor = 0; cursor < queue.length; cursor++) {
+        const current = queue[cursor];
+        component.push(current);
+        const target = byId[current.block.stuckToId];
+        if (target && !visited[target.block.id]) {
+          visited[target.block.id] = true;
+          queue.push(target);
+        }
+        for (let j = 0; j < items.length; j++) {
+          if (items[j].block.stuckToId !== current.block.id
+              || visited[items[j].block.id]) continue;
+          visited[items[j].block.id] = true;
+          queue.push(items[j]);
+        }
+      }
+
+      const memberIds = {};
+      let horizontal = false;
+      let vertical = false;
+      let firstIndex = Infinity;
+      for (let j = 0; j < component.length; j++) {
+        memberIds[component[j].block.id] = true;
+        firstIndex = Math.min(firstIndex, component[j].index);
+      }
+      const positions = {};
+      const locate = function (item, trail) {
+        if (positions[item.block.id]) return positions[item.block.id];
+        if (trail[item.block.id]) return { x: 0, y: 0 };
+        const nextTrail = Object.assign({}, trail);
+        nextTrail[item.block.id] = true;
+        const target = memberIds[item.block.stuckToId] ? byId[item.block.stuckToId] : null;
+        const origin = target ? locate(target, nextTrail) : { x: 0, y: 0 };
+        const position = { x: origin.x, y: origin.y };
+        if (target) {
+          if (item.block.stuckSide === "left") { position.x--; horizontal = true; }
+          else if (item.block.stuckSide === "right") { position.x++; horizontal = true; }
+          else if (item.block.stuckSide === "top") { position.y--; vertical = true; }
+          else if (item.block.stuckSide === "bottom") { position.y++; vertical = true; }
+        }
+        positions[item.block.id] = position;
+        return position;
+      };
+      for (let j = 0; j < component.length; j++) {
+        const position = locate(component[j], {});
+        component[j].x = position.x;
+        component[j].y = position.y;
+      }
+      const axis = horizontal && !vertical ? "horizontal"
+        : vertical && !horizontal ? "vertical" : horizontal || vertical ? "grid" : null;
+      component.sort(function (a, b) {
+        if (axis === "horizontal" && a.x !== b.x) return a.x - b.x;
+        if (axis === "vertical" && a.y !== b.y) return a.y - b.y;
+        if (axis === "grid" && a.y !== b.y) return a.y - b.y;
+        if (axis === "grid" && a.x !== b.x) return a.x - b.x;
+        return a.index - b.index;
+      });
+      groups.push({ items: component, axis: axis, index: firstIndex });
+    }
+    groups.sort(function (a, b) { return a.index - b.index; });
+    return groups;
   }
 
   function setThinkingBlockAxisSize(block, card, axis, value) {
@@ -13291,17 +16326,358 @@
     });
   }
 
+  function createThinkingChildren(canvas, block, ownerCanvas, parentCard) {
+    const children = document.createElement("div");
+    children.className = "thinking-block__children";
+    const childGroups = thinkingNestedChildGroups(canvas, block.id);
+    let nestedMinimumWidth = 0;
+    for (let i = 0; i < childGroups.length; i++) {
+      const group = childGroups[i];
+      if (group.items.length === 1 || !group.axis) {
+        for (let j = 0; j < group.items.length; j++) {
+          children.appendChild(createThinkingBlock(canvas, group.items[j].block,
+            true, false, ownerCanvas));
+        }
+        continue;
+      }
+      const stuckList = document.createElement("div");
+      stuckList.className = "thinking-block__stuck-list thinking-block__stuck-list--"
+        + group.axis;
+      let minX = Infinity;
+      let minY = Infinity;
+      let maxX = -Infinity;
+      for (let j = 0; j < group.items.length; j++) {
+        minX = Math.min(minX, group.items[j].x);
+        minY = Math.min(minY, group.items[j].y);
+        maxX = Math.max(maxX, group.items[j].x);
+      }
+      if (group.axis === "horizontal") {
+        nestedMinimumWidth = Math.max(nestedMinimumWidth, group.items.length * 110 + 20);
+      } else if (group.axis === "grid") {
+        nestedMinimumWidth = Math.max(nestedMinimumWidth, (maxX - minX + 1) * 110 + 20);
+      }
+      for (let j = 0; j < group.items.length; j++) {
+        const childCard = createThinkingBlock(canvas, group.items[j].block,
+          true, false, ownerCanvas);
+        if (group.axis === "grid") {
+          childCard.style.gridColumn = group.items[j].x - minX + 1;
+          childCard.style.gridRow = group.items[j].y - minY + 1;
+        }
+        stuckList.appendChild(childCard);
+      }
+      children.appendChild(stuckList);
+    }
+    if (nestedMinimumWidth) parentCard.style.minWidth = nestedMinimumWidth + "px";
+    return children;
+  }
+
+  function thinkingParseLoopDays(value) {
+    const normalized = (value || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+      .toLowerCase().replace(/[\[\]()]/g, " ").trim();
+    if (!normalized) return [];
+    if (/^(semaine|jours ouvrables|week|weekdays|workweek)$/.test(normalized)) {
+      return [1, 2, 3, 4, 5];
+    }
+    if (/^(weekend|week-end|fin de semaine)$/.test(normalized)) return [6, 0];
+    const aliases = {
+      "0": 0, dim: 0, dimanche: 0, sun: 0, sunday: 0,
+      "1": 1, lun: 1, lundi: 1, mon: 1, monday: 1,
+      "2": 2, mar: 2, mardi: 2, tue: 2, tues: 2, tuesday: 2,
+      "3": 3, mer: 3, mercredi: 3, wed: 3, wednesday: 3,
+      "4": 4, jeu: 4, jeudi: 4, thu: 4, thur: 4, thursday: 4,
+      "5": 5, ven: 5, vendredi: 5, fri: 5, friday: 5,
+      "6": 6, sam: 6, samedi: 6, sat: 6, saturday: 6,
+      "7": 0
+    };
+    const found = {};
+    const tokens = normalized.split(/[,;|\s]+/);
+    for (let i = 0; i < tokens.length; i++) {
+      if (aliases[tokens[i]] != null) found[aliases[tokens[i]]] = true;
+    }
+    return [1, 2, 3, 4, 5, 6, 0].filter(function (day) { return found[day]; });
+  }
+
+  function thinkingLoopDayOptions() {
+    const names = state.settings.language === "en"
+      ? [[1, "Mo", "Monday"], [2, "Tu", "Tuesday"], [3, "We", "Wednesday"],
+        [4, "Th", "Thursday"], [5, "Fr", "Friday"], [6, "Sa", "Saturday"],
+        [0, "Su", "Sunday"]]
+      : [[1, "Lu", "Lundi"], [2, "Ma", "Mardi"], [3, "Me", "Mercredi"],
+        [4, "Je", "Jeudi"], [5, "Ve", "Vendredi"], [6, "Sa", "Samedi"],
+        [0, "Di", "Dimanche"]];
+    return names.map(function (item) {
+      return { value: item[0], short: item[1], label: item[2] };
+    });
+  }
+
+  function thinkingLoopDaysSummary(days) {
+    const selected = Array.isArray(days) ? days : [];
+    const options = thinkingLoopDayOptions();
+    const labels = [];
+    for (let i = 0; i < options.length; i++) {
+      if (selected.indexOf(options[i].value) !== -1) labels.push(options[i].short);
+    }
+    return labels.length ? labels.join(" · ") : "—";
+  }
+
+  function thinkingLoopActions(canvas, loop) {
+    const actions = [];
+    const visited = {};
+    const collect = function (parent, inheritedHour) {
+      if (!parent || visited[parent.id]) return;
+      visited[parent.id] = true;
+      for (let i = 0; i < canvas.blocks.length; i++) {
+        const child = canvas.blocks[i];
+        if (child.parentId !== parent.id) continue;
+        if (THINKING_ACTION_TYPES.indexOf(child.type) !== -1) {
+          actions.push({ block: child, hour: inheritedHour || null });
+        } else if (child.type === "condition") {
+          if (!child.conditionHour) actions.missingHour = true;
+          else collect(child, child.conditionHour);
+        } else if (child.type === "loop") {
+          collect(child, inheritedHour || null);
+        }
+      }
+    };
+    collect(loop, null);
+    return actions;
+  }
+
+  function thinkingLoopDates(loop) {
+    const selected = Array.isArray(loop.loopDays) ? loop.loopDays : [];
+    const weeks = Math.max(1, Math.min(12, Number(loop.loopWeeks) || 4));
+    const dates = [];
+    const start = new Date(todayKey() + "T12:00:00");
+    for (let offset = 0; offset < weeks * 7; offset++) {
+      const day = new Date(start);
+      day.setDate(start.getDate() + offset);
+      if (selected.indexOf(day.getDay()) !== -1) {
+        dates.push(dateKey(day.getFullYear(), day.getMonth(), day.getDate()));
+      }
+    }
+    return dates;
+  }
+
+  function removeThinkingLoopGenerated(loop) {
+    const generated = loop.loopRun && Array.isArray(loop.loopRun.generated)
+      ? loop.loopRun.generated : [];
+    const lists = { task: state.tasks, event: state.events,
+      project: state.projects, habit: state.habits };
+    let removed = 0;
+    for (let i = 0; i < generated.length; i++) {
+      const list = lists[generated[i].kind];
+      if (!list) continue;
+      for (let j = list.length - 1; j >= 0; j--) {
+        if (list[j].id === generated[i].id) {
+          list.splice(j, 1);
+          removed++;
+        }
+      }
+    }
+    delete loop.loopRun;
+    return removed;
+  }
+
+  function rewindThinkingLoop(canvas, loop) {
+    const removed = removeThinkingLoopGenerated(loop);
+    touchCanvas(canvas);
+    refreshThinkingActionViews();
+    renderThinkingCanvas(canvas);
+    showToast(translate("thinkingLoopRewound").replace("{count}", removed));
+  }
+
+  function thinkingLoopActionText(action) {
+    const linked = thinkingActionItem(action);
+    if (linked) return action.type === "habit" ? linked.name || action.text
+      : linked.text || action.text;
+    return (action.text || "").trim() || translate(thinkingTypeKey(action.type));
+  }
+
+  function runThinkingLoop(canvas, loop) {
+    const actions = thinkingLoopActions(canvas, loop);
+    const dates = thinkingLoopDates(loop);
+    if (!dates.length) {
+      showToast(translate("thinkingLoopNoDays"));
+      return;
+    }
+    if (actions.missingHour) {
+      showToast(translate("thinkingConditionNoHour"));
+      return;
+    }
+    if (!actions.length) {
+      showToast(translate("thinkingLoopNoActions"));
+      return;
+    }
+    const generated = [];
+    for (let i = 0; i < actions.length; i++) {
+      const action = actions[i].block;
+      const conditionHour = actions[i].hour || null;
+      const hour = conditionHour || "09:00";
+      const text = thinkingLoopActionText(action);
+      if (action.type === "habit") {
+        const habit = {
+          id: thinkingId("g"), name: text, icon: "sun", completedDates: [],
+          plannerDays: loop.loopDays.slice(), plannerTime: conditionHour,
+          plannerLoopId: loop.id
+        };
+        state.habits.push(habit);
+        generated.push({ kind: "habit", id: habit.id, sourceBlockId: action.id });
+        continue;
+      }
+      for (let j = 0; j < dates.length; j++) {
+        let item = null;
+        if (action.type === "event") {
+          item = { id: thinkingId("g"), text: text, important: false, icon: "calendar",
+            date: dates[j], time: hour, plannerLoopId: loop.id };
+          state.events.push(item);
+        } else if (action.type === "task") {
+          item = { id: thinkingId("g"), text: text, done: false, projectId: null,
+            dueDate: dates[j], dueTime: hour, plannerLoopId: loop.id };
+          state.tasks.push(item);
+        }
+        if (item) generated.push({ kind: action.type, id: item.id,
+          sourceBlockId: action.id });
+      }
+    }
+    loop.loopRun = {
+      ranAt: Date.now(), count: generated.length,
+      generated: generated
+    };
+    touchCanvas(canvas);
+    refreshThinkingActionViews();
+    renderThinkingCanvas(canvas);
+    showToast(translate("thinkingLoopCreated").replace("{count}", generated.length));
+  }
+
+  function createThinkingFlowHead(canvas, block, head, del) {
+    head.classList.add("thinking-flow__head");
+    if (block.type === "loop") {
+      if (!Array.isArray(block.loopDays)) block.loopDays = [1, 2, 3, 4, 5];
+      if (block.loopWeeks == null) block.loopWeeks = 4;
+      const run = document.createElement("button");
+      run.type = "button";
+      run.className = "thinking-loop__run";
+      const hasRun = !!(block.loopRun && Array.isArray(block.loopRun.generated)
+        && block.loopRun.generated.length);
+      run.classList.toggle("is-rewind", hasRun);
+      run.setAttribute("aria-label", translate(hasRun
+        ? "thinkingLoopRewind" : "thinkingLoopRun"));
+      run.title = translate(hasRun ? "thinkingLoopRewind" : "thinkingLoopRun");
+      run.innerHTML = hasRun
+        ? '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 6v12M18 6l-7 6 7 6ZM11 6l-7 6 7 6Z"/></svg>'
+        : '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m8 5 11 7-11 7Z"/></svg>';
+      run.addEventListener("click", function () {
+        if (hasRun) rewindThinkingLoop(canvas, block);
+        else runThinkingLoop(canvas, block);
+      });
+      const keyword = document.createElement("code");
+      keyword.className = "thinking-flow__keyword";
+      keyword.textContent = translate("thinkingLoopFor");
+      const value = document.createElement("span");
+      value.className = "thinking-flow__value";
+      const toggle = document.createElement("button");
+      toggle.type = "button";
+      toggle.className = "thinking-flow__days-toggle";
+      toggle.textContent = thinkingLoopDaysSummary(block.loopDays);
+      toggle.setAttribute("aria-label", translate("thinkingLoopChooseDays"));
+      toggle.setAttribute("aria-expanded", "false");
+      const chevron = document.createElement("span");
+      chevron.className = "thinking-flow__days-chevron";
+      chevron.textContent = "⌄";
+      toggle.appendChild(chevron);
+      value.appendChild(toggle);
+
+      const picker = document.createElement("div");
+      picker.className = "thinking-flow__days-picker";
+      picker.hidden = true;
+      picker.setAttribute("role", "group");
+      picker.setAttribute("aria-label", translate("thinkingLoopChooseDays"));
+      const options = thinkingLoopDayOptions();
+      const syncToggle = function () {
+        toggle.firstChild.textContent = thinkingLoopDaysSummary(block.loopDays);
+      };
+      for (let i = 0; i < options.length; i++) {
+        const choice = document.createElement("label");
+        choice.className = "thinking-flow__day-choice";
+        const check = document.createElement("input");
+        check.type = "checkbox";
+        check.value = options[i].value;
+        check.checked = block.loopDays.indexOf(options[i].value) !== -1;
+        const label = document.createElement("span");
+        label.textContent = options[i].label;
+        check.addEventListener("change", function () {
+          const selected = {};
+          const checks = picker.querySelectorAll('input[type="checkbox"]');
+          for (let j = 0; j < checks.length; j++) {
+            if (checks[j].checked) selected[Number(checks[j].value)] = true;
+          }
+          block.loopDays = options.map(function (option) { return option.value; })
+            .filter(function (day) { return selected[day]; });
+          syncToggle();
+          touchCanvas(canvas);
+        });
+        choice.append(check, label);
+        picker.appendChild(choice);
+      }
+      toggle.addEventListener("click", function () {
+        picker.hidden = !picker.hidden;
+        toggle.setAttribute("aria-expanded", picker.hidden ? "false" : "true");
+      });
+      head.addEventListener("focusout", function () {
+        setTimeout(function () {
+          if (!head.contains(document.activeElement)) {
+            picker.hidden = true;
+            toggle.setAttribute("aria-expanded", "false");
+          }
+        }, 0);
+      });
+      head.addEventListener("keydown", function (event) {
+        if (event.key !== "Escape" || picker.hidden) return;
+        picker.hidden = true;
+        toggle.setAttribute("aria-expanded", "false");
+        toggle.focus();
+      });
+      head.append(run, keyword, value, del, picker);
+      return;
+    }
+
+    if (block.conditionHour == null) block.conditionHour = "19:00";
+    const keyword = document.createElement("code");
+    keyword.className = "thinking-flow__keyword";
+    keyword.textContent = translate("thinkingConditionIfHour");
+    const hour = document.createElement("input");
+    hour.type = "time";
+    hour.className = "thinking-flow__hour-input";
+    hour.value = block.conditionHour;
+    hour.setAttribute("aria-label", translate("thinkingConditionIfHour"));
+    hour.addEventListener("change", function () {
+      block.conditionHour = hour.value;
+      touchCanvas(canvas);
+    });
+    head.append(keyword, hour, del);
+  }
+
   function createThinkingBlock(canvas, block, nested, insideCanvas, ownerCanvas) {
     const linkedTask = block.type === "task" ? thinkingTaskItem(block) : null;
+    const linkedAction = THINKING_ACTION_TYPES.indexOf(block.type) !== -1
+      ? thinkingActionItem(block) : null;
     const linkedNoteTask = block.type === "note" ? thinkingTaskForNote(canvas, block) : null;
-    if (linkedTask) block.text = linkedTask.text || "";
+    if (linkedAction) {
+      block.text = block.type === "habit" ? linkedAction.name || "" : linkedAction.text || "";
+    }
     if (linkedNoteTask) block.text = linkedNoteTask.notes || "";
     const card = document.createElement("article");
     const contained = nested && !insideCanvas;
     const organization = isThinkingOrganization(block);
+    const flow = THINKING_FLOW_TYPES.indexOf(block.type) !== -1;
     card.className = "thinking-block thinking-block--" + block.type;
     if (organization) card.classList.add("thinking-block--organization");
+    if (flow) card.classList.add("thinking-block--flow");
     if (linkedTask && linkedTask.done) card.classList.add("is-task-done");
+    if (block.type === "step"
+        && (linkedAction ? linkedAction.completedDate : block.stepDone)) {
+      card.classList.add("is-task-done");
+    }
     if (nested) card.classList.add("thinking-block--nested");
     if (insideCanvas) card.classList.add("thinking-block--canvas-child");
     if (organization) {
@@ -13359,12 +16735,21 @@
     if (!organization) icon.type = "button";
     icon.className = "thinking-block__icon";
     icon.innerHTML = thinkingIconSvg(thinkingTypeIcon(block.type));
-    if (THINKING_BLOCK_TYPES.indexOf(block.type) !== -1) {
+    const family = organization ? null : thinkingTypeFamily(block.type);
+    if (family) {
       icon.setAttribute("aria-label", translate("thinkingChangeType"));
       icon.addEventListener("click", function () {
-        const current = THINKING_BLOCK_TYPES.indexOf(block.type);
-        const next = THINKING_BLOCK_TYPES[(current + 1) % THINKING_BLOCK_TYPES.length];
-        changeThinkingBlockType(canvas, block, next);
+        const current = family.indexOf(block.type);
+        const parent = findThinkingParent(canvas, block.parentId);
+        for (let offset = 1; offset <= family.length; offset++) {
+          const next = family[(current + offset) % family.length];
+          if (parent && parent.type === "planner"
+              && !thinkingOrganizationAllows(parent, { type: next })) continue;
+          if (parent && THINKING_FLOW_TYPES.indexOf(parent.type) !== -1
+              && THINKING_ACTION_TYPES.indexOf(next) === -1) continue;
+          changeThinkingBlockType(canvas, block, next);
+          break;
+        }
       });
     }
 
@@ -13388,13 +16773,17 @@
         removeThinkingBlock(canvas, block.id);
       }
     });
-    if (block.type !== "text") head.append(icon, type);
-    if (organization) {
-      const rule = document.createElement("span");   // the fading filet, as in a task group
-      rule.className = "thinking-block__rule";
-      head.appendChild(rule);
+    if (flow) {
+      createThinkingFlowHead(canvas, block, head, del);
+    } else {
+      if (block.type !== "text") head.append(icon, type);
+      if (organization) {
+        const rule = document.createElement("span");   // the fading filet, as in a task group
+        rule.className = "thinking-block__rule";
+        head.appendChild(rule);
+      }
+      head.appendChild(del);
     }
-    head.appendChild(del);
     if (stuckListLead) armThinkingStuckGroupDrag(head, card, block, canvas);
     else armThinkingDrag(head, card, block, canvas, nested, insideCanvas);
 
@@ -13410,11 +16799,17 @@
       canvasStage.className = "thinking-canvas__stage";
       canvasStage.classList.add("thinking-canvas__stage--" + block.type);
       if (block.canvasHeight) canvasStage.style.height = block.canvasHeight + "px";
+      let documentPaper = null;
+      if (block.type === "document") {
+        documentPaper = document.createElement("div");
+        documentPaper.className = "thinking-document-paper";
+        canvasStage.appendChild(documentPaper);
+      }
       if (block.type === "document" && (block.documentHtml || "").trim()) {
         const previewText = document.createElement("div");
         previewText.className = "thinking-document-preview";
         previewText.innerHTML = block.documentHtml;
-        canvasStage.appendChild(previewText);
+        documentPaper.appendChild(previewText);
       }
       let canvasChildCount = 0;
       for (let i = 0; i < canvas.blocks.length; i++) {
@@ -13429,7 +16824,7 @@
         empty.textContent = translate(block.type === "document"
           ? "thinkingDocumentEmpty" : "thinkingCanvasEmpty");
         if (block.type === "document" && (block.documentHtml || "").trim()) empty.hidden = true;
-        canvasStage.appendChild(empty);
+        (documentPaper || canvasStage).appendChild(empty);
       }
       const resize = document.createElement("button");
       resize.type = "button";
@@ -13439,6 +16834,9 @@
       canvasStage.appendChild(resize);
       armThinkingCanvasPan(canvasStage, card, block, canvas);
       positionThinkingCanvasChildren(canvasStage, canvas, block);
+    } else if (flow) {
+      children = createThinkingChildren(canvas, block, ownerCanvas, card);
+      children.classList.add("thinking-loop__slot");
     } else {
       text = document.createElement("textarea");
       text.className = "thinking-block__text";
@@ -13453,9 +16851,9 @@
       text.addEventListener("input", function () {
         applyThinkingListSyntax(text);
         block.text = text.value;
-        const currentTask = block.type === "task" ? thinkingTaskItem(block) : null;
+        const currentAction = THINKING_ACTION_TYPES.indexOf(block.type) !== -1
+          ? syncThinkingActionText(block) : null;
         const currentNoteTask = block.type === "note" ? thinkingTaskForNote(canvas, block) : null;
-        if (currentTask) currentTask.text = block.text;
         if (currentNoteTask) currentNoteTask.notes = block.text;
         if (!block.blockHeight || contained) {
           fitThinkingText(text, block.type === "text" ? 32 : nested ? 32 : 36);
@@ -13467,11 +16865,36 @@
         }
         layoutVisibleThinkingStuckBlocks(canvas);
         touchCanvas(canvas);
-        if (currentTask || currentNoteTask) refreshThinkingTaskViews();
+        if (currentAction || currentNoteTask) refreshThinkingActionViews();
         requestThinkingLinks(canvas);
       });
 
-      if (block.type === "task") {
+      if (block.type === "journal") {
+        taskBody = document.createElement("div");
+        taskBody.className = "thinking-journal__body";
+        const when = document.createElement("span");
+        when.className = "thinking-journal__date";
+        when.textContent = shortDateLabel(block.journalDate || todayKey());
+        taskBody.append(when, text);
+      } else if (block.type === "step") {
+        const ticked = !!block.stepDone;
+        taskBody = document.createElement("div");
+        taskBody.className = "thinking-task__body";
+        const check = document.createElement("button");
+        check.type = "button";
+        check.className = "thinking-task__check";
+        check.setAttribute("role", "checkbox");
+        check.setAttribute("aria-label", translate("doneAria"));
+        check.setAttribute("aria-checked", ticked ? "true" : "false");
+        check.innerHTML = thinkingIconSvg("check");
+        check.addEventListener("click", function (event) {
+          event.stopPropagation();
+          block.stepDone = !block.stepDone;
+          touchCanvas(canvas);
+          renderThinkingCanvas(canvas);
+        });
+        taskBody.append(check, text);
+      } else if (block.type === "task") {
         taskBody = document.createElement("div");
         taskBody.className = "thinking-task__body";
         const check = document.createElement("button");
@@ -13498,13 +16921,7 @@
         taskBody.append(check, text);
       }
 
-      children = document.createElement("div");
-      children.className = "thinking-block__children";
-      for (let i = 0; i < canvas.blocks.length; i++) {
-        if (canvas.blocks[i].parentId === block.id) {
-          children.appendChild(createThinkingBlock(canvas, canvas.blocks[i], true, false, ownerCanvas));
-        }
-      }
+      children = createThinkingChildren(canvas, block, ownerCanvas, card);
     }
 
     const foot = document.createElement("div");
@@ -13562,13 +16979,6 @@
       foot.append(count, actions);
     }
 
-    const linkPoint = document.createElement("button");
-    linkPoint.type = "button";
-    linkPoint.className = "thinking-block__link-point";
-    linkPoint.dataset.blockId = block.id;
-    linkPoint.setAttribute("aria-label", translate("thinkingLink"));
-    armThinkingLinkPoint(linkPoint, block, canvas);
-
     let blockResize = null;
     if (block.type === "folder" && !contained && !block.collapsed) {
       blockResize = document.createElement("button");
@@ -13576,7 +16986,7 @@
       blockResize.className = "thinking-block__resize thinking-folder__resize";
       blockResize.setAttribute("aria-label", translate("thinkingResizeFolder"));
       armThinkingFolderResize(blockResize, card, folderList, block, canvas);
-    } else if (!organization && !contained) {
+    } else if (!organization && !contained && !flow) {
       blockResize = document.createElement("button");
       blockResize.type = "button";
       blockResize.className = "thinking-block__resize";
@@ -13622,19 +17032,19 @@
     } else if (organization) {
       card.appendChild(canvasStage);
     } else {
-      card.appendChild(taskBody || text);
-      if (children.childElementCount) card.appendChild(children);
+      if (taskBody || text) card.appendChild(taskBody || text);
+      if (flow || children.childElementCount) card.appendChild(children);
     }
-    if (!organization && (linked || actions.childElementCount)) card.appendChild(foot);
+    if (!organization && !flow && (linked || actions.childElementCount)) card.appendChild(foot);
     if (blockResize) card.appendChild(blockResize);
     if (stickAdd) card.appendChild(stickAdd);
-    card.appendChild(linkPoint);
     if (text && (!block.blockHeight || contained)) requestAnimationFrame(function () {
       fitThinkingText(text, block.type === "text" ? 32 : nested ? 32 : 36);
       layoutVisibleThinkingStuckBlocks(canvas);
       requestThinkingLinks(canvas);
     });
     armThinkingSelection(card, head, block, canvas, contained);
+    armThinkingLinkTool(card, block, canvas);
     if (organization) armThinkingCanvasClicks(card, head, block, canvas);
     return card;
   }
@@ -13772,11 +17182,19 @@
     requestAnimationFrame(function () { thinkingTrash.classList.add("is-visible"); });
   }
 
+  /* going away while it was the live target means something was just dropped in
+     it, same as the bin under the rule of time: the lid takes it and shuts */
   function hideThinkingTrash() {
     clearTimeout(thinkingTrashTimer);
-    thinkingTrash.classList.remove("is-visible", "is-active");
+    const took = thinkingTrash.classList.contains("is-active");
+    thinkingTrash.classList.remove("is-active");
+    thinkingTrash.classList.toggle("is-tossing", took);
     thinkingTrash.setAttribute("aria-hidden", "true");
-    thinkingTrashTimer = setTimeout(function () { thinkingTrash.hidden = true; }, 180);
+    thinkingTrashTimer = setTimeout(function () {
+      thinkingTrash.classList.remove("is-visible", "is-tossing");
+      thinkingTrash.hidden = true;
+    }, took ? 620 : 180);
+    if (!took) thinkingTrash.classList.remove("is-visible");
   }
 
   function pointInsideThinkingTrash(x, y) {
@@ -13808,8 +17226,14 @@
   function canStickThinkingBlocks(canvas, block, target) {
     if (!block || !target || target.id === block.id) return false;
     const targetParent = findThinkingParent(canvas, target.parentId);
-    if (!isThinkingOrganization(targetParent) || targetParent.type === "folder"
-        || !thinkingOrganizationAllows(targetParent, block)) return false;
+    if (!targetParent) return false;
+    if (isThinkingOrganization(targetParent)) {
+      if (targetParent.type === "folder"
+          || !thinkingOrganizationAllows(targetParent, block)) return false;
+    } else if (block.parentId !== targetParent.id
+        && !canCombineThinkingBlocks(canvas, block, targetParent)) {
+      return false;
+    }
     let branch = target;
     while (branch) {
       if (branch.id === block.id) return false;
@@ -13882,7 +17306,15 @@
 
     const targetParent = findThinkingParent(canvas, target.parentId);
     const targetAnchor = findThinkingParent(canvas, target.stuckToId);
+    if (block.parentId !== targetParent.id) {
+      syncThinkingBlockTaskPlacement(canvas, block, targetParent);
+    }
     block.parentId = targetParent.id;
+    if (!isThinkingOrganization(targetParent)) {
+      delete block.blockWidth;
+      delete block.blockHeight;
+      delete block.folderOrder;
+    }
     block.x = target.x;
     block.y = target.y;
     if (targetAnchor && oppositeThinkingStickSide(target.stuckSide) === side) {
@@ -13906,6 +17338,9 @@
     if (!possibleParent || possibleParent.id === child.id) return false;
     const childTask = child.type === "task" ? thinkingTaskItem(child) : null;
     if (isThinkingOrganization(child) && !isThinkingOrganization(possibleParent)) return false;
+    if (THINKING_FLOW_TYPES.indexOf(possibleParent.type) !== -1
+        && THINKING_ACTION_TYPES.indexOf(child.type) === -1
+        && THINKING_FLOW_TYPES.indexOf(child.type) === -1) return false;
     if (isThinkingOrganization(possibleParent)
         && (!thinkingOrganizationAllows(possibleParent, child)
           || (possibleParent.collapsed && possibleParent.id !== viewedCanvasId))) {
@@ -14338,12 +17773,16 @@
       const requestedParent = findThinkingParent(canvas, dropParentId);
       if (isThinkingOrganization(requestedParent)
           && !thinkingOrganizationAllows(requestedParent, { type: type })) return;
+      if (requestedParent && THINKING_FLOW_TYPES.indexOf(requestedParent.type) !== -1
+          && THINKING_ACTION_TYPES.indexOf(type) === -1
+          && THINKING_FLOW_TYPES.indexOf(type) === -1) return;
     }
     const step = canvas.blocks.length;
+    const flow = THINKING_FLOW_TYPES.indexOf(type) !== -1;
     const blockWidth = type === "folder" ? 420 : organization ? 650
-      : type === "question" ? 176 : type === "text" ? 150 : 160;
+      : flow ? 420 : type === "question" ? 176 : type === "text" ? 150 : 160;
     const blockHeight = type === "folder" ? 64 : organization ? 330 + THINKING_CANVAS_CHROME
-      : type === "question" ? 90 : type === "text" ? 56 : 64;
+      : flow ? 210 : type === "question" ? 90 : type === "text" ? 56 : 64;
     let x = Math.max(24, Math.min(THINKING_WORLD_WIDTH - 300,
       thinkingViewport.scrollLeft + thinkingViewport.clientWidth / 2 - blockWidth / 2
       + (step % 3) * 18));
@@ -14360,7 +17799,19 @@
       id: thinkingId("b"), type: type, text: "", x: x, y: y,
       parentId: viewedCanvas.id
     };
-    if (type === "task") linkThinkingBlockToNewTask(block, translate("newTaskName"));
+    if (THINKING_ACTION_TYPES.indexOf(type) !== -1) {
+      linkThinkingBlockToNewAction(block, translate(type === "task" ? "newTaskName"
+        : thinkingTypeKey(type)));
+    }
+    if (type === "loop") {
+      block.blockWidth = 420;
+      block.loopDays = [1, 2, 3, 4, 5];
+      block.loopWeeks = 4;
+    }
+    if (type === "condition") {
+      block.blockWidth = 420;
+      block.conditionHour = "19:00";
+    }
     if (organization) {
       block.title = "";
       block.cameraX = THINKING_WORLD_X;
@@ -14401,7 +17852,7 @@
     canvas.blocks.push(block);
     growThinkingCanvasForBlock(canvas, block, blockWidth, blockHeight);
     touchCanvas(canvas);
-    if (type === "task") refreshThinkingTaskViews();
+    if (THINKING_ACTION_TYPES.indexOf(type) !== -1) refreshThinkingActionViews();
     renderThinkingCanvas(canvas);
     const parentAfterAdd = findThinkingParent(canvas, block.parentId);
     if (parentAfterAdd && parentAfterAdd.type === "folder") {
@@ -14537,12 +17988,11 @@
     renderThinkingCanvas(canvas);
   }
 
-  function thinkingLinkPointAt(clientX, clientY, sourceId) {
+  function thinkingLinkBlockAt(clientX, clientY, sourceId) {
     const elements = document.elementsFromPoint(clientX, clientY);
     for (let i = 0; i < elements.length; i++) {
-      const point = elements[i].closest
-        ? elements[i].closest(".thinking-block__link-point") : null;
-      if (point && point.dataset.blockId !== sourceId) return point;
+      const card = elements[i].closest ? elements[i].closest(".thinking-block") : null;
+      if (card && card.dataset.blockId !== sourceId) return card;
     }
     return null;
   }
@@ -14550,7 +18000,7 @@
   function clearThinkingLinkPreview() {
     const preview = thinkingLinks.querySelector(".thinking-link-preview");
     if (preview) preview.remove();
-    const targets = thinkingBlocks.querySelectorAll(".thinking-block__link-point.is-link-drop-target");
+    const targets = thinkingBlocks.querySelectorAll(".thinking-block.is-link-drop-target");
     for (let i = 0; i < targets.length; i++) {
       targets[i].classList.remove("is-link-drop-target");
     }
@@ -14583,19 +18033,28 @@
       + ", " + endX.toFixed(1) + " " + endY.toFixed(1));
   }
 
-  function armThinkingLinkPoint(point, block, canvas) {
+  function armThinkingLinkTool(card, block, canvas) {
     let suppressClick = false;
-    point.addEventListener("click", function (event) {
-      event.stopPropagation();
+    card.addEventListener("click", function (event) {
+      if (!thinkingLinkMode || event.target.closest(".thinking-block") !== card) return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
       if (suppressClick) {
         suppressClick = false;
         return;
       }
       chooseThinkingLink(canvas, block.id);
-    });
-    point.addEventListener("pointerdown", function (event) {
-      if (thinkingSelectionMode || event.button !== 0) return;
-      event.stopPropagation();
+    }, true);
+    card.addEventListener("dblclick", function (event) {
+      if (!thinkingLinkMode || event.target.closest(".thinking-block") !== card) return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
+    }, true);
+    card.addEventListener("pointerdown", function (event) {
+      if (!thinkingLinkMode || event.button !== 0
+          || event.target.closest(".thinking-block") !== card) return;
+      event.preventDefault();
+      event.stopImmediatePropagation();
       const pointerId = event.pointerId;
       const start = { x: event.clientX, y: event.clientY };
       let moved = false;
@@ -14612,13 +18071,13 @@
           thinkingBoard.classList.add("is-link-dragging");
         }
         moveEvent.preventDefault();
-        const nextTarget = thinkingLinkPointAt(moveEvent.clientX, moveEvent.clientY, block.id);
+        const nextTarget = thinkingLinkBlockAt(moveEvent.clientX, moveEvent.clientY, block.id);
         if (target !== nextTarget) {
           if (target) target.classList.remove("is-link-drop-target");
           target = nextTarget;
           if (target) target.classList.add("is-link-drop-target");
         }
-        drawThinkingLinkPreview(point, moveEvent.clientX, moveEvent.clientY, target);
+        drawThinkingLinkPreview(card, moveEvent.clientX, moveEvent.clientY, target);
       };
 
       const finish = function (endEvent, cancelled) {
@@ -14642,12 +18101,15 @@
       document.addEventListener("pointermove", move, { passive: false });
       document.addEventListener("pointerup", up);
       document.addEventListener("pointercancel", cancel);
-    });
+    }, true);
   }
 
   function syncThinkingLinkMode() {
-    thinkingLinkHint.hidden = !thinkingLinkFrom;
-    thinkingBoard.classList.toggle("is-linking", !!thinkingLinkFrom);
+    thinkingLinkHint.hidden = !thinkingLinkMode || !thinkingLinkFrom;
+    thinkingLinkTool.setAttribute("aria-pressed", thinkingLinkMode ? "true" : "false");
+    thinkingLinkTool.title = translate("thinkingLinkTool");
+    thinkingBoard.classList.toggle("is-link-tool", thinkingLinkMode);
+    thinkingBoard.classList.toggle("is-linking", thinkingLinkMode && !!thinkingLinkFrom);
     const cards = thinkingBlocks.querySelectorAll(".thinking-block");
     for (let i = 0; i < cards.length; i++) {
       cards[i].classList.toggle("is-link-source", cards[i].dataset.blockId === thinkingLinkFrom);
@@ -14742,6 +18204,10 @@
   thinkingSelect.addEventListener("click", function () {
     setThinkingSelectionMode(!thinkingSelectionMode);
   });
+  thinkingLinkTool.addEventListener("click", function () {
+    setThinkingLinkToolMode(!thinkingLinkMode);
+  });
+  thinkingToolSectionSwitch.addEventListener("click", cycleThinkingToolSection);
   thinkingSelectionCanvas.addEventListener("click", putThinkingSelectionInCanvas);
   const thinkingTools = document.querySelectorAll(".thinking-tool[data-block-type]");
   for (let i = 0; i < thinkingTools.length; i++) {
@@ -14899,214 +18365,6 @@
     else if (key === "v" && pasteThinkingBlocks()) event.preventDefault();
   });
 
-  /* NOTES — a list of note titles; clicking one opens a rich-text editor.
-     The emoji list is feature data requested by the user (not decorative code). */
-  const NOTE_EMOJIS = ["😀", "👍", "❤️", "🔥", "⭐", "✅", "📌", "💡", "🎉", "⚠️"];
-  const notesView = document.getElementById("notes");
-  const notesList = document.getElementById("notesList");
-  const noteEditor = document.getElementById("noteEditor");
-  const noteEditorBody = document.getElementById("noteEditorBody");
-  const noteTitleInput = document.getElementById("noteTitleInput");
-  const noteSearch = document.getElementById("noteSearch");
-  let editorNoteId = null;
-
-  function findNote(id) {
-    for (let i = 0; i < state.notes.length; i++) {
-      if (state.notes[i].id === id) return state.notes[i];
-    }
-    return null;
-  }
-
-  /* plain text of a note's body */
-  function noteText(note) {
-    const tmp = document.createElement("div");
-    tmp.innerHTML = note.html || "";
-    return tmp.textContent.trim();
-  }
-
-  /* explicit title, or the body's first line as a fallback */
-  function noteDisplayTitle(note) {
-    const title = (note.title || "").trim();
-    if (title) return title;
-    return noteText(note).split("\n")[0];
-  }
-
-  function noteStamp(note) {
-    return note.updatedAt || Number(note.id) || 0;
-  }
-
-  /* localized "il y a 2 h" for recent notes, a short date for older ones */
-  function relativeTime(ts) {
-    const locale = state.settings.language === "fr" ? "fr-FR" : "en-US";
-    const rtf = new Intl.RelativeTimeFormat(locale, { numeric: "auto" });
-    const sec = Math.round((Date.now() - ts) / 1000);
-    if (sec < 60) return rtf.format(-sec, "second");
-    const min = Math.round(sec / 60);
-    if (min < 60) return rtf.format(-min, "minute");
-    const hr = Math.round(min / 60);
-    if (hr < 24) return rtf.format(-hr, "hour");
-    const day = Math.round(hr / 24);
-    if (day < 7) return rtf.format(-day, "day");
-    return new Date(ts).toLocaleDateString(locale, { day: "numeric", month: "short" });
-  }
-
-  /* LIST */
-  function openNotes() {
-    renderNotesList();
-    openFloating(notesView);
-  }
-  function closeNotes() {
-    notesView.classList.remove("is-open");
-    setTimeout(function () { notesView.hidden = true; }, 300);
-  }
-
-  function renderNotesList() {
-    notesList.innerHTML = "";
-    const query = noteSearch.value.trim().toLowerCase();
-    const sorted = state.notes.slice().sort(function (a, b) { return noteStamp(b) - noteStamp(a); });
-    const shown = [];
-    for (let i = 0; i < sorted.length; i++) {
-      const haystack = (noteDisplayTitle(sorted[i]) + " " + noteText(sorted[i])).toLowerCase();
-      if (!query || haystack.indexOf(query) !== -1) shown.push(sorted[i]);
-    }
-    if (shown.length === 0) {
-      const empty = document.createElement("p");
-      empty.className = "detail__empty";
-      empty.textContent = translate("emptyList");
-      notesList.appendChild(empty);
-      return;
-    }
-    for (let i = 0; i < shown.length; i++) {
-      notesList.appendChild(createNoteCard(shown[i]));
-    }
-  }
-
-  /* a card: title + preview + relative date; click to edit, × to delete */
-  function createNoteCard(note) {
-    const card = document.createElement("div");
-    card.className = "note-card";
-    card.addEventListener("click", function () { openNoteEditor(note.id); });
-
-    const del = document.createElement("button");
-    del.type = "button";
-    del.className = "note-card__del";
-    del.setAttribute("aria-label", translate("deleteAria"));
-    del.textContent = "×";
-    del.addEventListener("click", function (event) {
-      event.stopPropagation();
-      removeNote(note.id);
-    });
-
-    const title = document.createElement("div");
-    title.className = "note-card__title";
-    const displayed = noteDisplayTitle(note);
-    if (displayed) {
-      title.textContent = displayed;
-    } else {
-      title.textContent = translate("untitledNote");
-      title.classList.add("is-empty");
-    }
-
-    const preview = document.createElement("div");
-    preview.className = "note-card__preview";
-    preview.textContent = noteText(note);
-
-    const date = document.createElement("div");
-    date.className = "note-card__date";
-    date.textContent = relativeTime(noteStamp(note));
-
-    card.append(del, title, preview, date);
-    return card;
-  }
-
-  function addNote() {
-    const note = { id: Date.now().toString(), title: "", html: "", updatedAt: Date.now() };
-    state.notes.unshift(note);
-    saveState();
-    openNoteEditor(note.id);   // jump straight into editing
-  }
-
-  function removeNote(id) {
-    removeWithUndo("notes", id, function () { renderNotesList(); });
-  }
-
-  /* EDITOR */
-  function openNoteEditor(id) {
-    editorNoteId = id;
-    const note = findNote(id);
-    noteTitleInput.value = note ? (note.title || "") : "";
-    noteEditorBody.setAttribute("data-placeholder", translate("notePlaceholder"));
-    noteEditorBody.innerHTML = note ? (note.html || "") : "";
-    openFloating(noteEditor, function () { noteTitleInput.focus(); });
-  }
-  function closeNoteEditor() {
-    noteEditor.classList.remove("is-open");
-    setTimeout(function () { noteEditor.hidden = true; }, 300);
-    renderNotesList();   // refresh the list (title / order / date)
-  }
-
-  /* save title + body together and bump the timestamp */
-  function touchNote() {
-    const note = findNote(editorNoteId);
-    if (!note) return;
-    note.title = noteTitleInput.value;
-    note.html = noteEditorBody.innerHTML;
-    note.updatedAt = Date.now();
-    saveState();
-  }
-  noteTitleInput.addEventListener("input", touchNote);
-  noteEditorBody.addEventListener("input", touchNote);
-  noteSearch.addEventListener("input", renderNotesList);
-
-  /* toolbar — applies to the editor body's selection */
-  function applyNoteFormat(cmd) {
-    if (cmd === "hilite") {
-      document.execCommand("styleWithCSS", false, true);
-      document.execCommand("hiliteColor", false, "#ffe08a");
-    } else {
-      document.execCommand(cmd, false, null);
-    }
-  }
-
-  /* toolbar buttons keep the selection (mousedown preventDefault), then run the command */
-  const noteTools = document.querySelectorAll(".ntool[data-cmd]");
-  for (let i = 0; i < noteTools.length; i++) {
-    noteTools[i].addEventListener("mousedown", function (event) { event.preventDefault(); });
-    noteTools[i].addEventListener("click", function () { applyNoteFormat(this.dataset.cmd); });
-  }
-
-  const emojiBox = document.getElementById("noteEmojis");
-  for (let i = 0; i < NOTE_EMOJIS.length; i++) {
-    const emoji = NOTE_EMOJIS[i];
-    const btn = document.createElement("button");
-    btn.type = "button";
-    btn.className = "ntool ntool--emoji";
-    btn.textContent = emoji;
-    btn.addEventListener("mousedown", function (event) { event.preventDefault(); });
-    btn.addEventListener("click", function () { document.execCommand("insertText", false, emoji); });
-    emojiBox.appendChild(btn);
-  }
-
-  document.getElementById("notesBtn").addEventListener("click", openNotes);
-  document.getElementById("notesBack").addEventListener("click", closeNotes);
-  document.getElementById("addNoteBtn").addEventListener("click", addNote);
-  document.getElementById("noteEditorBack").addEventListener("click", closeNoteEditor);
-  document.addEventListener("keydown", function (event) {
-    if (event.key !== "Escape") return;
-    if (!noteEditor.hidden) closeNoteEditor();
-    else if (!notesView.hidden) closeNotes();
-  });
-
-  /* every floating view closes on its backdrop, the way the habit dialogs do */
-  const detailClosers = {
-    notes: closeNotes, noteEditor: closeNoteEditor
-  };
-  const detailBackdrops = document.querySelectorAll(".detail__backdrop");
-  for (let i = 0; i < detailBackdrops.length; i++) {
-    const view = detailBackdrops[i].parentNode;
-    detailBackdrops[i].addEventListener("click", detailClosers[view.id]);
-  }
-
   /* THE THREE COLUMNS — tasks, the day, planning. Wide, they are a grid and the
      rail never moves. Narrow, they are three full-width panes and the rail slides
      between them: same three elements, one layout to reason about. */
@@ -15200,14 +18458,10 @@
     if (!iconPicker.hidden) { iconPicker.hidden = true; return true; }
     if (!calendarModal.hidden) { calendarModal.hidden = true; return true; }
     if (!settingsModal.hidden) { settingsModal.hidden = true; return true; }
-    if (!noteEditor.hidden) { closeNoteEditor(); return true; }
-    if (!notesView.hidden) { closeNotes(); return true; }
-    if (linkMode) { setLinkMode(false); return true; }
     if (!projectView.hidden) { closeProjectView(); return true; }
     if (!wellView.hidden) { closeWell(); return true; }
     if (!skyView.hidden) { closeSky(); return true; }
-    if (!focusOverlay.hidden) { closeFocus(); return true; }
-    if (openHost) { closeDetail(); return true; }   // fold the open object back
+    if (openHost || openInlineProject) { closeAllInlineRows(); return true; }
     return false;
   }
   window.addEventListener("popstate", function () {
@@ -15218,6 +18472,7 @@
   applyTheme(state.settings.theme);
   applyPalette(state.settings.palette);
   applyLanguage(state.settings.language);
+  appReady = true;
   renderList("tasks");
   renderList("projects");
   renderHabits();
@@ -15231,6 +18486,7 @@
   renderGreeting();
   renderWelcomeHabits();
   initSky();
+  renderScene();   // the threshold is standing, so give it its place
   applyDecorations();
   setFieldWelcome(true);   // the threshold is standing
   document.getElementById("dtl").classList.toggle("is-scrubbable", state.settings.timeScrub);
