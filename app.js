@@ -8,6 +8,10 @@
     "constellation-twins", "constellation-wave", "constellation-cluster",
     "constellation-cross", "constellation-triangle", "constellation-comet"
   ];
+  /* The only two glyphs actually deleted from the catalogs, and what stands in
+     for them. Everything else that left a catalog still lives in another one, so
+     it keeps drawing. Up here because loadState runs before the catalogs do. */
+  const RETIRED_ICONS = { walk: "run", game: "star" };
   const state = loadState();
   // loadState migrates in memory; write it down once so the stored data matches
   // what the app is actually running on, instead of migrating again every launch
@@ -83,9 +87,14 @@
           if (!habits[i].exerciseLog) habits[i].exerciseLog = {};
         }
       }
+      // two glyphs left the catalogs for good; anything wearing one is moved over
+      for (let i = 0; i < habits.length; i++) {
+        if (RETIRED_ICONS[habits[i].icon]) habits[i].icon = RETIRED_ICONS[habits[i].icon];
+      }
       const projects = saved.projects || [];
       for (let i = 0; i < projects.length; i++) {
         const project = projects[i];
+        if (RETIRED_ICONS[project.icon]) project.icon = RETIRED_ICONS[project.icon];
         delete project.subtasks;       // projects moved from subtasks to milestones
         if (!project.icon) project.icon = "folder";
         if (!project.sky) project.sky = freeSkySpot(i);   // its place in the sky
@@ -135,6 +144,14 @@
           if (!branch.habitIds) branch.habitIds = [];
           if (branch.name == null) branch.name = "";
           if (!branch.icon) branch.icon = CONSTELLATION_ICON_KEYS[c % CONSTELLATION_ICON_KEYS.length];
+          // a course is walked in order: what was reached comes first, the rest
+          // keeps the order it was written in
+          const reached = [];
+          const ahead = [];
+          for (let s = 0; s < branch.steps.length; s++) {
+            (branch.steps[s].completedDate ? reached : ahead).push(branch.steps[s]);
+          }
+          branch.steps = reached.concat(ahead);
         }
         let activeBranchFound = false;
         for (let c = 0; c < project.constellations.length; c++) {
@@ -157,6 +174,7 @@
         delete events[i].done;
         if (events[i].important == null) events[i].important = false;
         if (!events[i].icon) events[i].icon = "calendar";
+        if (RETIRED_ICONS[events[i].icon]) events[i].icon = RETIRED_ICONS[events[i].icon];
         if (!events[i].date) events[i].date = null;   // it waits over the rule
         if (!events[i].time) events[i].time = null;   // a day without an hour is allowed
         if (events[i].projectId === undefined) events[i].projectId = null;
@@ -187,13 +205,13 @@
         for (let j = 0; j < canvas.blocks.length; j++) {
           const block = canvas.blocks[j];
           if (["problem", "solution", "example", "idea", "question", "answer", "canvas",
-            "folder", "document", "planner", "text", "note", "task", "event",
+            "folder", "document", "planner", "logbook", "text", "note", "task", "event",
             "habit", "step", "journal", "loop", "condition"]
             .indexOf(block.type) === -1) block.type = "note";
           delete block.icon;
           delete block.color;
           if (compactOldBlocks) delete block.blockHeight;
-          if (["canvas", "folder", "document", "planner"].indexOf(block.type) !== -1) {
+          if (["canvas", "folder", "document", "planner", "logbook"].indexOf(block.type) !== -1) {
             if (block.canvasWidth == null) block.canvasWidth = 650;
             if (block.canvasHeight == null) block.canvasHeight = 330;
             if (block.cameraX == null) block.cameraX = 9000;
@@ -238,7 +256,7 @@
         }
         for (let j = 0; j < canvas.blocks.length; j++) {
           const block = canvas.blocks[j];
-          if (["canvas", "folder", "document", "planner"].indexOf(block.type) === -1) continue;
+          if (["canvas", "folder", "document", "planner", "logbook"].indexOf(block.type) === -1) continue;
           if (!(block.title || "").trim()
               || (oldCanvasTitles && ["New canvas", "Nouvelle toile"].indexOf(block.title) !== -1)) {
             block.title = "";
@@ -264,7 +282,7 @@
         for (let j = 0; j < canvas.blocks.length; j++) {
           const block = canvas.blocks[j];
           const parent = canvasBlocks[block.parentId];
-          if (parent && ["canvas", "folder", "document", "planner"].indexOf(parent.type) === -1) {
+          if (parent && ["canvas", "folder", "document", "planner", "logbook"].indexOf(parent.type) === -1) {
             delete block.blockWidth;
             delete block.blockHeight;
           }
@@ -855,6 +873,7 @@
       journalHideAria: "Masquer le journal",
       promoteStep: "En faire une étape",
       promotedLabel: "Devenu une étape",
+      taskLinked: "Tâche rattachée au projet",
       stepCreated: "Étape ajoutée.",
       stepTarget: "Date visée",
       lateLabel: "en retard",
@@ -905,7 +924,11 @@
       blockProject: "Projet",
       blockHabit: "Habitude",
       blockStep: "Étape",
-      blockJournal: "Journal",
+      blockJournal: "Entrée",
+      blockLogbook: "Journal",
+      blockPlaceholderLogbook: "Journal",
+      thinkingLogbookEmpty: "Rien de consigné.",
+      thinkingLogbookAdd: "Écrire aujourd'hui",
       blockPlaceholderJournal: "Ce qui a bougé, une idée…",
       blockPlaceholderStep: "Étape",
       blockLoop: "Boucle for",
@@ -1209,6 +1232,7 @@
       journalHideAria: "Hide journal",
       promoteStep: "Make it a step",
       promotedLabel: "Became a step",
+      taskLinked: "Task linked to the project",
       stepCreated: "Step added.",
       stepTarget: "Target date",
       lateLabel: "late",
@@ -1259,7 +1283,11 @@
       blockProject: "Project",
       blockHabit: "Habit",
       blockStep: "Step",
-      blockJournal: "Journal",
+      blockJournal: "Entry",
+      blockLogbook: "Journal",
+      blockPlaceholderLogbook: "Journal",
+      thinkingLogbookEmpty: "Nothing logged.",
+      thinkingLogbookAdd: "Write today",
       blockPlaceholderJournal: "What moved, an idea…",
       blockPlaceholderStep: "Step",
       blockLoop: "For loop",
@@ -3636,6 +3664,7 @@
 
   function renderTasks() {
     const box = document.getElementById("tasksList");
+    const places = taskRowPlaces();   // where every row stood before the rebuild
     box.innerHTML = "";
     renderTasksRing();
 
@@ -3673,7 +3702,63 @@
     if (buckets.done) {
       box.appendChild(createTaskGroup("done", translate("groupDone"), buckets.done));
     }
+
+    slideTaskRows(places);
   }
+
+  /* MOVED, NOT REDRAWN — a list is rebuilt whole on every change, so without this
+     every row plays its entry again and the whole thing flashes for one item
+     changing place. Rows that were already there are handed their old position
+     back and then let go, so they slide to where they now belong; only rows that
+     are genuinely new still fade in. Both axes: a roadmap lays its steps across. */
+  const ROW_SLIDE_MS = 260;
+
+  function rowPlaces(selector, key) {
+    const places = {};
+    const rows = document.querySelectorAll(selector);
+    for (let i = 0; i < rows.length; i++) {
+      const id = rows[i].dataset[key];
+      if (id) places[id] = rows[i].getBoundingClientRect();
+    }
+    return places;
+  }
+
+  function slideRows(selector, key, places) {
+    const rows = document.querySelectorAll(selector);
+    const moving = [];
+    for (let i = 0; i < rows.length; i++) {
+      const was = places[rows[i].dataset[key]];
+      if (!was) continue;                   // new here: let it arrive on its own
+      rows[i].classList.add("is-settled");  // a survivor does not enter twice
+      const box = rows[i].getBoundingClientRect();
+      const dx = was.left - box.left;
+      const dy = was.top - box.top;
+      if (!dx && !dy) continue;
+      rows[i].style.transform = "translate(" + dx.toFixed(1) + "px, " + dy.toFixed(1) + "px)";
+      moving.push(rows[i]);
+    }
+    if (!moving.length) return;
+
+    requestAnimationFrame(function () {
+      for (let i = 0; i < moving.length; i++) {
+        moving[i].style.transition = "transform " + ROW_SLIDE_MS + "ms cubic-bezier(.22, .8, .25, 1)";
+        moving[i].style.transform = "";
+      }
+      setTimeout(function () {
+        for (let i = 0; i < moving.length; i++) {
+          moving[i].style.transition = "";
+        }
+      }, ROW_SLIDE_MS + 40);
+    });
+  }
+
+  function taskRowPlaces() { return rowPlaces("#tasksList .item", "id"); }
+  function slideTaskRows(places) { slideRows("#tasksList .item", "id", places); }
+
+  /* the same, for every step on screen: checklist rows and roadmap dots alike */
+  const STEP_NODES = ".psteps [data-step-id]";
+  function stepPlaces() { return rowPlaces(STEP_NODES, "stepId"); }
+  function slideSteps(places) { slideRows(STEP_NODES, "stepId", places); }
 
   /* One day of the flow. Today is always open and carries no control: it is the
      day being lived. Every other day arrives folded and unfolds on its head —
@@ -3683,7 +3768,8 @@
     const collapsed = !isToday && dayCollapsed(key);
     const group = document.createElement("div");
     group.className = "tgroup tgroup--day";
-    group.dataset.day = key;   // the grid reaches its day through this
+    group.dataset.day = key;        // the grid reaches its day through this
+    group.dataset.dropGroup = key;  // and a step or a row can be dropped into it
     if (isToday) group.classList.add("is-today");
     if (collapsed) group.classList.add("is-collapsed");
 
@@ -3731,7 +3817,7 @@
     const group = document.createElement("div");
     group.className = "tgroup tgroup--" + key;
     group.dataset.taskGroup = key;
-    if (key === "none") group.dataset.undatedDrop = "1";
+    if (key === "none") group.dataset.dropGroup = "";   // no day: the undated tail
     const collapsed = !!collapsedGroups[key];
     if (collapsed) group.classList.add("is-collapsed");
 
@@ -4155,6 +4241,9 @@
       deleting: false,
       undatedDrop: false,
       undatedBeforeId: null,
+      undatedDay: null,
+      projectDrop: null,
+      projectRow: null,
       crossedLists: false,
       reordered: false
     };
@@ -4162,7 +4251,12 @@
       try { row.setPointerCapture(event.pointerId); } catch (err) {}
     }
     row.classList.add("is-dragging");
+    // a selection made before the press became a drag would ride along with it
+    const selection = window.getSelection && window.getSelection();
+    if (selection && selection.removeAllRanges) selection.removeAllRanges();
     if (rowDrag.canDelete) showTimelineTrash(true, false);
+    // the objectives offer themselves for the length of the drag, guide and all
+    if (listName === "tasks") showHabitProjectTargets();
     moveRowGhost(event);
     document.addEventListener("pointermove", onRowDragMove, { passive: false });
     document.addEventListener("pointerup", endRowDrag);
@@ -4192,7 +4286,9 @@
     };
   }
 
-  function showTaskDrop(drop, task, under) {
+  const PREVIEW_TASK_ICON = '<circle cx="12" cy="12" r="9"/><polyline points="8 12 11 15 16 9"/>';
+
+  function showTaskDrop(drop, task, under, iconMarkup) {
     const preview = document.getElementById("taskDropPreview");
     if (!drop) {
       preview.hidden = true;
@@ -4203,9 +4299,19 @@
     // is drawn from the matching end — the two must not disagree
     const hangs = under !== false;
     preview.classList.toggle("dtl__event--under", hangs);
+    // an event is not a task: it keeps its own icon and its own colour, or the
+    // preview promises to drop something other than what is in hand
+    preview.classList.toggle("dtl__task", !iconMarkup);
+    preview.querySelector(".dtl__event-icon").innerHTML =
+      iconMarkup || iconSvg(PREVIEW_TASK_ICON);
     preview.querySelector(".dtl__event-path").setAttribute("d", hangs
       ? "M40 44 C40 26 40 30 40 2" : "M40 30 C40 48 40 44 40 72");
     preview.querySelector(".dtl__event-foot").setAttribute("cy", hangs ? "2" : "72");
+    // A real marker is placed inside its box by the renderer; the preview is written
+    // in the page and has no such placement of its own. Hanging releases the CSS
+    // top without supplying a bottom, so without this its icon falls back to the
+    // head of a box that now hangs — the card pointing the wrong way.
+    restIcon(preview, hangs);
     preview.hidden = false;
     preview.style.left = drop.pct.toFixed(2) + "%";
     const text = drop.time + " · " + task.text;
@@ -4235,7 +4341,7 @@
 
     rowDrag.drop = null;
     showTaskDrop(null);
-    const group = document.querySelector('.tgroup[data-undated-drop="1"]');
+    const group = document.querySelector('.tgroup[data-drop-group=""]');
     if (group) group.classList.remove("is-drop-target");
     rowDrag.undatedDrop = false;
     rowDrag.undatedBeforeId = null;
@@ -4245,9 +4351,29 @@
 
   function updateRowDragDestinations() {
     const deleting = updateRowTrashDrop();
-    const drop = deleting ? null : updateRowTimelineDrop();
-    const undatedDrop = deleting ? false : updateUndatedDrop();
+    const project = deleting ? null : updateProjectDrop();
+    const drop = (deleting || project) ? null : updateRowTimelineDrop();
+    const undatedDrop = (deleting || project) ? false : updateUndatedDrop();
     return { deleting: deleting, drop: drop, undatedDrop: undatedDrop };
+  }
+
+  /* A TASK GIVEN TO A PROJECT — dropped on a project's row it joins that project,
+     exactly as a habit does, and through the same targets and the same guide: one
+     visual for one gesture, whatever is being carried. It takes precedence over
+     the day groups, since a project row sits in a column of its own and landing
+     on one can only ever have been meant. */
+  function updateProjectDrop() {
+    if (!rowDrag || rowDrag.listName !== "tasks") return null;
+    const target = habitProjectDropAt(rowDrag.pointerX, rowDrag.pointerY);
+    // the habit drag marks and unmarks one row at a time; do the same rather than
+    // sweep every row on every frame
+    if (rowDrag.projectRow && rowDrag.projectRow !== (target && target.row)) {
+      rowDrag.projectRow.classList.remove("is-habit-drop-target");
+    }
+    rowDrag.projectRow = target ? target.row : null;
+    if (target) target.row.classList.add("is-habit-drop-target");
+    rowDrag.projectDrop = target ? target.project.id : null;
+    return rowDrag.projectDrop;
   }
 
   function restoreDraggedRowOrigin(drag) {
@@ -4260,13 +4386,22 @@
     drag.crossedLists = false;
   }
 
+  /* WHICH GROUP OF THE LIST IS UNDER THE POINTER — the undated tail and every day
+     on show answer the same way, so a step or a row is dropped into any of them
+     through one reader. `day` is the key it lands on, or "" for no date at all. */
+  function dropGroupAt(clientX, clientY) {
+    const groups = document.querySelectorAll(".tgroup[data-drop-group]");
+    for (let i = 0; i < groups.length; i++) {
+      const rect = groups[i].getBoundingClientRect();
+      if (clientX >= rect.left - 10 && clientX <= rect.right + 10
+        && clientY >= rect.top - 10 && clientY <= rect.bottom + 18) return groups[i];
+    }
+    return null;
+  }
+
   function undatedDropPosition(clientX, clientY) {
-    const group = document.querySelector('.tgroup[data-undated-drop="1"]');
+    const group = dropGroupAt(clientX, clientY);
     if (!group) return null;
-    const rect = group.getBoundingClientRect();
-    const inside = clientX >= rect.left - 10 && clientX <= rect.right + 10
-      && clientY >= rect.top - 10 && clientY <= rect.bottom + 18;
-    if (!inside) return null;
 
     const targetList = group.querySelector(".list");
     let beforeNode = null;
@@ -4283,6 +4418,7 @@
     return {
       group: group,
       list: targetList,
+      day: group.dataset.dropGroup || null,
       beforeNode: beforeNode,
       beforeId: beforeNode ? beforeNode.dataset.id : null
     };
@@ -4291,22 +4427,29 @@
   /* The permanent "Sans date" group accepts a drop on its head, its empty
      space, or between two rows. Moving the real source row gives an exact
      insertion preview while the floating copy stays under the pointer. */
+  function clearDropGroups() {
+    const groups = document.querySelectorAll(".tgroup[data-drop-group]");
+    for (let i = 0; i < groups.length; i++) groups[i].classList.remove("is-drop-target");
+  }
+
   function updateUndatedDrop() {
     if (!rowDrag || !rowDrag.canSchedule) return false;
     const task = findTask(rowDrag.row.dataset.id);
-    const group = document.querySelector('.tgroup[data-undated-drop="1"]');
-    if (!task || task.done || !group) return false;
+    if (!task || task.done) return false;
     const position = undatedDropPosition(rowDrag.pointerX, rowDrag.pointerY);
+    clearDropGroups();
     if (!position) {
-      group.classList.remove("is-drop-target");
       rowDrag.undatedDrop = false;
       rowDrag.undatedBeforeId = null;
+      rowDrag.undatedDay = null;
       if (rowDrag.crossedLists) restoreDraggedRowOrigin(rowDrag);
       return false;
     }
 
+    const group = position.group;
     group.classList.add("is-drop-target");
     rowDrag.undatedDrop = true;
+    rowDrag.undatedDay = position.day;
     const targetList = position.list;
     if (group.classList.contains("is-collapsed")) return true;
 
@@ -4374,8 +4517,8 @@
     if (drag.ghost.parentNode) drag.ghost.remove();
     showTaskDrop(null);
     if (drag.canDelete) showTimelineTrash(false, false);
-    const undatedGroup = document.querySelector('.tgroup[data-undated-drop="1"]');
-    if (undatedGroup) undatedGroup.classList.remove("is-drop-target");
+    clearDropGroups();
+    clearHabitProjectTargets();
     dragEndedAt = Date.now() + 350;   // swallow the click that ends the drag
     cancelAnimationFrame(rowDragScrollFrame);
     rowDragScrollFrame = 0;
@@ -4400,6 +4543,20 @@
       return;
     }
 
+    if (drag.projectDrop) {
+      const task = findTask(drag.row.dataset.id);
+      const project = findItem("projects", drag.projectDrop);
+      if (task && project) {
+        linkTaskToProject(task, project);
+        saveState();
+        renderList("tasks");
+        renderList("projects");
+        refreshStepStructure(project);
+        showToast(translate("taskLinked"));
+      }
+      return;
+    }
+
     if (drag.drop && drag.canSchedule) {
       const task = findTask(drag.row.dataset.id);
       if (!task) return;
@@ -4417,11 +4574,15 @@
     if (drag.undatedDrop && drag.canSchedule) {
       const task = findTask(drag.row.dataset.id);
       if (!task || task.done) return;
-      task.dueDate = null;
+      // dropped into a day it takes that day and no hour; into the tail, no date
+      task.dueDate = drag.undatedDay || null;
       task.dueTime = null;
       task.notified = false;
-      collapsedGroups.none = false;
-      persistUndatedTaskOrder(undatedTaskOrderFor(task.id, drag.undatedBeforeId));
+      if (task.dueDate) collapsedGroups["day:" + task.dueDate] = false;
+      else {
+        collapsedGroups.none = false;
+        persistUndatedTaskOrder(undatedTaskOrderFor(task.id, drag.undatedBeforeId));
+      }
       saveState();
       renderList("tasks");
       renderDailyTimeline();
@@ -4462,7 +4623,7 @@
   }
 
   function undatedTaskOrderFor(taskId, beforeId) {
-    const group = document.querySelector('.tgroup[data-undated-drop="1"]');
+    const group = document.querySelector('.tgroup[data-drop-group=""]');
     const rows = group ? group.querySelectorAll(".list .item[data-id]") : [];
     const ordered = [];
     for (let i = 0; i < rows.length; i++) {
@@ -4506,7 +4667,7 @@
     const item = { id: Date.now().toString(), text: text, done: false, projectId: null };
     if (due && due.date) {
       item.dueDate = due.date;
-      item.dueTime = due.time || "09:00";
+      item.dueTime = due.time || null;   // a day may be fixed without an hour
       item.notified = false;
     }
     if (importance) item.importance = importance;
@@ -4518,7 +4679,7 @@
 
   /* Remove an item from a state list, keeping its slot so Undo can restore it.
      rerender() redraws whatever views showed it. */
-  function removeWithUndo(listName, id, rerender) {
+  function removeWithUndo(listName, id, rerender, onRestore) {
     const items = state[listName];
     let index = -1;
     let removed = null;
@@ -4531,6 +4692,7 @@
     rerender();
     showToast(translate("undoDeleted"), translate("undoBtn"), function () {
       state[listName].splice(index, 0, removed);
+      if (onRestore) onRestore();   // whatever pointed at it points again
       saveState();
       rerender();
     });
@@ -4574,12 +4736,12 @@
       renderTasksRing();
       listsDirty[listName] = true;
       if (listName === "tasks") renderDailyTimeline();
-      if (linkedStep) refreshLinkedStepProject(linkedStep.project, linkedStep.step);
+      if (linkedStep) refreshLinkedStepProject(linkedStep);
       return;
     }
     renderList(listName);
     if (listName === "tasks") renderDailyTimeline();
-    if (linkedStep) refreshLinkedStepProject(linkedStep.project, linkedStep.step);
+    if (linkedStep) refreshLinkedStepProject(linkedStep);
   }
 
   /* QUICK ADD — the rectangle unfolds into a single input. "Relire le rapport
@@ -4804,8 +4966,17 @@
      day is on show lands on that day. A date typed in the line still wins, and
      on today an undated line stays undated — the flow keeps its dateless tail. */
   function quickTaskDay(parsed) {
+    return writtenDay(parsed);
+  }
+
+  /* WHAT A WRITTEN LINE MEANS BY "WHEN" — one reading for tasks and events alike:
+     a day named in the line wins; an hour on its own means the day on show, so it
+     can be placed at once; nothing at all leaves the thing undated, which is a
+     state of its own and not a hole to be filled with today. */
+  function writtenDay(parsed) {
     if (parsed.date && !parsed.inferred) return parsed.date;
-    return sectionDay || parsed.date || null;
+    if (parsed.time) return sectionDay || todayKey();
+    return sectionDay;
   }
 
   /* a new project lands in the sky and opens straight into its workspace */
@@ -4833,16 +5004,26 @@
 
   /* line-art icon catalog (same stroke style as the rest of the app) */
   /* an icon path wrapped in the stroke settings they all share */
+  /* The catalogs are looked through in turn, so a key that has moved from one
+     list to another still draws: only a glyph deleted outright needs migrating.
+     The svg wears cat-ico, which is the whole hover contract - the CSS moves the
+     named parts inside whenever the icon's own box is hovered, wherever it sits. */
   function catalogIconSvg(iconKey, catalog) {
-    const drawing = (catalog && catalog[iconKey])
-      || HABIT_ICONS[iconKey] || PROJECT_ICONS[iconKey] || CONSTELLATION_ICONS[iconKey] || "";
-    return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" '
-      + 'stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
-      + drawing + '</svg>';
+    const drawing = (catalog && catalog[iconKey]) || HABIT_ICONS[iconKey]
+      || EVENT_ICONS[iconKey] || PROJECT_ICONS[iconKey] || EXERCISE_ICONS[iconKey]
+      || CONSTELLATION_ICONS[iconKey] || "";
+    // the celestial alphabet shares one gesture, so it is grouped rather than
+    // having every point and thread of twelve drawings named by hand
+    const body = iconKey && iconKey.indexOf("constellation-") === 0
+      ? '<g class="ci-constel">' + drawing + "</g>" : drawing;
+    return '<svg class="cat-ico" viewBox="0 0 24 24" fill="none" stroke="currentColor"'
+      + ' stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
+      + body + '</svg>';
   }
 
   function habitSvg(iconKey) { return catalogIconSvg(iconKey); }
   function projectSvg(iconKey) { return catalogIconSvg(iconKey, PROJECT_ICONS); }
+  function eventSvg(iconKey) { return catalogIconSvg(iconKey, EVENT_ICONS); }
 
   /* A small celestial alphabet reserved for constellation lists. The points and
      their threads stay legible at the compact size used beside a branch name. */
@@ -4861,67 +5042,90 @@
     "constellation-comet": '<path d="M4 18 13 9"/><path d="M7 20 15 12"/><path d="M2 15 10 7"/><circle cx="16.5" cy="7.5" r="4"/><circle cx="17.5" cy="6.5" r="1" fill="currentColor" stroke="none"/>'
   };
 
+  /* THE THREE CATALOGS — one list per thing being named, so a habit is offered
+     habits and an event is offered events. Every glyph is cut into parts the CSS
+     can move on hover; the class names are the contract between the two files. */
   const HABIT_ICONS = {
-    water: '<path d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/>',
-    book: '<path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>',
-    run: '<polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>',
-    sleep: '<path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>',
-    sun: '<circle cx="12" cy="12" r="5"/><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>',
-    heart: '<path d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 1 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>',
-    coffee: '<path d="M18 8h1a4 4 0 0 1 0 8h-1"/><path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"/><line x1="6" y1="1" x2="6" y2="4"/><line x1="10" y1="1" x2="10" y2="4"/><line x1="14" y1="1" x2="14" y2="4"/>',
-    write: '<path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>',
-    music: '<path d="M9 18V5l12-2v13"/><circle cx="6" cy="18" r="3"/><circle cx="18" cy="16" r="3"/>',
-    leaf: '<path d="M20.24 12.24a6 6 0 0 0-8.49-8.49L5 10.5V19h8.5z"/><line x1="16" y1="8" x2="2" y2="22"/><line x1="17.5" y1="15" x2="9" y2="15"/>',
-    code: '<polyline points="16 18 22 12 16 6"/><polyline points="8 6 2 12 8 18"/>',
-    star: '<polygon points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>',
-    sport: '<line x1="2.5" y1="9" x2="2.5" y2="15"/><line x1="5.5" y1="7" x2="5.5" y2="17"/><line x1="18.5" y1="7" x2="18.5" y2="17"/><line x1="21.5" y1="9" x2="21.5" y2="15"/><line x1="5.5" y1="12" x2="18.5" y2="12"/>',
-    meditation: '<circle cx="12" cy="5" r="2"/><path d="M12 8v3"/><path d="M7.5 18.5c1.2 -.8 2.7 -1.2 4.5 -1.2s3.3 .4 4.5 1.2"/><path d="M12 11c-2.5 .5 -4 2 -4.5 4"/><path d="M12 11c2.5 .5 4 2 4.5 4"/>',
-    walk: '<circle cx="13" cy="4" r="1.6"/><path d="M7 21l3 -4"/><path d="M16 21l-2 -4l-3 -3l1 -6"/><path d="M6 12l2 -3l4 -1l3 3l3 1"/>',
-    game: '<rect x="2" y="7" width="20" height="10" rx="5"/><line x1="6" y1="12" x2="9" y2="12"/><line x1="7.5" y1="10.5" x2="7.5" y2="13.5"/><circle cx="15.5" cy="13" r="1"/><circle cx="18.5" cy="11" r="1"/>',
-    calendar: '<rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>',
-    cake: '<path d="M4 21h16"/><path d="M5 21v-7a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v7"/><path d="M4 16.4c1.4 0 1.4 1 2.8 1s1.4-1 2.8-1 1.4 1 2.8 1 1.4-1 2.8-1 1.4 1 2.8 1"/><path d="M12 6.5V9"/><path d="M12 3.5a1 1 0 0 0-1 1c0 .8 1 1.5 1 1.5s1-.7 1-1.5a1 1 0 0 0-1-1z"/>',
-    meeting: '<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
-    course: '<path d="M22 10 12 5 2 10l10 5 10-5z"/><path d="M6 12v5c0 1.1 2.7 3 6 3s6-1.9 6-3v-5"/><line x1="22" y1="10" x2="22" y2="15"/>',
-    gift: '<polyline points="20 12 20 22 4 22 4 12"/><rect x="2" y="7" width="20" height="5"/><line x1="12" y1="22" x2="12" y2="7"/><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"/><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"/>',
-    bell: '<path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/>',
-    folder: '<path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"/>',
-    target: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="5"/><circle cx="12" cy="12" r="1.4"/>',
-    rocket: '<path d="M4.5 16.5c-1.5 1.3-2 5-2 5s3.7-.5 5-2c.7-.9.7-2.2-.1-3a2.1 2.1 0 0 0-2.9 0z"/><path d="M12 15l-3-3a11 11 0 0 1 5-8c1.9-1.9 4-2 5-2s1.1 3.1-.8 5a11 11 0 0 1-8 5z"/><path d="M9 12H4s.5-2.8 2-4c1.5-.4 3 0 3 0"/><path d="M12 15v5s2.8-.5 4-2c.4-1.5 0-3 0-3"/>',
+    water: '<path class="ci-drop" d="M12 2.69l5.66 5.66a8 8 0 1 1-11.31 0z"/>',
+    sleep: '<path class="ci-moon" d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/>'
+      + '<path class="ci-twinkle" d="m18.4 2.6.75 2 2 .75-2 .75-.75 2-.75-2-2-.75 2-.75z"/>',
+    sun: '<circle class="ci-disc" cx="12" cy="12" r="5"/>'
+      + '<g class="ci-rays"><line x1="12" y1="1" x2="12" y2="3"/><line x1="12" y1="21" x2="12" y2="23"/><line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/><line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/><line x1="1" y1="12" x2="3" y2="12"/><line x1="21" y1="12" x2="23" y2="12"/><line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/><line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/></g>',
+    coffee: '<path d="M18 8h1a4 4 0 0 1 0 8h-1"/><path d="M2 8h16v9a4 4 0 0 1-4 4H6a4 4 0 0 1-4-4V8z"/>'
+      + '<line class="ci-steam ci-steam--1" x1="6" y1="1" x2="6" y2="4"/>'
+      + '<line class="ci-steam ci-steam--2" x1="10" y1="1" x2="10" y2="4"/>'
+      + '<line class="ci-steam ci-steam--3" x1="14" y1="1" x2="14" y2="4"/>',
+    run: '<polyline class="ci-trace" pathLength="1" points="22 12 18 12 15 21 9 3 6 12 2 12"/>',
+    sport: '<g class="ci-lift"><line x1="2.5" y1="9" x2="2.5" y2="15"/><line x1="5.5" y1="7" x2="5.5" y2="17"/><line x1="18.5" y1="7" x2="18.5" y2="17"/><line x1="21.5" y1="9" x2="21.5" y2="15"/><line x1="5.5" y1="12" x2="18.5" y2="12"/></g>',
+    meditation: '<g class="ci-breathe"><circle cx="12" cy="5" r="2"/><path d="M12 8v3"/><path d="M7.5 18.5c1.2 -.8 2.7 -1.2 4.5 -1.2s3.3 .4 4.5 1.2"/><path d="M12 11c-2.5 .5 -4 2 -4.5 4"/><path d="M12 11c2.5 .5 4 2 4.5 4"/></g>',
+    heart: '<path class="ci-heart" d="M20.84 4.61a5.5 5.5 0 0 0-7.78 0L12 5.67l-1.06-1.06a5.5 5.5 0 1 0-7.78 7.78l1.06 1.06L12 21.23l7.78-7.78 1.06-1.06a5.5 5.5 0 0 0 0-7.78z"/>',
+    book: '<path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/>'
+      + '<path class="ci-leaf-page" d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/>',
+    write: '<path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/>'
+      + '<path class="ci-pencil" d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/>',
+    code: '<polyline class="ci-chev ci-chev--r" points="16 18 22 12 16 6"/>'
+      + '<polyline class="ci-chev ci-chev--l" points="8 6 2 12 8 18"/>',
+    music: '<path class="ci-beam" d="M9 18V5l12-2v13"/>'
+      + '<circle class="ci-note ci-note--1" cx="6" cy="18" r="3"/>'
+      + '<circle class="ci-note ci-note--2" cx="18" cy="16" r="3"/>',
+    leaf: '<g class="ci-frond"><path d="M20.24 12.24a6 6 0 0 0-8.49-8.49L5 10.5V19h8.5z"/><line x1="17.5" y1="15" x2="9" y2="15"/></g>'
+      + '<line x1="16" y1="8" x2="2" y2="22"/>',
+    star: '<polygon class="ci-star" points="12 2 15.09 8.26 22 9.27 17 14.14 18.18 21.02 12 17.77 5.82 21.02 7 14.14 2 9.27 8.91 8.26 12 2"/>'
+  };
+
+  /* what goes in a diary: a date, people, a class, a birthday, a present, a reminder */
+  const EVENT_ICONS = {
+    calendar: '<rect x="3" y="4" width="18" height="18" rx="2"/><line x1="3" y1="10" x2="21" y2="10"/>'
+      + '<line class="ci-pin ci-pin--1" x1="8" y1="2" x2="8" y2="6"/>'
+      + '<line class="ci-pin ci-pin--2" x1="16" y1="2" x2="16" y2="6"/>'
+      + '<rect class="ci-day" x="7" y="13.5" width="4" height="4" rx="1"/>',
+    meeting: '<path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/>'
+      + '<g class="ci-joiner"><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></g>',
+    course: '<path d="M22 10 12 5 2 10l10 5 10-5z"/><path d="M6 12v5c0 1.1 2.7 3 6 3s6-1.9 6-3v-5"/>'
+      + '<line class="ci-tassel" x1="22" y1="10" x2="22" y2="15"/>',
+    cake: '<path d="M4 21h16"/><path d="M5 21v-7a2 2 0 0 1 2-2h10a2 2 0 0 1 2 2v7"/><path d="M4 16.4c1.4 0 1.4 1 2.8 1s1.4-1 2.8-1 1.4 1 2.8 1 1.4-1 2.8-1 1.4 1 2.8 1"/><path d="M12 6.5V9"/>'
+      + '<path class="ci-flame" d="M12 3.5a1 1 0 0 0-1 1c0 .8 1 1.5 1 1.5s1-.7 1-1.5a1 1 0 0 0-1-1z"/>',
+    gift: '<polyline points="20 12 20 22 4 22 4 12"/><line x1="12" y1="22" x2="12" y2="12"/>'
+      + '<g class="ci-lid"><rect x="2" y="7" width="20" height="5"/><path d="M12 7H7.5a2.5 2.5 0 0 1 0-5C11 2 12 7 12 7z"/><path d="M12 7h4.5a2.5 2.5 0 0 0 0-5C13 2 12 7 12 7z"/></g>',
+    bell: '<g class="ci-bell"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/></g>'
+      + '<path class="ci-clapper" d="M13.73 21a2 2 0 0 1-3.46 0"/>'
+  };
+
+  /* A goal is something you drive at, so the list is aim, launch, route and
+     workplace. The first four are the canvas glyphs, animation included. */
+  const PROJECT_ICONS = {
+    target: '<g class="ti-rings"><circle cx="12" cy="12" r="8"/><circle cx="12" cy="12" r="3"/></g>'
+      + '<g class="ti-arrow"><path d="m15 9 5-5M16 4h4v4"/></g>',
+    flag: '<path d="M6 21V4"/><g class="ti-flag"><path d="M6 5h11l-2 3 2 3H6"/></g>',
+    compass: '<circle cx="12" cy="12" r="9"/><g class="ti-needle"><path d="m15.5 8.5-2 5-5 2 2-5Z"/></g>',
+    lightbulb: '<g class="ti-rays"><path d="M12 1.5v1.6M4.4 4.4l1.1 1.1M19.6 4.4l-1.1 1.1M2 11h1.6M20.4 11H22"/></g>'
+      + '<g class="ti-glass"><path d="M8.5 15.5C7 14.3 6 12.5 6 10.5a6 6 0 1 1 12 0c0 2-1 3.8-2.5 5-.6.5-.8 1-.8 1.5H9.3c0-.5-.2-1-.8-1.5Z"/></g>'
+      + '<g class="ti-wire"><path stroke-width="1.15" d="M10.5 15.4v-2.5M13.5 15.4v-2.5M10.5 12.9l.75-1.6.75 1.6.75-1.6.75 1.6"/></g>'
+      + '<path d="M9 18h6M10 21h4"/>',
+    rocket: '<g class="ci-rocket"><path d="M12 15l-3-3a11 11 0 0 1 5-8c1.9-1.9 4-2 5-2s1.1 3.1-.8 5a11 11 0 0 1-8 5z"/><path d="M9 12H4s.5-2.8 2-4c1.5-.4 3 0 3 0"/><path d="M12 15v5s2.8-.5 4-2c.4-1.5 0-3 0-3"/></g>'
+      + '<path class="ci-exhaust" d="M4.5 16.5c-1.5 1.3-2 5-2 5s3.7-.5 5-2c.7-.9.7-2.2-.1-3a2.1 2.1 0 0 0-2.9 0z"/>',
+    folder: '<path d="M3 19.5V6a2 2 0 0 1 2-2h4l2 2.5h8a2 2 0 0 1 2 2v11"/>'
+      + '<path class="ci-fold-front" d="M2 11h20l-1.6 7.6A2 2 0 0 1 18.4 20.5H5.6a2 2 0 0 1-1.96-1.5Z"/>',
+    briefcase: '<g class="ci-case"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M3 12h18"/><path d="M10 12v2h4v-2"/></g>',
+    home: '<path d="M3 10.5 12 3l9 7.5"/><path d="M5.5 9.5V21h13V9.5"/>'
+      + '<path class="ci-door" d="M9.5 21v-6h5v6"/>',
+    book: HABIT_ICONS.book,
+    write: HABIT_ICONS.write,
+    code: HABIT_ICONS.code,
+    star: HABIT_ICONS.star
+  };
+
+  /* the preconfigured exercise habit draws from here; out of the picker grid */
+  const EXERCISE_ICONS = {
     pushup: '<polyline points="6 8 12 13 18 8"/><polyline points="6 15 12 20 18 15"/>',
     squat: '<line x1="4" y1="4" x2="20" y2="4"/><path d="M8 4v6l4 4 4-4V4"/><line x1="4" y1="20" x2="20" y2="20"/>',
     crunch: '<rect x="6" y="3" width="5" height="5" rx="1"/><rect x="13" y="3" width="5" height="5" rx="1"/><rect x="6" y="9.5" width="5" height="5" rx="1"/><rect x="13" y="9.5" width="5" height="5" rx="1"/><rect x="6" y="16" width="5" height="5" rx="1"/><rect x="13" y="16" width="5" height="5" rx="1"/>',
     lunge: '<path d="M12 3v6"/><path d="M8 9l4 6 4-6"/><path d="M8 21l4-6 4 6"/>',
     pullup: '<line x1="3" y1="5" x2="21" y2="5"/><line x1="8" y1="5" x2="8" y2="13"/><line x1="16" y1="5" x2="16" y2="13"/><polyline points="6 10 8 13 10 10"/><polyline points="14 10 16 13 18 10"/>',
-    dip: '<line x1="5" y1="4" x2="5" y2="20"/><line x1="19" y1="4" x2="19" y2="20"/><polyline points="9 9 12 13 15 9"/>'
+    dip: '<line x1="5" y1="4" x2="5" y2="20"/><line x1="19" y1="4" x2="19" y2="20"/><polyline points="9 9 12 13 15 9"/>',
+    sport: HABIT_ICONS.sport
   };
 
-  /* Projects use a focused vocabulary; exercise glyphs stay in habits. */
-  const PROJECT_ICONS = {
-    folder: HABIT_ICONS.folder,
-    target: HABIT_ICONS.target,
-    rocket: HABIT_ICONS.rocket,
-    run: HABIT_ICONS.run,
-    sport: HABIT_ICONS.sport,
-    flag: '<path d="M5 21V4"/><path d="M5 5h11l-2 3 2 3H5"/>',
-    compass: '<circle cx="12" cy="12" r="9"/><path d="m15.8 8.2-2.1 5.5-5.5 2.1 2.1-5.5 5.5-2.1Z"/><circle cx="12" cy="12" r="1"/>',
-    briefcase: '<rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M3 12h18"/><path d="M10 12v2h4v-2"/>',
-    home: '<path d="M3 10.5 12 3l9 7.5"/><path d="M5.5 9.5V21h13V9.5"/><path d="M9.5 21v-6h5v6"/>',
-    lightbulb: '<path d="M9 18h6"/><path d="M10 22h4"/><path d="M8.2 14.5A6 6 0 1 1 15.8 14.5c-.7.6-.8 1.5-.8 2.5H9c0-1-.1-1.9-.8-2.5Z"/>',
-    calendar: HABIT_ICONS.calendar,
-    meeting: HABIT_ICONS.meeting,
-    course: HABIT_ICONS.course,
-    book: HABIT_ICONS.book,
-    write: HABIT_ICONS.write,
-    code: HABIT_ICONS.code,
-    star: HABIT_ICONS.star,
-    meditation: '<path d="M12 20.5c-4.7 0-8.1-1.9-9.5-5.2 3.8-.6 7 .3 9.5 3.3 2.5-3 5.7-3.9 9.5-3.3-1.4 3.3-4.8 5.2-9.5 5.2Z"/><path d="M12 18.4c-3.1-2.3-4.4-5.4-3.7-8.7 1.8.4 3.1 1.4 3.7 3 .6-1.6 1.9-2.6 3.7-3 .7 3.3-.6 6.4-3.7 8.7Z"/><path d="M12 12.8c-1.7-2.2-1.7-4.9 0-7.5 1.7 2.6 1.7 5.3 0 7.5Z"/>',
-    leaf: HABIT_ICONS.leaf,
-    heart: HABIT_ICONS.heart,
-    music: HABIT_ICONS.music,
-    game: HABIT_ICONS.game,
-    gift: HABIT_ICONS.gift,
-    bell: HABIT_ICONS.bell
-  };
 
   const EXERCISE_CATALOG = ["pushup", "squat", "crunch", "lunge", "pullup", "dip"];
   const EXERCISE_NAME_KEYS = {
@@ -4999,25 +5203,52 @@
   }
 
   function removeHabit(id) {
+    // the constellations that carried it, remembered before they let go: Undo
+    // must hand the habit back where it was, not merely bring it back adrift
+    const carried = unlinkHabitFromProjects(id);
     removeWithUndo("habits", id, function () {
       renderHabits();
       renderWelcomeHabits();
-      refreshProjectsForHabit(id);
-    });
+      refreshCarriers(carried);
+    }, function () { relinkHabitToProjects(id, carried); });
   }
 
-  function refreshProjectsForHabit(habitId) {
-    for (let i = 0; i < state.projects.length; i++) {
-      const project = state.projects[i];
-      const branches = projectBranches(project);
-      let linked = false;
-      for (let j = 0; j < branches.length; j++) {
-        if ((branches[j].habitIds || []).indexOf(habitId) !== -1) {
-          linked = true;
-          break;
-        }
+  /* A habit taken away leaves nothing pointing at it: every constellation holding
+     its id lets go, the same way a step taken away frees the task it stood for.
+     The places it was held are returned so the move can be undone whole. */
+  function unlinkHabitFromProjects(habitId) {
+    const carried = [];
+    for (let p = 0; p < state.projects.length; p++) {
+      const branches = projectBranches(state.projects[p]);
+      for (let b = 0; b < branches.length; b++) {
+        const ids = branches[b].habitIds || [];
+        const at = ids.indexOf(habitId);
+        if (at === -1) continue;
+        ids.splice(at, 1);
+        carried.push({ project: state.projects[p], branch: branches[b], at: at });
       }
-      if (linked) refreshStepSections(project);
+    }
+    return carried;
+  }
+
+  function relinkHabitToProjects(habitId, carried) {
+    for (let i = 0; i < carried.length; i++) {
+      const branch = carried[i].branch;
+      if (!branch.habitIds) branch.habitIds = [];
+      if (branch.habitIds.indexOf(habitId) === -1) {
+        branch.habitIds.splice(carried[i].at, 0, habitId);
+      }
+    }
+  }
+
+  /* the objectives that held it, redrawn — they no longer carry the id to be
+     found by, so they have to be remembered rather than searched for */
+  function refreshCarriers(carried) {
+    const seen = [];
+    for (let i = 0; i < carried.length; i++) {
+      if (seen.indexOf(carried[i].project) !== -1) continue;
+      seen.push(carried[i].project);
+      refreshStepSections(carried[i].project);
     }
     if (!skyView.hidden) renderSky();
   }
@@ -5127,7 +5358,7 @@
   function openIconPickerForDetail() {
     iconPickerMode = { kind: "detail" };
     const item = currentDetailItem();
-    buildIconPicker(HABIT_ICONS, item && item.icon);
+    buildIconPicker(EVENT_ICONS, item && item.icon);
     document.getElementById("habitNameField").hidden = true;
     document.getElementById("iconPresets").hidden = true;
     iconPicker.hidden = false;
@@ -5884,8 +6115,11 @@
       const step = project && findStep(project, pickerContext.stepId);
       if (step) {
         step.targetDate = date;
+        syncTaskForStep(project, step);
         saveState();
         refreshStepSections(project);
+        renderList("tasks");
+        renderDailyTimeline();
       }
       calendarModal.hidden = true;
       return;
@@ -5893,7 +6127,8 @@
     const task = findTask(pickerContext);
     if (task) {
       task.dueDate = date;
-      task.dueTime = date ? (time || "09:00") : null;
+      // the hour switch left off means no hour, not nine in the morning
+      task.dueTime = date ? (time || null) : null;
       task.notified = false;   // re-arm the reminder
       saveState();
       renderList("tasks");
@@ -8478,7 +8713,7 @@
     }
     // an event carries an icon, shown as a square button left of the title
     detailIcon.hidden = kind !== "events";
-    if (kind === "events") detailIcon.innerHTML = habitSvg(item.icon || "calendar");
+    if (kind === "events") detailIcon.innerHTML = eventSvg(item.icon || "calendar");
     detailNotes.value = item.notes || "";
 
     detailNoteToggle.hidden = kind !== "tasks";
@@ -8651,7 +8886,7 @@
     }
     saveState();
     renderSubtasks(item);
-    refreshDetailSource();   // refresh the row badge
+    refreshOpenRow(item);
   }
 
   function removeSubtask(item, subId) {
@@ -8663,7 +8898,7 @@
     }
     saveState();
     renderSubtasks(item);
-    refreshDetailSource();
+    refreshOpenRow(item);
   }
 
   /* INLINE OBJECTIVE — the main app gets a compact working view of an objective.
@@ -9092,7 +9327,7 @@
   }
 
   function showStepDropGuides(drag) {
-    const group = document.querySelector('.tgroup[data-undated-drop="1"]');
+    const group = document.querySelector('.tgroup[data-drop-group=""]');
     const stage = document.getElementById("dayLineStage");
     const tasks = createStepDropGuide("tasks", translate("stepDropTasks"),
       '<circle cx="7" cy="7" r="2"/><circle cx="7" cy="17" r="2"/>'
@@ -9146,7 +9381,7 @@
     }
     dot.blur();
     node.classList.add("is-dragging");
-    const undated = document.querySelector('.tgroup[data-undated-drop="1"]');
+    const undated = document.querySelector('.tgroup[data-drop-group=""]');
     if (undated) undated.classList.add("is-drop-available");
     showStepDropGuides(stepDrag);
     showTimelineTrash(true, false);   // a step can be unmade there too
@@ -9180,7 +9415,7 @@
     stepDrag.drop = drop;
     showTaskDrop(drop, { text: stepDrag.step.text || translate("stepPlaceholder") });
 
-    const group = document.querySelector('.tgroup[data-undated-drop="1"]');
+    const group = document.querySelector('.tgroup[data-drop-group=""]');
     const undated = (deleting || drop) ? null : undatedDropPosition(clientX, clientY);
     stepDrag.undated = undated;
     if (group) group.classList.toggle("is-drop-target", !!undated);
@@ -9219,7 +9454,7 @@
     showTaskDrop(null);
     showTimelineTrash(false, false);
     removeStepDropGuides(drag);
-    const undated = document.querySelector('.tgroup[data-undated-drop="1"]');
+    const undated = document.querySelector('.tgroup[data-drop-group=""]');
     if (undated) undated.classList.remove("is-drop-available", "is-drop-target");
     stepDragUntil = Date.now() + 350;
     cancelAnimationFrame(stepDragScrollFrame);
@@ -9238,7 +9473,8 @@
     if (drag.deleting) removeStep(drag.project, drag.step.id);
     else if (drag.drop) createTaskFromStep(drag.project, drag.step, drag.drop, null);
     else if (drag.undated) {
-      createTaskFromStep(drag.project, drag.step, null, drag.undated.beforeId);
+      createTaskFromStep(drag.project, drag.step, null,
+                         drag.undated.beforeId, drag.undated.day);
     }
   }
 
@@ -9249,23 +9485,89 @@
     cleanStepDrag(drag);
   }
 
-  function createTaskFromStep(project, step, drop, beforeId) {
+  /* `drop` is a spot on the rule (a day and an hour); `day` is a group of the list
+     (a day, or "" for the undated tail). One or the other, never both. */
+  /* THE OTHER DIRECTION — a step dropped on the list becomes a task; a task
+     dropped on an objective becomes a step there. The pair keeps each other's id,
+     which is the same invariant the start-up migration establishes: an objective
+     shows its courses as steps, so a task attached to one without a step would
+     belong to it invisibly. */
+  function taskOfStep(stepId) {
+    for (let i = 0; i < state.tasks.length; i++) {
+      if (state.tasks[i].stepId === stepId) return state.tasks[i];
+    }
+    return null;
+  }
+
+  /* THE PAIR, READ FROM THE OTHER END — a task given to an objective becomes a
+     step there, dated by its day alone. The reverse holds: a step given a day
+     becomes a task due that day, so the work turns up where the day is read. The
+     hour is never carried either way; it belongs to the task and to the rule.
+     Clearing the step's day does not take the task away, only its date: what has
+     been written down is not thrown out by a change of plan. */
+  function syncTaskForStep(project, step) {
+    const existing = taskOfStep(step.id);
+    if (existing) {
+      existing.dueDate = step.targetDate || null;
+      if (!existing.dueDate) existing.dueTime = null;
+      return existing;
+    }
+    if (!step.targetDate) return null;   // no day: nothing to put in a day
+
+    const task = {
+      id: Date.now().toString(),
+      text: step.text || translate("stepPlaceholder"),
+      done: !!step.completedDate,
+      doneDate: step.completedDate || null,
+      dueDate: step.targetDate,
+      dueTime: null,
+      projectId: project.id,
+      stepId: step.id,
+      notified: false
+    };
+    state.tasks.push(task);
+    collapsedGroups["day:" + task.dueDate] = false;   // open where it landed
+    return task;
+  }
+
+  function linkTaskToProject(task, project) {
+    if (task.projectId === project.id && findStep(project, task.stepId)) return;
+    // carried from one objective to another, it does not leave a step behind
+    if (task.projectId && task.stepId && task.projectId !== project.id) {
+      const from = findItem("projects", task.projectId);
+      if (from) removeStep(from, task.stepId);
+    }
+    const step = {
+      id: task.id + "s",
+      text: task.text,
+      completedDate: task.done ? (task.doneDate || todayKey()) : null,
+      targetDate: task.dueDate || null
+    };
+    // the constellation on show, the same one a habit dropped here would join
+    addStepToBranch(activeProjectBranch(project), step);
+    task.projectId = project.id;
+    task.stepId = step.id;
+  }
+
+  function createTaskFromStep(project, step, drop, beforeId, day) {
     const completedDate = step.completedDate || null;
     const task = {
       id: Date.now().toString(),
       text: step.text || translate("stepPlaceholder"),
       done: !!completedDate,
       doneDate: completedDate,
-      dueDate: drop ? drop.date : null,
+      dueDate: drop ? drop.date : (day || null),
       dueTime: drop ? drop.time : null,
       projectId: project.id,
       stepId: step.id,
       notified: false
     };
     state.tasks.push(task);
-    if (!drop) {
+    if (!drop && !task.dueDate) {
       collapsedGroups.none = false;
       persistUndatedTaskOrder(undatedTaskOrderFor(task.id, beforeId));
+    } else if (!drop) {
+      collapsedGroups["day:" + task.dueDate] = false;   // open where it landed
     }
     saveState();
     renderList("tasks");
@@ -9865,21 +10167,76 @@
   function addStep(project, text, branchId, options) {
     const branch = (branchId && findBranch(project, branchId)) || projectBranches(project)[0];
     const step = { id: Date.now().toString(), text: text, completedDate: null, targetDate: null };
-    branch.steps.push(step);
+    addStepToBranch(branch, step);
     stepListPages[project.id + "|" + branch.id] = 0;
     saveState();
     refreshStepStructure(project, options);
     return step;
   }
 
-  /* mark done (stamps today's date) or clear it, then refill the gauge */
+  /* THE ORDER OF A COURSE — a constellation is walked, not picked at: the steps
+     reached form one unbroken block at its head, and what is left follows it. So
+     checking a step that sits below unfinished work is not refused — the step
+     slides up to just after the last one reached. Unchecking one from inside that
+     block leaves it by the same boundary, from the other side. Neither list ever
+     has to be put back in agreement by hand. */
+  function doneBoundary(steps) {
+    let at = 0;
+    while (at < steps.length && steps[at].completedDate) at++;
+    return at;
+  }
+
+  /* put a step back where its state says it belongs; true if that moved it */
+  function settleStep(branch, step) {
+    if (!branch) return false;
+    const steps = branch.steps;
+    const from = steps.indexOf(step);
+    if (from === -1) return false;
+    steps.splice(from, 1);
+    const to = doneBoundary(steps);
+    steps.splice(to, 0, step);
+    return to !== from;
+  }
+
+  /* a step arriving already done — a task linked to an objective after the fact —
+     joins the block it belongs to rather than the end of the course */
+  function addStepToBranch(branch, step) {
+    branch.steps.push(step);
+    if (step.completedDate) settleStep(branch, step);
+    return step;
+  }
+
+  /* A step that has just changed rank must not disappear while being checked:
+     the dashboard shows its checklist six at a time, newest first, so settling
+     one often sends it onto another page. The page follows it. */
+  function followStepPage(project, branch, step) {
+    const index = branch.steps.indexOf(step);
+    if (index < 0) return;
+    const fromNewest = branch.steps.length - 1 - index;
+    stepListPages[project.id + "|" + branch.id] =
+      Math.floor(fromNewest / PROJECT_LIST_PAGE_SIZE);
+  }
+
+  /* mark done (stamps today's date) or clear it, settle the order, refill the gauge */
   function toggleStep(project, id, inlineNode) {
     const step = findStep(project, id);
     if (!step) return;
+    const branch = branchOfStep(project, id);
+    const places = stepPlaces();   // measured while the old order is still on screen
     step.completedDate = step.completedDate ? null : todayKey();
+    const moved = settleStep(branch, step);
     const completedTasks = step.completedDate
       ? completeStepTasks(project, step) : [];
     saveState();
+    if (moved) {
+      // its rank changed: no section can be patched in place, but they all slide
+      followStepPage(project, branch, step);
+      if (completedTasks.length) refreshTasksCompletedByStep(project, completedTasks);
+      refreshStepStructure(project);
+      refreshProjectBadge(project);
+      slideSteps(places);
+      return;
+    }
     const localDashboardNode = inlineNode && inlineNode.isConnected
       && inlineNode.closest("#projectsList");
     if (localDashboardNode) refreshInlineStep(project, step, inlineNode);
@@ -9910,9 +10267,7 @@
         when.classList.toggle("is-late",
           !done && !!step.targetDate && step.targetDate < todayKey());
       }
-      const projectRow = node.closest(".item--project");
-      const badge = projectRow && projectRow.querySelector(".project-tab .item__sub");
-      if (badge) badge.textContent = Math.round(stepProgress(project) * 100) + "%";
+      refreshProjectBadge(project);
       return;
     }
     const roadmap = node.closest(".goal-roadmap");
@@ -9930,9 +10285,13 @@
       const fill = roadmap.querySelector(".goal-roadmap__fill");
       if (fill) fill.style.width = (stepProgress(project) * 100).toFixed(1) + "%";
     }
+    refreshProjectBadge(project);
+  }
 
-    const row = roadmap.closest(".item--project");
-    const badge = row && row.querySelector(".project-tab .item__sub");
+  /* the percentage on the closed objective tab, wherever a step changed */
+  function refreshProjectBadge(project) {
+    const badge = document.querySelector('#projectsList .item[data-id="' + project.id
+      + '"] .project-tab .item__sub');
     if (badge) badge.textContent = Math.round(stepProgress(project) * 100) + "%";
   }
 
@@ -9943,8 +10302,26 @@
         if (branch.steps[i].id === id) { branch.steps.splice(i, 1); break; }
       }
     }
+    const freed = unlinkTasksFromStep(id);
     saveState();
     refreshStepStructure(project);
+    if (freed) renderList("tasks");   // the star it carried is gone with the step
+  }
+
+  /* A step taken away leaves nothing pointing at it. The task it stood for is not
+     deleted with it — it keeps its place in the day — but it goes back to being a
+     plain task: an objective shows its work as steps, so a task still claiming to
+     belong to one without a step there would belong to it invisibly. */
+  function unlinkTasksFromStep(stepId) {
+    if (!stepId) return false;
+    let freed = false;
+    for (let i = 0; i < state.tasks.length; i++) {
+      if (state.tasks[i].stepId !== stepId) continue;
+      state.tasks[i].stepId = null;
+      state.tasks[i].projectId = null;
+      freed = true;
+    }
+    return freed;
   }
 
   function findStep(project, id) {
@@ -9979,7 +10356,10 @@
       const steps = branches[b].steps;
       for (let i = 0; i < steps.length; i++) {
         if (steps[i].id === task.stepId) {
-          return { project: project, step: steps[i], index: i, total: steps.length };
+          return {
+            project: project, branch: branches[b],
+            step: steps[i], index: i, total: steps.length
+          };
         }
       }
     }
@@ -10000,6 +10380,7 @@
     const link = taskStepLink(task);
     if (!link || link.step.completedDate) return null;
     link.step.completedDate = task.doneDate || todayKey();
+    link.moved = settleStep(link.branch, link.step);
     return link;
   }
 
@@ -10031,8 +10412,19 @@
 
   /* Keep every visible representation current without rebuilding the complete
      project list (which would move the scroll anchor of an open objective). */
-  function refreshLinkedStepProject(project, step) {
+  function refreshLinkedStepProject(link) {
+    const project = link && link.project;
+    const step = link && link.step;
     if (!project) return;
+    if (link.moved) {
+      // the step changed rank in its course, so no section can be patched
+      const places = stepPlaces();
+      followStepPage(project, link.branch, step);
+      refreshStepSections(project);
+      refreshProjectBadge(project);
+      slideSteps(places);
+      return;
+    }
     const projectRow = document.querySelector('#projectsList .item[data-id="' + project.id + '"]');
     if (projectRow && step) {
       const nodes = projectRow.querySelectorAll("[data-step-id]");
@@ -10043,8 +10435,7 @@
         }
       }
     }
-    const badge = projectRow && projectRow.querySelector(".project-tab .item__sub");
-    if (badge) badge.textContent = Math.round(stepProgress(project) * 100) + "%";
+    refreshProjectBadge(project);
     refreshProjectSteps(project, "#projectsList");
   }
 
@@ -11756,8 +12147,58 @@
     if (!item) return;
     item.text = detailName.value;
     saveState();
-    refreshDetailSource();
+    // A name does not change where a thing belongs, so nothing has to be rebuilt:
+    // the row's own label is written in place. Rebuilding would queue a redraw of
+    // the whole list, which the list defers while the row is open and then plays
+    // the moment it folds — the row blinking back at you for no reason.
+    refreshOpenRow(item);
   });
+
+  /* THE OPEN ROW, BROUGHT UP TO DATE IN PLACE — a name or a ticked subtask does
+     not change where a thing belongs, so nothing needs rebuilding. Rebuilding
+     would queue a redraw that the list defers while the row is open and then
+     plays the moment it folds: the row blinking back at you for no reason.
+     A badge appearing or disappearing does change the row's shape, and only that
+     falls back to a real redraw. */
+  function refreshOpenRow(item) {
+    const row = openHost && openHost.closest(".item");
+    if (!row || detailTarget.kind !== "tasks") { refreshDetailSource(); return; }
+
+    const label = row.querySelector(".item__text");
+    if (label) label.textContent = item.text;
+
+    const badge = row.querySelector(".item__sub");
+    const subs = item.subtasks || [];
+    if (subs.length && !badge) {
+      const marks = rowMarks(row);
+      // the badge sits after the note mark and before the star, the pin and the
+      // date — the same order createItemRow lays them out in
+      marks.insertBefore(createSubBadge(item),
+        marks.querySelector(".item__star, .item__pin, .item__due"));
+    } else if (!subs.length && badge) {
+      const marks = badge.parentNode;
+      badge.remove();
+      if (marks && !marks.firstChild) marks.remove();   // nothing left to carry
+    } else if (badge) {
+      let done = 0;
+      for (let i = 0; i < subs.length; i++) {
+        if (subs[i].done) done++;
+      }
+      badge.textContent = done + "/" + subs.length;
+    }
+  }
+
+  /* the row's strip of marks, made if the row had none to carry until now */
+  function rowMarks(row) {
+    let marks = row.querySelector(".item__meta");
+    if (!marks) {
+      marks = document.createElement("span");
+      marks.className = "item__meta";
+      const head = row.querySelector(".project-tab") || row;
+      head.insertBefore(marks, head.querySelector(".row-acts"));
+    }
+    return marks;
+  }
 
   /* auto-saved notes */
   /* grow the notes field to its content: empty notes cost a single line */
@@ -11821,7 +12262,7 @@
     input.value = "";
     input.focus();
     renderSubtasks(item);
-    refreshDetailSource();
+    refreshOpenRow(item);
   });
 
   detailNoteToggle.addEventListener("click", function (event) {
@@ -12499,7 +12940,7 @@
 
     const icon = document.createElement("span");
     icon.className = "undated__chip-ico";
-    icon.innerHTML = habitSvg(event.icon || "calendar");
+    icon.innerHTML = eventSvg(event.icon || "calendar");
     const text = document.createElement("span");
     text.className = "undated__chip-text";
     text.textContent = event.text;
@@ -12555,7 +12996,7 @@
         showCalendarDayTarget(onDay);
         showUndatedZone(true, zone);
         drop = (deleting || onDay || zone) ? null : taskDropAt(at.clientX, at.clientY);
-        showTaskDrop(drop, event, false);
+        showTaskDrop(drop, event, false, eventSvg(event.icon || "calendar"));
       };
       const up = function () {
         const remove = deleting;
@@ -13162,6 +13603,10 @@
     if (!icon || !path) return;
     icon.style.left = "50%";
     if (tip) tip.style.left = "50%";
+    // the foot is its own circle, not part of the path: it has to change ends with
+    // the stem, or it stays behind on the face the marker has just left
+    const foot = marker.querySelector(".dtl__event-foot");
+    if (foot) { foot.setAttribute("cx", "40"); foot.setAttribute("cy", hangs ? "2" : "72"); }
     if (hangs) {
       icon.style.top = "";
       icon.style.bottom = (40 - y) + "px";
@@ -13425,7 +13870,7 @@
         marker.classList.toggle("is-undate-target", undating);
         showTimelineTrash(true, deleting);
 
-        const undatedGroup = document.querySelector('.tgroup[data-undated-drop="1"]');
+        const undatedGroup = document.querySelector('.tgroup[data-drop-group=""]');
         if (undatedGroup) {
           undatedGroup.classList.add("is-drop-available");
           undatedGroup.classList.toggle("is-drop-target", undating);
@@ -13509,7 +13954,7 @@
         releaseUndatedHeight();
         showTimelineTrash(false, false);
         cancelAnimationFrame(scrollFrame);
-        const undatedGroup = document.querySelector('.tgroup[data-undated-drop="1"]');
+        const undatedGroup = document.querySelector('.tgroup[data-drop-group=""]');
         if (undatedGroup) {
           undatedGroup.classList.remove("is-drop-available", "is-drop-target");
         }
@@ -13596,8 +14041,10 @@
       const dayTasks = tasksOnDay(keys[d]);
       for (let i = 0; i < dayTasks.length; i++) {
         const task = dayTasks[i];
-        const time = task.dueTime || "09:00";
-        const at = new Date(task.dueDate + "T" + time).getTime();
+        // dated but not timed: it belongs to its day, not to a minute of it, so
+        // it stays in the day's part of the list and never reaches the rule
+        if (!task.dueTime) continue;
+        const at = new Date(task.dueDate + "T" + task.dueTime).getTime();
         const pct = timePct(at, windowStart);
         if (pct >= 0 && pct <= 100) {
           visible.push({ kind: "task", data: task, at: at, pct: pct });
@@ -13613,7 +14060,7 @@
       const item = visible[i];
       const data = item.data;
       const isTask = item.kind === "task";
-      const time = isTask ? (data.dueTime || "09:00") : data.time;
+      const time = isTask ? data.dueTime : data.time;
       cluster = item.at - lastAt < 45 * 60000 ? cluster + 1 : 0;
       lastAt = item.at;
       const lane = cluster % 2;
@@ -13679,7 +14126,7 @@
       else icon.style.top = -lift + "px";
       icon.innerHTML = isTask
         ? iconSvg('<circle cx="12" cy="12" r="9"/><polyline points="8 12 11 15 16 9"/>')
-        : habitSvg(data.icon || "calendar");
+        : eventSvg(data.icon || "calendar");
       const tip = document.createElement("span");
       tip.className = "dtl__event-tip";
       tip.style.left = "calc(50% + " + shift + "px)";
@@ -13713,7 +14160,7 @@
      time until it is dropped onto it. Only a day actually recognised in the line
      dates it — nothing is guessed on the writer's behalf any more. */
   function quickEventDay(parsed) {
-    return parsed.date && !parsed.inferred ? parsed.date : null;
+    return writtenDay(parsed);
   }
   function quickEventTime(parsed) {
     return parsed.time || null;
@@ -14074,7 +14521,7 @@
     if (THINKING_BLOCK_TYPES.indexOf(type) !== -1) return THINKING_BLOCK_TYPES;
     return null;
   }
-  const THINKING_ORGANIZATION_TYPES = ["canvas", "folder", "document", "planner"];
+  const THINKING_ORGANIZATION_TYPES = ["canvas", "folder", "document", "planner", "logbook"];
   const THINKING_TOOL_SECTIONS = ["blocks", "organization", "planning"];
   const THINKING_WORLD_WIDTH = 20000;
   const THINKING_WORLD_HEIGHT = 12000;
@@ -14174,6 +14621,7 @@
         || THINKING_FLOW_TYPES.indexOf(child.type) !== -1
         || ["note", "text"].indexOf(child.type) !== -1;
     }
+    if (parent.type === "logbook") return child.type === "journal";
     return true;
   }
 
@@ -15114,6 +15562,7 @@
     if (type === "folder") return "folder";
     if (type === "document") return "document";
     if (type === "planner") return "planner";
+    if (type === "logbook") return "logbook";
     if (type === "solution") return "bulb";
     if (type === "answer") return "reply";       // shares the colour, not the glyph
     if (type === "example") return "flag";
@@ -15132,19 +15581,34 @@
   }
 
   function thinkingIconSvg(name) {
+    if (name === "logbook") {
+      return '<svg viewBox="0 0 48 48" fill="none" aria-hidden="true">'
+        + '<path d="M9 8a3 3 0 0 1 3-3h26a3 3 0 0 1 3 3v32a3 3 0 0 1-3 3H12a3 3 0 0 1-3-3Z" fill="currentColor" opacity=".15"/>'
+        + '<path d="M12 5h26a3 3 0 0 1 3 3v32a3 3 0 0 1-3 3H12" stroke="currentColor" stroke-width="2.6" stroke-linejoin="round"/>'
+        + '<path d="M12 5a4 4 0 0 0 0 8h4V5Z" fill="currentColor"/>'
+        // one path per ring, so the coil can turn as a ripple down the spine
+        + '<path class="ti-coil ti-coil--1" d="M12 13a4 4 0 0 1 0-8" stroke="currentColor" stroke-width="2.6"/>'
+        + '<path class="ti-coil ti-coil--2" d="M12 24a4 4 0 0 1 0-8" stroke="currentColor" stroke-width="2.6"/>'
+        + '<path class="ti-coil ti-coil--3" d="M12 35a4 4 0 0 1 0-8" stroke="currentColor" stroke-width="2.6"/>'
+        + '<path class="ti-coil ti-coil--4" d="M12 43a4 4 0 0 1 0-8" stroke="currentColor" stroke-width="2.6"/>'
+        + '<path d="M22 15h13M22 23h13M22 31h9" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/>'
+        + '</svg>';
+    }
     if (name === "planner") {
       return '<svg viewBox="0 0 48 48" fill="none" aria-hidden="true">'
         + '<rect x="6" y="8" width="36" height="34" rx="7" fill="currentColor" opacity=".15"/>'
         + '<rect x="8" y="10" width="32" height="29" rx="5" stroke="currentColor" stroke-width="2.6"/>'
         + '<path d="M15 6v8M33 6v8M8 18h32" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/>'
-        + '<path d="M16 25h6v6h-6zM27 25h6M27 31h6" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>'
+        + '<path class="ti-day" d="M16 25h6v6h-6z" stroke="currentColor" stroke-width="2.4" stroke-linejoin="round"/>'
+        + '<path class="ti-plan-line ti-plan-line--1" d="M27 25h6" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/>'
+        + '<path class="ti-plan-line ti-plan-line--2" d="M27 31h6" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/>'
         + '</svg>';
     }
     if (name === "folder") {
       return '<svg viewBox="0 0 48 48" fill="none" aria-hidden="true">'
         + '<path d="M5 13a4 4 0 0 1 4-4h10l4.5 4.5H39a4 4 0 0 1 4 4V38a4 4 0 0 1-4 4H9a4 4 0 0 1-4-4Z" fill="currentColor" opacity=".46"/>'
-        + '<path d="M5 21.5A3.5 3.5 0 0 1 8.5 18h31a3.5 3.5 0 0 1 3.4 4.3l-4 16.8A3.8 3.8 0 0 1 35.2 42H8.8A3.8 3.8 0 0 1 5 38.2Z" fill="currentColor"/>'
-        + '<path d="M9 14h11.5l2.8 3H39" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity=".72"/>'
+        + '<path class="ti-fold-front" d="M5 21.5A3.5 3.5 0 0 1 8.5 18h31a3.5 3.5 0 0 1 3.4 4.3l-4 16.8A3.8 3.8 0 0 1 35.2 42H8.8A3.8 3.8 0 0 1 5 38.2Z" fill="currentColor"/>'
+        + '<path class="ti-fold-tab" d="M9 14h11.5l2.8 3H39" stroke="currentColor" stroke-width="2" stroke-linecap="round" opacity=".72"/>'
         + '</svg>';
     }
     if (name === "canvas") {
@@ -15152,15 +15616,23 @@
         + '<rect x="5" y="7" width="38" height="34" rx="5" fill="currentColor" opacity=".16"/>'
         + '<rect x="7" y="9" width="34" height="30" rx="4" stroke="currentColor" stroke-width="2.6"/>'
         + '<path d="M13 18h22M13 24h14M13 30h18" stroke="currentColor" stroke-width="2.6" stroke-linecap="round"/>'
-        + '<circle cx="35" cy="30" r="3.2" fill="currentColor"/>'
+        + '<circle class="ti-chip" cx="35" cy="30" r="3.2" fill="currentColor"/>'
         + '</svg>';
     }
     if (name === "document") {
       return '<svg viewBox="0 0 48 48" fill="none" aria-hidden="true">'
         + '<path d="M12 5h25a4 4 0 0 1 4 4v30a4 4 0 0 1-4 4H12Z" fill="currentColor" opacity=".17"/>'
         + '<path d="M12 5h25a4 4 0 0 1 4 4v30a4 4 0 0 1-4 4H12Z" stroke="currentColor" stroke-width="2.5"/>'
-        + '<path d="M19 15h15M19 22h15M19 29h11M19 36h13" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>'
-        + '<path d="M7 12h8M7 21h8M7 30h8M7 39h8" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>'
+        // split so each rule can draw itself; pathLength lets the dash run
+        // from end to end without anyone measuring the path
+        + '<path class="ti-doc-line ti-doc-line--1" pathLength="1" d="M19 15h15" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>'
+        + '<path class="ti-doc-line ti-doc-line--2" pathLength="1" d="M19 22h15" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>'
+        + '<path class="ti-doc-line ti-doc-line--3" pathLength="1" d="M19 29h11" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>'
+        + '<path class="ti-doc-line ti-doc-line--4" pathLength="1" d="M19 36h13" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>'
+        + '<path class="ti-doc-line ti-doc-line--1" pathLength="1" d="M7 12h8" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>'
+        + '<path class="ti-doc-line ti-doc-line--2" pathLength="1" d="M7 21h8" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>'
+        + '<path class="ti-doc-line ti-doc-line--3" pathLength="1" d="M7 30h8" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>'
+        + '<path class="ti-doc-line ti-doc-line--4" pathLength="1" d="M7 39h8" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>'
         + '</svg>';
     }
     let paths = "";
@@ -15842,6 +16314,81 @@
     return sheet;
   }
 
+/* THE LOGBOOK — a journal is kept by the day, so its entries are not scattered
+   on a surface: they stack, newest first, down the same ruled paper the notepad
+   uses, and each one's date sits in the margin that paper already draws. The
+   entries are ordinary journal blocks, so dragging, linking and deleting them
+   all keep working; nothing here invents a second way to store a line. */
+  function thinkingLogbookEntries(tree, logbook) {
+    const entries = [];
+    for (let i = 0; i < tree.blocks.length; i++) {
+      if (tree.blocks[i].parentId === logbook.id) entries.push(tree.blocks[i]);
+    }
+    entries.sort(function (a, b) {
+      const dateA = a.journalDate || "";
+      const dateB = b.journalDate || "";
+      if (dateA !== dateB) return dateA < dateB ? 1 : -1;   // newest first
+      return (b.id || "") < (a.id || "") ? 1 : -1;
+    });
+    return entries;
+  }
+
+  function createThinkingLogbookSheet(tree, logbook, fullscreen) {
+    const sheet = document.createElement("div");
+    sheet.className = "thinking-logbook";
+    sheet.classList.add(fullscreen ? "thinking-logbook--fullscreen" : "thinking-logbook--preview");
+    sheet.dataset.blockId = logbook.id;
+    sheet.dataset.organizationId = logbook.id;
+
+    const add = document.createElement("button");
+    add.type = "button";
+    add.className = "thinking-logbook__add";
+    add.textContent = "+ " + translate("thinkingLogbookAdd");
+    add.addEventListener("click", function (event) {
+      event.stopPropagation();
+      addThinkingLogbookEntry(tree, logbook);
+    });
+    sheet.appendChild(add);
+
+    const entries = thinkingLogbookEntries(tree, logbook);
+    for (let i = 0; i < entries.length; i++) {
+      const row = document.createElement("div");
+      row.className = "thinking-logbook__entry";
+      const when = document.createElement("span");
+      when.className = "thinking-logbook__date";
+      when.textContent = shortDateLabel(entries[i].journalDate || todayKey());
+      row.append(when, createThinkingBlock(tree, entries[i], true, false, logbook));
+      sheet.appendChild(row);
+    }
+    if (!entries.length) {
+      const empty = document.createElement("p");
+      empty.className = "thinking-logbook__empty";
+      empty.textContent = translate("thinkingLogbookEmpty");
+      sheet.appendChild(empty);
+    }
+    if (fullscreen) {
+      const width = Math.min(720, Math.max(420, thinkingViewport.clientWidth - 160));
+      sheet.style.width = width + "px";
+      sheet.style.left = (logbook.cameraX + thinkingViewport.clientWidth / 2 - width / 2) + "px";
+      sheet.style.top = (logbook.cameraY + 44) + "px";
+    }
+    return sheet;
+  }
+
+  /* Today's page. One click has to land you on a caret, not on a form. */
+  function addThinkingLogbookEntry(tree, logbook) {
+    const entry = {
+      id: thinkingId("b"), type: "journal", text: "",
+      x: logbook.x, y: logbook.y, parentId: logbook.id,
+      journalDate: todayKey()
+    };
+    tree.blocks.push(entry);
+    touchCanvas(tree);
+    renderThinkingCanvas(tree);
+    const field = thinkingBlocks.querySelector('[data-block-id="' + entry.id + '"] textarea');
+    if (field) field.focus();
+  }
+
   function createThinkingFolderList(tree, folder, fullscreen) {
     const list = document.createElement("div");
     list.className = "thinking-folder__list";
@@ -15918,7 +16465,7 @@
       cameraX: THINKING_WORLD_X, cameraY: THINKING_WORLD_Y,
       folderOrder: nextThinkingFolderOrder(tree, folder)
     };
-    if (type === "folder") {
+    if (type === "folder" || type === "logbook") {
       block.blockWidth = 420;
     } else {
       block.canvasWidth = 650;
@@ -15946,8 +16493,11 @@
     } else if (viewedCanvas.type === "document") {
       thinkingBlocks.appendChild(createThinkingDocumentSheet(canvas, viewedCanvas));
       visibleCount++;
+    } else if (viewedCanvas.type === "logbook") {
+      thinkingBlocks.appendChild(createThinkingLogbookSheet(canvas, viewedCanvas, true));
+      visibleCount++;
     }
-    if (viewedCanvas.type !== "folder") {
+    if (viewedCanvas.type !== "folder" && viewedCanvas.type !== "logbook") {
       for (let i = 0; i < canvas.blocks.length; i++) {
         if (canvas.blocks[i].parentId === viewedCanvas.id) {
           thinkingBlocks.appendChild(createThinkingBlock(canvas, canvas.blocks[i], false, false,
@@ -16175,7 +16725,7 @@
 
   function thinkingBlockSize(block, width, height) {
     if (width && height) return { width: width, height: height };
-    if (block.type === "folder") {
+    if (block.type === "folder" || block.type === "logbook") {
       return { width: block.collapsed ? 112 : block.blockWidth || 420,
         height: block.collapsed ? 112 : 180 };
     }
@@ -17141,7 +17691,7 @@
         card.classList.add("has-stuck-" + THINKING_STICK_SIDES[i]);
       }
     }
-    if (block.type === "folder") {
+    if (block.type === "folder" || block.type === "logbook") {
       if (!contained) card.style.width = (block.blockWidth || 360) + "px";
     } else if (organization && block.canvasWidth) {
       card.style.width = block.canvasWidth + "px";
@@ -17226,6 +17776,8 @@
     let folderList = null;
     if (block.type === "folder") {
       folderList = createThinkingFolderList(canvas, block, false);
+    } else if (block.type === "logbook") {
+      folderList = createThinkingLogbookSheet(canvas, block, false);
     } else if (organization) {
       canvasStage = document.createElement("div");
       canvasStage.className = "thinking-canvas__stage";
@@ -17459,7 +18011,7 @@
 
     card.appendChild(head);
     if (soloDrag) card.appendChild(soloDrag);
-    if (block.type === "folder") {
+    if (block.type === "folder" || block.type === "logbook") {
       card.appendChild(folderList);
     } else if (organization) {
       card.appendChild(canvasStage);
@@ -18211,9 +18763,10 @@
     }
     const step = canvas.blocks.length;
     const flow = THINKING_FLOW_TYPES.indexOf(type) !== -1;
-    const blockWidth = type === "folder" ? 420 : organization ? 650
+    const blockWidth = type === "folder" || type === "logbook" ? 420 : organization ? 650
       : flow ? 420 : type === "question" ? 176 : type === "text" ? 150 : 160;
-    const blockHeight = type === "folder" ? 64 : organization ? 330 + THINKING_CANVAS_CHROME
+    const blockHeight = type === "folder" || type === "logbook" ? 64
+      : organization ? 330 + THINKING_CANVAS_CHROME
       : flow ? 210 : type === "question" ? 90 : type === "text" ? 56 : 64;
     let x = Math.max(24, Math.min(THINKING_WORLD_WIDTH - 300,
       thinkingViewport.scrollLeft + thinkingViewport.clientWidth / 2 - blockWidth / 2
@@ -18248,7 +18801,7 @@
       block.title = "";
       block.cameraX = THINKING_WORLD_X;
       block.cameraY = THINKING_WORLD_Y;
-      if (type === "folder") {
+      if (type === "folder" || type === "logbook") {
         block.blockWidth = 420;
       } else {
         block.canvasWidth = 650;
