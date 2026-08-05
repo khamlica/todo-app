@@ -33,3 +33,4 @@ Ouvrir l'URL dans Chrome, puis menu **⋮ > Ajouter à l'écran d'accueil**.
     service-worker.js     cache hors-ligne
     icons/                icône de l'app : icon.svg est le maître, les PNG 192 / 512
                           en sont rendus ; favicon.svg est la variante d'onglet
+    icons/alt/            icône de rechange (l'horizon), prête mais non branchée

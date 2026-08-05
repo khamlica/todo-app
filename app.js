@@ -158,7 +158,7 @@
         if (events[i].important == null) events[i].important = false;
         if (!events[i].icon) events[i].icon = "calendar";
         if (!events[i].date) events[i].date = null;   // it waits over the rule
-        if (events[i].date && !events[i].time) events[i].time = "09:00";
+        if (!events[i].time) events[i].time = null;   // a day without an hour is allowed
         if (events[i].projectId === undefined) events[i].projectId = null;
       }
       // an element carries the project it serves, the same way a task always has
@@ -4192,13 +4192,20 @@
     };
   }
 
-  function showTaskDrop(drop, task) {
+  function showTaskDrop(drop, task, under) {
     const preview = document.getElementById("taskDropPreview");
     if (!drop) {
       preview.hidden = true;
       dtlEl.classList.remove("is-task-target");
       return;
     }
+    // the preview stands or hangs like the thing it stands in for, and its stem
+    // is drawn from the matching end — the two must not disagree
+    const hangs = under !== false;
+    preview.classList.toggle("dtl__event--under", hangs);
+    preview.querySelector(".dtl__event-path").setAttribute("d", hangs
+      ? "M40 44 C40 26 40 30 40 2" : "M40 30 C40 48 40 44 40 72");
+    preview.querySelector(".dtl__event-foot").setAttribute("cy", hangs ? "2" : "72");
     preview.hidden = false;
     preview.style.left = drop.pct.toFixed(2) + "%";
     const text = drop.time + " · " + task.text;
@@ -5830,7 +5837,9 @@
     let time = "";
     if (pickerKind === "events") {
       const event = findItem("events", context);
-      if (event) { date = event.date || null; time = event.time || ""; }
+      // an event takes its hour from the rule alone: the picker is a day picker,
+      // and loading it with no time is what keeps the slider panel shut
+      if (event) { date = event.date || null; time = ""; }
     } else if (pickerKind === "step") {
       const project = findItem("projects", context.projectId);
       const step = project && findStep(project, context.stepId);
@@ -5846,7 +5855,10 @@
     setPickerTime(time);
     // a step target is a date only; setPickerTime already shut the sliders
     // since they were loaded with no time
-    document.getElementById("calTimeRow").hidden = pickerKind === "step";
+    // an event's hour is only ever set by dragging it on the rule of time, so the
+    // picker offers the day alone — as it already did for a step's target
+    document.getElementById("calTimeRow").hidden =
+      pickerKind === "step" || pickerKind === "events";
     document.getElementById("calClear").hidden = pickerKind === "events";   // an event always has a date
     renderCalendar();
     calendarModal.hidden = false;
@@ -5857,11 +5869,11 @@
     if (pickerKind === "events") {
       const event = findItem("events", pickerContext);
       if (event && date) {
-        event.date = date;
-        event.time = time || "09:00";
+        event.date = date;   // its hour, whatever it is, is not this dialog's business
         saveState();
         renderEventCal();
         renderDailyTimeline();
+        renderUndated();
       }
       calendarModal.hidden = true;
       return;
@@ -8358,6 +8370,7 @@
   const detailPin = document.getElementById("detailPin");
   const detailBell = document.getElementById("detailBell");
   const detailTrash = document.getElementById("detailTrash");
+  const detailWhenDay = document.getElementById("detailWhenDay");
   const detailNoteToggle = document.getElementById("detailNoteToggle");
   const detailWorkspace = document.getElementById("detailWorkspace");
   const detailMain = document.getElementById("detailMain");
@@ -8385,6 +8398,7 @@
   }
 
   const ICON_NOTE = '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="13" y2="17"/>';
+  const ICON_STAR = '<path d="M12 3 13.6 8.2 18.5 9.4 14.7 12.6 15.5 17.6 12 15.1 8.5 17.6 9.3 12.6 5.5 9.4 10.4 8.2 Z"/>';
   const ICON_BELL = '<path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/>';
 
   /* small "has notes" mark on a row */
@@ -8453,8 +8467,10 @@
     detailPin.hidden = kind === "events";   // an event is not pinnable
     if (!detailPin.hidden) detailPin.classList.toggle("is-on", !!item.pinned);
     // the bell is the event's own flag, and the only way to take it back off
-    // the bin travels with the bell: an event has no actions row to hold one
+    // the bin and the day picker travel with the bell: an event has no actions
+    // row to hold them
     detailTrash.hidden = kind !== "events";
+    detailWhenDay.hidden = kind !== "events";
     detailBell.hidden = kind !== "events";
     if (kind === "events") {
       detailBell.classList.toggle("is-on", !!item.important);
@@ -8573,6 +8589,11 @@
      surfaces closes them together, so no orphaned fold remains in either column. */
   document.addEventListener("click", function (event) {
     if ((!openHost && !openInlineProject) || !event.target.closest) return;
+    // A handler may have redrawn its own section before this one runs, detaching
+    // the node that was clicked. closest() then walks a tree no longer on the
+    // page and finds nothing — and a click that came from inside something we
+    // have just rebuilt was never a click outside it.
+    if (!event.target.isConnected) return;
     // a square and the fold it opens are one object, even though they are apart
     // a chip and the fold it opens are one object, though they sit apart
     if (event.target.closest(".item.is-open, .item--project.is-inline-open, "
@@ -8687,6 +8708,8 @@
     if (!row) return;
     const fold = row.querySelector(".unfold");
     const tabName = row.querySelector(".project-tab > .goal-inline__name");
+    const skyJump = row.querySelector(".project-tab > .goal-inline__sky");
+    if (skyJump) skyJump.remove();
     const journalToggle = row.querySelector(".project-tab > .goal-inline__journal-toggle");
     const rowName = row.querySelector(".project-tab > .item__text");
     if (tabName) tabName.remove();
@@ -8786,6 +8809,23 @@
       setInlineJournal(!inlineJournalOpen, row);
     });
     tab.insertBefore(journalToggle, rowName || tab.querySelector(".item__slot"));
+
+    /* the same objective, seen from the sky: one press leaves the column for the
+       map where it sits among the others */
+    const skyJump = document.createElement("button");
+    skyJump.type = "button";
+    skyJump.className = "goal-inline__journal-toggle goal-inline__sky";
+    skyJump.innerHTML = iconSvg(ICON_STAR);
+    const skyJumpText = document.createElement("span");
+    skyJumpText.textContent = translate("skyTitle");
+    skyJump.appendChild(skyJumpText);
+    skyJump.addEventListener("click", function (event) {
+      event.preventDefault();
+      event.stopPropagation();
+      openSky();
+      openProjectView(project.id);
+    });
+    tab.insertBefore(skyJump, rowName || tab.querySelector(".item__slot"));
 
     // The dashboard objective is a working view: steps stay in their concrete
     // list here, while Rêve keeps the choice between its list and roadmap.
@@ -9109,6 +9149,7 @@
     const undated = document.querySelector('.tgroup[data-undated-drop="1"]');
     if (undated) undated.classList.add("is-drop-available");
     showStepDropGuides(stepDrag);
+    showTimelineTrash(true, false);   // a step can be unmade there too
     moveStepGhost(event.clientX, event.clientY);
     updateStepDragTargets(event.clientX, event.clientY);
     document.addEventListener("pointermove", moveStepDrag, { passive: false });
@@ -9128,12 +9169,19 @@
     if (!stepDrag) return;
     stepDrag.pointerX = clientX;
     stepDrag.pointerY = clientY;
-    const drop = taskDropAt(clientX, clientY);
+
+    // the bin wins over every other target: it is the only one that unmakes
+    const deleting = timelineTrashHit(clientX, clientY);
+    stepDrag.deleting = deleting;
+    stepDrag.ghost.classList.toggle("is-delete-target", deleting);
+    showTimelineTrash(true, deleting);
+
+    const drop = deleting ? null : taskDropAt(clientX, clientY);
     stepDrag.drop = drop;
     showTaskDrop(drop, { text: stepDrag.step.text || translate("stepPlaceholder") });
 
     const group = document.querySelector('.tgroup[data-undated-drop="1"]');
-    const undated = drop ? null : undatedDropPosition(clientX, clientY);
+    const undated = (deleting || drop) ? null : undatedDropPosition(clientX, clientY);
     stepDrag.undated = undated;
     if (group) group.classList.toggle("is-drop-target", !!undated);
     updateStepDropGuides(stepDrag, drop, undated);
@@ -9169,6 +9217,7 @@
     }
     drag.ghost.remove();
     showTaskDrop(null);
+    showTimelineTrash(false, false);
     removeStepDropGuides(drag);
     const undated = document.querySelector('.tgroup[data-undated-drop="1"]');
     if (undated) undated.classList.remove("is-drop-available", "is-drop-target");
@@ -9186,7 +9235,8 @@
     const drag = stepDrag;
     stepDrag = null;
     cleanStepDrag(drag);
-    if (drag.drop) createTaskFromStep(drag.project, drag.step, drag.drop, null);
+    if (drag.deleting) removeStep(drag.project, drag.step.id);
+    else if (drag.drop) createTaskFromStep(drag.project, drag.step, drag.drop, null);
     else if (drag.undated) {
       createTaskFromStep(drag.project, drag.step, null, drag.undated.beforeId);
     }
@@ -9738,16 +9788,24 @@
 
     row.appendChild(createCheckbox(function () { toggleStep(project, step.id, row); }));
 
-    const label = document.createElement("input");
-    label.type = "text";
+    // a textarea rather than an input: a long step has to be readable whole, and
+    // a single-line field can only ever show the end of what was typed
+    const label = document.createElement("textarea");
     label.className = "step__text";
+    label.rows = 1;
     label.value = step.text || "";
     label.maxLength = 200;
     label.addEventListener("input", function () {
       step.text = label.value;
+      fitLine(label);
       saveState();
     });
+    // Enter commits instead of opening a line: a step is one sentence, not a note
+    label.addEventListener("keydown", function (key) {
+      if (key.key === "Enter") { key.preventDefault(); label.blur(); }
+    });
     row.appendChild(label);
+    requestAnimationFrame(function () { fitLine(label); });
 
     const when = document.createElement("button");
     when.type = "button";
@@ -11717,6 +11775,11 @@
     refreshDetailSource();   // refresh the note mark
   });
 
+  detailWhenDay.addEventListener("click", function () {
+    const item = currentDetailItem();
+    if (item) openCalendar(item.id, "events");
+  });
+
   detailTrash.addEventListener("click", function () {
     const item = currentDetailItem();
     if (item) deleteTimelineMarker("events", item);   // it closes the editor first
@@ -11939,6 +12002,7 @@
 
     markPickedDay();
     paintDayToday();
+    renderUndated();   // the day changed, so did its hourless events
   }
 
   /* A side day travels into the centre instead of merely changing the timeline.
@@ -12353,7 +12417,7 @@
   function addEvent(key, text, time, important) {
     state.events.push({
       id: Date.now().toString(), text: text, important: !!important,
-      icon: "calendar", date: key || null, time: key ? (time || "09:00") : null
+      icon: "calendar", date: key || null, time: time || null
     });
     saveState();
     renderEventCal();
@@ -12372,13 +12436,58 @@
     return found;
   }
 
+  /* Events of the day on show that carry no hour: they have a place in the week
+     but none on the rule, so they wait on the same line as the dateless ones —
+     under the name of their day, and only while the grid is on that day. */
+  function timelessEventsOnShownDay() {
+    const key = sectionDay || todayKey();
+    const found = [];
+    for (let i = 0; i < state.events.length; i++) {
+      if (state.events[i].date === key && !state.events[i].time) found.push(state.events[i]);
+    }
+    return found;
+  }
+
   function renderUndated() {
     const box = document.getElementById("undatedItems");
     if (!box) return;
-    const list = undatedEvents();
+    const loose = undatedEvents();
+    const timeless = timelessEventsOnShownDay();
     box.innerHTML = "";
-    document.getElementById("undated").hidden = list.length === 0;
-    for (let i = 0; i < list.length; i++) box.appendChild(undatedChip(list[i]));
+    // The strip itself is never taken away, only emptied: it holds its height so
+    // that opening its halves mid-drag cannot push the rule of time down under a
+    // pointer that has already been measured against it.
+    document.getElementById("loose").hidden = loose.length === 0;
+    document.getElementById("undatedLabel").hidden = loose.length === 0;
+    for (let i = 0; i < loose.length; i++) box.appendChild(undatedChip(loose[i]));
+
+    const dayBox = document.getElementById("timelessItems");
+    const dayGroup = document.getElementById("timeless");
+    dayBox.innerHTML = "";
+    dayGroup.hidden = timeless.length === 0;
+    if (timeless.length) {
+      document.getElementById("timelessLabel").textContent = shownDayLabel();
+      for (let i = 0; i < timeless.length; i++) dayBox.appendChild(undatedChip(timeless[i]));
+    }
+  }
+
+  /* the day a grid cell stands for, written out */
+  function dayKeyLabel(key) {
+    if (key === todayKey()) return translate("groupToday");
+    const locale = state.settings.language === "fr" ? "fr-FR" : "en-US";
+    const text = new Date(key + "T00:00").toLocaleDateString(locale,
+      { weekday: "long", day: "numeric", month: "long" });
+    return text.charAt(0).toUpperCase() + text.slice(1);
+  }
+
+  /* "Aujourd'hui" while the grid is on today, the day written out otherwise */
+  function shownDayLabel() {
+    const key = sectionDay || todayKey();
+    if (key === todayKey()) return translate("groupToday");
+    const locale = state.settings.language === "fr" ? "fr-FR" : "en-US";
+    const text = new Date(key + "T00:00").toLocaleDateString(locale,
+      { weekday: "long", day: "numeric", month: "long" });
+    return text.charAt(0).toUpperCase() + text.slice(1);
   }
 
   function undatedChip(event) {
@@ -12409,41 +12518,78 @@
       let drop = null;
 
       let deleting = false;
+      let grabX = 0;
+      let grabY = 0;
+      let origin = { x: 0, y: 0 };
+      let zone = null;    // null, "loose" or "day"
+      let onDay = null;   // a day key when the grid is being aimed at
 
       const move = function (at) {
         if (!moved && Math.abs(at.clientX - down.clientX)
                     + Math.abs(at.clientY - down.clientY) < 6) return;
         if (!moved) {
           moved = true;
+          freezeUndatedHeight();   // before anything here changes the strip's size
+          // Lift it out of the flow before anything else: showing the drop halves
+          // resizes the strip underneath, and a chip still in that flow would be
+          // carried sideways by the reflow the moment it was picked up.
+          const box = chip.getBoundingClientRect();
+          grabX = down.clientX - box.left;
+          grabY = down.clientY - box.top;
+          chip.style.width = box.width + "px";
           chip.classList.add("is-dragging");
+          origin = fixedOrigin(chip);
           showTimelineTrash(true, false);
         }
-        chip.style.transform = "translate(" + (at.clientX - down.clientX).toFixed(0)
-          + "px," + (at.clientY - down.clientY).toFixed(0) + "px)";
+        chip.style.left = (at.clientX - grabX - origin.x).toFixed(0) + "px";
+        chip.style.top = (at.clientY - grabY - origin.y).toFixed(0) + "px";
 
-        // the bin wins over the rule: it is the more final of the two
+        // the bin wins over everything: it is the only target that unmakes.
+        // Then the strip, then the rule — the strip is a small deliberate area
+        // and the rule's catch margins are wide enough to swallow it.
         deleting = timelineTrashHit(at.clientX, at.clientY);
+        onDay = deleting ? null : calendarDayHit(at.clientX, at.clientY);
+        zone = (deleting || onDay) ? null : undatedZoneHit(at.clientX, at.clientY);
         chip.classList.toggle("is-delete-target", deleting);
         showTimelineTrash(true, deleting);
-        drop = deleting ? null : taskDropAt(at.clientX, at.clientY);
-        showTaskDrop(drop, event);
+        showCalendarDayTarget(onDay);
+        showUndatedZone(true, zone);
+        drop = (deleting || onDay || zone) ? null : taskDropAt(at.clientX, at.clientY);
+        showTaskDrop(drop, event, false);
       };
       const up = function () {
         const remove = deleting;
+        const landed = zone;
+        const moveTo = onDay;
         chip.releasePointerCapture(down.pointerId);
         chip.removeEventListener("pointermove", move);
         chip.removeEventListener("pointerup", up);
         chip.removeEventListener("pointercancel", up);
         chip.classList.remove("is-dragging", "is-delete-target");
-        chip.style.transform = "";
+        releaseUndatedHeight();
+        chip.style.left = "";
+        chip.style.top = "";
+        chip.style.width = "";
         showTaskDrop(null, event);
         showTimelineTrash(false, false);
+        showCalendarDayTarget(null);
+        showUndatedZone(false, null);
         // a press that never travelled is a click: open it instead
         if (!moved) { openEventFold(event); return; }
         if (remove) { deleteTimelineMarker("events", event); return; }
-        if (!drop) return;
-        event.date = drop.date;
-        event.time = drop.time;
+        if (moveTo) {
+          // put down on the grid: it takes that day and stays without an hour
+          event.date = moveTo;
+          event.time = null;
+        } else if (landed) {
+          // between the two halves of the strip: it gains or loses its day, and
+          // stays without an hour either way
+          event.date = landed === "day" ? (sectionDay || todayKey()) : null;
+          event.time = null;
+        } else if (drop) {
+          event.date = drop.date;
+          event.time = drop.time;
+        } else return;
         saveState();
         renderEventCal();
         renderDailyTimeline();
@@ -12853,19 +12999,207 @@
      nowhere to drop the first one. */
   const undatedEl = document.getElementById("undated");
 
-  function showUndatedZone(show, active) {
-    if (!undatedEl) return;
-    undatedEl.classList.toggle("is-target", !!show);
-    undatedEl.classList.toggle("is-active", !!active);
-    if (show) undatedEl.hidden = false;
-    else renderUndated();   // back to whatever it should be on its own
+  /* The strip has two halves and they mean different things to a drop: the loose
+     one takes the day away, the day's one takes only the hour. Both are shown for
+     the length of a drag, empty or not, or there would be nothing to aim at. */
+  /* Whatever the strip does inside itself while a drag is on — a chip leaving the
+     flow, a half opening, a line of chips reflowing to one — its outer height is
+     pinned for the length of the gesture. Anything above the rule that changes
+     size moves the rule, and the rule is what every coordinate is measured from. */
+  function freezeUndatedHeight() {
+    if (!undatedEl || undatedEl.style.height) return;
+    undatedEl.style.height = undatedEl.getBoundingClientRect().height + "px";
   }
 
+  function releaseUndatedHeight() {
+    if (undatedEl) undatedEl.style.height = "";
+  }
+
+  function showUndatedZone(show, active) {
+    if (!undatedEl) return;
+    const dayGroup = document.getElementById("timeless");
+    const looseGroup = document.getElementById("loose");
+    undatedEl.classList.toggle("is-target", !!show);
+    looseGroup.classList.toggle("is-target", !!show);
+    dayGroup.classList.toggle("is-target", !!show);
+    looseGroup.classList.toggle("is-active", active === "loose");
+    dayGroup.classList.toggle("is-active", active === "day");
+    if (show) {
+      // both halves and both names, whether or not they hold anything: an empty
+      // half with no label has no width, and cannot be dropped into
+      looseGroup.hidden = false;
+      dayGroup.hidden = false;
+      document.getElementById("undatedLabel").hidden = false;
+      document.getElementById("timelessLabel").textContent = shownDayLabel();
+    } else {
+      releaseUndatedHeight();
+      renderUndated();   // back to whatever the two should be on their own
+    }
+  }
+
+  function inBox(el, clientX, clientY, pad) {
+    if (!el || el.hidden) return false;
+    const rect = el.getBoundingClientRect();
+    if (!rect.width && !rect.height) return false;
+    return clientX >= rect.left - pad && clientX <= rect.right + pad
+      && clientY >= rect.top - pad && clientY <= rect.bottom + pad;
+  }
+
+  /* "day" over the day's half, "loose" over the loose one, null outside. Each
+     half is measured on its own box — the strip as a whole would hand almost
+     everything to whichever half happens to be wider. */
   function undatedZoneHit(clientX, clientY) {
-    if (!undatedEl || undatedEl.hidden) return false;
-    const rect = undatedEl.getBoundingClientRect();
-    return clientX >= rect.left - 12 && clientX <= rect.right + 12
-      && clientY >= rect.top - 14 && clientY <= rect.bottom + 14;
+    if (!undatedEl) return null;
+    if (inBox(document.getElementById("timeless"), clientX, clientY, 8)) return "day";
+    if (inBox(document.getElementById("loose"), clientX, clientY, 8)) return "loose";
+    return null;
+  }
+
+  /* the third place an event can be put down: a day on the grid. It changes the
+     day and leaves the hour alone — the rule is what sets an hour. */
+  function calendarDayHit(clientX, clientY) {
+    const cells = ecalGrid.querySelectorAll(".ecal__day");
+    for (let i = 0; i < cells.length; i++) {
+      if (inBox(cells[i], clientX, clientY, 0)) return cells[i].dataset.key;
+    }
+    return null;
+  }
+
+  function showCalendarDayTarget(key) {
+    const cells = ecalGrid.querySelectorAll(".ecal__day");
+    for (let i = 0; i < cells.length; i++) {
+      cells[i].classList.toggle("is-drop-target", !!key && cells[i].dataset.key === key);
+    }
+  }
+
+  /* LIFTING OFF — a marker dragged away from the rule stops pretending to be on
+     it. Within reach, above or below, it stays hooked and its stem holds; past
+     that it lifts off and follows the pointer as a card. Brought back, it lands
+     on the rule again. The reach is generous on purpose: sliding an hour is the
+     common gesture, and it must not detach under a shaky hand. */
+  /* The stem at rest spans from the icon down to the rule: 42 units of the 74-unit
+     box, plus whatever the collision layout lifted this marker by. That length is
+     the whole budget — a marker is never further from the rule than its own stem
+     can reach, and past it the stem is gone rather than stretched. */
+  const STEM_REST = 42;
+
+  function stemBudget(marker) {
+    return STEM_REST + Number(marker.dataset.lift || 0);
+  }
+
+  /* how far the pointer stands off the rule, on the given face; 0 when over it */
+  function offRule(clientY, hangs) {
+    const line = ruleLineY();
+    return Math.max(0, hangs ? clientY - line : line - clientY);
+  }
+
+  /* position: fixed resolves against the nearest ancestor carrying a transform, a
+     filter or a backdrop-filter — not against the window. The rule's rail takes a
+     transform to slide between days, so window coordinates land short by exactly
+     the page's scroll. Rather than hunt for which ancestor it is, ask the element
+     where its own (0,0) actually falls, once, and take that out afterwards. */
+  function fixedOrigin(el) {
+    const left = el.style.left;
+    const top = el.style.top;
+    el.style.left = "0px";
+    el.style.top = "0px";
+    const box = el.getBoundingClientRect();
+    el.style.left = left;
+    el.style.top = top;
+    return { x: box.left, y: box.top };
+  }
+
+  const MARKER_HALF = 40;   // the marker box is 80 wide, its icon centred in it
+
+  function liftMarker(marker, clientX, clientY, iconY) {
+    if (!marker.classList.contains("is-floating")) {
+      marker.classList.add("is-floating");
+      // Put the icon back at rest inside its box first. While the marker was
+      // hooked, stretchMarker was moving the icon about within the box to draw
+      // the stem; leaving it there would offset the whole card from the pointer
+      // by however far the stem happened to be stretched when it let go — which
+      // is why the offset looked to have no pattern.
+      restIcon(marker, iconY > 40);
+    }
+    // Measured every frame, not cached: the ancestor this resolves against sits
+    // in the page, so it slides whenever the page does — and a task drag can
+    // scroll the page under the pointer while it is held.
+    const origin = fixedOrigin(marker);
+    // iconY is how far the icon sits from the top of the box: 16 for a marker
+    // standing over the rule, 58 for one hanging under it
+    marker.style.left = (clientX - origin.x - MARKER_HALF) + "px";
+    marker.style.top = (clientY - origin.y - iconY) + "px";
+  }
+
+  /* the icon and its label back where the stylesheet expects them in their box */
+  function restIcon(marker, hangs) {
+    const icon = marker.querySelector(".dtl__event-icon");
+    const tip = marker.querySelector(".dtl__event-tip");
+    if (icon) {
+      icon.style.top = hangs ? "" : "0px";
+      icon.style.bottom = hangs ? "0px" : "";
+    }
+    if (tip) {
+      tip.style.top = hangs ? "" : "-30px";
+      tip.style.bottom = hangs ? "-30px" : "";
+    }
+  }
+
+  /* HOOKED, BUT NOT PINNED — within reach the marker follows the pointer away from
+     the rule as well as along it: the stem lengthens to keep the icon under the
+     finger and its foot on the rule, and it is drawn straight up, because a link
+     that leans reads as a lean rather than as a measure. Past the reach it is let
+     go entirely; dropping it redraws the marker, so the stem returns to rest. */
+  /* Draw the stem to a given length. The icon rides at its far end, so a length of
+     zero puts the icon on the rule itself with no stem at all, and the resting
+     length puts it back where the renderer had it. Straight, not curved: a link
+     that leans reads as a lean rather than as a measure. */
+  function stretchMarker(marker, length, hangs) {
+    const y = Math.max(0, length);
+    const icon = marker.querySelector(".dtl__event-icon");
+    const tip = marker.querySelector(".dtl__event-tip");
+    const path = marker.querySelector(".dtl__event-path");
+    if (!icon || !path) return;
+    icon.style.left = "50%";
+    if (tip) tip.style.left = "50%";
+    if (hangs) {
+      icon.style.top = "";
+      icon.style.bottom = (40 - y) + "px";
+      if (tip) { tip.style.top = ""; tip.style.bottom = (10 - y) + "px"; }
+      path.setAttribute("d", "M40 " + (2 + y) + " L40 2");
+    } else {
+      icon.style.bottom = "";
+      icon.style.top = (40 - y) + "px";
+      if (tip) { tip.style.bottom = ""; tip.style.top = (10 - y) + "px"; }
+      path.setAttribute("d", "M40 " + (72 - y) + " L40 72");
+    }
+  }
+
+  /* The line itself, not the box that holds it: .dtl is 78px tall and its rule is
+     the 2px strip pinned to the bottom of it. Measuring sides and distances from
+     the box's top or middle put both of them out by most of that height. */
+  function ruleLineY() {
+    return dtlEl.getBoundingClientRect().bottom;
+  }
+
+  /* which face of the rule the pointer is on */
+  function pointerUnderRule(clientY) {
+    return clientY > ruleLineY();
+  }
+
+  /* Dragged across the rule, a marker changes face rather than stretching a stem
+     back over the line: the stem always leaves the rule on the side the hand is. */
+  function faceMarker(marker, under) {
+    marker.classList.toggle("dtl__event--under", under);
+    const icon = marker.querySelector(".dtl__event-icon");
+    const tip = marker.querySelector(".dtl__event-tip");
+    if (icon) { icon.style.top = ""; icon.style.bottom = ""; }
+    if (tip) { tip.style.top = ""; tip.style.bottom = ""; }
+  }
+
+  function landMarker(marker) {
+    marker.classList.remove("is-floating");
+    marker.style.top = "";
   }
 
   function deleteTimelineMarker(kind, item) {
@@ -12889,38 +13223,66 @@
       const originalPast = eventStatus(event) === "past";
       let moved = false;
       let deleting = false;
-      let undating = false;
+      let undating = null;   // null, "loose" or "day"
+      let onDay = null;      // a day key when the grid is being aimed at
+
+      let pointerX = downEvent.clientX;
+      let pointerY = downEvent.clientY;
+      let scrollFrame = 0;
 
       marker.setPointerCapture(downEvent.pointerId);
 
       const rest = function (label) {
         event.time = originalTime;
-        marker.style.left = Math.max(0, Math.min(100, timePct(originalAt, windowStart))).toFixed(2) + "%";
+        // a lifted marker is placed by the pointer, not by the clock
+        if (!marker.classList.contains("is-floating")) {
+          marker.style.left = Math.max(0, Math.min(100, timePct(originalAt, windowStart))).toFixed(2) + "%";
+        }
         marker.classList.toggle("is-past", originalPast);
         marker.classList.toggle("is-pending", !originalPast);
         marker.setAttribute("aria-label", label + " · " + event.text);
         marker.querySelector(".dtl__event-tip").textContent = label;
       };
 
-      const move = function (moveEvent) {
-        const dx = moveEvent.clientX - downEvent.clientX;
-        const dy = moveEvent.clientY - downEvent.clientY;
-        if (!moved && Math.abs(dx) + Math.abs(dy) < 4) return;
-        if (!moved) {
-          moved = true;
+      const applyMove = function (clientX, clientY) {
+        const dx = clientX - downEvent.clientX;
+        if (!marker.classList.contains("is-dragging")) {
           marker.classList.add("is-dragging");
+          freezeUndatedHeight();
           showTimelineTrash(true, false);
           showUndatedZone(true, false);
         }
 
-        deleting = timelineTrashHit(moveEvent.clientX, moveEvent.clientY);
-        // the bin wins over the strip: it is the more final of the two
-        undating = !deleting && undatedZoneHit(moveEvent.clientX, moveEvent.clientY);
+        // the bin first — it is the only one that unmakes — then the grid, then
+        // the strip, and the rule last: its catch margins are the widest
+        deleting = timelineTrashHit(clientX, clientY);
+        onDay = deleting ? null : calendarDayHit(clientX, clientY);
+        undating = (deleting || onDay) ? null
+          : undatedZoneHit(clientX, clientY);
         marker.classList.toggle("is-delete-target", deleting);
         showTimelineTrash(true, deleting);
+        showCalendarDayTarget(onDay);
         showUndatedZone(true, undating);
-        if (undating) { rest(translate("undatedLabel")); return; }
+
+        // near the rule it stays hooked; away from it, it lifts off and follows
+        const under = pointerUnderRule(clientY);
+        const off = offRule(clientY, under);
+        const hooked = off <= stemBudget(marker) && !deleting && !onDay && !undating;
+        if (hooked) {
+          landMarker(marker);
+          faceMarker(marker, under);
+          stretchMarker(marker, off, under);
+        } else {
+          liftMarker(marker, clientX, clientY, under ? 58 : 16);
+        }
+
+        if (onDay) { rest(dayKeyLabel(onDay)); return; }
+        if (undating) {
+          rest(undating === "day" ? shownDayLabel() : translate("undatedLabel"));
+          return;
+        }
         if (deleting) { rest(translate("timelineDelete")); return; }
+        if (!hooked) { rest(event.text); return; }   // lifted, waiting for a target
 
         const rawMinutes = originalMinutes + dx / line.width * spanMs / 60000;
         const snapped = Math.round(rawMinutes / EVENT_DRAG_STEP) * EVENT_DRAG_STEP;
@@ -12938,12 +13300,45 @@
         marker.querySelector(".dtl__event-tip").textContent = time + " · " + event.text;
       };
 
+      /* the page follows the pointer at the edges, so an event can be carried to a
+         day or a bin that is off screen — the same reach a task already had */
+      const autoScroll = function () {
+        if (!moved) return;
+        const edge = Math.min(110, window.innerHeight * .18);
+        let amount = 0;
+        if (pointerY < edge) {
+          amount = -Math.ceil((edge - pointerY) / edge * 18);
+        } else if (pointerY > window.innerHeight - edge) {
+          amount = Math.ceil((pointerY - (window.innerHeight - edge)) / edge * 18);
+        }
+        if (amount) {
+          window.scrollBy(0, amount);
+          applyMove(pointerX, pointerY);
+        }
+        scrollFrame = requestAnimationFrame(autoScroll);
+      };
+
+      const move = function (moveEvent) {
+        pointerX = moveEvent.clientX;
+        pointerY = moveEvent.clientY;
+        const dx = pointerX - downEvent.clientX;
+        const dy = pointerY - downEvent.clientY;
+        if (!moved && Math.abs(dx) + Math.abs(dy) < 4) return;
+        if (!moved) { moved = true; scrollFrame = requestAnimationFrame(autoScroll); }
+        applyMove(pointerX, pointerY);
+      };
+
       const cleanup = function () {
+        cancelAnimationFrame(scrollFrame);
+        scrollFrame = 0;
         marker.removeEventListener("pointermove", move);
         marker.removeEventListener("pointerup", up);
         marker.removeEventListener("pointercancel", cancel);
         marker.classList.remove("is-dragging", "is-delete-target");
+        landMarker(marker);
+        releaseUndatedHeight();
         showTimelineTrash(false, false);
+        showCalendarDayTarget(null);
         showUndatedZone(false, false);
         if (marker.hasPointerCapture(downEvent.pointerId)) {
           marker.releasePointerCapture(downEvent.pointerId);
@@ -12953,12 +13348,23 @@
       const up = function () {
         const remove = deleting;
         const loosen = undating;
+        const moveTo = onDay;
         cleanup();
         if (!moved) return;
         eventDragUntil = Date.now() + 300;
+        if (moveTo) {
+          event.date = moveTo;   // the grid moves the day, the rule sets the hour
+          event.time = originalTime;
+          saveState();
+          renderEventCal();
+          renderDailyTimeline();
+          renderUndated();
+          return;
+        }
         if (loosen) {
-          // it keeps its name and its icon; only its place in time is given back
-          event.date = null;
+          // it keeps its name and its icon; dropped on the day's half it keeps
+          // that day too, and only its hour is given back
+          event.date = loosen === "day" ? (sectionDay || todayKey()) : null;
           event.time = null;
           saveState();
           renderEventCal();
@@ -13025,22 +13431,31 @@
           undatedGroup.classList.toggle("is-drop-target", undating);
         }
 
-        if (deleting) {
+        // near the rule it stays hooked; away from it, it lifts off and follows
+        const under = pointerUnderRule(clientY);
+        const off = offRule(clientY, under);
+        const hooked = off <= stemBudget(marker) && !deleting && !undating;
+        if (hooked) {
+          landMarker(marker);
+          faceMarker(marker, under);
+          stretchMarker(marker, off, under);
+        } else {
+          liftMarker(marker, clientX, clientY, under ? 58 : 16);
+        }
+
+        const rest = function (label) {
           task.dueDate = originalDate;
           task.dueTime = originalTime;
-          marker.style.left = Math.max(0, Math.min(100, timePct(originalAt, windowStart))).toFixed(2) + "%";
-          marker.setAttribute("aria-label", translate("timelineDelete") + " · " + task.text);
-          marker.querySelector(".dtl__event-tip").textContent = translate("timelineDelete");
-          return;
-        }
-        if (undating) {
-          task.dueDate = originalDate;
-          task.dueTime = originalTime;
-          marker.style.left = Math.max(0, Math.min(100, timePct(originalAt, windowStart))).toFixed(2) + "%";
-          marker.setAttribute("aria-label", translate("groupNone") + " · " + task.text);
-          marker.querySelector(".dtl__event-tip").textContent = translate("groupNone");
-          return;
-        }
+          if (!marker.classList.contains("is-floating")) {
+            marker.style.left = Math.max(0, Math.min(100, timePct(originalAt, windowStart))).toFixed(2) + "%";
+          }
+          marker.setAttribute("aria-label", label + " · " + task.text);
+          marker.querySelector(".dtl__event-tip").textContent = label;
+        };
+
+        if (deleting) { rest(translate("timelineDelete")); return; }
+        if (undating) { rest(translate("groupNone")); return; }
+        if (!hooked) { rest(task.text); return; }
 
         const raw = originalAt + dx / line.width * spanMs;
         const snapped = Math.round(raw / (EVENT_DRAG_STEP * 60000)) * EVENT_DRAG_STEP * 60000;
@@ -13078,6 +13493,7 @@
         if (!moved) {
           moved = true;
           marker.classList.add("is-dragging");
+          freezeUndatedHeight();
           showTimelineTrash(true, false);
           scrollFrame = requestAnimationFrame(autoScroll);
         }
@@ -13089,6 +13505,8 @@
         marker.removeEventListener("pointerup", up);
         marker.removeEventListener("pointercancel", cancel);
         marker.classList.remove("is-dragging", "is-delete-target", "is-undate-target");
+        landMarker(marker);
+        releaseUndatedHeight();
         showTimelineTrash(false, false);
         cancelAnimationFrame(scrollFrame);
         const undatedGroup = document.querySelector('.tgroup[data-undated-drop="1"]');
@@ -13205,10 +13623,11 @@
       if (item.pct < 5 && shift < 0) shift *= -1;
       if (item.pct > 95 && shift > 0) shift *= -1;
 
+      const hangs = isTask;   // tasks below the rule, events above it
       const marker = document.createElement("button");
       marker.type = "button";
       if (isTask) {
-        marker.className = "dtl__event dtl__task "
+        marker.className = "dtl__event dtl__task dtl__event--under "
           + (data.done ? "is-done" : "is-" + eventStatus({ date: data.dueDate, time: time }));
         const stepColor = stepTaskColor(data);
         if (stepColor) {
@@ -13221,6 +13640,7 @@
       }
       marker.style.left = item.pct.toFixed(2) + "%";
       marker.style.setProperty("--event-shift", shift + "px");
+      marker.dataset.lift = lift;     // the stem's resting length, to stretch from
       marker.dataset[isTask ? "task" : "event"] = data.id;
       marker.setAttribute("aria-label", time + " · " + data.text);
       marker.addEventListener("click", function (clickEvent) {
@@ -13228,7 +13648,7 @@
           clickEvent.preventDefault();
           return;
         }
-        if (isTask) openTaskFold(data);
+        if (isTask) openTaskRow(data);
         else openEventFold(data);
       });
 
@@ -13239,27 +13659,32 @@
       const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
       path.setAttribute("class", "dtl__event-path");
       const startX = 40 + shift;
-      const startY = 30 - lift;
-      path.setAttribute("d", "M" + startX + " " + startY
-        + " C" + startX + " 48 40 44 40 72");
+      // a task hangs under the rule, an event stands over it: the same curve,
+      // read from the other end, so the two kinds never crowd the same side
+      const startY = hangs ? 44 + lift : 30 - lift;
+      path.setAttribute("d", hangs
+        ? "M" + startX + " " + startY + " C" + startX + " 26 40 30 40 2"
+        : "M" + startX + " " + startY + " C" + startX + " 48 40 44 40 72");
       const foot = document.createElementNS("http://www.w3.org/2000/svg", "circle");
       foot.setAttribute("class", "dtl__event-foot");
       foot.setAttribute("cx", "40");
-      foot.setAttribute("cy", "72");
+      foot.setAttribute("cy", hangs ? "2" : "72");
       foot.setAttribute("r", "3.5");
       wire.append(path, foot);
 
       const icon = document.createElement("span");
       icon.className = "dtl__event-icon";
       icon.style.left = "calc(50% + " + shift + "px)";
-      icon.style.top = -lift + "px";
+      if (hangs) icon.style.bottom = -lift + "px";
+      else icon.style.top = -lift + "px";
       icon.innerHTML = isTask
         ? iconSvg('<circle cx="12" cy="12" r="9"/><polyline points="8 12 11 15 16 9"/>')
         : habitSvg(data.icon || "calendar");
       const tip = document.createElement("span");
       tip.className = "dtl__event-tip";
       tip.style.left = "calc(50% + " + shift + "px)";
-      tip.style.top = (-30 - lift) + "px";
+      if (hangs) tip.style.bottom = (-30 - lift) + "px";
+      else tip.style.top = (-30 - lift) + "px";
       tip.textContent = time + " · " + data.text;
       marker.append(wire, icon, tip);
       if (isTask) armTaskTimeDrag(marker, data, windowStart);
@@ -13332,16 +13757,23 @@
     openEventDetail(event, fold.firstChild);
   }
 
-  function openTaskFold(task) {
-    const host = document.getElementById("eventFold");
-    const key = "task:" + task.id;
-    if (host.dataset.object === key && openHost) { closeDetail(); return; }
-    closeDetail();
-    host.innerHTML = "";
-    host.dataset.object = key;
-    const fold = createUnfold();
-    host.appendChild(fold);
-    openDetail("tasks", task.id, fold.firstChild);
+  /* A task already has a place of its own in the list: clicking its mark on the
+     rule unfolds that row rather than opening a second copy of it up here. Its
+     day may be folded away, so the group is opened first and the row looked up
+     afterwards — it does not exist until then. */
+  function openTaskRow(task) {
+    const group = task.dueDate ? "day:" + task.dueDate : null;
+    if (group && collapsedGroups[group]) {
+      collapsedGroups[group] = false;
+      renderList("tasks");
+    }
+    const row = document.querySelector('#tasksList .item[data-id="' + task.id + '"]');
+    if (!row) return;
+    if (row.classList.contains("is-open")) { closeDetail(); return; }
+    const inner = row.querySelector(".unfold__inner");
+    if (!inner) return;
+    openDetail("tasks", task.id, inner);
+    row.scrollIntoView({ behavior: "smooth", block: "center" });
   }
 
   /* sunrise/sunset (once a day) and weather (refreshed every few hours) from

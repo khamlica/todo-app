@@ -1,0 +1,15 @@
+<!-- tab variant of A: the halo and the fading rule both die under 32px, so the
+     rule is drawn solid and heavy and the sun is oversized -->
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <linearGradient id="sky" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#4b3a86"/>
+      <stop offset=".42" stop-color="#8d5a9e"/>
+      <stop offset=".72" stop-color="#e0748f"/>
+      <stop offset="1" stop-color="#ffa871"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="96" fill="url(#sky)"/>
+  <rect x="70" y="272" width="372" height="34" rx="17" fill="#fff" fill-opacity=".95"/>
+  <circle cx="330" cy="289" r="76" fill="#ffe9a8"/>
+</svg>

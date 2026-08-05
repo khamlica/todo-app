@@ -474,7 +474,8 @@ html {
 /* Installed, the app is a window and not a page: no system scrollbar, and so no
    gutter to reserve either. The wheel and the keys still scroll. In a browser tab
    the bar stays, it belongs to the browser. */
-@media (display-mode: standalone), (display-mode: window-controls-overlay) {
+@media (display-mode: standalone), (display-mode: window-controls-overlay),
+       (display-mode: fullscreen), (display-mode: minimal-ui) {
   html {
     scrollbar-width: none;
     scrollbar-gutter: auto;
@@ -2796,6 +2797,12 @@ button.tgroup__head--day:hover {
   font-size: .82rem;
   font-weight: 600;
 }
+/* over the bin the ghost turns: the drop will unmake the step, not place it */
+.step-drag-ghost.is-delete-target {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+.step-drag-ghost.is-delete-target .step-drag-ghost__dot { background: var(--danger); }
 .milestone-drag-ghost__dot,
 .step-drag-ghost__dot {
   flex: 0 0 auto;
@@ -3409,15 +3416,20 @@ button.tgroup__head--day:hover {
 /* WHAT HAS NO DAY YET — a line of chips over the rule of time. They are picked up
    and dropped onto the rule, which is what dates them, so they read as loose
    things resting there rather than as a list. */
+/* THE LANDING STRIP — always on the page, empty or not. Its two halves come and
+   go inside it, but the band itself keeps its height: appearing mid-drag it would
+   push the rule of time down, and every coordinate measured at the start of the
+   gesture would be off by exactly that much for the rest of it. */
 .undated {
   display: flex;
   align-items: center;
   gap: 10px;
+  min-height: 40px;
   max-width: 1160px;
   margin: 0 auto 10px;
   padding: 0 20px;
 }
-.undated[hidden] { display: none; }
+.undated__label[hidden] { display: none; }
 .undated__label {
   flex: 0 0 auto;
   font-size: .68rem;
@@ -3427,19 +3439,35 @@ button.tgroup__head--day:hover {
   color: var(--muted);
 }
 .undated__items { display: flex; flex-wrap: wrap; gap: 8px; min-width: 0; }
+/* THE TWO HALVES — loose on the left, the day on the right, and each takes half
+   the strip whatever it holds. Sized by their contents they collapsed to nothing
+   when empty, and there was no way to tell one from the other, let alone aim. */
+.undated__group {
+  flex: 1 1 0;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-width: 0;
+}
+.undated__group[hidden] { display: none; }
 /* held open for the length of a drag, so an event coming off the rule has
    somewhere to land even when the strip is otherwise empty */
-.undated.is-target {
+/* the band itself draws nothing while a drag is on: its two halves each outline
+   themselves, and a third frame around the pair only says the same thing twice */
+/* the day's half is its own target inside the strip, so it outlines on its own */
+/* while a drag is on, the two boxes are drawn so the split is plain to see */
+.undated__group.is-target {
   outline: 1px dashed color-mix(in srgb, var(--muted) 45%, transparent);
-  outline-offset: 6px;
-  border-radius: 12px;
-  min-height: 34px;
+  outline-offset: 5px;
+  border-radius: 10px;
+  min-height: 32px;
 }
-.undated.is-target.is-active {
+.undated__group.is-target.is-active {
   outline-color: var(--accent);
   outline-style: solid;
   background: color-mix(in srgb, var(--accent) 8%, transparent);
 }
+
 .undated__chip {
   display: inline-flex;
   align-items: center;
@@ -3466,13 +3494,16 @@ button.tgroup__head--day:hover {
   background: color-mix(in srgb, var(--danger) 10%, var(--input-bg));
 }
 .undated__chip.is-important .undated__chip-ico { color: var(--danger); }
+/* out of the flow entirely while it travels: the strip behind it opens its two
+   halves, and a chip still in that flow would be shoved aside by the reflow */
 .undated__chip.is-dragging {
   cursor: grabbing;
   border-style: solid;
   border-color: var(--accent);
   box-shadow: var(--shadow);
-  position: relative;
-  z-index: 30;
+  position: fixed;
+  z-index: 60;
+  pointer-events: none;
   transition: none;   /* it follows the finger, it does not chase it */
 }
 .undated__chip-ico { flex: 0 0 auto; width: 16px; height: 16px; color: var(--accent); display: grid; place-items: center; }
@@ -3482,6 +3513,15 @@ button.tgroup__head--day:hover {
 @media (min-width: 1000px) { .undated { padding: 0 32px; } }
 
 /* the editor opened from a timeline event */
+/* An event opens to the size a task opens to, not to the width of the grid it
+   was clicked under. The tasks column is 1.12fr of the 1160px rail once its gap
+   is taken out, which lands near 560px — the same room to read a note in, on
+   either side of the page. Centred, since the grid above it is. */
+.day-fold {
+  max-width: 560px;
+  margin-left: auto;
+  margin-right: auto;
+}
 .day-fold:empty { display: none; }
 .day-fold .unfold__inner { padding-top: 4px; }
 
@@ -5109,6 +5149,30 @@ body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: non
   overflow: visible;
   touch-action: none;
 }
+
+/* LIFTED OFF — pulled away from the rule, a marker stops being a point on a line
+   and becomes a card under the pointer. Its stem goes with the pretence: there is
+   nothing to hang from any more. */
+.dtl__event.is-floating {
+  position: fixed;
+  bottom: auto;   /* the anchored rule pins it to the rule's foot; not any more */
+  z-index: 60;
+  /* no transform: the renderer places it by its own top-left, and a transform
+     here would put the probe that finds the fixed origin out by half a box */
+  transform: none;
+  pointer-events: none;
+  transition: none;   /* it follows the finger, it does not chase it */
+}
+.dtl__event.is-floating .dtl__event-filament { display: none; }
+.dtl__event.is-floating .dtl__event-icon {
+  border-radius: var(--r-md);
+  background: var(--surface);
+  box-shadow: var(--shadow);
+}
+.dtl__event.is-floating .dtl__event-tip {
+  opacity: 1;
+  visibility: visible;
+}
 .dtl__event-filament {
   position: absolute;
   inset: 0;
@@ -5148,6 +5212,20 @@ body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: non
 }
 .dtl__event-icon svg { width: 18px; height: 18px; }
 .dtl__task { color: var(--accent); }
+
+/* UNDER THE RULE — events stand over it, tasks hang beneath, so the two kinds
+   never crowd the same side. It is a side, not a kind: the drop preview and any
+   marker being dragged across the rule take it too, which is why it is its own
+   class and not something .dtl__task carries. */
+.dtl__event--under {
+  top: 100%;
+  bottom: auto;
+}
+.dtl__event--under .dtl__event-icon { top: auto; }
+.dtl__event--under .dtl__event-tip { top: auto; transform: translateX(-50%) translateY(-3px); }
+/* lifted off, both sides are placed by the renderer, which knows where each
+   one's icon sits in its box: 16px down for a standing one, 58 for a hanging one */
+.dtl__event--under.is-floating { transform: none; }
 .dtl__task--milestone-linked { color: var(--task-milestone-color); }
 .dtl__task--milestone-linked .dtl__event-icon {
   border-color: color-mix(in srgb, var(--task-milestone-color) 58%, transparent);
@@ -5780,6 +5858,12 @@ body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: non
 /* THE PICKED DAY — the one displayed by the timeline. A ring and nothing else:
    selecting a day must not light it, that is the hover's job alone. Today is
    left out, its own motif already says where it is. */
+/* a day being aimed at with an event in hand */
+.ecal__day.is-drop-target {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+}
 .ecal__day.is-picked:not(.is-today) {
   box-shadow: inset 0 0 0 2px var(--accent);
   font-weight: 600;
@@ -8390,7 +8474,7 @@ body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: non
 .steps { display: flex; flex-direction: column; }
 .step {
   display: flex;
-  align-items: center;
+  align-items: flex-start;   /* a step may run to several lines now */
   gap: 9px;
   padding: 5px 0;
   border-bottom: 1px solid color-mix(in srgb, var(--c-line) 35%, transparent);
@@ -8427,6 +8511,10 @@ body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: non
   font: inherit;
   font-size: .92rem;
   padding: 3px 0;
+  /* it grows down instead of scrolling sideways, so a long step is read whole */
+  resize: none;
+  overflow: hidden;
+  line-height: 1.35;
 }
 .step__text:focus { outline: none; }
 .step.is-done .step__text { color: var(--muted); text-decoration: line-through; }
