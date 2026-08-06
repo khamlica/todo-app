@@ -325,11 +325,8 @@
       <div class="detail__titlerow" id="detailHead">
         <button id="detailIcon" class="detail__icon" type="button" data-i18n-aria="editIconLabel" aria-label="Icône" hidden></button>
         <input id="detailName" class="detail__name" type="text" maxlength="120">
-        <button id="detailNoteToggle" class="task-inline__note-toggle" type="button" hidden
-                aria-pressed="false" data-i18n-aria="noteShowAria" aria-label="Afficher la note">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="13" y2="17"/></svg>
-          <span data-i18n="notesLabel">Notes</span>
-        </button>
+        <!-- the sheets this task carries: a note, a journal, a canvas -->
+        <div id="detailSheets" class="sheets" hidden></div>
         <button id="detailBell" class="detail__pin detail__bell" type="button" hidden aria-pressed="false"
                 data-i18n-aria="importantAria" aria-label="Marquer comme important">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
@@ -342,9 +339,8 @@
                 data-i18n-aria="deleteAria" aria-label="Supprimer">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/><g class="ico-lid"><polyline points="3 6 5 6 21 6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></g></svg>
         </button>
-        <button id="detailPin" class="detail__pin" type="button" data-i18n-aria="pinLabel" aria-label="Épingler">
-          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="6" r="3"/><circle cx="17.7" cy="10.15" r="3"/><circle cx="15.5" cy="16.85" r="3"/><circle cx="8.47" cy="16.85" r="3"/><circle cx="6.3" cy="10.15" r="3"/><circle cx="12" cy="12" r="2.2"/></svg>
-        </button>
+        <!-- the weight of the thing being edited: three bars, set by clicking one -->
+        <span id="detailImp" class="detail__imp" data-i18n-aria="importanceAria" aria-label="Importance" role="group"></span>
       </div>
       <div class="detail__body">
         <div class="task-inline__workspace" id="detailWorkspace">
@@ -360,10 +356,8 @@
 
           </div>
 
-          <div class="detail__section task-inline__note-section" id="detailNoteSection">
-            <span class="detail__label" data-i18n="notesLabel">Notes</span>
-            <textarea id="detailNotes" class="detail__notes" rows="1" data-i18n-placeholder="notesPlaceholder" placeholder="Ajouter des notes…"></textarea>
-          </div>
+          <!-- whichever sheet is on show, drawn here -->
+          <div class="detail__section task-inline__note-section" id="detailSheet"></div>
         </div>
       </div>
     </div>
@@ -664,7 +658,12 @@
         <button id="thinkingBoardBack" class="detail__back" type="button" data-i18n-aria="thinkingCloseCanvas" aria-label="Replier dans la toile mère">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6"/></svg>
         </button>
+        <!-- a canvas that belongs to a constellation: its mark steps to the next one -->
+        <button id="thinkingBranch" class="pbranch__icon is-switch thinking-board__branch" type="button" hidden
+                data-i18n-aria="branchSwitchAria" aria-label="Afficher la constellation suivante"></button>
         <input id="thinkingName" class="thinking-board__name" type="text" maxlength="120" data-i18n-placeholder="thinkingUntitled" placeholder="Toile sans titre">
+        <button id="thinkingAddBranch" class="thinking-board__addbranch" type="button" hidden
+                data-i18n="branchAdd">Ajouter une constellation</button>
         <span id="thinkingSaved" class="thinking-board__saved" data-i18n="thinkingSaved">Enregistré</span>
         <button id="thinkingExit" class="thinking-board__exit" type="button" data-i18n-aria="thinkingExit" aria-label="Quitter le laboratoire">×</button>
       </header>
@@ -693,11 +692,10 @@
             <button class="thinking-tool thinking-tool--answer" type="button" data-block-type="answer"><span class="thinking-tool__mark" aria-hidden="true"></span><span data-i18n="blockAnswer">Réponse</span></button>
             <button class="thinking-tool thinking-tool--text" type="button" data-block-type="text"><span class="thinking-tool__mark" aria-hidden="true"></span><span data-i18n="blockText">Texte</span></button>
             <button class="thinking-tool thinking-tool--note" type="button" data-block-type="note"><span class="thinking-tool__mark" aria-hidden="true"></span><span data-i18n="blockNote">Note</span></button>
-            <button class="thinking-tool thinking-tool--journal" type="button" data-block-type="journal"><span class="thinking-tool__mark" aria-hidden="true"></span><span data-i18n="blockJournal">Journal</span></button>
+            <button class="thinking-tool thinking-tool--step" type="button" data-block-type="step"><span class="thinking-tool__mark" aria-hidden="true"></span><span data-i18n="blockStep">Étape</span></button>
           </div>
           <div id="thinkingToolPanelPlanning" class="thinking-tools__panel" role="group" aria-labelledby="thinkingToolSectionSwitch" data-thinking-tool-panel="planning" hidden>
             <button class="thinking-tool thinking-tool--task" type="button" data-block-type="task"><span class="thinking-tool__mark" aria-hidden="true"></span><span data-i18n="blockTask">Tâche</span></button>
-            <button class="thinking-tool thinking-tool--step" type="button" data-block-type="step"><span class="thinking-tool__mark" aria-hidden="true"></span><span data-i18n="blockStep">Étape</span></button>
             <button class="thinking-tool thinking-tool--event" type="button" data-block-type="event"><span class="thinking-tool__mark" aria-hidden="true"></span><span data-i18n="blockEvent">Événement</span></button>
             <button class="thinking-tool thinking-tool--habit" type="button" data-block-type="habit"><span class="thinking-tool__mark" aria-hidden="true"></span><span data-i18n="blockHabit">Habitude</span></button>
             <button class="thinking-tool thinking-tool--loop" type="button" data-block-type="loop"><span class="thinking-tool__mark" aria-hidden="true"></span><span data-i18n="blockLoop">Boucle for</span></button>
@@ -709,6 +707,12 @@
             <span id="thinkingSelectionCount" class="thinking-selection-actions__count"></span>
             <button id="thinkingSelectionCanvas" class="thinking-selection-actions__canvas" type="button" data-i18n="thinkingPutInCanvas">Mettre dans une nouvelle toile</button>
           </div>
+          <button id="thinkingZoomOut" class="thinking-mode-toggle" type="button" aria-pressed="false" data-i18n-aria="thinkingOverview" aria-label="Voir toute la toile">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6"/><path d="M8 10.5h5M20 20l-5.2-5.2"/></svg>
+          </button>
+          <button id="thinkingRecenter" class="thinking-mode-toggle" type="button" data-i18n-aria="thinkingRecenter" aria-label="Recentrer la toile">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="6.4"/><circle cx="12" cy="12" r="1.6" fill="currentColor" stroke="none"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>
+          </button>
           <button id="thinkingLinkTool" class="thinking-mode-toggle" type="button" aria-pressed="false" data-i18n-aria="thinkingLinkTool" aria-label="Liaison">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9.5 14.5 14.5 9.5"/><path d="m7.4 17.6-1 .9a3.5 3.5 0 0 1-5-5l3.1-3.1a3.5 3.5 0 0 1 5 0"/><path d="m16.6 6.4 1-.9a3.5 3.5 0 0 1 5 5l-3.1 3.1a3.5 3.5 0 0 1-5 0"/></svg>
           </button>
@@ -725,7 +729,7 @@
 
       <div id="thinkingViewport" class="thinking-viewport">
         <div id="thinkingPlane" class="thinking-plane">
-          <svg id="thinkingLinks" class="thinking-links" width="20000" height="12000" viewBox="0 0 20000 12000" aria-hidden="true">
+          <svg id="thinkingLinks" class="thinking-links" width="5400" height="3000" viewBox="0 0 5400 3000" aria-hidden="true">
             <defs>
               <marker id="thinkingArrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
                 <path d="M 0 0 L 10 5 L 0 10 z"/>
@@ -820,17 +824,9 @@
         </div>
 
         <div class="pview__col">
-
-          <section class="pview__sec">
-            <span class="detail__label" data-i18n="journalLabel">Journal</span>
-            <form id="pviewJournalForm" class="sub-add">
-              <input id="pviewJournalInput" class="add__input" type="text" maxlength="400" data-i18n-placeholder="journalAdd" placeholder="Noter une avancée, une idée…" required>
-              <button class="add__btn" type="submit" data-i18n-aria="addAria" aria-label="Ajouter">+</button>
-            </form>
-            <div id="pviewJournal" class="jrn"></div>
-          </section>
-
-          <!-- the tasks, events, habits and canvases this project is made of -->
+          <!-- the same strip as an unfolded objective: one sheet at a time -->
+          <div id="pviewSheets" class="sheets"></div>
+          <section class="pview__sec" id="pviewSheet"></section>
         </div>
       </div>
 

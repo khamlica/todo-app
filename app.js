@@ -12,6 +12,12 @@
      for them. Everything else that left a catalog still lives in another one, so
      it keeps drawing. Up here because loadState runs before the catalogs do. */
   const RETIRED_ICONS = { walk: "run", game: "star" };
+  /* How many bars a thing is weighed on — see IMPORTANCE. Up here for the same
+     reason: loadState runs first, and it carries the old pins over to them. */
+  const TASK_IMPORTANCE = 3;
+  const PROJECT_IMPORTANCE = 5;
+  /* What a task or an objective can carry beside itself — see THE SHEETS. */
+  const SHEET_KINDS = ["note", "journal", "canvas"];
   const state = loadState();
   // loadState migrates in memory; write it down once so the stored data matches
   // what the app is actually running on, instead of migrating again every launch
@@ -95,7 +101,11 @@
       for (let i = 0; i < projects.length; i++) {
         const project = projects[i];
         if (RETIRED_ICONS[project.icon]) project.icon = RETIRED_ICONS[project.icon];
-        delete project.subtasks;       // projects moved from subtasks to milestones
+        if (project.pinned) {          // pinning is said with the bars now
+          if (!project.importance) project.importance = PROJECT_IMPORTANCE;
+          delete project.pinned;
+        }
+        delete project.subtasks;       // projects moved from subtasks to steps
         if (!project.icon) project.icon = "folder";
         if (!project.sky) project.sky = freeSkySpot(i);   // its place in the sky
         if (!project.journal) project.journal = [];
@@ -103,18 +113,12 @@
         if (project.why == null) project.why = "";
         if (project.outcome == null) project.outcome = "";
         delete project.targetDate;   // a project no longer has a date of its own
-        // the notes box left with the detail card; the text becomes a journal line
-        // rather than staying in the data with nowhere to be read
-        if (project.notes && project.notes.trim()) {
-          project.journal.unshift({ id: project.id + "n", date: todayKey(), text: project.notes.trim() });
-        }
-        delete project.notes;
+        delete project.stepsView;    // a course is a list; the roadmap is gone
         // milestones and next steps were two names for the same thing: one list now
         if (project.milestones) {
           if (!project.steps) project.steps = project.milestones;
           delete project.milestones;
         }
-        if (!project.stepsView) project.stepsView = "timeline";
         // The roadmap used to keep its start and finish caps inside the step list,
         // which is why the list and the roadmap never quite showed the same thing.
         // The caps are drawn now, not stored; the finish was the project's own
@@ -146,6 +150,9 @@
           if (!branch.icon) branch.icon = CONSTELLATION_ICON_KEYS[c % CONSTELLATION_ICON_KEYS.length];
           // a course is walked in order: what was reached comes first, the rest
           // keeps the order it was written in
+          // a step is not scheduled any more: only the task it is turned into is,
+          // and turning it into one is a deliberate drag
+          for (let s = 0; s < branch.steps.length; s++) delete branch.steps[s].targetDate;
           const reached = [];
           const ahead = [];
           for (let s = 0; s < branch.steps.length; s++) {
@@ -166,8 +173,13 @@
       const tasks = saved.tasks || [];
       for (let i = 0; i < tasks.length; i++) {   // tasks can now belong to a project
         if (tasks[i].projectId === undefined) tasks[i].projectId = null;
-        // A dated task belongs to the timeline, which needs an exact position.
-        if (tasks[i].dueDate && !tasks[i].dueTime) tasks[i].dueTime = "09:00";
+        if (!tasks[i].dueDate) tasks[i].dueTime = null;   // no day, no hour
+        // Pinning said one thing — this matters — with no room to say how much.
+        // The bars say it with three levels, so what was pinned arrives full.
+        if (tasks[i].pinned) {
+          if (!tasks[i].importance) tasks[i].importance = TASK_IMPORTANCE;
+          delete tasks[i].pinned;
+        }
       }
       const events = saved.events || [];
       for (let i = 0; i < events.length; i++) {   // events are past/pending now, not checkable
@@ -489,7 +501,7 @@
         id: task.id + "s",
         text: task.text,
         completedDate: task.done ? (task.doneDate || todayKey()) : null,
-        targetDate: task.dueDate || null
+        importance: task.importance || 0
       };
       project.steps.push(step);
       if (task.dueDate) task.stepId = step.id;   // it keeps its place in the day
@@ -536,6 +548,25 @@
     project.activeConstellationId = branches[(index + 1) % branches.length].id;
     saveState();
     redrawSteps(project);   // the star's panel shows one branch too, redraw it as well
+    refreshBranchHead(project);
+  }
+
+  /* Arriving on a course: in a sheet the whole surface is redrawn around it, so
+     the board is remounted on the way; on the full screen only the board moves. */
+  function showBranchCanvas(project, branch) {
+    if (thinkingView.hidden) { refreshBranchHead(project); return; }
+    const found = findSheetCanvas(branch.canvasId);
+    if (found) showSheetCanvas(found);
+  }
+
+  /* A course on show names its steps and holds its canvas, so stepping to the
+     next constellation changes both at once. */
+  function refreshBranchHead(project) {
+    const row = document.querySelector('#projectsList .item[data-id="' + project.id
+      + '"].is-inline-open');
+    if (!row) return;
+    refreshInlineSteps(project);
+    setProjectSheet(openProjectSheet, row, project);
   }
 
   /* every step of every branch, in branch order — what progress and momentum read */
@@ -609,12 +640,15 @@
     const branches = projectBranches(project);
     if (branches.length < 2) return;   // an objective always keeps one way forward
     let removedAt = 0;
+    let removed = null;
     for (let i = 0; i < branches.length; i++) {
-      if (branches[i].id === id) { removedAt = i; branches.splice(i, 1); break; }
+      if (branches[i].id === id) { removedAt = i; removed = branches.splice(i, 1)[0]; break; }
     }
     if (!findBranch(project, project.activeConstellationId)) {
       project.activeConstellationId = branches[Math.min(removedAt, branches.length - 1)].id;
     }
+    // the course carried a canvas of its own; it goes out with it
+    if (removed) cutHolderCanvas(removed);
     saveState();
   }
 
@@ -830,12 +864,13 @@
       notesLabel: "Notes",
       subtasksLabel: "Sous-tâches",
       stepsLabel: "Étapes",
-      pinLabel: "Épingler",
       importantLabel: "Important",
       backAria: "Retour",
       notesPlaceholder: "Ajouter des notes…",
-      noteShowAria: "Afficher la note",
-      noteHideAria: "Masquer la note",
+      sheetCanvas: "Toile",
+      sheetCanvasFull: "Ouvrir en plein écran",
+      sheetCanvasGone: "Cette toile n’existe plus.",
+      sheetCanvasAway: "Ouverte ailleurs — la ramener ici",
       addSubtaskPlaceholder: "Ajouter une sous-tâche…",
       stepPlaceholder: "Étape",
       stepAdd: "Ajouter une étape",
@@ -852,30 +887,24 @@
       whyPlaceholder: "Pourquoi ce projet ?",
       outcomePlaceholder: "À quoi ça ressemble, une fois fini ?",
       stepsEmptyAdd: "Aucune étape pour l'instant — ajoutez-en une…",
-      stepsViewRoadmap: "Parcours",
-      branchAdd: "Ajouter une liste",
+      branchAdd: "Ajouter une constellation",
       branchRemove: "Retirer cette constellation",
       branchName: "Nom de la constellation",
-      branchIconAria: "Changer l’icône de cette constellation",
       branchSwitchAria: "Afficher la constellation suivante",
       moonAttach: "Habitudes de cette constellation",
       moonNew: "Nouvelle habitude…",
       moonOff: "Détacher l'habitude",
       moonEmptyAdd: "Aucune habitude pour l'instant — ajoutez-en une…",
-      stepsViewList: "Liste",
       dreamLabel: "Mur de rêve",
       dreamAdd: "Carte",
       dreamPlaceholder: "Une idée, une référence, une envie…",
       journalLabel: "Journal",
       journalAdd: "Noter une avancée, une idée…",
       journalEmpty: "Rien de consigné pour l'instant.",
-      journalShowAria: "Afficher le journal",
-      journalHideAria: "Masquer le journal",
       promoteStep: "En faire une étape",
       promotedLabel: "Devenu une étape",
       taskLinked: "Tâche rattachée au projet",
       stepCreated: "Étape ajoutée.",
-      stepTarget: "Date visée",
       lateLabel: "en retard",
       dormantFor: "sans nouvelles depuis",
       daysShort: "j",
@@ -923,6 +952,7 @@
       blockEvent: "Événement",
       blockProject: "Projet",
       blockHabit: "Habitude",
+      blockSubtask: "Sous-tâche",
       blockStep: "Étape",
       blockJournal: "Entrée",
       blockLogbook: "Journal",
@@ -983,6 +1013,14 @@
       thinkingExit: "Quitter le laboratoire",
       thinkingTrash: "Déposer pour supprimer",
       thinkingLinkHint: "Choisissez un autre bloc à relier.",
+      thinkingRecenter: "Recentrer la toile",
+      thinkingOverview: "Voir toute la toile",
+      thinkingProjectsFolder: "Projets",
+      thinkingTasksFolder: "Tâches",
+      thinkingDropProjectsFolder: "Supprimer ce dossier supprimera aussi tous vos projets. Continuer ?",
+      thinkingDropTasksFolder: "Supprimer ce dossier supprimera aussi toutes vos tâches. Continuer ?",
+      thinkingDropProjectFolder: "Supprimer ce dossier supprimera aussi le projet qu'il range. Continuer ?",
+      thinkingRename: "Renommer",
       thinkingLinkTool: "Liaison",
       thinkingCancel: "Annuler",
       thinkingChangeType: "Changer le type du bloc",
@@ -1189,12 +1227,13 @@
       notesLabel: "Notes",
       subtasksLabel: "Subtasks",
       stepsLabel: "Steps",
-      pinLabel: "Pin",
       importantLabel: "Important",
       backAria: "Back",
       notesPlaceholder: "Add notes…",
-      noteShowAria: "Show note",
-      noteHideAria: "Hide note",
+      sheetCanvas: "Canvas",
+      sheetCanvasFull: "Open full screen",
+      sheetCanvasGone: "That canvas is gone.",
+      sheetCanvasAway: "Open elsewhere — bring it back here",
       addSubtaskPlaceholder: "Add a subtask…",
       stepPlaceholder: "Step",
       stepAdd: "Add a step",
@@ -1211,30 +1250,24 @@
       whyPlaceholder: "Why this project?",
       outcomePlaceholder: "What does it look like once done?",
       stepsEmptyAdd: "No step yet — add one…",
-      stepsViewRoadmap: "Roadmap",
-      branchAdd: "Add a list",
+      branchAdd: "Add a constellation",
       branchRemove: "Remove this constellation",
       branchName: "Constellation name",
-      branchIconAria: "Change this constellation’s icon",
       branchSwitchAria: "Show the next constellation",
       moonAttach: "Habits of this constellation",
       moonNew: "New habit…",
       moonOff: "Detach the habit",
       moonEmptyAdd: "No habit yet — add one…",
-      stepsViewList: "List",
       dreamLabel: "Dream wall",
       dreamAdd: "Card",
       dreamPlaceholder: "An idea, a reference, a want…",
       journalLabel: "Journal",
       journalAdd: "Log a move, an idea…",
       journalEmpty: "Nothing logged yet.",
-      journalShowAria: "Show journal",
-      journalHideAria: "Hide journal",
       promoteStep: "Make it a step",
       promotedLabel: "Became a step",
       taskLinked: "Task linked to the project",
       stepCreated: "Step added.",
-      stepTarget: "Target date",
       lateLabel: "late",
       dormantFor: "nothing for",
       daysShort: "d",
@@ -1282,6 +1315,7 @@
       blockEvent: "Event",
       blockProject: "Project",
       blockHabit: "Habit",
+      blockSubtask: "Subtask",
       blockStep: "Step",
       blockJournal: "Entry",
       blockLogbook: "Journal",
@@ -1342,6 +1376,14 @@
       thinkingExit: "Exit the idea laboratory",
       thinkingTrash: "Drop to delete",
       thinkingLinkHint: "Choose another block to connect.",
+      thinkingRecenter: "Re-centre the canvas",
+      thinkingOverview: "See the whole canvas",
+      thinkingProjectsFolder: "Projects",
+      thinkingTasksFolder: "Tasks",
+      thinkingDropProjectsFolder: "Deleting this folder will also delete all your projects. Continue?",
+      thinkingDropTasksFolder: "Deleting this folder will also delete all your tasks. Continue?",
+      thinkingDropProjectFolder: "Deleting this folder will also delete the project it holds. Continue?",
+      thinkingRename: "Rename",
       thinkingLinkTool: "Link",
       thinkingCancel: "Cancel",
       thinkingChangeType: "Change block type",
@@ -1757,13 +1799,13 @@
 
     welcomeScreen.classList.add("is-leaving");
     clearScene();          // the scenery is the threshold's, and goes with it
-    setZelligeOn(false);   // parked, but keep the threshold tidy either way
+    // The threshold's ground is opaque and sits over the sky, so the sun's glow
+    // is under it. Waiting for the fade to end put that glow on screen after the
+    // passage rather than during it: the ground goes now, with the scenery.
+    setFieldWelcome(false);
     thresholdTimers.push(setTimeout(function () {
       welcomeScreen.style.display = "none";
     }, 560));
-    thresholdTimers.push(setTimeout(function () {
-      setFieldWelcome(false);   // let the ground settle
-    }, 900));
     ensureSunData();   // ask for location only once the app is entered
   }
 
@@ -1887,7 +1929,7 @@
       renderEventCal();
       renderDailyTimeline();
       renderGreeting();
-      if (!thinkingView.hidden && currentCanvas()) renderThinkingCanvas(currentCanvas());
+      if (thinkingLive() && currentCanvas()) renderThinkingCanvas(currentCanvas());
       saveState();
     });
   }
@@ -3602,8 +3644,12 @@
      tear out the very node the editor lives in, which is what made the panel
      snap shut on every keystroke. Redraws are deferred to the fold closing. */
   const listsDirty = {};
+  /* A board living inside a row cannot have that row rebuilt under it: rebuilding
+     the objective list tears down the very frame the canvas is mounted in, which
+     unmounts the board, remounts it and weaves it again — for a task written on
+     it. Both surfaces defer instead, and redraw once whatever is open lets go. */
   function listsLocked(which) {
-    if (!openHost) return false;
+    if (!openHost && !canvasSheetSlot) return false;
     listsDirty[which] = true;
     return true;
   }
@@ -3625,7 +3671,7 @@
     if (listsLocked(listName)) return;
     if (listName === "tasks") { renderTasks(); return; }
     const listElement = document.getElementById(listName + "List");
-    const items = sortedByDue(state[listName]);
+    const items = state[listName];
     listElement.innerHTML = "";
 
     if (items.length === 0) {
@@ -3656,9 +3702,8 @@
     return "soon";
   }
 
-  /* clock order, with the pinned rows still floating to the top of their block */
-  function byDueThenPinned(a, b) {
-    if (!!a.pinned !== !!b.pinned) return a.pinned ? -1 : 1;
+  /* clock order inside a block; weight is shown, never a reason to jump the queue */
+  function byDue(a, b) {
     return dueSortKey(a) - dueSortKey(b);
   }
 
@@ -3668,7 +3713,7 @@
     box.innerHTML = "";
     renderTasksRing();
 
-    const items = sortedByDue(state.tasks);
+    const items = state.tasks;
     if (items.length === 0) box.appendChild(createEmptyTasks());
 
     const buckets = {};
@@ -3677,9 +3722,9 @@
       if (!buckets[key]) buckets[key] = [];
       buckets[key].push(items[i]);
     }
-    if (buckets.late) buckets.late.sort(byDueThenPinned);
-    if (buckets.today) buckets.today.sort(byDueThenPinned);
-    if (buckets.soon) buckets.soon.sort(byDueThenPinned);
+    if (buckets.late) buckets.late.sort(byDue);
+    if (buckets.today) buckets.today.sort(byDue);
+    if (buckets.soon) buckets.soon.sort(byDue);
 
     if (buckets.late) {
       box.appendChild(createTaskGroup("late", translate("groupLate"), buckets.late));
@@ -3940,7 +3985,8 @@
     const fold = createUnfold();
     row.addEventListener("click", function (event) {
       if (eventPathMatches(event,
-        ".unfold, .detail__titlerow, .item__check, .goal-inline__name, .goal-inline__journal-toggle")) return;
+        ".unfold, .detail__titlerow, .item__check, .goal-inline__name, .sheets, "
+        + ".goal-inline__journal-toggle")) return;
       if (Date.now() < dragEndedAt) return;          // the click that ends a drag
       // In the main app an objective unfolds in place. Its star in Rêve still
       // opens the complete workspace with the journal and dream wall.
@@ -3951,8 +3997,7 @@
       if (row.classList.contains("is-open")) { closeDetail(); return; }
       openDetail(listName, item.id, fold.firstChild);
     });
-    const reorderable = !item.pinned && draggable;
-    if (reorderable) row.dataset.reorder = "1";
+    if (draggable) row.dataset.reorder = "1";
     // Every task can be dropped on the clock and every row can reach the bin.
     // Projects otherwise keep their existing manual reorder behaviour.
     if (listName === "tasks" || listName === "projects") {
@@ -3989,17 +4034,19 @@
     // piece when the actions come over it instead of being half-covered
     const meta = document.createElement("span");
     meta.className = "item__meta";
-    if (item.notes && item.notes.trim()) meta.appendChild(createNoteMark());
     if (listName === "tasks" && item.subtasks && item.subtasks.length) meta.appendChild(createSubBadge(item));
     if (listName === "tasks" && item.projectId) {
       const star = createStarMark(item.projectId);
       if (star) meta.appendChild(star);
     }
     if (listName === "projects" && allProjectSteps(item).length) meta.appendChild(createStepBadge(item));
-    if (item.pinned) meta.appendChild(createPinMarker());
     const due = item.dueDate ? createDueBadge(item, dayKnown) : null;
     if (due) meta.appendChild(due);
-    if (listName === "projects") meta.appendChild(createImportanceBars(item.importance || 0));
+    if (listName === "projects") meta.appendChild(projectRowImportance(item));
+    else {
+      const weight = createImportanceMark(item, TASK_IMPORTANCE);
+      if (weight) meta.appendChild(weight);
+    }
     if (meta.firstChild) rowHead.appendChild(meta);
 
     // a task completes with its ring, so only a project needs the tick here
@@ -4170,7 +4217,8 @@
     row.addEventListener("pointerdown", function (event) {
       if (event.pointerType === "mouse" && event.button !== 0) return;
       if (event.target.closest(
-        ".item__check, .row-acts, .unfold, .detail__titlerow, .goal-inline__name, .goal-inline__journal-toggle")) return;
+        ".item__check, .row-acts, .unfold, .detail__titlerow, .imp--edit, "
+        + ".goal-inline__name, .goal-inline__journal-toggle, .sheets")) return;
       const from = { x: event.clientX, y: event.clientY };
       let started = false;
       clearTimeout(pressTimer);
@@ -4607,8 +4655,7 @@
     cleanRowDrag(drag);
     if (drag.reordered || drag.crossedLists) renderList(drag.listName);
   }
-  /* rebuild state[listName] so the reorderable (unpinned) items follow `ordered`,
-     while pinned items keep their slots */
+  /* rebuild state[listName] so the moved items follow `ordered` */
   function persistOrder(listName, ordered) {
     const items = state[listName];
     const byId = {};
@@ -4688,10 +4735,12 @@
     }
     if (!removed) return;
     items.splice(index, 1);
+    const canvasUndo = cutSheetCanvas(removed);   // the sheets go with it
     saveState();
     rerender();
     showToast(translate("undoDeleted"), translate("undoBtn"), function () {
       state[listName].splice(index, 0, removed);
+      if (canvasUndo) canvasUndo();
       if (onRestore) onRestore();   // whatever pointed at it points again
       saveState();
       rerender();
@@ -4702,9 +4751,7 @@
   function removeItem(listName, id) {
     if (listName === "projects" && openInlineProject === id) {
       openInlineProject = null;
-      inlineJournalOpen = false;
-      openInlineStep = null;
-      inlineStepAdd = null;
+      openProjectSheet = null;
       setInlineProjectLayout(false);
     }
     removeWithUndo(listName, id, function () {
@@ -4745,8 +4792,8 @@
   }
 
   /* QUICK ADD — the rectangle unfolds into a single input. "Relire le rapport
-     demain 18h !" becomes a task dated tomorrow at 18:00 and pinned; whatever
-     isn't recognised stays in the title, so no text is ever swallowed. */
+     demain 18h !!" becomes a task dated tomorrow at 18:00 weighing two bars;
+     whatever isn't recognised stays in the title, so no text is ever swallowed. */
   const AMPM_RE = /\b(\d{1,2})(?::([0-5]\d))?\s*(am|pm)\b/i;
   const HOUR_RE = /\b(\d{1,2})\s*h\s*([0-5]\d)?\b/i;
   const COLON_RE = /\b(\d{1,2}):([0-5]\d)\b/;
@@ -4778,7 +4825,7 @@
   /* Read date / time / pin out of a line. `ranges` are the character spans that
      were consumed, used both to strip them from the title and to highlight them. */
   function parseQuickAdd(text) {
-    const parsed = { date: null, time: null, flag: false, inferred: false, ranges: [] };
+    const parsed = { date: null, time: null, flag: false, level: 0, inferred: false, ranges: [] };
 
     const ampm = AMPM_RE.exec(text);
     const clock = ampm || COLON_RE.exec(text) || HOUR_RE.exec(text);
@@ -4829,6 +4876,7 @@
     const bang = BANG_RE.exec(text);
     if (bang) {
       parsed.flag = true;
+      parsed.level = bang[1].length;   // ! !! !!! — one bar apiece
       const start = bang.index + bang[0].length - bang[1].length;   // skip the leading space
       parsed.ranges.push([start, start + bang[1].length]);
     }
@@ -4898,7 +4946,7 @@
       const bits = [];
       const day = dayOf(parsed);
       if (day) bits.push(dueLabel({ dueDate: day, dueTime: timeOf(parsed, day) }));
-      if (parsed.flag) bits.push(translate(config.flagLabel));
+      if (parsed.flag) bits.push(config.flagText(parsed));
       hint.hidden = bits.length === 0;
       if (bits.length) {
         hint.textContent = (quickTitle(text, parsed.ranges) || translate(config.fallbackName))
@@ -4949,15 +4997,11 @@
   wireQuickAdd({
     form: "quickAdd", input: "quickInput", mirror: "quickMirror",
     hint: "quickHint", button: "addTaskBtn",
-    flagLabel: "pinLabel", fallbackName: "newTaskName",
+    fallbackName: "newTaskName",
+    flagText: function (parsed) { return translate("importanceAria") + " " + parsed.level; },
     resolveDate: quickTaskDay,
     submit: function (parsed, title, day) {
-      addItem("tasks", title, day ? { date: day, time: parsed.time } : null);
-      if (parsed.flag) {
-        state.tasks[state.tasks.length - 1].pinned = true;
-        saveState();
-        renderList("tasks");
-      }
+      addItem("tasks", title, day ? { date: day, time: parsed.time } : null, parsed.level);
       if (day) goToDay(day);   // follow it rather than lose it from view
     }
   });
@@ -5107,13 +5151,59 @@
     folder: '<path d="M3 19.5V6a2 2 0 0 1 2-2h4l2 2.5h8a2 2 0 0 1 2 2v11"/>'
       + '<path class="ci-fold-front" d="M2 11h20l-1.6 7.6A2 2 0 0 1 18.4 20.5H5.6a2 2 0 0 1-1.96-1.5Z"/>',
     briefcase: '<g class="ci-case"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M3 12h18"/><path d="M10 12v2h4v-2"/></g>',
-    home: '<path d="M3 10.5 12 3l9 7.5"/><path d="M5.5 9.5V21h13V9.5"/>'
-      + '<path class="ci-door" d="M9.5 21v-6h5v6"/>',
+    // a lived-in house: the door stays shut, the chimney says someone is in
+    home: '<path d="M3.2 12 12 4.6l8.8 7.4"/><path d="M5.8 11V21h12.4V11"/>'
+      + '<path d="M9.9 21v-5.2h4.2V21"/><path d="M16.4 8.4V6.1h2.1V10"/>'
+      + '<path class="ci-smoke ci-smoke--1" d="M17.4 4.9c0-1 1.3-1 1.3-2"/>'
+      + '<path class="ci-smoke ci-smoke--2" d="M17.4 4.9c0-1 1.3-1 1.3-2"/>',
     book: HABIT_ICONS.book,
     write: HABIT_ICONS.write,
     code: HABIT_ICONS.code,
-    star: HABIT_ICONS.star
+    star: HABIT_ICONS.star,
+    music: HABIT_ICONS.music,
+    // the brush of the theme button, which already sweeps and lays its stroke
+    brush: '<path class="ico-stroke" pathLength="1" d="M2.6 21.4c4-.5 7.6-2.4 10.6-5.4"/>'
+      + '<g class="ico-brush"><path d="M18.4 2.6a2 2 0 0 1 3 3L11 16l-4 1 1-4z"/>'
+      + '<path d="M6 14c-2 1-3 3-3 6 3 0 5-1 6-3"/></g>',
+    // The whole figure leans to one side, then the other — head and all, since it
+    // is one group — and then runs: limbs swinging from shoulder and hip, arms
+    // against legs, which is what makes a stride read as a stride.
+    shape: '<g class="ci-runner"><circle cx="12" cy="4.4" r="2.2"/>'
+      + '<path d="M12 6.9v6.3"/>'
+      + '<path class="ci-limb ci-limb--a" d="M12 8.7 8.4 11.5"/>'
+      + '<path class="ci-limb ci-limb--b" d="m12 8.7 3.6 2.8"/>'
+      + '<path class="ci-limb ci-limb--b" d="M12 13.2 9 20.8"/>'
+      + '<path class="ci-limb ci-limb--a" d="m12 13.2 3 7.6"/></g>',
+    // a bowl, and one strand drawn up out of it by the chopsticks
+    dish: '<path d="M3.2 11.4h17.6a8.8 8.8 0 0 1-17.6 0z"/><path d="M2 11.4h20"/>'
+      + '<g class="ci-sticks"><path d="M9.6 10.6 15.6 2.8"/><path d="M11.7 10.9 17.9 3.8"/></g>'
+      + '<path class="ci-noodle" d="M11.2 10.9c0-2.1 2.4-2.5 3.1-4.2"/>',
+    // three tongues over a round base — the tall one in the middle, a shorter one
+    // either side — and the heart an inverted drop inside it
+    fire: '<path class="ci-fire" d="M6 15.6C6 12.6 7 11.4 8.4 9.6c.5 1.4.9 2.1 1.5 2.6'
+      + 'C9.2 9 10 6 12 2.8c2 3.6 2.6 6 2.2 9.1.7-.5 1.2-1.2 1.6-2.5'
+      + 'c1.4 1.9 2.2 3.5 2.2 6.2a6 6 0 0 1-12 0Z"/>'
+      + '<path class="ci-ember" d="M12 21.3c-1.7 0-3-1.4-3-3.1 0-2.1 3-6.3 3-6.3s3 4.2 3 6.3'
+      + 'c0 1.7-1.3 3.1-3 3.1Z"/>',
+    // Six petals and a heart, no stem: the flower is the whole drawing. Each petal
+    // is the same shape turned about the centre, so one path opens six times.
+    flower: flowerPetals() + '<circle class="ci-heart" cx="12" cy="12" r="1.9"/>'
   };
+
+  /* The turn that places a petal is written without a centre of its own: the
+     catalog already gives every ci- glyph `transform-origin: 12px 12px` over the
+     view box, and naming the centre twice applies it twice — the petals came out
+     scattered around the icon rather than around the heart. */
+  function flowerPetals() {
+    const petal = '<path d="M12 12c-2.5-1.3-3.7-3.1-3.7-4.9A3.7 3.7 0 0 1 12 3.4'
+      + 'a3.7 3.7 0 0 1 3.7 3.7c0 1.8-1.2 3.6-3.7 4.9Z"/>';
+    let markup = "";
+    for (let i = 0; i < 6; i++) {
+      markup += '<g class="ci-bloom ci-bloom--' + (i + 1) + '" transform="rotate('
+        + (i * 60) + ')">' + petal + "</g>";
+    }
+    return markup;
+  }
 
   /* the preconfigured exercise habit draws from here; out of the picker grid */
   const EXERCISE_ICONS = {
@@ -5297,15 +5387,6 @@
       if (rowIcon) rowIcon.innerHTML = projectSvg(iconKey);
       return;
     }
-    if (iconPickerMode.kind === "branch") {
-      const project = findItem("projects", iconPickerMode.projectId);
-      const branch = project && findBranch(project, iconPickerMode.branchId);
-      if (branch) branch.icon = iconKey;
-      saveState();
-      iconPicker.hidden = true;
-      if (project) refreshStepSections(project);
-      return;
-    }
     if (iconPickerMode.kind === "habit-new") {
       const nameInput = document.getElementById("habitNameInput");
       // name is stored but not shown; a future history graph will use it
@@ -5372,14 +5453,6 @@
     buildIconPicker(PROJECT_ICONS, project.icon);
     document.getElementById("habitNameField").hidden = true;
     document.getElementById("iconPresets").hidden = true;
-    iconPicker.hidden = false;
-  }
-
-  function openIconPickerForBranch(project, branch) {
-    iconPickerMode = { kind: "branch", projectId: project.id, branchId: branch.id };
-    document.getElementById("habitNameField").hidden = true;
-    document.getElementById("iconPresets").hidden = true;
-    buildIconPicker(CONSTELLATION_ICONS, branch.icon);
     iconPicker.hidden = false;
   }
 
@@ -5876,24 +5949,72 @@
     exerciseCloseButtons[i].addEventListener("click", function () { exerciseView.hidden = true; });
   }
 
-  /* IMPORTANCE — a 5-bar level on projects (shown on rows, edited in the detail view) */
+  /* IMPORTANCE — the one weight everything carries. An objective is weighed on
+     five bars, a task or a step on three: an objective is compared against the
+     other objectives of a life, a task only against the day it sits in. Whatever
+     the count, the bars run along the same palette — the lowest is --imp-1, the
+     highest --imp-5 — so a full task and a full objective burn the same colour.
+     TASK_IMPORTANCE and PROJECT_IMPORTANCE are declared at the top of the file. */
 
-  /* Build the 5 bars. Read-only divs when no onSelect; clickable buttons for editing. */
-  function createImportanceBars(level, onSelect) {
+  /* Read-only divs when no onChange; clickable buttons for editing. Clicking the
+     bar already reached clears the level, which is the only way back to none. */
+  function createImportanceBars(level, onChange, max) {
+    const count = max || PROJECT_IMPORTANCE;
     const wrap = document.createElement("div");
-    wrap.className = onSelect ? "imp imp--edit" : "imp";
-    for (let i = 1; i <= 5; i++) {
-      const bar = document.createElement(onSelect ? "button" : "div");
+    wrap.className = onChange ? "imp imp--edit" : "imp";
+    for (let i = 1; i <= count; i++) {
+      const bar = document.createElement(onChange ? "button" : "div");
       bar.className = i <= level ? "imp__bar is-on" : "imp__bar";
-      if (onSelect) {
+      // spread the bars over the palette: 3 bars take stops 1, 3 and 5
+      const stop = count > 1 ? Math.round(1 + (i - 1) * 4 / (count - 1)) : 5;
+      bar.style.setProperty("--imp-stop", "var(--imp-" + stop + ")");
+      if (onChange) {
         bar.type = "button";
         bar.setAttribute("aria-label", translate("importanceAria") + " " + i);
         const barLevel = i;
-        bar.addEventListener("click", function () { onSelect(barLevel); });
+        bar.addEventListener("click", function (event) {
+          event.stopPropagation();   // a row underneath must not read this as "open me"
+          onChange(level === barLevel ? 0 : barLevel);
+        });
       }
       wrap.appendChild(bar);
     }
     return wrap;
+  }
+
+  /* the bars an object shows on its row: nothing at all while it weighs nothing */
+  function createImportanceMark(item, max) {
+    if (!item.importance) return null;
+    const bars = createImportanceBars(item.importance, null, max);
+    bars.classList.add("item__imp");
+    return bars;
+  }
+
+  function setImportance(item, level) {
+    item.importance = level || 0;
+    saveState();
+  }
+
+  /* An objective carries its weight on its row at all times. Unfolded, those same
+     bars widen into the control that sets it, in place — the weight is read and
+     changed at the one spot, instead of the row saying it and somewhere else
+     owning it. */
+  function projectRowImportance(project) {
+    const editable = openInlineProject === project.id;
+    const bars = createImportanceBars(project.importance || 0, editable ? function (level) {
+      setImportance(project, level);
+      const row = document.querySelector('#projectsList .item[data-id="' + project.id + '"]');
+      if (row) repaintProjectImportance(row, project);
+      liveSky();                  // its star is sized by the same number
+    } : null, PROJECT_IMPORTANCE);
+    bars.classList.add("item__imp");
+    if (editable) bars.classList.add("imp--sm");
+    return bars;
+  }
+
+  function repaintProjectImportance(row, project) {
+    const shown = row.querySelector(".item__meta > .item__imp");
+    if (shown) shown.replaceWith(projectRowImportance(project));
   }
 
   /* AGENDA — date/time picker, reused for a task's due date and an event's reschedule */
@@ -5969,17 +6090,6 @@
     const d = new Date(key + "T00:00");
     d.setDate(d.getDate() + delta);
     return dateKey(d.getFullYear(), d.getMonth(), d.getDate());
-  }
-
-  /* Pinned rows float to the top; everything else keeps its manual (drag) order. */
-  function sortedByDue(items) {
-    const pinned = [];
-    const rest = [];
-    for (let i = 0; i < items.length; i++) {
-      if (items[i].pinned) pinned.push(items[i]);
-      else rest.push(items[i]);
-    }
-    return pinned.concat(rest);
   }
 
   /* date-only tasks sort at the end of their day */
@@ -6071,10 +6181,6 @@
       // an event takes its hour from the rule alone: the picker is a day picker,
       // and loading it with no time is what keeps the slider panel shut
       if (event) { date = event.date || null; time = ""; }
-    } else if (pickerKind === "step") {
-      const project = findItem("projects", context.projectId);
-      const step = project && findStep(project, context.stepId);
-      if (step) date = step.targetDate || null;
     } else {
       const task = findTask(context);
       if (task) { date = task.dueDate || null; time = task.dueTime || ""; }
@@ -6087,9 +6193,8 @@
     // a step target is a date only; setPickerTime already shut the sliders
     // since they were loaded with no time
     // an event's hour is only ever set by dragging it on the rule of time, so the
-    // picker offers the day alone — as it already did for a step's target
-    document.getElementById("calTimeRow").hidden =
-      pickerKind === "step" || pickerKind === "events";
+    // picker offers the day alone
+    document.getElementById("calTimeRow").hidden = pickerKind === "events";
     document.getElementById("calClear").hidden = pickerKind === "events";   // an event always has a date
     renderCalendar();
     calendarModal.hidden = false;
@@ -6105,21 +6210,6 @@
         renderEventCal();
         renderDailyTimeline();
         renderUndated();
-      }
-      calendarModal.hidden = true;
-      return;
-    }
-    // a step target is a date only, no time
-    if (pickerKind === "step") {
-      const project = findItem("projects", pickerContext.projectId);
-      const step = project && findStep(project, pickerContext.stepId);
-      if (step) {
-        step.targetDate = date;
-        syncTaskForStep(project, step);
-        saveState();
-        refreshStepSections(project);
-        renderList("tasks");
-        renderDailyTimeline();
       }
       calendarModal.hidden = true;
       return;
@@ -6228,8 +6318,6 @@
   }
 
   /* SHARED — small helpers used across the views */
-  const ICON_FLOWER ='<circle cx="12" cy="6" r="3"/><circle cx="17.7" cy="10.15" r="3"/><circle cx="15.5" cy="16.85" r="3"/><circle cx="8.47" cy="16.85" r="3"/><circle cx="6.3" cy="10.15" r="3"/><circle cx="12" cy="12" r="2.2"/>';
-
   function iconSvg(inner) {
     return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" '
          + 'stroke-linecap="round" stroke-linejoin="round">' + inner + '</svg>';
@@ -6258,14 +6346,6 @@
       openProjectView(project.id);
     });
     return mark;
-  }
-
-  /* floral marker on a pinned task/project */
-  function createPinMarker() {
-    const pin = document.createElement("span");
-    pin.className = "item__pin";
-    pin.innerHTML = iconSvg(ICON_FLOWER);
-    return pin;
   }
 
   /* HABITS VIEW — manage all habits (rename / icon / delete) + completion history */
@@ -8602,15 +8682,14 @@
   const detail = document.getElementById("detail");
   const detailName = document.getElementById("detailName");
   const detailIcon = document.getElementById("detailIcon");
-  const detailPin = document.getElementById("detailPin");
+  const detailImp = document.getElementById("detailImp");
   const detailBell = document.getElementById("detailBell");
   const detailTrash = document.getElementById("detailTrash");
   const detailWhenDay = document.getElementById("detailWhenDay");
-  const detailNoteToggle = document.getElementById("detailNoteToggle");
+  const detailSheets = document.getElementById("detailSheets");
   const detailWorkspace = document.getElementById("detailWorkspace");
   const detailMain = document.getElementById("detailMain");
-  const detailNoteSection = document.getElementById("detailNoteSection");
-  const detailNotes = document.getElementById("detailNotes");
+  const detailSheet = document.getElementById("detailSheet");
   const subtaskList = document.getElementById("subtaskList");
   const subtaskSection = document.getElementById("subtaskSection");
   // kind: "tasks" | "events"
@@ -8632,18 +8711,10 @@
     }
   }
 
-  const ICON_NOTE = '<path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="8" y1="13" x2="16" y2="13"/><line x1="8" y1="17" x2="13" y2="17"/>';
   const ICON_STAR = '<path d="M12 3 13.6 8.2 18.5 9.4 14.7 12.6 15.5 17.6 12 15.1 8.5 17.6 9.3 12.6 5.5 9.4 10.4 8.2 Z"/>';
   const ICON_BELL = '<path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/>';
 
   /* small "has notes" mark on a row */
-  function createNoteMark() {
-    const mark = document.createElement("span");
-    mark.className = "item__note";
-    mark.innerHTML = iconSvg(ICON_NOTE);
-    return mark;
-  }
-
   /* "2/5" subtask progress badge on a row */
   function createSubBadge(item) {
     let done = 0;
@@ -8699,8 +8770,9 @@
   function fillDetail(item) {
     const kind = detailTarget.kind;
     detailName.value = item.text || "";
-    detailPin.hidden = kind === "events";   // an event is not pinnable
-    if (!detailPin.hidden) detailPin.classList.toggle("is-on", !!item.pinned);
+    // an event says how much it matters with its bell, not with the bars
+    detailImp.hidden = kind === "events";
+    if (!detailImp.hidden) fillDetailImportance(item);
     // the bell is the event's own flag, and the only way to take it back off
     // the bin and the day picker travel with the bell: an event has no actions
     // row to hold them
@@ -8714,17 +8786,17 @@
     // an event carries an icon, shown as a square button left of the title
     detailIcon.hidden = kind !== "events";
     if (kind === "events") detailIcon.innerHTML = eventSvg(item.icon || "calendar");
-    detailNotes.value = item.notes || "";
 
-    detailNoteToggle.hidden = kind !== "tasks";
+    // An event carries the one note it has always carried, without the strip:
+    // there is nothing else to put beside a date and a bell.
+    detailSheets.hidden = kind !== "tasks";
     detailMain.hidden = kind === "events";
     detailWorkspace.classList.toggle("is-event", kind === "events");
     subtaskSection.hidden = kind === "events";   // an event just has notes
     if (kind !== "events") renderSubtasks(item);
     // Scheduling and deletion stay on the row and through drag-and-drop; the
     // unfolded surface remains focused on the object's content.
-    setInlineTaskNote(false);
-    fitNotes();
+    setTaskSheet(RESTING_SHEET);
     detailBody.scrollTop = 0;
   }
 
@@ -8737,26 +8809,49 @@
   const detailBody = detail.querySelector(".detail__body");
   const detailHead = document.getElementById("detailHead");
   let openHost = null;   // the .unfold__inner currently holding the editor
-  let inlineTaskNoteOpen = false;
+  let openTaskSheet = null;   // the kind on show beside the task, or null
 
   function setInlineTaskLayout(open) {
     const track = document.getElementById("pagesTrack");
-    if (track) track.classList.toggle("is-task-note-open", !!open);
+    if (track) track.classList.toggle("is-task-sheet-open", !!open);
   }
 
-  function setInlineTaskNote(open) {
-    inlineTaskNoteOpen = !!open && detailTarget.kind === "tasks";
-    setInlineTaskLayout(inlineTaskNoteOpen);
-    detailWorkspace.classList.toggle("is-note-open", inlineTaskNoteOpen);
-    detailNoteSection.hidden = detailTarget.kind === "tasks" ? !inlineTaskNoteOpen : false;
+  /* THE RESTING SHEET — an object opens on its note, always. It costs nothing
+     (a note holds no data until something is written in it) and it means the
+     second column is already there: passing to the canvas is then one width
+     growing, not a layout appearing from nowhere. */
+  const RESTING_SHEET = "note";
+
+  /* A sheet on show gives the task its second column. A canvas takes the whole
+     of it: the subtasks collapse to nothing, as an objective's steps do, so what
+     moves is one width and the board is alone. Passing null closes what is open. */
+  function setTaskSheet(kind) {
+    const item = currentDetailItem();
+    // An event has no strip: its note is the only thing it has ever carried
+    // beside a date and a bell, and it keeps it, always on show.
+    const isEvent = detailTarget.kind === "events";
+    if (kind && item && !isEvent && !sheetReachable(item, kind)) kind = RESTING_SHEET;
+    openTaskSheet = kind || null;
+    const open = !!openTaskSheet && !isEvent;
+    setInlineTaskLayout(open);
+    detailWorkspace.classList.toggle("is-sheet-open", open);
+    detailWorkspace.classList.toggle("is-canvas-open", openTaskSheet === "canvas");
+    detailSheet.hidden = isEvent ? false : !open;
     const row = openHost && hostRow(openHost);
-    if (row) row.classList.toggle("is-note-open", inlineTaskNoteOpen);
-    const label = translate(inlineTaskNoteOpen ? "noteHideAria" : "noteShowAria");
-    detailNoteToggle.classList.toggle("is-active", inlineTaskNoteOpen);
-    detailNoteToggle.setAttribute("aria-pressed", inlineTaskNoteOpen ? "true" : "false");
-    detailNoteToggle.setAttribute("aria-label", label);
-    detailNoteToggle.title = label;
-    if (inlineTaskNoteOpen) requestAnimationFrame(fitNotes);
+    if (row) {
+      row.classList.toggle("is-sheet-open", open);
+      row.classList.toggle("is-canvas-open", openTaskSheet === "canvas");
+    }
+    if (openTaskSheet !== "canvas") releaseCanvasSheet(detailSheet);
+    if (!item) return;
+    renderSheetInto(detailSheet, item, openTaskSheet);
+    if (!isEvent) paintSheetStrip(detailSheets, item, openTaskSheet, pickTaskSheet);
+  }
+
+  function pickTaskSheet(kind) {
+    const item = currentDetailItem();
+    if (kind === "canvas" && item && !canvasFitsInline()) { openCanvasFull(item); return; }
+    setTaskSheet(kind);
   }
 
   function hostRow(host) { return host.closest(".item"); }
@@ -8801,9 +8896,9 @@
   /* fold the row shut, then park the editor back out of the way */
   function releaseHost(host) {
     const row = hostRow(host);
-    setInlineTaskNote(false);
+    setTaskSheet(null);
     shutFold(host);
-    if (row) row.classList.remove("is-open");
+    if (row) row.classList.remove("is-open", "is-sheet-open", "is-canvas-open");
     setTimeout(function () {
       if (detailCard.parentNode === host) {
         detailCard.insertBefore(detailHead, detailCard.firstChild);
@@ -8831,8 +8926,11 @@
     if (!event.target.isConnected) return;
     // a square and the fold it opens are one object, even though they are apart
     // a chip and the fold it opens are one object, though they sit apart
+    // ticking a habit is a move of its own: the band sits over the task column
+    // and beside the objectives, but touching it is not leaving what is open
     if (event.target.closest(".item.is-open, .item--project.is-inline-open, "
-      + ".dtl__event:not(.dtl__add), .undated__chip, .day-fold, #addProjectBtn")) return;
+      + ".dtl__event:not(.dtl__add), .undated__chip, .day-fold, .habits-band, "
+      + "#addProjectBtn")) return;
     if (event.target.closest(".modal, .detail")) return;   // pickers the editor opens
     closeAllInlineRows();
   });
@@ -8906,9 +9004,7 @@
      the concrete steps so they remain beside today's tasks. */
   const INLINE_PROJECT_MS = 420;
   let openInlineProject = null;
-  let inlineJournalOpen = false;
-  let openInlineStep = null;
-  let inlineStepAdd = null;
+  let openProjectSheet = null;   // the kind on show beside the steps, or null
   let stepDrag = null;
   let stepDragUntil = 0;
   let stepDragScrollFrame = 0;
@@ -8920,22 +9016,33 @@
     if (track) track.classList.toggle("is-goal-open", !!open);
   }
 
-  function setInlineJournal(open, row) {
-    inlineJournalOpen = !!open;
-    setInlineProjectLayout(inlineJournalOpen);
+  /* A sheet on show grows the objective into a third visual column. A canvas
+     goes further and takes the whole of it: the steps collapse, and nothing is
+     lost by that — the constellation they belong to is named in the title bar. */
+  function setProjectSheet(kind, row, project) {
+    const item = project || (row && findItem("projects", row.dataset.id));
+    if (kind && item && !sheetReachable(item, kind)) kind = RESTING_SHEET;
+    openProjectSheet = kind || null;
+    setInlineProjectLayout(!!openProjectSheet);
+    if (openProjectSheet !== "canvas" && row) releaseCanvasSheet(row);
     if (!row) return;
-    row.classList.toggle("is-journal-open", inlineJournalOpen);
+    row.classList.toggle("is-sheet-open", !!openProjectSheet);
     const workspace = row.querySelector(".goal-inline__workspace");
-    if (workspace) workspace.classList.toggle("is-journal-open", inlineJournalOpen);
-    const journal = row.querySelector(".goal-inline__journal-section");
-    if (journal) journal.hidden = !inlineJournalOpen;
-    const toggle = row.querySelector(".goal-inline__journal-toggle");
-    if (toggle) {
-      const label = translate(inlineJournalOpen ? "journalHideAria" : "journalShowAria");
-      toggle.classList.toggle("is-active", inlineJournalOpen);
-      toggle.setAttribute("aria-pressed", inlineJournalOpen ? "true" : "false");
-      toggle.setAttribute("aria-label", label);
-      toggle.title = label;
+    if (workspace) {
+      workspace.classList.toggle("is-sheet-open", !!openProjectSheet);
+      workspace.classList.toggle("is-canvas-open", openProjectSheet === "canvas");
+    }
+    const section = row.querySelector(".goal-inline__sheet-section");
+    if (section) {
+      section.hidden = !openProjectSheet;
+      if (item) renderSheetInto(section, item, openProjectSheet);
+    }
+    const strip = row.querySelector(".project-tab > .sheets");
+    if (strip && item) {
+      paintSheetStrip(strip, item, openProjectSheet, function (pick) {
+        if (pick === "canvas" && !canvasFitsInline()) { openCanvasFull(item); return; }
+        setProjectSheet(pick, row, item);
+      });
     }
   }
 
@@ -8945,13 +9052,16 @@
     const tabName = row.querySelector(".project-tab > .goal-inline__name");
     const skyJump = row.querySelector(".project-tab > .goal-inline__sky");
     if (skyJump) skyJump.remove();
-    const journalToggle = row.querySelector(".project-tab > .goal-inline__journal-toggle");
+    const strip = row.querySelector(".project-tab > .sheets");
     const rowName = row.querySelector(".project-tab > .item__text");
     if (tabName) tabName.remove();
-    if (journalToggle) journalToggle.remove();
+    if (strip) strip.remove();
     if (rowName) rowName.hidden = false;
-    row.classList.remove("is-inline-open", "is-journal-open");
-    inlineJournalOpen = false;
+    row.classList.remove("is-inline-open", "is-sheet-open");
+    const closing = findItem("projects", row.dataset.id);
+    if (closing) repaintProjectImportance(row, closing);   // read-only again
+    openProjectSheet = null;
+    releaseCanvasSheet(row);
     setInlineProjectLayout(false);
     row.setAttribute("aria-expanded", "false");
     fold.style.height = fold.getBoundingClientRect().height + "px";
@@ -8966,11 +9076,9 @@
     if (!openInlineProject) return;
     const row = document.querySelector("#projectsList .item--project.is-inline-open");
     openInlineProject = null;
-    openInlineStep = null;
-    inlineStepAdd = null;
     if (row) closeInlineProjectRow(row);
     else {
-      inlineJournalOpen = false;
+      openProjectSheet = null;
       setInlineProjectLayout(false);
     }
   }
@@ -8987,16 +9095,17 @@
       return;
     }
 
+    // set before closing the other row: both rows repaint their bars from this
+    openInlineProject = project.id;
     const previous = document.querySelector("#projectsList .item--project.is-inline-open");
     if (previous && previous !== row) closeInlineProjectRow(previous);
 
-    openInlineProject = project.id;
-    inlineJournalOpen = false;
-    openInlineStep = null;
-    inlineStepAdd = null;
-    setInlineProjectLayout(false);
+    // after the other row has closed: closing one clears the open sheet, which
+    // would take this one's resting note with it
+    openProjectSheet = RESTING_SHEET;
     renderInlineProject(fold.firstChild, project);
     row.classList.add("is-inline-open");
+    repaintProjectImportance(row, project);   // the bars become the control
     row.setAttribute("aria-expanded", "true");
     fold.style.height = "0px";
     fold.offsetWidth;
@@ -9031,19 +9140,9 @@
     if (rowName) rowName.hidden = true;
     tab.insertBefore(name, rowName || tab.querySelector(".item__slot"));
 
-    const journalToggle = document.createElement("button");
-    journalToggle.type = "button";
-    journalToggle.className = "goal-inline__journal-toggle";
-    journalToggle.innerHTML = iconSvg(ICON_NOTE);
-    const journalToggleText = document.createElement("span");
-    journalToggleText.textContent = translate("journalLabel");
-    journalToggle.appendChild(journalToggleText);
-    journalToggle.addEventListener("click", function (event) {
-      event.preventDefault();
-      event.stopPropagation();
-      setInlineJournal(!inlineJournalOpen, row);
-    });
-    tab.insertBefore(journalToggle, rowName || tab.querySelector(".item__slot"));
+    const strip = document.createElement("div");
+    strip.className = "sheets";
+    tab.insertBefore(strip, rowName || tab.querySelector(".item__slot"));
 
     /* the same objective, seen from the sky: one press leaves the column for the
        map where it sits among the others */
@@ -9064,129 +9163,36 @@
 
     // The dashboard objective is a working view: steps stay in their concrete
     // list here, while Rêve keeps the choice between its list and roadmap.
-    const stepsSection = createProjectStepsHost(project, true);
+    const stepsSection = createProjectStepsHost(project);
     stepsSection.classList.add("goal-inline__section");
 
-    const journalSection = document.createElement("section");
-    journalSection.className = "goal-inline__section goal-inline__journal-section";
-    const journalLabel = document.createElement("span");
-    journalLabel.className = "detail__label";
-    journalLabel.textContent = translate("journalLabel");
+    const sheetSection = document.createElement("section");
+    sheetSection.className = "goal-inline__section goal-inline__sheet-section";
+    sheetSection.hidden = true;
 
-    const journalForm = document.createElement("form");
-    journalForm.className = "sub-add goal-inline__journal-add";
-    const journalInput = document.createElement("input");
-    journalInput.type = "text";
-    journalInput.className = "add__input";
-    journalInput.maxLength = 400;
-    journalInput.placeholder = translate("journalAdd");
-    journalInput.required = true;
-    const journalButton = document.createElement("button");
-    journalButton.type = "submit";
-    journalButton.className = "add__btn";
-    journalButton.setAttribute("aria-label", translate("addAria"));
-    journalButton.textContent = "+";
-    journalForm.append(journalInput, journalButton);
-
-    const journal = document.createElement("div");
-    journal.className = "jrn goal-inline__journal";
-    renderJournalInto(journal, project);
-    journalForm.addEventListener("submit", function (event) {
-      event.preventDefault();
-      const text = journalInput.value.trim();
-      if (!text) return;
-      addProjectJournal(project, text);
-      journalInput.value = "";
-      try { journalInput.focus({ preventScroll: true }); }
-      catch (err) { journalInput.focus(); }
-    });
-
-    journalSection.append(journalLabel, journalForm, journal);
     const workspace = document.createElement("div");
     workspace.className = "goal-inline__workspace";
-    workspace.append(stepsSection, journalSection);
+    workspace.append(stepsSection, sheetSection);
     view.appendChild(workspace);
 
     host.appendChild(view);
-    setInlineJournal(inlineJournalOpen, row);
+    setProjectSheet(openProjectSheet, row, project);
   }
 
-  /* The roadmap's start and finish are drawn, never stored: the list holds steps
-     and nothing else, which is what lets the roadmap and the checklist show the
-     same thing. The finish is the project's own completion. */
-  function renderInlineSteps(host, project, branchIn) {
-    host.innerHTML = "";
-    const branch = branchIn || projectBranches(project)[0];
-    const steps = branch.steps;
-    const entries = [{ kind: "start" }];
-    for (let i = 0; i < steps.length; i++) {
-      entries.push({ kind: "step", step: steps[i], index: i });
-    }
-    if (!project.done) entries.push({ kind: "add" });
-    entries.push({ kind: "finish" });
-
-    const canvas = document.createElement("div");
-    canvas.className = "goal-roadmap__canvas";
-    canvas.style.setProperty("--goal-nodes", entries.length);
-    canvas.style.setProperty("--goal-edge", (50 / entries.length).toFixed(3) + "%");
-    canvas.style.minWidth = (entries.length * 112) + "px";
-    const track = document.createElement("span");
-    track.className = "goal-roadmap__track";
-    const fill = document.createElement("span");
-    fill.className = "goal-roadmap__fill";
-    fill.style.width = (stepProgress(project) * 100).toFixed(1) + "%";
-    track.appendChild(fill);
-    const nodes = document.createElement("div");
-    nodes.className = "goal-roadmap__nodes";
-
-    const stops = paletteStops();
-    const span = Math.max(1, steps.length + 1);
-    for (let i = 0; i < entries.length; i++) {
-      const entry = entries[i];
-      if (entry.kind === "add") nodes.appendChild(createInlineStepAdd(project, branch));
-      else if (entry.kind === "start") nodes.appendChild(createInlineStepCap("start", project,
-        paletteColorAt(stops, 0)));
-      else if (entry.kind === "finish") nodes.appendChild(createInlineStepCap("finish", project,
-        paletteColorAt(stops, 1)));
-      else {
-        nodes.appendChild(createInlineStepNode(project, entry.step, entry.index,
-          paletteColorAt(stops, (entry.index + 1) / span)));
-      }
-    }
-    canvas.append(track, nodes);
-    host.appendChild(canvas);
-  }
-
-  /* Repaint only the roadmap that changed. Rebuilding #projectsList replaces
-     the browser's scroll anchor and is the source of the visible page jumps.
-     This keeps both axes fixed and uses preventScroll for the add field. */
   /* Redrawing the objective must not rebuild #projectsList: replacing the row also
-     replaces the browser's scroll anchor, which is what made the page jump. An
-     objective now carries several courses, so every one of them is redrawn and every
-     one keeps the place it was scrolled to. */
+     replaces the browser's scroll anchor, which is what made the page jump. Both
+     axes are held, and the add field is focused without scrolling to it. */
   function refreshInlineSteps(project, options) {
     const host = document.querySelector('#projectsList .item[data-id="' + project.id
       + '"] .psteps');
     if (!host) return false;
     const pageX = window.scrollX;
     const pageY = window.scrollY;
-    const before = [];
-    const maps = host.querySelectorAll(".goal-roadmap");
-    for (let i = 0; i < maps.length; i++) {
-      const gap = Math.max(0, maps[i].scrollWidth - maps[i].clientWidth - maps[i].scrollLeft);
-      before.push({ left: maps[i].scrollLeft, gap: gap, followedEnd: gap < 36 });
-    }
 
     renderStepsInto(host, project);
 
     const restore = function () {
       if (!host.isConnected) return;
-      const after = host.querySelectorAll(".goal-roadmap");
-      for (let i = 0; i < after.length && i < before.length; i++) {
-        after[i].scrollLeft = before[i].followedEnd
-          ? Math.max(0, after[i].scrollWidth - after[i].clientWidth - before[i].gap)
-          : before[i].left;
-      }
       if (window.scrollX !== pageX || window.scrollY !== pageY) window.scrollTo(pageX, pageY);
     };
     restore();
@@ -9195,13 +9201,6 @@
     const badge = row && row.querySelector(".project-tab .item__sub");
     if (badge) badge.textContent = Math.round(stepProgress(project) * 100) + "%";
 
-    if (options && options.focusAdd) {
-      const input = host.querySelector(".goal-ms--add.is-open input");
-      if (input) {
-        try { input.focus({ preventScroll: true }); }
-        catch (err) { input.focus(); restore(); }
-      }
-    }
     if (options && options.focusBranch) {
       const body = host.querySelector('.psteps__body[data-branch="'
         + options.focusBranch + '"]');
@@ -9213,67 +9212,6 @@
     }
     requestAnimationFrame(restore);   // also defeat delayed scroll anchoring/focus
     return true;
-  }
-
-  function createInlineStepCap(role, project, color) {
-    const node = document.createElement("div");
-    node.className = "goal-ms is-anchor is-" + role;
-    node.style.setProperty("--goal-color", color);
-    if (role === "finish" && project.done) node.classList.add("is-done");
-    const dot = document.createElement("button");
-    dot.type = "button";
-    dot.className = "goal-ms__dot";
-    if (role === "start") {
-      dot.disabled = true;
-      dot.setAttribute("aria-label", translate("stepsLabel"));
-    } else {
-      dot.setAttribute("aria-label", translate("completeLabel"));
-      dot.setAttribute("aria-pressed", project.done ? "true" : "false");
-      dot.addEventListener("click", function () {
-        project.done = !project.done;
-        saveState();
-        refreshProjectSteps(project);
-        renderList("projects");
-        if (!skyView.hidden) renderSky();
-      });
-    }
-    node.appendChild(dot);
-    return node;
-  }
-
-  function createInlineStepNode(project, step, index, color) {
-    const node = document.createElement("div");
-    node.className = "goal-ms";
-    node.dataset.stepId = step.id;
-    node.style.setProperty("--goal-color", color);
-    if (step.completedDate) node.classList.add("is-done");
-
-    const dot = document.createElement("button");
-    dot.type = "button";
-    dot.className = "goal-ms__dot";
-    {
-      dot.classList.add("goal-ms__dot--step");
-      dot.setAttribute("aria-label", step.text || translate("stepPlaceholder"));
-      dot.setAttribute("aria-pressed", step.completedDate ? "true" : "false");
-      dot.addEventListener("click", function (event) {
-        if (Date.now() < stepDragUntil) {
-          event.preventDefault();
-          return;
-        }
-        openInlineStep = null;
-        toggleStep(project, step.id, node);
-      });
-      armInlineStepDrag(dot, node, project, step);
-    }
-    node.appendChild(dot);
-
-    {
-      const panel = document.createElement("div");
-      panel.className = "goal-ms__panel";
-      panel.appendChild(createInlineStepEditor(project, step));
-      node.appendChild(panel);
-    }
-    return node;
   }
 
   /* A step can become concrete by being carried onto the task flow or the
@@ -9499,37 +9437,6 @@
     return null;
   }
 
-  /* THE PAIR, READ FROM THE OTHER END — a task given to an objective becomes a
-     step there, dated by its day alone. The reverse holds: a step given a day
-     becomes a task due that day, so the work turns up where the day is read. The
-     hour is never carried either way; it belongs to the task and to the rule.
-     Clearing the step's day does not take the task away, only its date: what has
-     been written down is not thrown out by a change of plan. */
-  function syncTaskForStep(project, step) {
-    const existing = taskOfStep(step.id);
-    if (existing) {
-      existing.dueDate = step.targetDate || null;
-      if (!existing.dueDate) existing.dueTime = null;
-      return existing;
-    }
-    if (!step.targetDate) return null;   // no day: nothing to put in a day
-
-    const task = {
-      id: Date.now().toString(),
-      text: step.text || translate("stepPlaceholder"),
-      done: !!step.completedDate,
-      doneDate: step.completedDate || null,
-      dueDate: step.targetDate,
-      dueTime: null,
-      projectId: project.id,
-      stepId: step.id,
-      notified: false
-    };
-    state.tasks.push(task);
-    collapsedGroups["day:" + task.dueDate] = false;   // open where it landed
-    return task;
-  }
-
   function linkTaskToProject(task, project) {
     if (task.projectId === project.id && findStep(project, task.stepId)) return;
     // carried from one objective to another, it does not leave a step behind
@@ -9537,11 +9444,13 @@
       const from = findItem("projects", task.projectId);
       if (from) removeStep(from, task.stepId);
     }
+    // no date here: a step is not scheduled, the task it becomes is. That task
+    // already holds the day, and it keeps it.
     const step = {
       id: task.id + "s",
       text: task.text,
       completedDate: task.done ? (task.doneDate || todayKey()) : null,
-      targetDate: task.dueDate || null
+      importance: task.importance || 0    // the same work, the same weight
     };
     // the constellation on show, the same one a habit dropped here would join
     addStepToBranch(activeProjectBranch(project), step);
@@ -9558,6 +9467,7 @@
       doneDate: completedDate,
       dueDate: drop ? drop.date : (day || null),
       dueTime: drop ? drop.time : null,
+      importance: step.importance || 0,
       projectId: project.id,
       stepId: step.id,
       notified: false
@@ -9576,111 +9486,12 @@
     showToast(translate("stepCreated"));
   }
 
-  function createInlineStepEditor(project, step) {
-    const editor = document.createElement("div");
-    editor.className = "goal-ms__editor";
-    const top = document.createElement("div");
-    top.className = "goal-ms__editor-top";
-    const done = document.createElement("button");
-    done.type = "button";
-    done.className = step.completedDate ? "goal-ms__check is-on" : "goal-ms__check";
-    done.setAttribute("aria-label", translate("doneAria"));
-    done.setAttribute("aria-pressed", step.completedDate ? "true" : "false");
-    done.innerHTML = iconSvg(ICON_TICK);
-    done.addEventListener("click", function () {
-      toggleStep(project, step.id, done.closest(".goal-ms"));
-    });
-    const name = document.createElement("input");
-    name.type = "text";
-    name.className = "goal-ms__name";
-    name.maxLength = 120;
-    name.value = step.text || "";
-    name.placeholder = translate("stepPlaceholder");
-    name.addEventListener("input", function () {
-      step.text = name.value;
-      saveState();
-    });
-    top.append(done, name);
-
-    const actions = document.createElement("div");
-    actions.className = "goal-ms__actions";
-    const when = document.createElement("button");
-    when.type = "button";
-    when.className = "goal-ms__action";
-    when.textContent = step.targetDate
-      ? shortDateLabel(step.targetDate) : translate("stepTarget");
-    when.addEventListener("click", function () {
-      openCalendar({ projectId: project.id, stepId: step.id }, "step");
-    });
-    const del = document.createElement("button");
-    del.type = "button";
-    del.className = "goal-ms__action goal-ms__action--icon goal-ms__action--del";
-    del.setAttribute("aria-label", translate("deleteAria"));
-    del.innerHTML = iconSvg(ICON_TRASH);
-    del.addEventListener("click", function () {
-      openInlineStep = null;
-      removeStep(project, step.id, del.closest(".goal-roadmap"));
-    });
-    actions.append(when, del);
-    editor.append(top, actions);
-    return editor;
-  }
-
-  function createInlineStepAdd(project, branch) {
-    const node = document.createElement("div");
-    node.className = "goal-ms goal-ms--add";
-    if (inlineStepAdd === branch.id) node.classList.add("is-open");
-    const button = document.createElement("button");
-    button.type = "button";
-    button.className = "goal-ms__dot goal-ms__dot--add";
-    button.textContent = "+";
-    button.setAttribute("aria-label", translate("stepAdd"));
-    button.setAttribute("aria-expanded", inlineStepAdd === branch.id ? "true" : "false");
-    button.addEventListener("click", function () {
-      inlineStepAdd = inlineStepAdd === branch.id ? null : branch.id;
-      openInlineStep = null;
-      redrawSteps(project, { focusAdd: inlineStepAdd === branch.id });
-    });
-    const panel = document.createElement("div");
-    panel.className = "goal-ms__panel";
-    if (inlineStepAdd === branch.id) {
-      const form = document.createElement("form");
-      form.className = "goal-ms__add-form";
-      const input = document.createElement("input");
-      input.type = "text";
-      input.maxLength = 120;
-      input.placeholder = translate("stepAdd");
-      const submit = document.createElement("button");
-      submit.type = "submit";
-      submit.textContent = "+";
-      submit.setAttribute("aria-label", translate("addAria"));
-      form.append(input, submit);
-      form.addEventListener("submit", function (event) {
-        event.preventDefault();
-        const text = input.value.trim();
-        if (!text) return;
-        openInlineStep = null;
-        inlineStepAdd = null;
-        addStep(project, text, branch.id);
-      });
-      panel.appendChild(form);
-    } else {
-      const label = document.createElement("span");
-      label.className = "goal-ms__title";
-      label.textContent = translate("stepAdd");
-      panel.appendChild(label);
-    }
-    node.append(button, panel);
-    return node;
-  }
-
   /* THE STEPS — Rêve can still read them as a roadmap or a checklist. The task
      dashboard is the working surface, so its host is marked list-only and keeps
      that mode through every local redraw. */
   function renderStepsInto(host, project) {
     host.innerHTML = "";
     host.dataset.project = project.id;
-    const listOnly = host.dataset.listOnly === "1";
 
     const head = document.createElement("div");
     head.className = "psteps__head";
@@ -9694,28 +9505,66 @@
     add.textContent = translate("branchAdd");
     add.addEventListener("click", function () {
       const branch = addBranch(project, "");
-      if (listOnly) {
-        project.activeConstellationId = branch.id;
-        saveState();
-      }
+      project.activeConstellationId = branch.id;
+      saveState();
       refreshStepSections(project);
+      refreshBranchHead(project);
     });
     head.appendChild(label);
-    if (!listOnly) head.appendChild(createStepsViewSwitch(project));
     head.appendChild(add);
     host.appendChild(head);
 
-    const branches = projectBranches(project);
-    const upright = host.id === "pviewSteps";   // the panel is a column, not a strip
-    if (listOnly) {
-      host.appendChild(createBranchBlock(project, activeProjectBranch(project),
-        branches.length > 1, true, upright));
-      return;
+    // One course at a time: the constellation itself is named in the title bar,
+    // so what is left here is only its steps.
+    host.appendChild(createBranchBlock(project, activeProjectBranch(project)));
+  }
+
+  /* THE CONSTELLATION IN THE TITLE BAR — an objective is worked on one course at
+     a time, so the course belongs with its name rather than above its steps. The
+     icon still steps to the next one, which is the only way there has ever been. */
+  function createBranchHead(project, branch) {
+    const head = document.createElement("div");
+    head.className = "pbranch__head";
+    const removable = projectBranches(project).length > 1;
+    const icon = document.createElement("button");
+    icon.type = "button";
+    icon.className = removable ? "pbranch__icon is-switch" : "pbranch__icon";
+    icon.disabled = !removable;
+    const iconAction = translate("branchSwitchAria");
+    icon.setAttribute("aria-label", iconAction);
+    icon.title = iconAction;
+    icon.innerHTML = habitSvg(branch.icon || CONSTELLATION_ICON_KEYS[0]);
+    icon.addEventListener("click", function (event) {
+      event.stopPropagation();
+      switchProjectBranch(project);
+    });
+    const name = document.createElement("input");
+    name.type = "text";
+    name.className = "pbranch__name";
+    name.maxLength = 80;
+    name.value = branch.name || "";
+    name.placeholder = translate("branchName");
+    name.addEventListener("input", function () {
+      branch.name = name.value;
+      saveState();
+    });
+    head.append(icon, name);
+    head.appendChild(createMoonStrip(branch));
+    if (removable) {
+      const drop = document.createElement("button");
+      drop.type = "button";
+      drop.className = "pbranch__del";
+      drop.setAttribute("aria-label", translate("branchRemove"));
+      drop.textContent = "×";
+      drop.addEventListener("click", function (event) {
+        event.stopPropagation();
+        removeBranch(project, branch.id);
+        refreshStepStructure(project);
+        refreshBranchHead(project);   // the head names another course now
+      });
+      head.appendChild(drop);
     }
-    for (let i = 0; i < branches.length; i++) {
-      host.appendChild(createBranchBlock(project, branches[i], branches.length > 1,
-        listOnly, upright));
-    }
+    return head;
   }
 
   /* Up to four moons in an arc, then a pill for the rest: four phases are read at
@@ -9847,66 +9696,17 @@
   }
 
   /* one branch: its name, then the same two readings the objective had before */
-  function createBranchBlock(project, branch, removable, listOnly, vertical) {
+  function createBranchBlock(project, branch) {
     const block = document.createElement("section");
     block.className = "pbranch";
-
-    const head = document.createElement("div");
-    head.className = "pbranch__head";
-    const icon = document.createElement("button");
-    icon.type = "button";
-    icon.className = listOnly && removable ? "pbranch__icon is-switch" : "pbranch__icon";
-    icon.disabled = listOnly && !removable;
-    const iconAction = translate(listOnly ? "branchSwitchAria" : "branchIconAria");
-    icon.setAttribute("aria-label", iconAction);
-    icon.title = iconAction;
-    icon.innerHTML = habitSvg(branch.icon || CONSTELLATION_ICON_KEYS[0]);
-    icon.addEventListener("click", function (event) {
-      event.stopPropagation();
-      if (listOnly) switchProjectBranch(project);
-      else openIconPickerForBranch(project, branch);
-    });
-    const name = document.createElement("input");
-    name.type = "text";
-    name.className = "pbranch__name";
-    name.maxLength = 80;
-    name.value = branch.name || "";
-    name.placeholder = translate("branchName");
-    name.addEventListener("input", function () {
-      branch.name = name.value;
-      saveState();
-    });
-    head.append(icon, name);
-    head.appendChild(createMoonStrip(branch));
-    if (removable) {
-      const drop = document.createElement("button");
-      drop.type = "button";
-      drop.className = "pbranch__del";
-      drop.setAttribute("aria-label", translate("branchRemove"));
-      drop.textContent = "×";
-      drop.addEventListener("click", function () {
-        removeBranch(project, branch.id);
-        refreshStepStructure(project);
-      });
-      head.appendChild(drop);
-    }
-    block.appendChild(head);
+    block.appendChild(createBranchHead(project, branch));
 
     const body = document.createElement("div");
-    const roadmap = !listOnly && project.stepsView !== "list";
-    // The dashboard row is wide and short, the star's panel is a narrow column.
-    // Same course, laid the way the space it sits in can actually read it.
-    const upright = roadmap && vertical;
-    body.className = roadmap
-      ? (upright ? "psteps__body psteps__body--rail" : "psteps__body goal-roadmap")
-      : "psteps__body";
+    body.className = "psteps__body";
     body.dataset.branch = branch.id;
-    if (listOnly) body.dataset.listOnly = "1";
     const pulse = branchPulse(branch);
     if (pulse !== null) body.style.setProperty("--branch-pulse", pulse.toFixed(2));
-    if (upright) renderRailSteps(body, project, branch);
-    else if (roadmap) renderInlineSteps(body, project, branch);
-    else renderStepChecklist(body, project, branch);
+    renderStepChecklist(body, project, branch);
     block.appendChild(body);
     block.appendChild(createBranchHabits(project, branch));
     return block;
@@ -9914,45 +9714,6 @@
 
   /* A thread running down, the steps written beside it. The line is drawn by the
      rail rather than by each row, so it stays unbroken however tall a step grows. */
-  function renderRailSteps(host, project, branch) {
-    const rail = document.createElement("span");
-    rail.className = "vrail";
-    const fill = document.createElement("span");
-    fill.className = "vrail__fill";
-    const steps = branch.steps;
-    let done = 0;
-    for (let i = 0; i < steps.length; i++) {
-      if (steps[i].completedDate) done++;
-    }
-    // the thread is lit as far as the last step reached
-    fill.style.height = steps.length ? (done / steps.length * 100).toFixed(1) + "%" : "0";
-    rail.appendChild(fill);
-    host.appendChild(rail);
-    renderStepChecklist(host, project, branch);
-  }
-
-  function createStepsViewSwitch(project) {
-    const wrap = document.createElement("div");
-    wrap.className = "psteps__switch";
-    const views = [
-      { key: "timeline", label: "stepsViewRoadmap" },
-      { key: "list", label: "stepsViewList" }
-    ];
-    for (let i = 0; i < views.length; i++) {
-      const view = views[i];
-      const button = document.createElement("button");
-      button.type = "button";
-      button.className = (project.stepsView === view.key) ? "psteps__tab is-on" : "psteps__tab";
-      button.textContent = translate(view.label);
-      button.addEventListener("click", function () {
-        project.stepsView = view.key;
-        saveState();
-        refreshProjectSteps(project);
-      });
-      wrap.appendChild(button);
-    }
-    return wrap;
-  }
 
   /* The dashboard has a scroll-preserving path of its own; everywhere else — the
      panel a star opens — there is no row to spare, so the section is simply redrawn.
@@ -9960,14 +9721,6 @@
   function redrawSteps(project, options) {
     const inline = refreshInlineSteps(project, options);
     refreshProjectSteps(project, inline ? "#projectsList" : null);
-    if (inline) return;
-    if (options && options.focusAdd) {
-      const input = document.querySelector(".psteps .goal-ms--add.is-open input");
-      if (input) {
-        try { input.focus({ preventScroll: true }); }
-        catch (err) { input.focus(); }
-      }
-    }
   }
 
   /* Refresh only the steps surfaces. Structural changes use this instead of
@@ -9994,10 +9747,9 @@
     liveSky();
   }
 
-  function createProjectStepsHost(project, listOnly) {
+  function createProjectStepsHost(project) {
     const host = document.createElement("section");
     host.className = "psteps";
-    if (listOnly) host.dataset.listOnly = "1";
     renderStepsInto(host, project);
     return host;
   }
@@ -10038,14 +9790,6 @@
      the top. Older groups are reached without making the objective grow forever. */
   function renderStepChecklist(host, project, branch) {
     const steps = branch.steps;
-    const limited = host.dataset.listOnly === "1";
-    if (!limited) {
-      for (let i = 0; i < steps.length; i++) {
-        host.appendChild(createStepChecklistRow(project, steps[i], i, steps.length, branch));
-      }
-      host.appendChild(createStepChecklistAdd(project, branch));
-      return;
-    }
     const pageKey = project.id + "|" + branch.id;
     const pageState = boundedListPage(stepListPages, pageKey, steps.length);
     host.appendChild(createStepChecklistAdd(project, branch));
@@ -10067,6 +9811,23 @@
         refreshInlineSteps(project);
       }));
     }
+  }
+
+  /* A step is weighed on its own line, wherever that line is drawn. Setting the
+     level redraws the bars alone — nothing else on a step depends on it, so the
+     roadmap and the checklist showing the same step both follow without either
+     of them being rebuilt. */
+  function createStepImportance(step) {
+    const bars = createImportanceBars(step.importance || 0, function (level) {
+      setImportance(step, level);
+      const shown = document.querySelectorAll('[data-step-id="' + step.id + '"] .step__imp');
+      for (let i = 0; i < shown.length; i++) {
+        shown[i].replaceWith(createStepImportance(step));
+      }
+    }, TASK_IMPORTANCE);
+    bars.classList.add("step__imp", "imp--sm");
+    if (step.importance) bars.classList.add("is-set");
+    return bars;
   }
 
   function createStepChecklistRow(project, step, index, total, branch) {
@@ -10109,22 +9870,7 @@
     row.appendChild(label);
     requestAnimationFrame(function () { fitLine(label); });
 
-    const when = document.createElement("button");
-    when.type = "button";
-    when.className = step.targetDate ? "step__when is-set" : "step__when";
-    when.innerHTML = iconSvg('<rect x="3" y="4" width="18" height="18" rx="2"/>'
-      + '<line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/>'
-      + '<line x1="3" y1="10" x2="21" y2="10"/>');
-    if (step.targetDate) {
-      const tag = document.createElement("span");
-      tag.textContent = shortDateLabel(step.targetDate);
-      if (!step.completedDate && step.targetDate < todayKey()) when.classList.add("is-late");
-      when.appendChild(tag);
-    }
-    when.addEventListener("click", function () {
-      openCalendar({ projectId: project.id, stepId: step.id }, "step");
-    });
-    row.appendChild(when);
+    row.appendChild(createStepImportance(step));
 
     const del = document.createElement("button");
     del.type = "button";
@@ -10166,7 +9912,7 @@
 
   function addStep(project, text, branchId, options) {
     const branch = (branchId && findBranch(project, branchId)) || projectBranches(project)[0];
-    const step = { id: Date.now().toString(), text: text, completedDate: null, targetDate: null };
+    const step = { id: Date.now().toString(), text: text, completedDate: null };
     addStepToBranch(branch, step);
     stepListPages[project.id + "|" + branch.id] = 0;
     saveState();
@@ -10253,38 +9999,13 @@
 
   /* A click in the dashboard must not rebuild the project list: replacing the
      whole row also replaces the browser's scroll anchor, which made the page
-     jump. Named steps update in place. The finish anchor is the sole case
-     that changes the number of nodes (+ appears/disappears), so only its local
-     roadmap is rebuilt while both page and horizontal positions are retained. */
+     jump. A step that changes state is put right on its own line. */
   function refreshInlineStep(project, step, node) {
+    if (!node.classList.contains("step")) return;
     const done = !!step.completedDate;
-    if (node.classList.contains("step")) {
-      node.classList.toggle("is-done", done);
-      const checkbox = node.querySelector(".item__check");
-      if (checkbox) checkbox.setAttribute("aria-pressed", done ? "true" : "false");
-      const when = node.querySelector(".step__when");
-      if (when) {
-        when.classList.toggle("is-late",
-          !done && !!step.targetDate && step.targetDate < todayKey());
-      }
-      refreshProjectBadge(project);
-      return;
-    }
-    const roadmap = node.closest(".goal-roadmap");
-    if (!roadmap) return;
-
-    {
-      node.classList.toggle("is-done", done);
-      const dot = node.querySelector(".goal-ms__dot");
-      const check = node.querySelector(".goal-ms__check");
-      if (dot) dot.setAttribute("aria-pressed", done ? "true" : "false");
-      if (check) {
-        check.classList.toggle("is-on", done);
-        check.setAttribute("aria-pressed", done ? "true" : "false");
-      }
-      const fill = roadmap.querySelector(".goal-roadmap__fill");
-      if (fill) fill.style.width = (stepProgress(project) * 100).toFixed(1) + "%";
-    }
+    node.classList.toggle("is-done", done);
+    const checkbox = node.querySelector(".item__check");
+    if (checkbox) checkbox.setAttribute("aria-pressed", done ? "true" : "false");
     refreshProjectBadge(project);
   }
 
@@ -10532,7 +10253,9 @@
   const pviewOutcome = document.getElementById("pviewOutcome");
   const pviewDone = document.getElementById("pviewDone");
   const pviewSteps = document.getElementById("pviewSteps");
-  const pviewJournal = document.getElementById("pviewJournal");
+  const pviewSheets = document.getElementById("pviewSheets");
+  const pviewSheet = document.getElementById("pviewSheet");
+  let openPanelSheet = null;   // the kind on show in the star's panel
   const pviewWall = document.getElementById("pviewWall");
   const PVIEW_MS = 340;
   let openProject = null;   // id of the project on screen, if any
@@ -10558,6 +10281,7 @@
   }
 
   function closeProjectView() {
+    releaseCanvasSheet(pviewSheet);
     openProject = null;
     projectView.classList.remove("is-open");
     setTimeout(function () { projectView.hidden = true; }, PVIEW_MS);
@@ -10571,10 +10295,9 @@
     pviewIcon.innerHTML = projectSvg(project.icon || "folder");
     pviewImp.innerHTML = "";
     pviewImp.appendChild(createImportanceBars(project.importance || 0, function (level) {
-      project.importance = project.importance === level ? 0 : level;
-      saveState();
+      setImportance(project, level);
       fillProjectView(project);
-    }));
+    }, PROJECT_IMPORTANCE));
     pviewWhy.value = project.why || "";
     pviewOutcome.value = project.outcome || "";
     fitLine(pviewWhy);
@@ -10582,11 +10305,8 @@
     pviewDone.classList.toggle("is-on", !!project.done);
     document.getElementById("pviewDoneLabel").textContent =
       translate(project.done ? "reopenLabel" : "completeLabel");
-    // In the sky the constellation is the course: showing it again as a roadmap
-    // beside it says the same thing twice. The panel keeps the plain list.
-    pviewSteps.dataset.listOnly = "1";
     renderStepsInto(pviewSteps, project);
-    renderJournal(project);
+    renderPanelSheets(project);
     renderWall(project);
   }
 
@@ -10629,16 +10349,607 @@
     return button;
   }
 
-  /* JOURNAL — dated lines, newest first. It is both a log of what moved and the
-     place ideas land before they become steps; it also feeds the star's glow. */
-  function renderJournal(project) {
-    renderJournalInto(pviewJournal, project);
+  /* THE SHEETS — what an object carries beside itself. A task and an objective
+     both take a note, a journal and a canvas, one of each: a second note says
+     nothing the first cannot, and a canvas already holds as many notes as anyone
+     wants. `item.sheets` only records which ones are shown and in what order —
+     the content stays where it has always lived (`notes`, `journal`), and a
+     canvas is one of the laboratory's own, held by its id. A sheet also shows as
+     soon as it holds something, so anything writing into one (a note block on a
+     canvas, an old task carrying notes) raises its tab without knowing this
+     list exists. That is also why nothing had to be migrated. */
+  /* A canvas hangs on a course, not on the objective: an objective is pursued by
+     several constellations at once and one does not think about them together.
+     A task has only itself to hang it on. */
+  function canvasHolder(item) {
+    return item.constellations ? activeProjectBranch(item) : item;
   }
 
-  function renderJournalInto(host, project) {
+  /* THE OTHER DIRECTION — the board knows which canvas it is showing, not what
+     hangs it. A canvas of a constellation is named by that constellation and
+     steps to the next one from its own title bar, so it has to be able to find
+     its way back to the objective that carries it. */
+  function sheetCanvasHost(nodeId) {
+    if (!nodeId) return null;
+    for (let i = 0; i < state.projects.length; i++) {
+      const branches = projectBranches(state.projects[i]);
+      for (let b = 0; b < branches.length; b++) {
+        if (branches[b].canvasId === nodeId) {
+          return { kind: "branch", project: state.projects[i], branch: branches[b] };
+        }
+      }
+    }
+    for (let i = 0; i < state.tasks.length; i++) {
+      if (state.tasks[i].canvasId === nodeId) return { kind: "task", task: state.tasks[i] };
+    }
+    return null;
+  }
+
+  /* the constellation side alone, which is what names a canvas and steps to the next */
+  function sheetCanvasOwner(nodeId) {
+    const host = sheetCanvasHost(nodeId);
+    return host && host.kind === "branch" ? host : null;
+  }
+
+  /* every course an objective carries, since each has a canvas of its own */
+  function canvasHolders(item) {
+    return item.constellations ? projectBranches(item) : [item];
+  }
+
+  function sheetFilled(item, kind) {
+    if (kind === "note") return !!(item.notes && item.notes.trim());
+    if (kind === "journal") return !!(item.journal && item.journal.length);
+    return !!sheetCanvasNode(item);
+  }
+
+  function sheetKinds(item) {
+    const shown = [];
+    const declared = Array.isArray(item.sheets) ? item.sheets : [];
+    for (let i = 0; i < declared.length; i++) {
+      if (SHEET_KINDS.indexOf(declared[i]) !== -1 && shown.indexOf(declared[i]) === -1) {
+        shown.push(declared[i]);
+      }
+    }
+    for (let i = 0; i < SHEET_KINDS.length; i++) {
+      const kind = SHEET_KINDS[i];
+      if (shown.indexOf(kind) === -1 && sheetFilled(item, kind)) shown.push(kind);
+    }
+    return shown;
+  }
+
+  /* The note needs no adding: it is where an object opens, and it holds nothing
+     until something is written in it. The other two are made on their first click. */
+  function sheetReachable(item, kind) {
+    return kind === RESTING_SHEET || sheetKinds(item).indexOf(kind) !== -1;
+  }
+
+  function addSheet(item, kind) {
+    if (!Array.isArray(item.sheets)) item.sheets = [];
+    if (item.sheets.indexOf(kind) === -1) item.sheets.push(kind);
+    if (kind === "note" && item.notes == null) item.notes = "";
+    if (kind === "journal" && !item.journal) item.journal = [];
+    if (kind === "canvas") {
+      const holder = canvasHolder(item);
+      if (!holder.canvasId) holder.canvasId = sheetCanvas(item, holder).id;
+    }
+    saveState();
+  }
+
+  /* A sheet's canvas is a canvas *of* the base one, not a mother canvas of its
+     own. That is what gives it a name — a root canvas is always "the base
+     canvas" and has no title to show — and what makes it appear there, folded,
+     among everything else being thought about. The name is taken once: it can
+     be changed on the board afterwards, like any other canvas. */
+/* THE AUTOMATIC FOLDERS — a constellation's canvas and a task's canvas used to
+   be dropped loose on the mother canvas, folded, a few pixels apart: they were
+   there, but nobody could find them. They live in folders now, made as needed
+   and marked so they can be found again — Projets holds one folder per project,
+   Tâches holds the task canvases. Nothing here is a user's folder: these are
+   kept true on every render by syncThinkingAutoFolders. */
+/* Where a block made from outside the board should land: the spot the canvas is
+   looking at, not a fixed world coordinate. A canvas made from a task used to
+   land at the world origin, far from everything else. */
+  /* Where a canvas opens: the middle of the cloth, centred in whatever window is
+     showing it. This was a fixed number, which only landed in the middle on a
+     screen of exactly one ninth of the plane — everywhere else a canvas opened
+     off to one side. */
+  function thinkingHomeCamera() {
+    return {
+      x: Math.max(0, (THINKING_WORLD_WIDTH - thinkingViewport.clientWidth) / 2),
+      y: Math.max(0, (THINKING_WORLD_HEIGHT - thinkingViewport.clientHeight) / 2)
+    };
+  }
+
+  function thinkingLandingSpot() {
+    // centred on the middle of the cloth, not offset from it: a folder is 112
+    // wide folded, so half of that puts its middle on the middle
+    return { x: THINKING_WORLD_X - 56, y: THINKING_WORLD_Y - 56 };
+  }
+
+  function thinkingAutoFolder(tree, kind, project) {
+    for (let i = 0; i < tree.blocks.length; i++) {
+      const block = tree.blocks[i];
+      if (block.autoFolder !== kind) continue;
+      if (kind !== "project" || block.projectId === project.id) return block;
+    }
+    const parent = kind === "project" ? thinkingAutoFolder(tree, "projects") : null;
+    const spot = thinkingLandingSpot();
+    const camera = thinkingHomeCamera();
+    const folder = {
+      id: thinkingId("b"),
+      type: "folder",
+      text: "",
+      title: kind === "project" ? (project.text || "")
+        : translate(kind === "projects" ? "thinkingProjectsFolder" : "thinkingTasksFolder"),
+      x: spot.x + (kind === "tasks" ? 150 : 0),
+      y: spot.y,
+      parentId: parent ? parent.id : tree.id,
+      cameraX: camera.x,
+      cameraY: camera.y,
+      blockWidth: 420,
+      collapsed: true,
+      autoFolder: kind
+    };
+    if (kind === "project") {
+      folder.projectId = project.id;
+      folder.folderOrder = nextThinkingFolderOrder(tree, parent);
+    }
+    tree.blocks.push(folder);
+    return folder;
+  }
+
+  function thinkingProjectFolder(tree, project) {
+    return thinkingAutoFolder(tree, "project", project);
+  }
+
+  /* Keeps the two trees in step: every sheet canvas under the right folder,
+     every automatic name following its source, and no empty shell left behind —
+     which is what makes a first project after a deletion bring the folder back. */
+  function syncThinkingAutoFolders(tree) {
+    if (!tree || !tree.blocks) return;
+    let changed = false;
+    const blocks = tree.blocks.slice();
+    for (let i = 0; i < blocks.length; i++) {
+      const block = blocks[i];
+      if (block.type !== "canvas") continue;
+      const host = sheetCanvasHost(block.id);
+      if (!host) continue;
+      const target = host.kind === "branch" ? thinkingProjectFolder(tree, host.project)
+        : thinkingAutoFolder(tree, "tasks");
+      if (block.parentId === target.id) continue;
+      block.parentId = target.id;
+      block.folderOrder = nextThinkingFolderOrder(tree, target);
+      changed = true;
+    }
+    for (let i = tree.blocks.length - 1; i >= 0; i--) {
+      const folder = tree.blocks[i];
+      if (!folder.autoFolder) continue;
+      const named = folder.autoFolder === "project"
+        ? ((findProject(folder.projectId) || {}).text || folder.title)
+        : translate(folder.autoFolder === "projects"
+          ? "thinkingProjectsFolder" : "thinkingTasksFolder");
+      if (folder.title !== named) { folder.title = named; changed = true; }
+      if (!thinkingFolderChildren(tree, folder).length) {
+        tree.blocks.splice(i, 1);
+        changed = true;
+      }
+    }
+    // the filing was only being done in memory: every reload undid it
+    if (changed) touchCanvas(tree);
+  }
+
+  function findProject(id) {
+    for (let i = 0; i < state.projects.length; i++) {
+      if (state.projects[i].id === id) return state.projects[i];
+    }
+    return null;
+  }
+
+  function sheetCanvas(item, holder) {
+    const tree = baseThinkingCanvas();
+    const step = tree.blocks.length;
+    const branch = !!(holder && holder !== item);
+    const home = branch ? thinkingProjectFolder(tree, item) : thinkingAutoFolder(tree, "tasks");
+    const spot = thinkingLandingSpot();
+    const camera = thinkingHomeCamera();
+    const node = {
+      id: thinkingId("b"),
+      type: "canvas",
+      text: "",
+      title: (branch && holder.name) || item.text || "",
+      x: spot.x + (step % 3) * 30,
+      y: spot.y + (step % 4) * 26,
+      parentId: home.id,
+      folderOrder: nextThinkingFolderOrder(tree, home),
+      cameraX: camera.x,
+      cameraY: camera.y,
+      canvasWidth: 650,
+      canvasHeight: 330,
+      collapsed: true   // it waits folded on the board until it is opened
+    };
+    tree.blocks.push(node);
+    touchCanvas(tree);
+    return node;
+  }
+
+  /* where a sheet's canvas is: the tree that holds it and the canvas itself.
+     They are the same object for the root canvases sheets used to make. */
+  function sheetCanvasNode(item) {
+    const id = canvasHolder(item).canvasId;
+    return id ? findSheetCanvas(id) : null;
+  }
+
+  function findSheetCanvas(id) {
+    for (let i = 0; i < state.canvases.length; i++) {
+      const tree = state.canvases[i];
+      if (tree.id === id) return { tree: tree, node: tree };
+      const blocks = tree.blocks || [];
+      for (let j = 0; j < blocks.length; j++) {
+        if (blocks[j].id === id) return { tree: tree, node: blocks[j] };
+      }
+    }
+    return null;
+  }
+
+  /* Three marks that must not be mistaken for one another — and they were, all
+     three being a rectangle with lines in it. Only the note keeps its sheet: the
+     journal takes the compass, and the canvas the three tied thoughts, which say
+     what a canvas is for without drawing a board. Each one moves. */
+  const SHEET_ICONS = { note: "note", journal: "compass", canvas: "web" };
+
+  const SHEET_LABELS = { note: "notesLabel", journal: "journalLabel", canvas: "sheetCanvas" };
+
+  /* One strip, three surfaces. The three kinds are always on the line: a task
+     shows what it can carry, not what it happens to carry, so there is nothing
+     to look for and nothing to open first. Only the sheet itself waits — the
+     first click on a mark is what brings it into being. `active` is the kind on
+     show (or null), `pick` is given the kind to open, or null to close it. */
+  function paintSheetStrip(strip, item, active, pick) {
+    strip.innerHTML = "";
+    strip.className = "sheets";
+    const carried = sheetKinds(item);
+    for (let i = 0; i < SHEET_KINDS.length; i++) {
+      const kind = SHEET_KINDS[i];
+      strip.appendChild(createSheetTab(item, kind, active,
+        carried.indexOf(kind) !== -1, pick));
+    }
+  }
+
+  function createSheetTab(item, kind, active, carried, pick) {
+    const tab = document.createElement("button");
+    tab.type = "button";
+    tab.className = "sheets__tab" + (kind === active ? " is-on" : "")
+      + (carried ? "" : " sheets__tab--empty");
+    tab.dataset.sheet = kind;
+    tab.setAttribute("aria-pressed", kind === active ? "true" : "false");
+    // The mark alone: three words side by side ran the strip past the end of
+    // the line it sits on. The name stays in the title and for screen readers.
+    tab.setAttribute("aria-label", translate(SHEET_LABELS[kind]));
+    tab.title = translate(SHEET_LABELS[kind]);
+    tab.innerHTML = thinkingIconSvg(SHEET_ICONS[kind]);
+    tab.addEventListener("click", function (event) {
+      event.preventDefault();
+      event.stopPropagation();
+      if (!carried) { addSheet(item, kind); pick(kind); return; }
+      pick(kind === active ? null : kind);
+    });
+    return tab;
+  }
+
+  /* One sheet, drawn into whatever holds it: the same three bodies serve the
+     unfolded task, the unfolded objective and the panel a star opens. */
+  function renderSheetInto(host, item, kind) {
     host.innerHTML = "";
-    const entries = project.journal || (project.journal = []);
-    const pageState = boundedListPage(journalListPages, project.id, entries.length);
+    host.dataset.sheet = kind || "";
+    if (!kind) return;
+    // The canvas gets no heading: its tab already names it, and every line of
+    // this sheet is a line the board does not have to think in.
+    if (kind !== "canvas") {
+      const label = document.createElement("span");
+      label.className = "detail__label";
+      label.textContent = translate(SHEET_LABELS[kind]);
+      host.appendChild(label);
+    }
+    if (kind === "note") host.appendChild(createNoteSheet(item));
+    else if (kind === "journal") host.appendChild(createJournalSheet(item));
+    else host.appendChild(createCanvasSheet(item));
+  }
+
+  function createNoteSheet(item) {
+    const field = document.createElement("textarea");
+    field.className = "detail__notes";
+    field.rows = 1;
+    field.placeholder = translate("notesPlaceholder");
+    field.value = item.notes || "";
+    const fit = function () {
+      field.style.height = "auto";
+      field.style.height = field.scrollHeight + "px";
+    };
+    field.addEventListener("input", function () {
+      item.notes = field.value;
+      fit();
+      saveState();
+    });
+    requestAnimationFrame(fit);
+    return field;
+  }
+
+  function createJournalSheet(owner) {
+    const wrap = document.createElement("div");
+    wrap.className = "sheet-journal";
+
+    const form = document.createElement("form");
+    form.className = "sub-add";
+    const input = document.createElement("input");
+    input.type = "text";
+    input.className = "add__input";
+    input.maxLength = 400;
+    input.placeholder = translate("journalAdd");
+    input.required = true;
+    const button = document.createElement("button");
+    button.type = "submit";
+    button.className = "add__btn";
+    button.setAttribute("aria-label", translate("addAria"));
+    button.textContent = "+";
+    form.append(input, button);
+    form.addEventListener("submit", function (event) {
+      event.preventDefault();
+      const text = input.value.trim();
+      if (!text) return;
+      addProjectJournal(owner, text);
+      input.value = "";
+      try { input.focus({ preventScroll: true }); }
+      catch (err) { input.focus(); }
+    });
+
+    const list = document.createElement("div");
+    list.className = "jrn";
+    renderJournalInto(list, owner);
+    wrap.append(form, list);
+    return wrap;
+  }
+
+  /* THE CANVAS SHEET — the laboratory's own board, moved into the sheet rather
+     than a second, smaller one being built beside it. It is the move the editor
+     card already makes into the row that unfolds: one board, wherever it is
+     wanted. Leaving the sheet puts it back where it waits. */
+  let canvasSheetSlot = null;
+  let canvasSheetWatcher = null;
+  let canvasSheetRootId = null;   // the canvas the sheet opened on, its floor
+
+  function createCanvasSheet(item) {
+    const frame = document.createElement("div");
+    frame.className = "sheet-canvas";
+    if (!sheetCanvasNode(item)) {
+      const gone = document.createElement("p");
+      gone.className = "detail__empty";
+      gone.textContent = translate("sheetCanvasGone");
+      frame.appendChild(gone);
+      return frame;
+    }
+
+    const full = document.createElement("button");
+    full.type = "button";
+    full.className = "sheet-canvas__full";
+    full.setAttribute("aria-label", translate("sheetCanvasFull"));
+    full.title = translate("sheetCanvasFull");
+    full.innerHTML = iconSvg('<polyline points="9 3 3 3 3 9"/><polyline points="15 21 21 21 21 15"/>'
+      + '<line x1="3" y1="3" x2="10" y2="10"/><line x1="21" y1="21" x2="14" y2="14"/>');
+    full.addEventListener("click", function (event) {
+      event.stopPropagation();
+      openCanvasFull(item);
+    });
+
+    const slot = document.createElement("div");
+    slot.className = "sheet-canvas__slot";
+    slot.dataset.owner = item.id;   // so the frame can call the board back
+    frame.append(full, slot);
+    // once the frame is on the page and has a size to measure
+    requestAnimationFrame(function () { mountCanvasSheet(slot, item); });
+    return frame;
+  }
+
+  function mountCanvasSheet(slot, item) {
+    const found = sheetCanvasNode(item);
+    if (!slot.isConnected || !found) return;
+    releaseCanvasSheet();
+    canvasSheetSlot = slot;
+    canvasSheetRootId = found.node.id;
+    slot.innerHTML = "";            // whatever stood in for the board
+    thinkingBoard.classList.add("thinking-board--inline");
+    setThinkingOverview(false);
+    slot.appendChild(thinkingBoard);
+    weaveBoard(true);
+    showSheetCanvas(found);
+    // The fold was measured before the board arrived in it, so it is still
+    // holding the height of a sheet that had no canvas in it yet.
+    const fold = slot.closest(".unfold");
+    if (fold) fold.style.height = "auto";
+    // the board arrives in a box that has no reason to keep one size; the links
+    // are drawn against it, so they are asked for again whenever it changes
+    if (window.ResizeObserver) {
+      canvasSheetWatcher = new ResizeObserver(function () {
+        const canvas = currentCanvas();
+        if (!canvas || canvasSheetSlot !== slot) return;
+        requestThinkingLinks(canvas);
+        // The column widens over half a second, so the frame the board first
+        // measured is not the one it ends up in. While the weaving lasts, the
+        // view is framed again on every step of that widening; after it, the
+        // size is the reader's own business and the camera is left alone.
+        if (thinkingBoard.classList.contains("is-weaving")) {
+          frameThinkingCanvas(canvas, currentThinkingCanvasNode() || canvas);
+        } else {
+          placeThinkingBlank(currentThinkingCanvasNode() || canvas);
+        }
+      });
+      canvasSheetWatcher.observe(slot);
+    }
+  }
+
+  /* A surface may only let the board go if it is the one holding it. Without
+     that, opening a note on one side of the screen tore the board out of the
+     canvas open on the other: there is one board, but three places that close
+     a sheet, and each of them was closing everyone's. */
+  /* THE LOOM — see the CSS of the same name. Taken off and put back on, with a
+     reflow between, so a board arriving in another frame is woven again rather
+     than simply reappearing where the last one stopped. */
+  const WEAVE_MS = 700;
+  let weaveTimer = null;
+
+  /* `bars` is for a board arriving somewhere: the title and the tools drop in
+     with the cloth. Stepping into a canvas already on screen leaves them where
+     they are — only the cloth is made again. */
+  function weaveBoard(bars) {
+    thinkingBoard.classList.remove("is-weaving", "is-weave-bars");
+    // offsetTop rather than a rect: the bars may be mid-drop, and a rect would
+    // measure them where the animation has them, not where they belong
+    thinkingBoard.style.setProperty("--weave-top", thinkingViewport.offsetTop + "px");
+    void thinkingBoard.offsetWidth;
+    thinkingBoard.classList.add("is-weaving");
+    if (bars) thinkingBoard.classList.add("is-weave-bars");
+    clearTimeout(weaveTimer);
+    weaveTimer = setTimeout(function () {
+      thinkingBoard.classList.remove("is-weaving", "is-weave-bars");
+    }, WEAVE_MS);
+  }
+
+  function releaseCanvasSheet(from) {
+    if (!canvasSheetSlot) return;
+    if (from && !from.contains(canvasSheetSlot)) return;
+    const left = canvasSheetSlot;
+    canvasSheetSlot = null;
+    canvasSheetRootId = null;
+    if (canvasSheetWatcher) { canvasSheetWatcher.disconnect(); canvasSheetWatcher = null; }
+    thinkingBoard.classList.remove("thinking-board--inline", "is-weaving", "is-weave-bars");
+    thinkingView.appendChild(thinkingBoard);
+    hideThinkingTrash();
+    if (thinkingView.hidden) { openCanvasId = null; viewedCanvasId = null; }
+    if (left.isConnected) markCanvasSlotAway(left);
+    if (!openHost) flushLists();   // whatever was written on the board, now drawn
+  }
+
+  /* The frame the board has just left says so, and takes it back on a click:
+     two canvases can be on show at once, but there is only ever one board. */
+  function markCanvasSlotAway(slot) {
+    const call = document.createElement("button");
+    call.type = "button";
+    call.className = "sheet-canvas__away";
+    call.textContent = translate("sheetCanvasAway");
+    call.addEventListener("click", function (event) {
+      event.stopPropagation();
+      const id = slot.dataset.owner;
+      const item = findItem("tasks", id) || findItem("projects", id);
+      if (item) mountCanvasSheet(slot, item);
+    });
+    slot.innerHTML = "";
+    slot.appendChild(call);
+  }
+
+  /* A sheet is part of what carries it. The note and the journal are fields of
+     the object and leave with it on their own; a canvas is a place in the
+     laboratory, and without this it would stay behind — an orphan board named
+     after something that no longer exists. Undoing the deletion brings it back
+     with everything that was on it, in the same move. */
+  function cutSheetCanvas(item) {
+    if (canvasSheetSlot && canvasSheetSlot.dataset.owner === item.id) releaseCanvasSheet();
+    const undos = [];
+    const holders = canvasHolders(item);
+    for (let i = 0; i < holders.length; i++) {
+      const undo = cutHolderCanvas(holders[i]);
+      if (undo) undos.push(undo);
+    }
+    if (!undos.length) return null;
+    return function () {
+      for (let i = 0; i < undos.length; i++) undos[i]();
+    };
+  }
+
+  function cutHolderCanvas(holder) {
+    const found = holder.canvasId ? findSheetCanvas(holder.canvasId) : null;
+    if (!found || found.node === found.tree) return null;   // a root canvas is not ours
+    if (viewedCanvasId === found.node.id) viewedCanvasId = found.tree.id;
+    return cutThinkingBlocks(found.tree, [found.node.id]);
+  }
+
+  /* the board is alive in either frame; a refresh must not test only for the view */
+  function thinkingLive() {
+    return !thinkingView.hidden || !!canvasSheetSlot;
+  }
+
+  /* Under the wide layout there is no second column to borrow, so the canvas goes
+     straight to the laboratory rather than into a box too small to think in. */
+  function canvasFitsInline() {
+    return window.matchMedia("(min-width: 1000px)").matches;
+  }
+
+  function openCanvasFull(item) {
+    releaseCanvasSheet();
+    openThinking();
+    const found = sheetCanvasNode(item);
+    if (found) showSheetCanvas(found);
+  }
+
+  /* open the tree, then step into the canvas itself */
+  function showSheetCanvas(found) {
+    openThinkingCanvas(found.tree.id);
+    if (found.node !== found.tree) navigateThinkingCanvas(found.node.id);
+    frameThinkingCanvas(found.tree, found.node);
+  }
+
+  /* A camera is a scroll offset, so the same one shows a different part of the
+     world in a frame of another size — and a sheet, a task's column and the full
+     screen are never the same size. Opening a canvas therefore frames what is on
+     it rather than restoring an offset measured somewhere else. */
+  function frameThinkingCanvas(tree, canvasNode) {
+    const blocks = tree.blocks || [];
+    let minX = null;
+    let minY = null;
+    let maxX = null;
+    let maxY = null;
+    for (let i = 0; i < blocks.length; i++) {
+      const block = blocks[i];
+      if (block.parentId !== canvasNode.id) continue;
+      const size = thinkingBlockSize(block);
+      if (minX === null || block.x < minX) minX = block.x;
+      if (minY === null || block.y < minY) minY = block.y;
+      if (maxX === null || block.x + size.width > maxX) maxX = block.x + size.width;
+      if (maxY === null || block.y + size.height > maxY) maxY = block.y + size.height;
+    }
+    const centreX = minX === null ? THINKING_WORLD_X : (minX + maxX) / 2;
+    const centreY = minY === null ? THINKING_WORLD_Y : (minY + maxY) / 2;
+    // an empty canvas centres on the world's home, which is where a first block
+    // is put and where the blank state is drawn
+    canvasNode.cameraX = Math.max(0, centreX - thinkingViewport.clientWidth / 2);
+    canvasNode.cameraY = Math.max(0, centreY - thinkingViewport.clientHeight / 2);
+    thinkingViewport.scrollLeft = canvasNode.cameraX;
+    thinkingViewport.scrollTop = canvasNode.cameraY;
+    placeThinkingBlank(canvasNode);
+  }
+
+  /* JOURNAL — dated lines, newest first. It is both a log of what moved and the
+     place ideas land before they become steps; it also feeds the star's glow. */
+  /* The panel carries the same strip as an unfolded objective; its canvas has
+     the width of the whole panel, so it needs nothing borrowed. */
+  function renderPanelSheets(project) {
+    if (!openPanelSheet || !sheetReachable(project, openPanelSheet)) {
+      openPanelSheet = RESTING_SHEET;
+    }
+    paintSheetStrip(pviewSheets, project, openPanelSheet, function (kind) {
+      openPanelSheet = kind;
+      renderPanelSheets(project);
+    });
+    pviewSheet.hidden = !openPanelSheet;
+    if (openPanelSheet !== "canvas") releaseCanvasSheet(pviewSheet);
+    renderSheetInto(pviewSheet, project, openPanelSheet);
+  }
+
+  /* The journal belongs to whatever carries it — an objective or a task alike;
+     only promotion knows the difference, since a task has no steps to raise. */
+  function renderJournalInto(host, owner) {
+    host.innerHTML = "";
+    host.dataset.owner = owner.id;   // how every copy on screen is found again
+    const entries = owner.journal || (owner.journal = []);
+    const pageState = boundedListPage(journalListPages, owner.id, entries.length);
     if (entries.length === 0) {
       const empty = document.createElement("p");
       empty.className = "detail__empty";
@@ -10648,29 +10959,28 @@
     }
     if (pageState.last > 0) {
       host.appendChild(createProjectListPager("top", pageState, function (page) {
-        journalListPages[project.id] = page;
-        refreshProjectJournals(project);
+        journalListPages[owner.id] = page;
+        refreshJournals(owner);
       }));
     }
     const newest = entries.length - 1 - pageState.page * PROJECT_LIST_PAGE_SIZE;
     const oldest = Math.max(0, newest - PROJECT_LIST_PAGE_SIZE + 1);
     for (let i = newest; i >= oldest; i--) {
-      host.appendChild(createJournalRow(project, entries[i]));
+      host.appendChild(createJournalRow(owner, entries[i]));
     }
     if (pageState.last > 0) {
       host.appendChild(createProjectListPager("bottom", pageState, function (page) {
-        journalListPages[project.id] = page;
-        refreshProjectJournals(project);
+        journalListPages[owner.id] = page;
+        refreshJournals(owner);
       }));
     }
   }
 
-  function refreshProjectJournals(project) {
+  /* every journal of one owner on screen, wherever it is being shown */
+  function refreshJournals(owner) {
     liveSky();                    // a line written feeds the star's own glow
-    if (openProject === project.id) renderJournal(project);
-    const inline = document.querySelector('#projectsList .item[data-id="' + project.id
-      + '"] .goal-inline__journal');
-    if (inline) renderJournalInto(inline, project);
+    const hosts = document.querySelectorAll('.jrn[data-owner="' + owner.id + '"]');
+    for (let i = 0; i < hosts.length; i++) renderJournalInto(hosts[i], owner);
   }
 
   /* THE PROJECT MODEL — a project is worked on in three places: the panel a star
@@ -10699,23 +11009,23 @@
     saveState();
   }
 
-  function addProjectJournal(project, text) {
-    if (!project.journal) project.journal = [];
+  function addProjectJournal(owner, text) {
+    if (!owner.journal) owner.journal = [];
     const entry = { id: Date.now().toString(), date: todayKey(), text: text };
-    project.journal.push(entry);
-    journalListPages[project.id] = 0;
+    owner.journal.push(entry);
+    journalListPages[owner.id] = 0;
     saveState();
-    refreshProjectJournals(project);
+    refreshJournals(owner);
     return entry;
   }
 
-  function removeProjectJournal(project, entryId) {
-    if (!project || !project.journal) return;
-    for (let i = 0; i < project.journal.length; i++) {
-      if (project.journal[i].id === entryId) { project.journal.splice(i, 1); break; }
+  function removeProjectJournal(owner, entryId) {
+    if (!owner || !owner.journal) return;
+    for (let i = 0; i < owner.journal.length; i++) {
+      if (owner.journal[i].id === entryId) { owner.journal.splice(i, 1); break; }
     }
     saveState();
-    refreshProjectJournals(project);
+    refreshJournals(owner);
   }
 
   /* every surface a project shows on, refreshed at once */
@@ -10731,14 +11041,14 @@
     renderList("projects");
     if (!skyView.hidden) renderSky();
     if (project) {
-      refreshProjectJournals(project);
+      refreshJournals(project);
       if (openProject === project.id) fillProjectView(project);
     }
     const canvas = currentCanvas();
-    if (canvas && !thinkingView.hidden) renderThinkingCanvas(canvas);
+    if (canvas && thinkingLive()) renderThinkingCanvas(canvas);
   }
 
-  function createJournalRow(project, entry) {
+  function createJournalRow(owner, entry) {
     const row = document.createElement("div");
     row.className = "jrn__row";
 
@@ -10761,11 +11071,12 @@
       mark.title = translate("promotedLabel");
       mark.innerHTML = iconSvg(ICON_PROMOTE);
       tail.appendChild(mark);
-    } else {
+    } else if (owner.constellations) {
+      // only an objective has a course to raise a line onto
       tail.appendChild(createPromoteButton("jrn__step", function () {
-        entry.stepId = promoteToStep(project, entry.text).id;
+        entry.stepId = promoteToStep(owner, entry.text).id;
         saveState();
-        refreshProjectJournals(project);
+        refreshJournals(owner);
       }));
     }
 
@@ -10775,27 +11086,13 @@
     del.setAttribute("aria-label", translate("deleteAria"));
     del.textContent = "×";
     del.addEventListener("click", function () {
-      for (let i = 0; i < project.journal.length; i++) {
-        if (project.journal[i].id === entry.id) { project.journal.splice(i, 1); break; }
-      }
-      saveState();
-      refreshProjectJournals(project);
+      removeProjectJournal(owner, entry.id);
     });
 
     tail.appendChild(del);
     row.append(date, text, tail);
     return row;
   }
-
-  document.getElementById("pviewJournalForm").addEventListener("submit", function (event) {
-    event.preventDefault();
-    const input = document.getElementById("pviewJournalInput");
-    const text = input.value.trim();
-    const project = currentProject();
-    if (!text || !project) return;
-    addProjectJournal(project, text);
-    input.value = "";
-  });
 
   /* DREAM WALL — free canvas of text cards. Nothing is arranged for you: the
      layout is the thought. Cards are dragged around and edited in place. */
@@ -11682,14 +11979,6 @@
       star.title = step.text || "";
     });
 
-    const when = document.createElement("button");
-    when.type = "button";
-    when.className = "scard__btn";
-    when.textContent = step.targetDate ? shortDateLabel(step.targetDate) : translate("stepTarget");
-    when.addEventListener("click", function () {
-      openCalendar({ projectId: project.id, stepId: step.id }, "step");
-    });
-
     const drop = document.createElement("button");
     drop.type = "button";
     drop.className = "scard__btn scard__btn--del";
@@ -11701,7 +11990,7 @@
       liveSky();
     });
 
-    card.append(name, when, drop);
+    card.append(name, drop);
     card.addEventListener("pointerenter", function () { clearTimeout(stepCardTimer); });
     card.addEventListener("pointerleave", function () { closeStepCard(false); });
     skyField.appendChild(card);
@@ -12171,10 +12460,10 @@
     const subs = item.subtasks || [];
     if (subs.length && !badge) {
       const marks = rowMarks(row);
-      // the badge sits after the note mark and before the star, the pin and the
-      // date — the same order createItemRow lays them out in
+      // the badge sits after the note mark and before the star, the date and the
+      // bars — the same order createItemRow lays them out in
       marks.insertBefore(createSubBadge(item),
-        marks.querySelector(".item__star, .item__pin, .item__due"));
+        marks.querySelector(".item__star, .item__due, .item__imp"));
     } else if (!subs.length && badge) {
       const marks = badge.parentNode;
       badge.remove();
@@ -12200,22 +12489,6 @@
     return marks;
   }
 
-  /* auto-saved notes */
-  /* grow the notes field to its content: empty notes cost a single line */
-  function fitNotes() {
-    detailNotes.style.height = "auto";
-    detailNotes.style.height = detailNotes.scrollHeight + "px";
-  }
-
-  detailNotes.addEventListener("input", function () {
-    fitNotes();
-    const item = currentDetailItem();
-    if (!item) return;
-    item.notes = detailNotes.value;
-    saveState();
-    refreshDetailSource();   // refresh the note mark
-  });
-
   detailWhenDay.addEventListener("click", function () {
     const item = currentDetailItem();
     if (item) openCalendar(item.id, "events");
@@ -12238,14 +12511,32 @@
     renderUndated();
   });
 
-  detailPin.addEventListener("click", function () {
-    const item = currentDetailItem();
-    if (!item) return;
-    item.pinned = !item.pinned;
-    saveState();
-    refreshDetailSource();
-    detailPin.classList.toggle("is-on", !!item.pinned);
-  });
+  /* The bars sit in the identity line, which travels into the row being edited:
+     the weight is set right where it is read. The row's own mark is repainted
+     rather than the list, so setting it never moves anything. */
+  function fillDetailImportance(item) {
+    const bars = createImportanceBars(item.importance || 0, function (level) {
+      setImportance(item, level);
+      fillDetailImportance(item);
+      refreshRowImportance(item);
+    }, TASK_IMPORTANCE);
+    bars.classList.add("imp--sm");   // the identity line is a row, not a dialog
+    detailImp.innerHTML = "";
+    detailImp.appendChild(bars);
+  }
+
+  function refreshRowImportance(item) {
+    const row = document.querySelector('.item[data-id="' + item.id + '"]');
+    if (!row) return;
+    const shown = row.querySelector(".item__meta > .item__imp");
+    const mark = createImportanceMark(item, TASK_IMPORTANCE);
+    if (shown && mark) shown.replaceWith(mark);
+    else if (shown) {
+      const marks = shown.parentNode;
+      shown.remove();
+      if (!marks.firstChild) marks.remove();
+    } else if (mark) rowMarks(row).appendChild(mark);
+  }
 
   detailIcon.addEventListener("click", openIconPickerForDetail);
 
@@ -12263,12 +12554,6 @@
     input.focus();
     renderSubtasks(item);
     refreshOpenRow(item);
-  });
-
-  detailNoteToggle.addEventListener("click", function (event) {
-    event.preventDefault();
-    event.stopPropagation();
-    setInlineTaskNote(!inlineTaskNoteOpen);
   });
 
   document.addEventListener("keydown", function (event) {
@@ -14169,7 +14454,8 @@
   wireQuickAdd({
     form: "quickEvent", input: "quickEventInput", mirror: "quickEventMirror",
     hint: "quickEventHint", button: "addEventBtn",
-    flagLabel: "importantLabel", fallbackName: "newEventName",
+    fallbackName: "newEventName",
+    flagText: function () { return translate("importantLabel"); },
     resolveDate: quickEventDay,
     resolveTime: quickEventTime,
     submit: function (parsed, title, day, time) {
@@ -14491,6 +14777,8 @@
   const thinkingView = document.getElementById("thinkingView");
   const thinkingBoard = document.getElementById("thinkingBoard");
   const thinkingName = document.getElementById("thinkingName");
+  const thinkingBranch = document.getElementById("thinkingBranch");
+  const thinkingAddBranch = document.getElementById("thinkingAddBranch");
   const thinkingSaved = document.getElementById("thinkingSaved");
   const thinkingViewport = document.getElementById("thinkingViewport");
   const thinkingPlane = document.getElementById("thinkingPlane");
@@ -14505,12 +14793,13 @@
   const thinkingSelectionCount = document.getElementById("thinkingSelectionCount");
   const thinkingSelectionCanvas = document.getElementById("thinkingSelectionCanvas");
   const thinkingToolSectionSwitch = document.getElementById("thinkingToolSectionSwitch");
+  const thinkingZoomOut = document.getElementById("thinkingZoomOut");
   const thinkingToolPanels = document.querySelectorAll("[data-thinking-tool-panel]");
   /* Two closed families. A thinking block cycles among thinking blocks, a planning
      block among planning blocks; nothing crosses, and a project is neither — it is
      not something another block turns into. */
   const THINKING_BLOCK_TYPES = ["problem", "solution", "example", "idea", "question",
-    "answer", "note", "journal"];
+    "answer", "note"];
   const THINKING_PLANNING_TYPES = ["task", "step", "event", "habit"];
   const THINKING_ACTION_TYPES = ["task", "event", "habit", "step", "journal"];
   const THINKING_FLOW_TYPES = ["loop", "condition"];
@@ -14523,10 +14812,17 @@
   }
   const THINKING_ORGANIZATION_TYPES = ["canvas", "folder", "document", "planner", "logbook"];
   const THINKING_TOOL_SECTIONS = ["blocks", "organization", "planning"];
-  const THINKING_WORLD_WIDTH = 20000;
-  const THINKING_WORLD_HEIGHT = 12000;
-  const THINKING_WORLD_X = 9000;
-  const THINKING_WORLD_Y = 5000;
+  /* THE PLANE IS BOUNDED — nine screens, three by three, and the canvas opens on
+     the middle one. It used to be 20000x12000 with recenterThinkingWorld sliding
+     every block back by thousands of pixels whenever the camera neared an edge:
+     that faked an endless plane, but it moved your work under you without a word
+     and there was no way to find it again. A walkable rectangle needs no such
+     trick — coordinates stay put for good. */
+  const THINKING_WORLD_WIDTH = 5400;
+  const THINKING_WORLD_HEIGHT = 3000;
+  /* the middle of the cloth: where a canvas puts its first blocks */
+  const THINKING_WORLD_X = 2700;
+  const THINKING_WORLD_Y = 1500;
   const THINKING_CANVAS_CHROME = 70;
   const THINKING_STICK_SIDES = ["top", "right", "bottom", "left"];
   let openCanvasId = null;
@@ -14535,10 +14831,8 @@
   let thinkingCounter = 0;
   let thinkingLinkFrame = null;
   let thinkingCameraTimer = null;
-  let thinkingRecentering = false;
   let viewedCanvasId = null;
   let thinkingSuppressedTool = null;
-  let thinkingCanvasAnimationTimer = null;
   let thinkingTrashTimer = null;
   let thinkingSelectionMode = false;
   let thinkingLinkMode = false;
@@ -14585,7 +14879,7 @@
     for (let i = 0; i < thinkingToolPanels.length; i++) {
       const tools = thinkingToolPanels[i].querySelectorAll(".thinking-tool[data-block-type]");
       for (let j = 0; j < tools.length; j++) {
-        if (!tools[j].disabled) {
+        if (!tools[j].disabled && !tools[j].hidden) {
           usefulSections[thinkingToolPanels[i].dataset.thinkingToolPanel] = true;
           break;
         }
@@ -14616,12 +14910,12 @@
     if (parent.type === "folder") {
       return THINKING_ORGANIZATION_TYPES.indexOf(child.type) !== -1;
     }
+    if (parent.type === "logbook") return child.type === "journal";
     if (parent.type === "planner") {
       return THINKING_ACTION_TYPES.indexOf(child.type) !== -1
         || THINKING_FLOW_TYPES.indexOf(child.type) !== -1
         || ["note", "text"].indexOf(child.type) !== -1;
     }
-    if (parent.type === "logbook") return child.type === "journal";
     return true;
   }
 
@@ -14698,8 +14992,9 @@
 
   function prepareThinkingWorld(tree, canvasNode) {
     if (canvasNode.cameraX != null && canvasNode.cameraY != null) return;
-    canvasNode.cameraX = THINKING_WORLD_X;
-    canvasNode.cameraY = THINKING_WORLD_Y;
+    const camera = thinkingHomeCamera();
+    canvasNode.cameraX = camera.x;
+    canvasNode.cameraY = camera.y;
     for (let i = 0; i < tree.blocks.length; i++) {
       if (tree.blocks[i].parentId !== canvasNode.id) continue;
       tree.blocks[i].x += THINKING_WORLD_X;
@@ -14745,6 +15040,28 @@
     return task;
   }
 
+  /* a task block on a task's own canvas is a subtask of it, and says so */
+  function linkThinkingBlockToSubtask(block, task, text) {
+    if (!task.subtasks) task.subtasks = [];
+    const sub = { id: thinkingId("s"), text: text || translate("blockSubtask"), done: false };
+    task.subtasks.push(sub);
+    block.taskId = task.id;
+    block.subtaskId = sub.id;
+    block.text = sub.text;
+    return sub;
+  }
+
+  /* a step block on a constellation's canvas is a step of that course */
+  function linkThinkingBlockToStep(block, host, text) {
+    const step = addStepToBranch(host.branch, {
+      id: thinkingId("p"), text: text || translate("blockStep"), completedDate: null, importance: 0
+    });
+    block.projectId = host.project.id;
+    block.stepId = step.id;
+    block.text = step.text;
+    return step;
+  }
+
   function linkThinkingBlockToNewTask(block, text) {
     const task = createThinkingTask(text);
     block.taskId = task.id;
@@ -14777,6 +15094,10 @@
     if (block.type === "task") return thinkingTaskItem(block);
     if (block.type === "event") return block.eventId ? findItem("events", block.eventId) : null;
     if (block.type === "habit") return block.habitId ? findItem("habits", block.habitId) : null;
+    if (block.type === "step" && block.stepId) {
+      const project = findItem("projects", block.projectId);
+      return project ? findStep(project, block.stepId) : null;
+    }
     return null;
   }
 
@@ -14784,9 +15105,17 @@
 
 
 
-  function linkThinkingBlockToNewAction(block, text) {
+  /* WHAT IS WRITTEN ON A SHEET CANVAS BELONGS TO WHAT HANGS IT — a canvas held
+     by a task or by a constellation is not a loose surface: a subtask written on
+     the first goes into that task, a step written on the second goes into that
+     course, and a habit into the same course as a moon. Everywhere else a
+     planning block still makes a free object with no date, as it always has. */
+  function linkThinkingBlockToNewAction(block, text, host) {
     let item = null;
-    if (block.type === "task") return linkThinkingBlockToNewTask(block, text);
+    if (block.type === "task") {
+      if (host && host.kind === "task") return linkThinkingBlockToSubtask(block, host.task, text);
+      return linkThinkingBlockToNewTask(block, text);
+    }
     if (block.type === "event") {
       item = createThinkingEvent(text);
       block.eventId = item.id;
@@ -14795,8 +15124,10 @@
       item = createThinkingHabit(text);
       block.habitId = item.id;
       block.text = item.name;
+      if (host && host.kind === "branch") toggleBranchHabit(host.branch, item.id);
     } else if (block.type === "step") {
       block.text = text || "";              // a step block stands for itself
+      if (host && host.kind === "branch") return linkThinkingBlockToStep(block, host, text);
       return null;
     } else if (block.type === "journal") {
       block.text = text || "";
@@ -14909,7 +15240,6 @@
   function changeThinkingBlockType(canvas, block, nextType) {
     // Changing a planning block's type moves the thing it stands for: the text
     // travels and the old object goes, or the app would keep a twin nobody sees.
-    if (block.type === "journal" && nextType !== "journal") delete block.journalDate;
     if (THINKING_PLANNING_TYPES.indexOf(block.type) !== -1 && block.type !== nextType) {
       const leaving = thinkingActionItem(block);
       if (leaving) {
@@ -15653,6 +15983,15 @@
       paths = '<path d="M6 21V4"/><g class="ti-flag"><path d="M6 5h11l-2 3 2 3H6"/></g>';
     } else if (name === "compass") {
       paths = '<circle cx="12" cy="12" r="9"/><g class="ti-needle"><path d="m15.5 8.5-2 5-5 2 2-5Z"/></g>';
+    } else if (name === "web") {
+      // three thoughts and the ties between them: the shape of a canvas said
+      // without drawing a board. pathLength lets each tie draw itself whole
+      // without anyone having to measure it.
+      paths = '<path class="ti-web-link ti-web-link--1" pathLength="1" d="M8.5 6.7 15.8 6.2"/>'
+        + '<path class="ti-web-link ti-web-link--2" pathLength="1" d="M8.4 8.6 14 15.3"/>'
+        + '<circle class="ti-web-node ti-web-node--1" cx="6" cy="7" r="2.6"/>'
+        + '<circle class="ti-web-node ti-web-node--2" cx="18" cy="6" r="2.2"/>'
+        + '<circle class="ti-web-node ti-web-node--3" cx="16" cy="17" r="2.6"/>';
     } else if (name === "check") {
       paths = '<rect x="3" y="3" width="18" height="18" rx="5"/>'
         + '<path d="m7 12 3 3 7-7"/>';
@@ -15690,6 +16029,7 @@
   }
 
   function openThinking() {
+    releaseCanvasSheet();   // the board cannot be in a sheet and on the screen at once
     setThinkingLinkToolMode(false);
     setThinkingSelectionMode(false);
     thinkingLinkFrom = null;
@@ -15698,15 +16038,7 @@
     // in for as long as the view is up, rather than a second one being painted
     thinkingView.insertBefore(fieldCanvas, thinkingView.firstChild);
     requestAnimationFrame(function () { thinkingView.classList.add("is-open"); });
-    let recentCanvas = null;
-    for (let i = 0; i < state.canvases.length; i++) {
-      const opened = state.canvases[i].lastOpenedAt || state.canvases[i].updatedAt || 0;
-      const recentOpened = recentCanvas
-        ? recentCanvas.lastOpenedAt || recentCanvas.updatedAt || 0 : 0;
-      if (!recentCanvas || opened > recentOpened) {
-        recentCanvas = state.canvases[i];
-      }
-    }
+    const recentCanvas = recentThinkingCanvas();
     if (recentCanvas) openThinkingCanvas(recentCanvas.id);
     else makeThinkingCanvas();
   }
@@ -15740,8 +16072,28 @@
       if (items[i].id === id) { items.splice(i, 1); break; }
     }
   }
-  function makeThinkingCanvas() {
+  /* the mother canvas on show — the last one worked in, and the one a sheet's
+     canvas is filed under */
+  function recentThinkingCanvas() {
+    let recent = null;
+    for (let i = 0; i < state.canvases.length; i++) {
+      const opened = state.canvases[i].lastOpenedAt || state.canvases[i].updatedAt || 0;
+      const best = recent ? recent.lastOpenedAt || recent.updatedAt || 0 : 0;
+      if (!recent || opened > best) recent = state.canvases[i];
+    }
+    return recent;
+  }
+
+  function baseThinkingCanvas() {
+    const tree = recentThinkingCanvas() || makeThinkingCanvas(true);
+    if (!tree.blocks) tree.blocks = [];
+    if (!tree.links) tree.links = [];
+    return tree;
+  }
+
+  function makeThinkingCanvas(quiet) {
     const now = Date.now();
+    const camera = thinkingHomeCamera();
     const canvas = {
       id: thinkingId("c"),
       type: "canvas",
@@ -15754,8 +16106,8 @@
       icon: "target",
       canvasWidth: 650,
       canvasHeight: 330,
-      cameraX: THINKING_WORLD_X,
-      cameraY: THINKING_WORLD_Y,
+      cameraX: camera.x,
+      cameraY: camera.y,
       collapsed: false,
       createdAt: now,
       updatedAt: now,
@@ -15764,7 +16116,7 @@
     };
     state.canvases.unshift(canvas);
     saveState();
-    openThinkingCanvas(canvas.id);
+    if (!quiet) openThinkingCanvas(canvas.id);   // a sheet opens it in its own frame
     return canvas;
   }
 
@@ -15784,8 +16136,9 @@
     syncThinkingCanvasHeader(canvas, canvas);
     renderThinkingCanvas(canvas);
     requestAnimationFrame(function () {
-      thinkingViewport.scrollLeft = canvas.cameraX;
-      thinkingViewport.scrollTop = canvas.cameraY;
+      const camera = thinkingHomeCamera();
+      thinkingViewport.scrollLeft = camera.x;
+      thinkingViewport.scrollTop = camera.y;
     });
   }
 
@@ -15800,44 +16153,68 @@
 
   function syncThinkingCanvasHeader(tree, canvasNode) {
     const parent = thinkingCanvasParent(tree, canvasNode);
-    thinkingName.disabled = !parent;
-    thinkingName.value = parent ? thinkingOrganizationTitle(canvasNode) : "";
-    const back = document.getElementById("thinkingBoardBack");
-    back.disabled = !parent;
-    back.setAttribute("aria-label", translate(parent ? "thinkingCloseCanvas" : "thinkingBaseCanvas"));
-    thinkingName.placeholder = translate(parent ? "thinkingUntitled" : "thinkingBaseCanvas");
-    const tools = document.querySelectorAll(".thinking-tool[data-block-type]");
-    for (let i = 0; i < tools.length; i++) {
-      tools[i].disabled = !thinkingOrganizationAllows(canvasNode, {
-        type: tools[i].dataset.blockType
-      });
+    const owner = sheetCanvasOwner(canvasNode.id);
+    // A constellation's canvas is not named by hand: it wears the name of the
+    // course, here and folded on the mother canvas.
+    if (owner && canvasNode.title !== (owner.branch.name || "")) {
+      canvasNode.title = owner.branch.name || "";
+      saveState();
     }
-    syncThinkingToolSections(canvasNode);
-  }
-
-  function thinkingCanvasTransition(kind, origin, targetId) {
-    clearTimeout(thinkingCanvasAnimationTimer);
-    thinkingViewport.classList.remove("is-canvas-opening", "is-canvas-closing");
-    requestAnimationFrame(function () {
-      let point = origin;
-      if (!point && targetId) {
-        const target = thinkingBlocks.querySelector('[data-block-id="' + targetId + '"]');
-        if (target) {
-          const rect = target.getBoundingClientRect();
-          point = { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 };
+    // In a sheet the canvas it opened on is the floor: there is nowhere above it
+    // to go back to from here. Below it there is, and the bar has to appear for
+    // that alone — a canvas made inside another one would otherwise be a room
+    // with no door.
+    const inSheet = !!canvasSheetSlot;
+    const atSheetFloor = inSheet && canvasNode.id === canvasSheetRootId;
+    thinkingBoard.classList.toggle("is-branch-canvas", !!owner);
+    thinkingBoard.classList.toggle("is-sheet-bar", !!owner || (inSheet && !atSheetFloor));
+    thinkingBranch.hidden = !owner;
+    thinkingAddBranch.hidden = !owner;
+    if (owner) {
+      thinkingBranch.innerHTML = habitSvg(owner.branch.icon || CONSTELLATION_ICON_KEYS[0]);
+      thinkingBranch.disabled = projectBranches(owner.project).length < 2;
+    }
+    thinkingName.disabled = !parent;
+    // A course with no name yet is left empty rather than filled with the word
+    // "canvas": what belongs there is an invitation, not a stand-in.
+    thinkingName.value = owner ? (owner.branch.name || "")
+      : parent ? thinkingOrganizationTitle(canvasNode) : "";
+    const back = document.getElementById("thinkingBoardBack");
+    back.disabled = !thinkingBackTarget(tree, canvasNode) || atSheetFloor;
+    back.setAttribute("aria-label", translate(parent ? "thinkingCloseCanvas" : "thinkingBaseCanvas"));
+    thinkingName.placeholder = translate(owner ? "branchName"
+      : parent ? "thinkingUntitled" : "thinkingBaseCanvas");
+    const tools = document.querySelectorAll(".thinking-tool[data-block-type]");
+    const host = sheetCanvasHost(canvasNode.id);
+    for (let i = 0; i < tools.length; i++) {
+      const type = tools[i].dataset.blockType;
+      tools[i].disabled = !thinkingOrganizationAllows(canvasNode, { type: type });
+      // On a task's canvas a step means nothing, and on a constellation's a loose
+      // task means nothing either: each hides what its own object cannot hold.
+      tools[i].hidden = !!host
+        && ((host.kind === "task" && type === "step")
+          || (host.kind === "branch" && type === "task"));
+      if (type === "task") {
+        const label = tools[i].querySelector("span:not(.thinking-tool__mark)");
+        if (label) {
+          label.textContent = translate(host && host.kind === "task"
+            ? "blockSubtask" : "blockTask");
         }
       }
-      const viewportRect = thinkingViewport.getBoundingClientRect();
-      thinkingViewport.style.setProperty("--thinking-transition-x",
-        ((point ? point.x : viewportRect.left + viewportRect.width / 2) - viewportRect.left) + "px");
-      thinkingViewport.style.setProperty("--thinking-transition-y",
-        ((point ? point.y : viewportRect.top + viewportRect.height / 2) - viewportRect.top) + "px");
-      void thinkingViewport.offsetWidth;
-      thinkingViewport.classList.add(kind === "open" ? "is-canvas-opening" : "is-canvas-closing");
-      thinkingCanvasAnimationTimer = setTimeout(function () {
-        thinkingViewport.classList.remove("is-canvas-opening", "is-canvas-closing");
-      }, 460);
-    });
+    }
+    /* A step only means anything on a constellation's canvas, where it binds to
+       a real step of the project; everywhere else linkThinkingBlockToNewAction
+       hands back nothing and it is an ordinary block carrying its own text. So
+       it sits with the planning tools only where it plans, and with the plain
+       blocks otherwise. Moved before the sections are counted, since which
+       panels have anything in them decides which ones are offered. */
+    const stepTool = document.querySelector('.thinking-tool[data-block-type="step"]');
+    if (stepTool) {
+      const panel = document.getElementById(host && host.kind === "branch"
+        ? "thinkingToolPanelPlanning" : "thinkingToolPanelBlocks");
+      if (panel && stepTool.parentElement !== panel) panel.appendChild(stepTool);
+    }
+    syncThinkingToolSections(canvasNode);
   }
 
   function syncThinkingCanvasPreview(canvasNode) {
@@ -15848,10 +16225,11 @@
     canvasNode.previewY = canvasNode.cameraY + thinkingViewport.clientHeight / 2 - height / 2;
   }
 
-  function navigateThinkingCanvas(id, transition) {
+  function navigateThinkingCanvas(id, weave) {
     const tree = currentCanvas();
     const canvasNode = tree ? findThinkingParent(tree, id) : null;
     if (!tree || !isThinkingOrganization(canvasNode)) return;
+    if (canvasNode.type === "folder") return;   // a folder is browsed in place
     const current = currentThinkingCanvasNode();
     if (current) {
       current.cameraX = thinkingViewport.scrollLeft;
@@ -15868,22 +16246,39 @@
     touchCanvas(tree);
     renderThinkingCanvas(tree);
     requestAnimationFrame(function () {
-      thinkingViewport.scrollLeft = canvasNode.cameraX;
-      thinkingViewport.scrollTop = canvasNode.cameraY;
-      if (transition) {
-        thinkingCanvasTransition(transition.kind, transition.origin, transition.targetId);
-      }
+      const camera = thinkingHomeCamera();
+      thinkingViewport.scrollLeft = camera.x;
+      thinkingViewport.scrollTop = camera.y;
+      // stepping into a canvas is the cloth being made again, not the whole
+      // board zooming and blurring out of the block it came from
+      if (weave) weaveBoard(false);
     });
+  }
+
+  /* Going up one level, skipping folders — they have no view of their own to
+     land on, so the way back out of a canvas filed in one is the canvas that
+     holds the folder. Without this the arrow died the moment containers started
+     living in folders, which is every project and task canvas. */
+  function thinkingBackTarget(tree, canvasNode) {
+    let parent = thinkingCanvasParent(tree, canvasNode);
+    while (parent && parent.type === "folder") parent = thinkingCanvasParent(tree, parent);
+    return parent;
   }
 
   function closeCurrentThinkingCanvas() {
     const tree = currentCanvas();
     const canvasNode = currentThinkingCanvasNode();
     if (!tree || !canvasNode) return;
-    const parent = thinkingCanvasParent(tree, canvasNode);
+    const parent = thinkingBackTarget(tree, canvasNode);
     if (!parent) return;
     canvasNode.collapsed = true;
-    navigateThinkingCanvas(parent.id, { kind: "close", targetId: canvasNode.id });
+    // the folders walked past open up, so you land looking at where you were
+    let step = thinkingCanvasParent(tree, canvasNode);
+    while (step && step.type === "folder") {
+      step.collapsed = false;
+      step = thinkingCanvasParent(tree, step);
+    }
+    navigateThinkingCanvas(parent.id, true);
   }
 
   function thinkingDocumentFormatIcon(command) {
@@ -16322,7 +16717,8 @@
   function thinkingLogbookEntries(tree, logbook) {
     const entries = [];
     for (let i = 0; i < tree.blocks.length; i++) {
-      if (tree.blocks[i].parentId === logbook.id) entries.push(tree.blocks[i]);
+      const block = tree.blocks[i];
+      if (block.parentId === logbook.id && block.type === "journal") entries.push(block);
     }
     entries.sort(function (a, b) {
       const dateA = a.journalDate || "";
@@ -16389,7 +16785,23 @@
     if (field) field.focus();
   }
 
-  function createThinkingFolderList(tree, folder, fullscreen) {
+/* THE FOLDER — a plain list, the way a file manager reads: one row per item,
+   a small mark and its name, a single click to step into it. A folder has no
+   fullscreen of its own; walking into a sub-folder swaps what the same list
+   shows, and the trail across the top says where you are. Which folder a block
+   is currently showing is view state, so it lives here and not in the save. */
+  const thinkingFolderOpen = {};
+
+  /* which folder a block is showing right now — its own, or whichever
+     sub-folder has been walked into */
+  function thinkingFolderShown(tree, rootFolder) {
+    const openId = thinkingFolderOpen[rootFolder.id];
+    const opened = openId ? findThinkingParent(tree, openId) : null;
+    return opened && opened.type === "folder" ? opened : rootFolder;
+  }
+
+  function createThinkingFolderList(tree, rootFolder, fullscreen) {
+    const folder = thinkingFolderShown(tree, rootFolder);
     const list = document.createElement("div");
     list.className = "thinking-folder__list";
     list.classList.add(fullscreen ? "thinking-folder__list--fullscreen"
@@ -16398,7 +16810,7 @@
     list.dataset.organizationId = folder.id;
     const children = thinkingFolderChildren(tree, folder);
     for (let i = 0; i < children.length; i++) {
-      list.appendChild(createThinkingBlock(tree, children[i], true, false, folder));
+      list.appendChild(createThinkingFolderRow(tree, rootFolder, children[i]));
     }
     list.appendChild(createThinkingFolderAdd(tree, folder));
     if (fullscreen) {
@@ -16406,10 +16818,164 @@
       list.style.width = width + "px";
       list.style.left = (folder.cameraX + thinkingViewport.clientWidth / 2 - width / 2) + "px";
       list.style.top = (folder.cameraY + 44) + "px";
-    } else if (folder.folderHeight) {
-      list.style.height = folder.folderHeight + "px";
+    } else if (rootFolder.folderHeight) {
+      list.style.height = rootFolder.folderHeight + "px";
     }
     return list;
+  }
+
+  function createThinkingFolderRow(tree, rootFolder, child) {
+    const row = document.createElement("div");
+    row.className = "thinking-folder__row thinking-row--" + child.type;
+    const open = document.createElement("button");
+    open.type = "button";
+    open.className = "thinking-folder__open";
+    const mark = document.createElement("span");
+    mark.className = "thinking-folder__mark";
+    mark.innerHTML = thinkingIconSvg(thinkingTypeIcon(child.type));
+    const name = document.createElement("span");
+    name.className = "thinking-folder__name";
+    name.textContent = thinkingOrganizationTitle(child);
+    open.append(mark, name);
+    open.addEventListener("click", function () {
+      if (child.type === "folder") {
+        thinkingFolderOpen[rootFolder.id] = child.id;   // walk in, same list
+        renderThinkingCanvas(tree);
+      } else {
+        navigateThinkingCanvas(child.id, true);
+      }
+    });
+    const system = child.autoFolder === "projects" || child.autoFolder === "tasks";
+    const rename = system ? null : createThinkingRenameButton(tree, child, function (field) {
+      row.classList.add("is-renaming");
+      row.insertBefore(field, open);
+    });
+    const del = document.createElement("button");
+    del.type = "button";
+    del.className = "thinking-folder__del";
+    del.setAttribute("aria-label", translate("deleteAria"));
+    del.textContent = "\u00d7";
+    del.addEventListener("click", function (event) {
+      event.stopPropagation();
+      removeThinkingBlock(tree, child.id);
+    });
+    row.appendChild(open);
+    if (rename) row.appendChild(rename);
+    row.appendChild(del);
+    return row;
+  }
+
+  /* A pencil that turns a name into a field in place, and puts it back on the
+     first Enter or blur. Nothing is opened to rename something.
+
+     The caller mounts the field itself, because where it may go matters: a row's
+     name sits inside the button that opens it, and a field nested in a button
+     hands every space bar straight to that button — typing a two-word title
+     opened the item halfway through. The field goes beside the button now. */
+  function createThinkingRenameButton(tree, node, mountField) {
+    const rename = document.createElement("button");
+    rename.type = "button";
+    rename.className = "thinking-folder__rename";
+    rename.setAttribute("aria-label", translate("thinkingRename"));
+    rename.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"'
+      + ' stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
+      + '<path d="M15.5 4.5a2.1 2.1 0 0 1 3 3L9 17l-4 1 1-4z"/></svg>';
+    rename.addEventListener("click", function (event) {
+      event.stopPropagation();
+      if (rename.dataset.editing) return;
+      rename.dataset.editing = "1";
+      const field = document.createElement("input");
+      field.type = "text";
+      field.className = "thinking-folder__field";
+      field.maxLength = 120;
+      field.value = (node.title || "").trim();
+      field.placeholder = translate(thinkingTypeKey(node.type));
+      mountField(field);
+      field.focus();
+      field.select();
+      // nothing above this field has any business reading its keys
+      field.addEventListener("keydown", function (keyEvent) { keyEvent.stopPropagation(); });
+      let closed = false;
+      const commit = function () {
+        if (closed) return;
+        closed = true;
+        applyThinkingRename(tree, node, field.value);
+      };
+      field.addEventListener("keydown", function (keyEvent) {
+        if (keyEvent.key === "Enter") { keyEvent.preventDefault(); commit(); }
+        else if (keyEvent.key === "Escape") { closed = true; renderThinkingCanvas(tree); }
+      });
+      field.addEventListener("blur", commit);
+    });
+    return rename;
+  }
+
+  /* A renamed folder or canvas has to write back to whatever it stands for.
+     Without this the reconciliation simply reasserts the old name on the next
+     render — an objective's folder took the project's name straight back, so
+     renaming it looked like it did nothing at all. */
+  function applyThinkingRename(tree, node, value) {
+    const name = value.trim();
+    if (node.autoFolder === "project") {
+      const project = findProject(node.projectId);
+      if (project) {
+        project.text = name;
+        saveState();
+        renderList("projects");
+      }
+    } else {
+      const host = sheetCanvasHost(node.id);
+      if (host) {
+        if (host.kind === "branch") host.branch.name = name;
+        else host.task.text = name;
+        saveState();
+        renderList(host.kind === "branch" ? "projects" : "tasks");
+      }
+    }
+    node.title = name;
+    touchCanvas(tree);
+    renderThinkingCanvas(tree);
+  }
+
+  /* The trail inside the block: the folder the block stands for, then every
+     folder walked into. The last one is where you are, and it is the one whose
+     name can be changed from here. */
+  function createThinkingFolderPath(tree, rootFolder) {
+    const folder = thinkingFolderShown(tree, rootFolder);
+    const chain = [folder];
+    let branch = folder;
+    while (branch && branch.id !== rootFolder.id) {
+      branch = thinkingCanvasParent(tree, branch);
+      if (!branch) break;
+      chain.unshift(branch);
+    }
+    const path = document.createElement("nav");
+    path.className = "thinking-folder__path";
+    for (let i = 0; i < chain.length - 1; i++) {
+      const crumb = document.createElement("button");
+      crumb.type = "button";
+      crumb.className = "thinking-folder__crumb";
+      crumb.textContent = thinkingOrganizationTitle(chain[i]);
+      const target = chain[i].id;
+      crumb.addEventListener("click", function () {
+        if (target === rootFolder.id) delete thinkingFolderOpen[rootFolder.id];
+        else thinkingFolderOpen[rootFolder.id] = target;
+        renderThinkingCanvas(tree);
+      });
+      if (i) path.appendChild(document.createTextNode("/"));
+      path.appendChild(crumb);
+    }
+    const here = document.createElement("span");
+    here.className = "thinking-folder__crumb thinking-folder__crumb--here";
+    here.textContent = thinkingOrganizationTitle(folder);
+    if (chain.length > 1) path.appendChild(document.createTextNode("/"));
+    path.appendChild(here);
+    if (folder.autoFolder !== "projects" && folder.autoFolder !== "tasks") {
+      path.appendChild(createThinkingRenameButton(tree, folder, function (field) {
+        here.replaceWith(field);
+      }));
+    }
+    return path;
   }
 
   /* The + tile in a folder. A folder holds containers and nothing else, so the
@@ -16458,11 +17024,12 @@
   }
 
   function addThinkingContainerToFolder(tree, folder, type) {
+    const camera = thinkingHomeCamera();
     const block = {
       id: thinkingId("b"), type: type, text: "", title: "",
       x: folder.x, y: folder.y, parentId: folder.id,
       collapsed: true,
-      cameraX: THINKING_WORLD_X, cameraY: THINKING_WORLD_Y,
+      cameraX: camera.x, cameraY: camera.y,
       folderOrder: nextThinkingFolderOrder(tree, folder)
     };
     if (type === "folder" || type === "logbook") {
@@ -16481,7 +17048,21 @@
     renderThinkingCanvas(tree);
   }
 
+  /* The empty state is drawn on the plane, so it has to be put where the camera
+     is looking. It is measured against the viewport, which means it has to be
+     placed again whenever the viewport changes width — and it does, every time
+     a sheet opens: the column it sits in widens over half a second. */
+  function placeThinkingBlank(viewedCanvas) {
+    if (!viewedCanvas) return;
+    // it used to be placed against the camera, so it turned up wherever you had
+    // last panned, or where the last block was deleted. It belongs to the middle
+    // of the cloth, which is also where a canvas opens.
+    thinkingBlank.style.left = THINKING_WORLD_X + "px";
+    thinkingBlank.style.top = (THINKING_WORLD_Y - thinkingViewport.clientHeight * .1) + "px";
+  }
+
   function renderThinkingCanvas(canvas) {
+    syncThinkingAutoFolders(canvas);
     const viewedCanvas = currentThinkingCanvasNode() || canvas;
     syncThinkingCanvasHeader(canvas, viewedCanvas);
     thinkingBoard.classList.toggle("is-folder-view", viewedCanvas.type === "folder");
@@ -16507,8 +17088,7 @@
       }
     }
     thinkingBlank.hidden = visibleCount !== 0;
-    thinkingBlank.style.left = (viewedCanvas.cameraX + thinkingViewport.clientWidth / 2) + "px";
-    thinkingBlank.style.top = (viewedCanvas.cameraY + thinkingViewport.clientHeight * .38) + "px";
+    placeThinkingBlank(viewedCanvas);
     layoutVisibleThinkingStuckBlocks(canvas);
     syncThinkingLinkMode();
     syncThinkingSelection();
@@ -17260,23 +17840,92 @@
     }
   }
 
+  /* THE THREE STATES OPEN THE SAME WAY — by uncovering, never by stretching. A
+     folded tile becoming a card clips open from the square it was, which is the
+     same move the cloth makes when a canvas goes full screen: there it opens
+     from its middle, here from wherever the tile stood. Scaling instead would
+     have stretched the text inside for the length of the movement, and the
+     folded state was simply snapping to full size with nothing in between —
+     even though the 280ms fold lock had always implied an animation. */
+  function unfoldThinkingBlockFrom(card, from) {
+    if (!card || !from || !from.width) return;
+    if (window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    const to = card.getBoundingClientRect();
+    if (!to.width || !to.height) return;
+    const inset = [
+      Math.max(0, from.top - to.top),
+      Math.max(0, to.right - from.right),
+      Math.max(0, to.bottom - from.bottom),
+      Math.max(0, from.left - to.left)
+    ];
+    if (!inset[0] && !inset[1] && !inset[2] && !inset[3]) return;
+    card.style.transition = "none";
+    card.style.clipPath = "inset(" + inset.join("px ") + "px round var(--r-md))";
+    void card.offsetWidth;
+    card.style.transition = "clip-path .28s cubic-bezier(.25, .9, .3, 1)";
+    card.style.clipPath = "inset(0 round var(--r-md))";
+    setTimeout(function () {
+      card.style.transition = "";
+      card.style.clipPath = "";
+    }, 320);
+  }
+
+  /* Shutting is the mirror of opening, but it cannot be run the same way: the
+     card is thrown away and replaced by the tile, so there is nothing left to
+     animate afterwards. The clip closes down onto the square the tile will
+     occupy first, and the state flips once it has. The fold lock was already
+     280ms, which is the room this needs. */
+  const THINKING_FOLD_MS = 200;
+
+  function foldThinkingBlockTo(card, whenDone) {
+    if (!card || (window.matchMedia
+        && window.matchMedia("(prefers-reduced-motion: reduce)").matches)) return false;
+    const rect = card.getBoundingClientRect();
+    if (rect.width <= 112 && rect.height <= 112) return false;
+    const right = Math.max(0, rect.width - 112);
+    const bottom = Math.max(0, rect.height - 112);
+    card.style.transition = "none";
+    card.style.clipPath = "inset(0 round var(--r-md))";
+    void card.offsetWidth;
+    card.style.transition = "clip-path " + (THINKING_FOLD_MS / 1000)
+      + "s cubic-bezier(.4, 0, .6, 1)";
+    card.style.clipPath = "inset(0 " + right + "px " + bottom + "px 0 round var(--r-md))";
+    setTimeout(whenDone, THINKING_FOLD_MS);
+    return true;
+  }
+
   function toggleThinkingCanvas(block, canvas) {
     if (thinkingCanvasFoldLocks[block.id]) return;
     thinkingCanvasFoldLocks[block.id] = true;
     setTimeout(function () { delete thinkingCanvasFoldLocks[block.id]; }, 280);
-    block.collapsed = !block.collapsed;
-    if (!block.collapsed && block.type !== "folder") {
-      growThinkingCanvasForBlock(canvas, block, block.canvasWidth,
-        block.canvasHeight + THINKING_CANVAS_CHROME);
-    }
-    touchCanvas(canvas);
-    renderThinkingCanvas(canvas);
-    if (block.type === "folder" && block.parentId) {
-      requestAnimationFrame(function () {
-        const card = thinkingBlocks.querySelector('[data-block-id="' + block.id + '"]');
-        if (card) growThinkingCanvasForBlock(canvas, block, card.offsetWidth, card.offsetHeight);
-      });
-    }
+    const card = thinkingBlocks.querySelector('[data-block-id="' + block.id + '"]');
+    const fromRect = card ? card.getBoundingClientRect() : null;
+    const shutting = !block.collapsed;
+
+    const settle = function () {
+      block.collapsed = !block.collapsed;
+      // a shut folder is closed, not paused: it reopens at its own root
+      if (block.collapsed && block.type === "folder") delete thinkingFolderOpen[block.id];
+      if (!block.collapsed && block.type !== "folder") {
+        growThinkingCanvasForBlock(canvas, block, block.canvasWidth,
+          block.canvasHeight + THINKING_CANVAS_CHROME);
+      }
+      touchCanvas(canvas);
+      renderThinkingCanvas(canvas);
+      if (!block.collapsed) {
+        unfoldThinkingBlockFrom(
+          thinkingBlocks.querySelector('[data-block-id="' + block.id + '"]'), fromRect);
+      }
+      if (block.type === "folder" && block.parentId) {
+        requestAnimationFrame(function () {
+          const grown = thinkingBlocks.querySelector('[data-block-id="' + block.id + '"]');
+          if (grown) growThinkingCanvasForBlock(canvas, block, grown.offsetWidth, grown.offsetHeight);
+        });
+      }
+    };
+
+    if (shutting && foldThinkingBlockTo(card, settle)) return;
+    settle();
   }
 
   function armThinkingCanvasClicks(card, head, block, canvas) {
@@ -17302,9 +17951,7 @@
       if (!hitsCanvasSurface(event)) return;
       event.stopPropagation();
       clearTimeout(clickTimer);
-      const rect = card.getBoundingClientRect();
-      navigateThinkingCanvas(block.id, { kind: "open",
-        origin: { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 } });
+      navigateThinkingCanvas(block.id, true);
     });
   }
 
@@ -17421,8 +18068,14 @@
         }
       }
     };
-    collect(loop, null);
+    collect(loop, loop.type === "condition" ? loop.conditionHour || null : null);
     return actions;
+  }
+
+  function thinkingFlowDates(block) {
+    // a bare condition is not a schedule: it fires once, today, at its hour
+    if (block.type === "condition") return [todayKey()];
+    return thinkingLoopDates(block);
   }
 
   function thinkingLoopDates(loop) {
@@ -17477,7 +18130,7 @@
 
   function runThinkingLoop(canvas, loop) {
     const actions = thinkingLoopActions(canvas, loop);
-    const dates = thinkingLoopDates(loop);
+    const dates = thinkingFlowDates(loop);
     if (!dates.length) {
       showToast(translate("thinkingLoopNoDays"));
       return;
@@ -17499,7 +18152,8 @@
       if (action.type === "habit") {
         const habit = {
           id: thinkingId("g"), name: text, icon: "sun", completedDates: [],
-          plannerDays: loop.loopDays.slice(), plannerTime: conditionHour,
+          plannerDays: Array.isArray(loop.loopDays) ? loop.loopDays.slice() : [],
+          plannerTime: conditionHour,
           plannerLoopId: loop.id
         };
         state.habits.push(habit);
@@ -17531,27 +18185,35 @@
     showToast(translate("thinkingLoopCreated").replace("{count}", generated.length));
   }
 
+  /* The one control both flow blocks share: it makes what hangs under it, then
+     turns into the way to unmake it. A condition had no such button, so it was
+     only ever a modifier inside a loop and could not be acted on by itself. */
+  function createThinkingRunButton(canvas, block) {
+    const run = document.createElement("button");
+    run.type = "button";
+    run.className = "thinking-loop__run";
+    const hasRun = !!(block.loopRun && Array.isArray(block.loopRun.generated)
+      && block.loopRun.generated.length);
+    run.classList.toggle("is-rewind", hasRun);
+    run.setAttribute("aria-label", translate(hasRun
+      ? "thinkingLoopRewind" : "thinkingLoopRun"));
+    run.title = translate(hasRun ? "thinkingLoopRewind" : "thinkingLoopRun");
+    run.innerHTML = hasRun
+      ? '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 6v12M18 6l-7 6 7 6ZM11 6l-7 6 7 6Z"/></svg>'
+      : '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m8 5 11 7-11 7Z"/></svg>';
+    run.addEventListener("click", function () {
+      if (hasRun) rewindThinkingLoop(canvas, block);
+      else runThinkingLoop(canvas, block);
+    });
+    return run;
+  }
+
   function createThinkingFlowHead(canvas, block, head, del) {
     head.classList.add("thinking-flow__head");
     if (block.type === "loop") {
       if (!Array.isArray(block.loopDays)) block.loopDays = [1, 2, 3, 4, 5];
       if (block.loopWeeks == null) block.loopWeeks = 4;
-      const run = document.createElement("button");
-      run.type = "button";
-      run.className = "thinking-loop__run";
-      const hasRun = !!(block.loopRun && Array.isArray(block.loopRun.generated)
-        && block.loopRun.generated.length);
-      run.classList.toggle("is-rewind", hasRun);
-      run.setAttribute("aria-label", translate(hasRun
-        ? "thinkingLoopRewind" : "thinkingLoopRun"));
-      run.title = translate(hasRun ? "thinkingLoopRewind" : "thinkingLoopRun");
-      run.innerHTML = hasRun
-        ? '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 6v12M18 6l-7 6 7 6ZM11 6l-7 6 7 6Z"/></svg>'
-        : '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="m8 5 11 7-11 7Z"/></svg>';
-      run.addEventListener("click", function () {
-        if (hasRun) rewindThinkingLoop(canvas, block);
-        else runThinkingLoop(canvas, block);
-      });
+      const run = createThinkingRunButton(canvas, block);
       const keyword = document.createElement("code");
       keyword.className = "thinking-flow__keyword";
       keyword.textContent = translate("thinkingLoopFor");
@@ -17636,7 +18298,7 @@
       block.conditionHour = hour.value;
       touchCanvas(canvas);
     });
-    head.append(keyword, hour, del);
+    head.append(createThinkingRunButton(canvas, block), keyword, hour, del);
   }
 
   function createThinkingBlock(canvas, block, nested, insideCanvas, ownerCanvas) {
@@ -17716,7 +18378,13 @@
     const icon = document.createElement(organization ? "span" : "button");
     if (!organization) icon.type = "button";
     icon.className = "thinking-block__icon";
-    icon.innerHTML = thinkingIconSvg(thinkingTypeIcon(block.type));
+    // A canvas held by an objective or a task wears that object's own mark: it is
+    // not one surface among others, it is that thing's own place to think.
+    const sheetHost = block.type === "canvas" ? sheetCanvasHost(block.id) : null;
+    icon.innerHTML = sheetHost
+      ? (sheetHost.kind === "branch"
+        ? projectSvg(sheetHost.project.icon || "folder") : thinkingIconSvg("check"))
+      : thinkingIconSvg(thinkingTypeIcon(block.type));
     const family = organization ? null : thinkingTypeFamily(block.type);
     if (family) {
       icon.setAttribute("aria-label", translate("thinkingChangeType"));
@@ -17738,9 +18406,14 @@
     const type = document.createElement("span");
     type.className = "thinking-block__type";
     if (organization) type.classList.add("thinking-block__type--canvas-title");
-    type.textContent = organization
-      ? thinkingOrganizationTitle(block)
-      : translate(thinkingTypeKey(block.type));
+    if (block.type === "folder" && !block.collapsed) {
+      // the bar named the folder and the list named it again right underneath
+      type.appendChild(createThinkingFolderPath(canvas, block));
+    } else {
+      type.textContent = organization
+        ? thinkingOrganizationTitle(block)
+        : translate(thinkingTypeKey(block.type));
+    }
 
     const del = document.createElement("button");
     del.type = "button";
@@ -17941,17 +18614,19 @@
         toggleThinkingCanvas(block, canvas);
       });
 
-      const fullscreen = document.createElement("button");
-      fullscreen.type = "button";
-      fullscreen.className = "thinking-block__canvas-action";
-      fullscreen.setAttribute("aria-label", translate("thinkingOpenOrganization"));
-      fullscreen.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 4H4v5M15 4h5v5M9 20H4v-5M15 20h5v-5"/></svg>';
-      fullscreen.addEventListener("click", function () {
-        const rect = card.getBoundingClientRect();
-        navigateThinkingCanvas(block.id, { kind: "open",
-          origin: { x: rect.left + rect.width / 2, y: rect.top + rect.height / 2 } });
-      });
-      actions.append(fold, fullscreen);
+      actions.appendChild(fold);
+      // a folder is browsed where it stands: it has no fullscreen to open
+      if (block.type !== "folder") {
+        const fullscreen = document.createElement("button");
+        fullscreen.type = "button";
+        fullscreen.className = "thinking-block__canvas-action";
+        fullscreen.setAttribute("aria-label", translate("thinkingOpenOrganization"));
+        fullscreen.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 4H4v5M15 4h5v5M9 20H4v-5M15 20h5v-5"/></svg>';
+        fullscreen.addEventListener("click", function () {
+          navigateThinkingCanvas(block.id, true);
+        });
+        actions.appendChild(fullscreen);
+      }
     }
 
     /* An organization block has no footer strip: its count and its two canvas
@@ -18034,7 +18709,30 @@
   }
 
   function removeThinkingBlock(canvas, id) {
+    const block = findThinkingParent(canvas, id);
+    if (block && block.autoFolder && !cutAutoFolderSource(canvas, block)) return;
     removeThinkingBlocks(canvas, [id]);
+  }
+
+  /* An automatic folder is only the shelf its objects sit on, so throwing it out
+     has to throw them out too — that is a great deal to lose by mistake, hence
+     the question first. Returns false when the answer is no. */
+  function cutAutoFolderSource(canvas, folder) {
+    const kind = folder.autoFolder;
+    const warning = kind === "projects" ? "thinkingDropProjectsFolder"
+      : kind === "tasks" ? "thinkingDropTasksFolder" : "thinkingDropProjectFolder";
+    if (!window.confirm(translate(warning))) return false;
+    if (kind === "project") {
+      removeItem("projects", folder.projectId);
+      return true;
+    }
+    const list = kind === "projects" ? state.projects : state.tasks;
+    const ids = [];
+    for (let i = 0; i < list.length; i++) ids.push(list[i].id);
+    for (let i = 0; i < ids.length; i++) {
+      removeItem(kind === "projects" ? "projects" : "tasks", ids[i]);
+    }
+    return true;
   }
 
   function removeThinkingSelection(canvas) {
@@ -18045,6 +18743,14 @@
   }
 
   function removeThinkingBlocks(canvas, ids) {
+    const undo = cutThinkingBlocks(canvas, ids);
+    if (undo) showToast(translate("undoDeleted"), translate("undoBtn"), undo);
+  }
+
+  /* Take blocks out and hand back the single move that puts them all back. The
+     toast is the caller's business: deleting the object a canvas hangs on takes
+     that canvas with it, and that is one deletion to undo, not two. */
+  function cutThinkingBlocks(canvas, ids) {
     const roots = [];
     const removedIds = {};
     const removedBranches = {};
@@ -18058,7 +18764,8 @@
       removedIds[root.id] = true;
       if (isThinkingOrganization(root)) removedBranches[root.id] = true;
     }
-    if (!roots.length) return;
+    if (!roots.length) return null;
+    if (!canvas.links) canvas.links = [];
     const stickSnapshot = thinkingStickSnapshot(canvas);
     let foundChild = true;
     while (foundChild) {
@@ -18112,7 +18819,7 @@
     if (!selectionRemains) thinkingSelectionParentId = null;
     touchCanvas(canvas);
     renderThinkingCanvas(canvas);
-    showToast(translate("undoDeleted"), translate("undoBtn"), function () {
+    return function () {
       for (let i = 0; i < removedBlocks.length; i++) {
         const item = removedBlocks[i];
         canvas.blocks.splice(Math.min(item.index, canvas.blocks.length), 0, item.block);
@@ -18135,7 +18842,7 @@
       restoreThinkingStickSnapshot(canvas, stickSnapshot);
       touchCanvas(canvas);
       if (openCanvasId === canvas.id) renderThinkingCanvas(canvas);
-    });
+    };
   }
 
   function removeThinkingLink(canvas, id) {
@@ -18768,6 +19475,11 @@
     const blockHeight = type === "folder" || type === "logbook" ? 64
       : organization ? 330 + THINKING_CANVAS_CHROME
       : flow ? 210 : type === "question" ? 90 : type === "text" ? 56 : 64;
+    /* A container is born folded, as a 112 tile — so a drop has to be centred on
+       the tile it becomes, not on the width it has once opened. Centring a
+       650-wide canvas put it a quarter of a screen left of the pointer. */
+    const dropWidth = organization ? 112 : blockWidth;
+    const dropHeight = organization ? 112 : blockHeight;
     let x = Math.max(24, Math.min(THINKING_WORLD_WIDTH - 300,
       thinkingViewport.scrollLeft + thinkingViewport.clientWidth / 2 - blockWidth / 2
       + (step % 3) * 18));
@@ -18775,18 +19487,19 @@
       thinkingViewport.scrollTop + thinkingViewport.clientHeight / 2 - 80 + (step % 4) * 14));
     if (point) {
       const planeRect = thinkingPlane.getBoundingClientRect();
-      x = Math.max(18, Math.min(THINKING_WORLD_WIDTH - blockWidth - 18,
-        point.x - planeRect.left - blockWidth / 2));
+      x = Math.max(18, Math.min(THINKING_WORLD_WIDTH - dropWidth - 18,
+        point.x - planeRect.left - dropWidth / 2));
       y = Math.max(18, Math.min(THINKING_WORLD_HEIGHT - 220,
-        point.y - planeRect.top - 28));
+        point.y - planeRect.top - (organization ? dropHeight / 2 : 28)));
     }
     const block = {
       id: thinkingId("b"), type: type, text: "", x: x, y: y,
       parentId: viewedCanvas.id
     };
+    const sheetHost = sheetCanvasHost(viewedCanvas.id);
     if (THINKING_ACTION_TYPES.indexOf(type) !== -1) {
       linkThinkingBlockToNewAction(block, translate(type === "task" ? "newTaskName"
-        : thinkingTypeKey(type)));
+        : thinkingTypeKey(type)), sheetHost);
     }
     if (type === "loop") {
       block.blockWidth = 420;
@@ -18799,8 +19512,9 @@
     }
     if (organization) {
       block.title = "";
-      block.cameraX = THINKING_WORLD_X;
-      block.cameraY = THINKING_WORLD_Y;
+      const camera = thinkingHomeCamera();
+      block.cameraX = camera.x;
+      block.cameraY = camera.y;
       if (type === "folder" || type === "logbook") {
         block.blockWidth = 420;
       } else {
@@ -18823,10 +19537,10 @@
         + dropParentId + '"]');
       if (parentElement) {
         placeBlockInThinkingParent(canvas, block, parentElement, point, {
-          offsetX: blockWidth / 2,
-          offsetY: 28,
-          width: blockWidth,
-          height: blockHeight
+          offsetX: dropWidth / 2,
+          offsetY: organization ? dropHeight / 2 : 28,
+          width: dropWidth,
+          height: dropHeight
         });
       }
     }
@@ -18925,12 +19639,14 @@
         markThinkingCombineOptions(canvas, draft, false);
         thinkingBoard.classList.remove("is-tool-dragging");
         thinkingViewport.classList.remove("is-tool-drop");
-        if (!cancelled && pointInsideThinkingViewport(endEvent.clientX, endEvent.clientY)) {
+        const drop = !cancelled
+          && pointInsideThinkingViewport(endEvent.clientX, endEvent.clientY);
+        ghost.remove();   // before the block is made: it is the pointer's, not the board's
+        if (drop) {
           addThinkingBlock(type, { x: endEvent.clientX, y: endEvent.clientY },
             finalDropParentId, finalStickDrop ? finalStickDrop.target.id : null,
             finalStickDrop ? finalStickDrop.side : null);
         }
-        ghost.remove();
       };
       const up = function (upEvent) { finish(upEvent, false); };
       const cancel = function (cancelEvent) { finish(cancelEvent, true); };
@@ -19176,8 +19892,47 @@
     const canvasNode = currentThinkingCanvasNode();
     if (!canvas || !canvasNode || !thinkingCanvasParent(canvas, canvasNode)) return;
     canvasNode.title = thinkingName.value;
+    const owner = sheetCanvasOwner(canvasNode.id);
+    if (owner) {
+      owner.branch.name = thinkingName.value;
+      // the row's own head says the same name: written into it rather than
+      // redrawn, so the field being typed in is not replaced under the cursor
+      const shown = document.querySelector('#projectsList .item[data-id="'
+        + owner.project.id + '"] .psteps .pbranch__name');
+      if (shown) shown.value = owner.branch.name;
+    }
     touchCanvas(canvas);
   });
+  /* The mark in the board's own bar steps to the next constellation, and so to
+     its canvas. A course that has never been opened has none yet: it is made on
+     the way in rather than all of them up front. */
+  thinkingBranch.addEventListener("click", function () {
+    const owner = sheetCanvasOwner(currentThinkingCanvasNode()
+      && currentThinkingCanvasNode().id);
+    if (!owner) return;
+    const branches = projectBranches(owner.project);
+    if (branches.length < 2) return;
+    const at = branches.indexOf(owner.branch);
+    const next = branches[(at + 1) % branches.length];
+    owner.project.activeConstellationId = next.id;
+    if (!next.canvasId) next.canvasId = sheetCanvas(owner.project, next).id;
+    saveState();
+    showBranchCanvas(owner.project, next);
+  });
+
+  /* the same move the steps section offers, from the board: a new course, with
+     the canvas that goes with it, and one steps onto it straight away */
+  thinkingAddBranch.addEventListener("click", function () {
+    const owner = sheetCanvasOwner(currentThinkingCanvasNode()
+      && currentThinkingCanvasNode().id);
+    if (!owner) return;
+    const branch = addBranch(owner.project, "");
+    owner.project.activeConstellationId = branch.id;
+    branch.canvasId = sheetCanvas(owner.project, branch).id;
+    saveState();
+    showBranchCanvas(owner.project, branch);
+  });
+
   document.getElementById("thinkingBtn").addEventListener("click", openThinking);
   document.getElementById("thinkingBoardBack").addEventListener("click", closeCurrentThinkingCanvas);
   document.getElementById("thinkingExit").addEventListener("click", closeThinking);
@@ -19209,48 +19964,81 @@
     });
   }
 
-  function recenterThinkingWorld(canvas) {
-    const canvasNode = currentThinkingCanvasNode();
-    if (!canvasNode) return;
-    let dx = 0;
-    let dy = 0;
-    const edge = 1800;
-    if (thinkingViewport.scrollLeft < edge) dx = 6000;
-    else if (thinkingViewport.scrollLeft > THINKING_WORLD_WIDTH
-      - thinkingViewport.clientWidth - edge) dx = -6000;
-    if (thinkingViewport.scrollTop < edge) dy = 3500;
-    else if (thinkingViewport.scrollTop > THINKING_WORLD_HEIGHT
-      - thinkingViewport.clientHeight - edge) dy = -3500;
-    if (!dx && !dy) return;
+  /* Bring the view back over the work. The blocks carry absolute coordinates, so
+     the box they occupy is measured off what is on screen and the camera glides
+     to its middle; an empty canvas goes to the middle of the cloth instead.
 
-    thinkingRecentering = true;
-    for (let i = 0; i < canvas.blocks.length; i++) {
-      if (canvas.blocks[i].parentId !== canvasNode.id) continue;
-      canvas.blocks[i].x += dx;
-      canvas.blocks[i].y += dy;
-    }
-    if (canvasNode.type === "document" && canvasNode.sheetX != null) {
-      canvasNode.sheetX += dx;
-      canvasNode.sheetY += dy;
-    }
-    const nextX = thinkingViewport.scrollLeft + dx;
-    const nextY = thinkingViewport.scrollTop + dy;
-    canvasNode.cameraX = nextX;
-    canvasNode.cameraY = nextY;
-    renderThinkingCanvas(canvas);
-    thinkingViewport.scrollLeft = nextX;
-    thinkingViewport.scrollTop = nextY;
-    setTimeout(function () { thinkingRecentering = false; }, 0);
+     This was lost when the sliding world was cut out — the two functions sat
+     next to each other and the deletion took both. */
+  function recenterThinkingView() {
+    if (!currentCanvas() || !currentThinkingCanvasNode()) return;
+    // It used to aim at the middle of whatever the blocks happened to occupy,
+    // so one block off to a side dragged the whole view over there. Seeing
+    // everything at once is what stepping back is for; this goes home.
+    const home = thinkingHomeCamera();
+    thinkingViewport.scrollTo({ left: home.x, top: home.y, behavior: "smooth" });
   }
 
+  /* STEPPING BACK — the cloth is nine screens, so at a quarter scale a window
+     covers sixteen: the whole piece with ground to spare around it. Blocks stop
+     taking the pointer up here and a click is a place to go rather than a thing
+     to grab, which is what keeps every drag and drop calculation downstairs
+     working in plain unscaled coordinates. */
+  let thinkingOverview = false;
+  let thinkingOverviewZoom = 1;
+
+  /* The whole cloth, whole and centred: the scale is whatever makes it fit the
+     window it is shown in. A fixed quarter left it overflowing one way and a
+     strip of nothing the other, which is the bar that showed on the right. */
+  function setThinkingOverview(on) {
+    // the embedded board has no room to step back, and no need to
+    if (on && thinkingBoard.classList.contains("thinking-board--inline")) return;
+    thinkingOverview = !!on;
+    thinkingBoard.classList.toggle("is-overview", thinkingOverview);
+    thinkingZoomOut.setAttribute("aria-pressed", thinkingOverview ? "true" : "false");
+    if (thinkingOverview) {
+      thinkingOverviewZoom = Math.min(
+        thinkingViewport.clientWidth / THINKING_WORLD_WIDTH,
+        thinkingViewport.clientHeight / THINKING_WORLD_HEIGHT);
+      thinkingPlane.style.zoom = thinkingOverviewZoom;
+    } else {
+      thinkingPlane.style.zoom = "";
+      thinkingOverviewZoom = 1;
+      recenterThinkingView();
+    }
+  }
+
+  /* Coming back down: the spot clicked becomes the middle of the view. */
+  function leaveThinkingOverviewAt(event) {
+    const planeRect = thinkingPlane.getBoundingClientRect();
+    const x = (event.clientX - planeRect.left) / thinkingOverviewZoom;
+    const y = (event.clientY - planeRect.top) / thinkingOverviewZoom;
+    thinkingOverview = false;
+    thinkingBoard.classList.remove("is-overview");
+    thinkingPlane.style.zoom = "";
+    thinkingOverviewZoom = 1;
+    thinkingZoomOut.setAttribute("aria-pressed", "false");
+    thinkingViewport.scrollLeft = Math.max(0, Math.min(
+      THINKING_WORLD_WIDTH - thinkingViewport.clientWidth, x - thinkingViewport.clientWidth / 2));
+    thinkingViewport.scrollTop = Math.max(0, Math.min(
+      THINKING_WORLD_HEIGHT - thinkingViewport.clientHeight, y - thinkingViewport.clientHeight / 2));
+  }
+
+  thinkingZoomOut.addEventListener("click", function () {
+    setThinkingOverview(!thinkingOverview);
+  });
+  thinkingViewport.addEventListener("click", function (event) {
+    if (thinkingOverview) leaveThinkingOverviewAt(event);
+  });
+
+  document.getElementById("thinkingRecenter").addEventListener("click", recenterThinkingView);
+
   thinkingViewport.addEventListener("scroll", function () {
-    if (thinkingRecentering) return;
     const canvas = currentCanvas();
     const canvasNode = currentThinkingCanvasNode();
     if (!canvas || !canvasNode) return;
     canvasNode.cameraX = thinkingViewport.scrollLeft;
     canvasNode.cameraY = thinkingViewport.scrollTop;
-    recenterThinkingWorld(canvas);
     clearTimeout(thinkingCameraTimer);
     thinkingCameraTimer = setTimeout(saveState, 180);
   });

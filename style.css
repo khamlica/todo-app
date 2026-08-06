@@ -2358,7 +2358,8 @@ button.tgroup__head--day:hover {
 /* a task reads as its own rectangle, matching the "add a task" card below it */
 .item--task,
 .item--task:last-child {   /* beats the ruled-list rule that drops the last border */
-  padding: 14px 16px;
+  --task-pad: 16px;
+  padding: 14px var(--task-pad);
   border: 1px solid var(--item-border);
   border-radius: var(--r-md);
   background: var(--surface);
@@ -2493,6 +2494,11 @@ button.tgroup__head--day:hover {
   box-shadow: inset 0 1px 0 color-mix(in srgb, var(--c-surface) 24%, transparent);
 }
 .item--project.is-inline-open > .project-tab > .row-acts { display: none; }
+/* The marks step aside on hover to let those actions through. Here there are
+   none, so they have nothing to make room for — and fading them took the
+   importance bars away exactly as the pointer reached them. */
+.item--project.is-inline-open > .project-tab:hover > .item__meta,
+.item--project.is-inline-open > .project-tab:focus-within > .item__meta { opacity: 1; }
 
 /* INLINE OBJECTIVE — a compact working surface inside the dashboard row. */
 .goal-inline {
@@ -2563,20 +2569,20 @@ button.tgroup__head--day:hover {
   min-width: 0;
   transition: grid-template-columns .52s cubic-bezier(.2, .8, .25, 1);
 }
-.goal-inline__workspace.is-journal-open {
+.goal-inline__workspace.is-sheet-open {
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
 }
 .goal-inline__workspace > .psteps {
   padding: 22px;
   transition: padding-right .52s cubic-bezier(.2, .8, .25, 1);
 }
-.goal-inline__workspace.is-journal-open > .psteps {
+.goal-inline__workspace.is-sheet-open > .psteps {
   padding-right: clamp(24px, 3vw, 42px);
 }
 .goal-inline__section { min-width: 0; }
 .goal-inline__section > .detail__label { display: block; margin-bottom: 12px; }
-.goal-inline__journal-section[hidden] { display: none; }
-.goal-inline__journal-section {
+.goal-inline__sheet-section[hidden] { display: none; }
+.goal-inline__sheet-section {
   padding: 22px 22px 24px clamp(24px, 3vw, 42px);
   border: 0;
   border-left: 1px solid color-mix(in srgb, var(--c-line) 34%, transparent);
@@ -2584,18 +2590,18 @@ button.tgroup__head--day:hover {
   background: color-mix(in oklab, var(--c-bg) 92%, var(--c-muted) 8%);
   box-shadow: inset 1px 0 0 color-mix(in srgb, var(--c-surface) 7%, transparent);
 }
-.goal-inline__journal-section > .detail__label {
+.goal-inline__sheet-section > .detail__label {
   color: color-mix(in srgb, var(--text) 62%, var(--muted));
 }
-.goal-inline__journal-add {
+.sheet-journal .sub-add {
   width: 100%;
   margin-bottom: 8px;
 }
-.goal-inline__journal .detail__empty { margin: 2px 0 0; }
-.goal-inline__journal .jrn__row {
+.goal-inline__sheet-section .detail__empty { margin: 2px 0 0; }
+.goal-inline__sheet-section .jrn__row {
   border-bottom-color: color-mix(in srgb, var(--c-line) 30%, transparent);
 }
-.goal-inline__journal .jrn__date { color: color-mix(in srgb, var(--muted) 86%, var(--text)); }
+.goal-inline__sheet-section .jrn__date { color: color-mix(in srgb, var(--muted) 86%, var(--text)); }
 
 /* In the objective, adding is a line in the flow rather than an opaque card.
    Steps and journal deliberately share the same quiet input language. */
@@ -2665,7 +2671,7 @@ button.tgroup__head--day:hover {
 .project-list-pager__button:disabled { cursor: default; opacity: .14; background: transparent; }
 
 @media (max-width: 999px) {
-  .goal-inline__workspace.is-journal-open {
+  .goal-inline__workspace.is-sheet-open {
     grid-template-columns: minmax(0, 1fr);
   }
 }
@@ -2673,10 +2679,13 @@ button.tgroup__head--day:hover {
 @media (max-width: 700px) {
   .item--project.is-inline-open > .project-tab { padding: 15px 16px; }
   .goal-inline__journal-toggle span { display: none; }
+  /* the row has no width to spare: the marks tighten rather than wrap */
+  .item--project .project-tab > .sheets { gap: 2px; }
+  .item--project .project-tab > .sheets .sheets__tab { width: 27px; }
   .goal-inline { padding: 0; }
   .goal-inline__workspace { grid-template-columns: minmax(0, 1fr); gap: 0; }
   .goal-inline__workspace > .psteps { padding: 19px 16px 21px; }
-  .goal-inline__journal-section {
+  .goal-inline__sheet-section {
     padding: 19px 16px 21px;
     border-left: 0;
     border-top: 1px solid color-mix(in srgb, var(--c-line) 34%, transparent);
@@ -2684,117 +2693,8 @@ button.tgroup__head--day:hover {
   }
 }
 
-/* HORIZONTAL MILESTONES — titles live in a small card below their point. The
-   card appears on hover/focus and remains there while that milestone is open. */
-.goal-roadmap {
-  width: 100%;
-  overflow-x: auto;
-  overflow-y: hidden;
-  overscroll-behavior-inline: contain;
-  scrollbar-width: thin;
-  /* The dot grows around its centre on hover. Keep a little air above it so its
-     halo and upper edge are not clipped by the horizontal scroll viewport. */
-  padding-top: 10px;
-  padding-bottom: 2px;
-}
-.goal-roadmap__canvas {
-  position: relative;
-  width: 100%;
-  height: 178px;
-}
-.goal-roadmap__track {
-  position: absolute;
-  top: 15px;
-  left: var(--goal-edge);
-  right: var(--goal-edge);
-  height: 2px;
-  border-radius: 999px;
-  background: color-mix(in srgb, var(--text) 15%, transparent);
-  overflow: hidden;
-}
-.goal-roadmap__fill {
-  display: block;
-  height: 100%;
-  border-radius: inherit;
-  background: linear-gradient(90deg, var(--imp-1), var(--imp-3), var(--imp-5));
-  transition: width .42s cubic-bezier(.22, .8, .25, 1);
-}
-.goal-roadmap__nodes {
-  display: grid;
-  grid-template-columns: repeat(var(--goal-nodes), minmax(0, 1fr));
-  height: 100%;
-}
-.goal-ms {
-  position: relative;
-  z-index: 1;
-  display: flex;
-  justify-content: center;
-  align-items: flex-start;
-  min-width: 0;
-}
-.goal-ms:hover,
-.goal-ms:focus-within,
-.goal-ms.is-open { z-index: 4; }
-.goal-ms__dot {
-  width: 30px;
-  height: 30px;
-  padding: 0;
-  border: 2px solid var(--goal-color);
-  border-radius: 50%;
-  background: var(--surface-solid);
-  color: var(--goal-color);
-  font: inherit;
-  font-size: 1rem;
-  cursor: pointer;
-  box-shadow: 0 0 0 5px color-mix(in srgb, var(--c-bg) 76%, transparent);
-  transition: transform .18s ease, background .18s ease, box-shadow .18s ease;
-}
-.goal-ms__dot:hover,
-.goal-ms__dot:focus-visible {
-  outline: none;
-  transform: scale(1.12);
-  box-shadow: 0 0 0 5px color-mix(in srgb, var(--goal-color) 12%, var(--c-bg));
-}
-.goal-ms__dot--milestone,
-.goal-ms__dot--step {
-  width: 24px;
-  height: 24px;
-  margin-top: 3px;
-  border-width: 1.5px;
-  background: color-mix(in srgb, var(--surface-solid) 92%, var(--goal-color) 8%);
-  box-shadow: 0 0 0 4px color-mix(in srgb, var(--c-bg) 78%, transparent);
-  cursor: grab;
-  touch-action: none;
-  display: grid;
-  place-items: center;
-}
-.goal-ms__dot--milestone::after,
-.goal-ms__dot--step::after {
-  content: "";
-  width: 5px;
-  height: 5px;
-  border-radius: 50%;
-  background: var(--goal-color);
-  transition: transform .18s ease, background .18s ease;
-}
-.goal-ms__dot--milestone:hover,
-.goal-ms__dot--milestone:focus-visible,
-.goal-ms__dot--step:hover,
-.goal-ms__dot--step:focus-visible {
-  box-shadow: 0 0 0 5px color-mix(in srgb, var(--goal-color) 11%, var(--c-bg));
-}
-.goal-ms.is-done .goal-ms__dot--milestone,
-.goal-ms.is-done .goal-ms__dot--step { background: var(--goal-color); }
-.goal-ms.is-done .goal-ms__dot--milestone::after,
-.goal-ms.is-done .goal-ms__dot--step::after { background: var(--surface-solid); }
-.goal-ms.is-dragging .goal-ms__dot--milestone,
-.goal-ms.is-dragging .goal-ms__dot--step { opacity: .28; cursor: grabbing; }
-.goal-ms.is-dragging .goal-ms__panel {
-  opacity: 0;
-  visibility: hidden;
-  pointer-events: none;
-}
-.milestone-drag-ghost,
+/* A step carried out of its list: the ghost follows the pointer, and the places
+   that will take it light up. */
 .step-drag-ghost {
   position: fixed;
   z-index: 1000;
@@ -2819,7 +2719,6 @@ button.tgroup__head--day:hover {
   color: var(--danger);
 }
 .step-drag-ghost.is-delete-target .step-drag-ghost__dot { background: var(--danger); }
-.milestone-drag-ghost__dot,
 .step-drag-ghost__dot {
   flex: 0 0 auto;
   width: 22px;
@@ -2830,7 +2729,6 @@ button.tgroup__head--day:hover {
     var(--goal-color) 0 2.5px,
     color-mix(in srgb, var(--surface-solid) 92%, var(--goal-color) 8%) 3px);
 }
-.milestone-drag-ghost > span:last-child,
 .step-drag-ghost > span:last-child {
   overflow: hidden;
   text-overflow: ellipsis;
@@ -2895,130 +2793,6 @@ button.tgroup__head--day:hover {
   }
   .step-drop-guide__icon,
   .step-drop-guide__icon svg { width: 16px; height: 16px; }
-}
-.goal-ms.is-done .goal-ms__dot,
-.goal-ms.is-start .goal-ms__dot {
-  background: var(--goal-color);
-}
-.goal-ms.is-start .goal-ms__dot { cursor: default; }
-.goal-ms--add { --goal-color: var(--muted); }
-.goal-ms__dot--add {
-  border-style: dashed;
-  display: grid;
-  place-items: center;
-  line-height: 1;
-}
-.goal-ms__panel {
-  position: absolute;
-  top: 42px;
-  left: 50%;
-  width: 230px;
-  max-width: calc(100vw - 48px);
-  min-height: 48px;
-  padding: 10px 12px;
-  border: 1px solid color-mix(in srgb, var(--goal-color, var(--accent)) 32%, var(--border));
-  border-radius: 13px;
-  background: color-mix(in srgb, var(--surface-solid) 94%, transparent);
-  box-shadow: var(--shadow);
-  backdrop-filter: blur(12px);
-  opacity: 0;
-  visibility: hidden;
-  pointer-events: none;
-  transform: translate(-50%, 6px);
-  transition: opacity .16s ease, visibility .16s ease, transform .2s ease;
-}
-.goal-ms:hover .goal-ms__panel,
-.goal-ms:focus-within .goal-ms__panel,
-.goal-ms.is-open .goal-ms__panel {
-  opacity: 1;
-  visibility: visible;
-  pointer-events: auto;
-  transform: translate(-50%, 0);
-}
-.goal-ms__title {
-  display: block;
-  color: var(--text);
-  font-size: .86rem;
-  font-weight: 650;
-  line-height: 1.25;
-  overflow-wrap: anywhere;
-}
-.goal-ms__panel .tl-date { display: block; margin-top: 4px; }
-.goal-ms__editor { display: flex; flex-direction: column; gap: 9px; }
-.goal-ms__editor-top { display: flex; align-items: center; gap: 8px; }
-.goal-ms__check {
-  flex: 0 0 auto;
-  width: 20px;
-  height: 20px;
-  padding: 0;
-  border: 1.5px solid var(--goal-color, var(--accent));
-  border-radius: 50%;
-  background: none;
-  color: var(--surface-solid);
-  cursor: pointer;
-  display: grid;
-  place-items: center;
-}
-.goal-ms__check.is-on { background: var(--goal-color, var(--accent)); }
-.goal-ms__check svg { width: 13px; height: 13px; }
-.goal-ms__name {
-  flex: 1 1 auto;
-  min-width: 0;
-  border: 0;
-  border-bottom: 1px solid var(--border);
-  background: none;
-  color: var(--text);
-  font: inherit;
-  font-size: .86rem;
-  font-weight: 600;
-  padding: 3px 1px;
-}
-.goal-ms__name:focus { outline: none; border-bottom-color: var(--accent); }
-.goal-ms__actions { display: flex; align-items: center; gap: 6px; }
-.goal-ms__action {
-  min-width: 0;
-  min-height: 27px;
-  padding: 5px 8px;
-  border: 1px solid var(--border);
-  border-radius: 9px;
-  background: var(--input-bg);
-  color: var(--muted);
-  font: inherit;
-  font-size: .7rem;
-  cursor: pointer;
-}
-.goal-ms__action:hover { color: var(--accent); border-color: var(--accent); }
-.goal-ms__action--icon {
-  flex: 0 0 auto;
-  width: 28px;
-  padding: 5px;
-  display: grid;
-  place-items: center;
-}
-.goal-ms__action--icon svg { width: 14px; height: 14px; }
-.goal-ms__action--del:hover { color: var(--danger); border-color: var(--danger); }
-.goal-ms__add-form { display: flex; gap: 7px; }
-.goal-ms__add-form input {
-  min-width: 0;
-  flex: 1;
-  border: 0;
-  border-bottom: 1px solid var(--border);
-  background: none;
-  color: var(--text);
-  font: inherit;
-  font-size: .82rem;
-  outline: none;
-}
-.goal-ms__add-form input:focus { border-bottom-color: var(--accent); }
-.goal-ms__add-form button {
-  width: 28px;
-  height: 28px;
-  padding: 0;
-  border: 0;
-  border-radius: 8px;
-  background: var(--accent-soft);
-  color: var(--accent);
-  cursor: pointer;
 }
 .step.is-done .item__check {
   background: var(--accent);
@@ -3383,13 +3157,13 @@ button.tgroup__head--day:hover {
   }
   /* Opening a task note mirrors the objective: the active task owns two visual
      columns while planning remains available in the third. */
-  .pages__track.is-task-note-open {
+  .pages__track.is-task-sheet-open {
     max-width: 1680px;
     grid-template-columns: minmax(0, 2fr) minmax(300px, 1fr);
   }
   /* Both optional sheets open: each parent column receives the same width, and
      each of them divides again into two — four readable columns in one row. */
-  .pages__track.is-goal-open.is-task-note-open {
+  .pages__track.is-goal-open.is-task-sheet-open {
     max-width: 1920px;
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
   }
@@ -4195,16 +3969,47 @@ body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: non
   border-radius: 2px;
   background: var(--border);
 }
-.imp__bar.is-on:nth-child(1) { background: var(--imp-1); }
-.imp__bar.is-on:nth-child(2) { background: var(--imp-2); }
-.imp__bar.is-on:nth-child(3) { background: var(--imp-3); }
-.imp__bar.is-on:nth-child(4) { background: var(--imp-4); }
-.imp__bar.is-on:nth-child(5) { background: var(--imp-5); }
+/* each bar carries its own stop of the ramp, so three bars and five bars can
+   both run from --imp-1 to --imp-5 instead of always starting at the cold end */
+.imp__bar.is-on { background: var(--imp-stop, var(--imp-3)); }
 .imp--edit .imp__bar { cursor: pointer; transition: background .15s ease, transform .15s ease; }
 .imp--edit .imp__bar:hover { transform: scaleY(1.15); }
 /* bigger, easy-to-tap bars when editable (add form + detail view) */
 .imp--edit { gap: 6px; height: 34px; }
 .imp--edit .imp__bar { width: 14px; height: 30px; }
+/* The compact editable set, for a line that already carries other controls. The
+   bar keeps its thin look while the button around it stays thumb-sized: the
+   padding is hit area, and the stripe itself is drawn inside it. */
+.imp--sm { gap: 1px; height: 24px; }
+.imp--sm .imp__bar {
+  width: 14px;
+  height: 24px;
+  padding: 4px;
+  background-color: transparent;
+}
+.imp--sm .imp__bar::after {
+  content: "";
+  display: block;
+  height: 100%;
+  border-radius: 2px;
+  background: var(--border);
+  transition: background .15s ease, transform .15s ease;
+}
+.imp--sm .imp__bar.is-on::after { background: var(--imp-stop, var(--imp-3)); }
+.imp--sm .imp__bar:hover::after { transform: scaleY(1.12); }
+.imp--sm .imp__bar:hover { transform: none; }
+
+/* the weight on a row: it travels with the other marks, at the end of the line */
+.item__imp { margin-left: 2px; }
+/* in the identity line of an open task, beside the note toggle */
+.detail__imp { display: inline-flex; flex: 0 0 auto; }
+.detail__imp[hidden], .detail__imp:empty { display: none; }
+/* On a step the bars stay quiet until they carry something, the same way the
+   date button beside them does: a checklist reads as text, not as controls. */
+.step__imp { flex: 0 0 auto; opacity: .5; transition: opacity .2s ease; }
+.step__imp.is-set,
+.step:hover .step__imp,
+.step__imp:focus-within { opacity: 1; }
 
 /* palette picker */
 .palettes { display: flex; gap: 8px; }
@@ -4260,14 +4065,6 @@ body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: non
 .zone__action:hover { background: var(--accent-soft); color: var(--accent); }
 .zone__action svg { width: 17px; height: 17px; }
 
-.item__pin {
-  flex: 0 0 auto;
-  width: 18px; height: 18px;
-  color: var(--accent);
-  display: grid;
-  place-items: center;
-}
-.item__pin svg { width: 17px; height: 17px; }
 .item__edit {
   flex: 0 0 auto;
   width: 24px; height: 24px;
@@ -4299,7 +4096,7 @@ body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: non
 .habit__edit svg { width: 15px; height: 15px; }
 
 /* edit dialog */
-.field[hidden], .edit-pin[hidden] { display: none; }
+.field[hidden] { display: none; }
 .edit-prop {
   width: 100%;
   display: flex;
@@ -4319,24 +4116,6 @@ body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: non
 .edit-prop__ico { flex: 0 0 auto; display: flex; color: var(--muted); }
 .edit-prop__ico svg { width: 18px; height: 18px; }
 .edit-prop__text { flex: 1; }
-.edit-pin {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  width: 100%;
-  border: 1px solid var(--border);
-  background: var(--input-bg);
-  border-radius: 12px;
-  padding: 12px 14px;
-  color: var(--muted);
-  font-size: .95rem;
-  cursor: pointer;
-  margin-bottom: 20px;
-  transition: border-color .2s ease, color .2s ease, background .2s ease;
-}
-.edit-pin.is-on { border-color: var(--accent); color: var(--accent); background: var(--accent-soft); }
-.edit-pin__flower { width: 20px; height: 20px; display: grid; place-items: center; }
-.edit-pin__flower svg { width: 20px; height: 20px; }
 
 /* THE EDITOR — one card, moved into whichever object is unfolded. #detail-park
    is only where it waits when nothing is open. */
@@ -4378,8 +4157,6 @@ body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: non
 .item__slot .detail__date svg,
 .item__slot .detail__pin svg,
 .item__slot .detail__back svg { width: 17px; height: 17px; }
-.detail__imp { display: inline-flex; flex: 0 0 auto; }
-.detail__imp:empty { display: none; }
 .detail__back[hidden] { display: none; }
 
 .unfold__inner .detail__body { padding: 12px 0 6px; }
@@ -4617,7 +4394,7 @@ body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: non
   min-width: 0;
   transition: grid-template-columns .52s cubic-bezier(.2, .8, .25, 1);
 }
-.task-inline__workspace.is-note-open {
+.task-inline__workspace.is-sheet-open {
   grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
 }
 .task-inline__main {
@@ -4626,7 +4403,7 @@ body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: non
   transition: padding-right .52s cubic-bezier(.2, .8, .25, 1);
 }
 .task-inline__main[hidden] { display: none; }
-.task-inline__workspace.is-note-open > .task-inline__main {
+.task-inline__workspace.is-sheet-open > .task-inline__main {
   padding-right: clamp(24px, 3vw, 42px);
 }
 .task-inline__note-section[hidden] { display: none; }
@@ -4697,9 +4474,14 @@ body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: non
   from { opacity: 0; transform: translateX(-14px); clip-path: inset(0 0 0 12%); }
   to { opacity: 1; transform: translateX(0); clip-path: inset(0); }
 }
-.goal-inline__workspace.is-journal-open > .goal-inline__journal-section,
-.task-inline__workspace.is-note-open > .task-inline__note-section {
+.goal-inline__workspace.is-sheet-open > .goal-inline__sheet-section,
+.task-inline__workspace.is-sheet-open > .task-inline__note-section {
   animation: optionalColumnReveal .52s cubic-bezier(.2, .8, .25, 1) both;
+}
+/* a canvas is not revealed sideways: it is woven, see THE LOOM */
+.goal-inline__workspace.is-sheet-open > .goal-inline__sheet-section[data-sheet="canvas"],
+.task-inline__workspace.is-sheet-open > .task-inline__note-section[data-sheet="canvas"] {
+  animation: none;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -4707,13 +4489,13 @@ body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: non
   .task-inline__workspace,
   .goal-inline__workspace > .psteps,
   .task-inline__main { transition: none; }
-  .goal-inline__workspace.is-journal-open > .goal-inline__journal-section,
-  .task-inline__workspace.is-note-open > .task-inline__note-section { animation: none; }
+  .goal-inline__workspace.is-sheet-open > .goal-inline__sheet-section,
+  .task-inline__workspace.is-sheet-open > .task-inline__note-section { animation: none; }
 }
 
 @media (max-width: 999px) {
-  .task-inline__workspace.is-note-open { grid-template-columns: minmax(0, 1fr); }
-  .task-inline__workspace.is-note-open > .task-inline__main { padding-right: 0; }
+  .task-inline__workspace.is-sheet-open { grid-template-columns: minmax(0, 1fr); }
+  .task-inline__workspace.is-sheet-open > .task-inline__main { padding-right: 0; }
   .task-inline__workspace:not(.is-event) > .task-inline__note-section {
     padding: 19px 0 8px;
     border-left: 0;
@@ -4730,13 +4512,6 @@ body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: non
 
 /* row indicators */
 .item--open { cursor: pointer; }
-.item__note {
-  flex: 0 0 auto;
-  width: 16px; height: 16px;
-  color: var(--muted);
-  display: grid; place-items: center;
-}
-.item__note svg { width: 15px; height: 15px; }
 .item__sub {
   flex: 0 0 auto;
   font-size: .7rem;
@@ -5322,6 +5097,7 @@ body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: non
    drawing's own 24-unit coordinates, so they are read straight off the paths. */
 .thinking-tool [class^="ti-"], .thinking-tool [class*=" ti-"],
 .thinking-block [class^="ti-"], .thinking-block [class*=" ti-"],
+.sheets__tab [class^="ti-"], .sheets__tab [class*=" ti-"],
 .thinking-folder__add-choice [class*="ti-"] { transform-box: view-box; }
 
 /* PROBLEM — the arrow comes in from outside and finds the middle; the rings
@@ -5390,6 +5166,7 @@ body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: non
 /* QUESTION — the needle casts about, overshoots the turn and settles back */
 .ti-needle { transform-origin: 12px 12px; }
 .thinking-tool--question:hover .ti-needle,
+.sheets__tab:hover .ti-needle,
 .thinking-block--question .thinking-block__icon:hover .ti-needle { animation: ti-seek .95s cubic-bezier(.25, 0, .25, 1); }
 @keyframes ti-seek {
   0%   { rotate: 0deg; }
@@ -5454,6 +5231,7 @@ body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: non
 .thinking-tool--note:hover .ti-sheet,
 .thinking-block--note .thinking-block__icon:hover .ti-sheet,
 .thinking-tool--journal:hover .ti-sheet,
+.sheets__tab:hover .ti-sheet,
 .thinking-block--journal .thinking-block__icon:hover .ti-sheet { animation: ti-turn-page .95s cubic-bezier(.45, 0, .3, 1); }
 @keyframes ti-turn-page {
   0%   { scale: 1 1; opacity: 1; }
@@ -5495,6 +5273,26 @@ body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: non
   70%  { translate: -9px -16px; scale: 1.35; }
   94%  { translate: 0 0; scale: .9; }
   100% { translate: 0 0; scale: 1; }
+}
+
+/* WEB — a canvas is thoughts and the ties between them, so that is what it
+   does: the first tie draws itself to the second thought, which lands on its
+   end, then the second tie to the third. Nothing is ever alone on a canvas. */
+.ti-web-link { stroke-dasharray: 1; }
+.ti-web-node--2 { transform-origin: 18px 6px; }
+.ti-web-node--3 { transform-origin: 16px 17px; }
+.sheets__tab:hover .ti-web-link--1 { animation: ti-web-draw .42s ease-out; }
+.sheets__tab:hover .ti-web-node--2 { animation: ti-web-land .44s cubic-bezier(.3, 1.5, .5, 1) .3s backwards; }
+.sheets__tab:hover .ti-web-link--2 { animation: ti-web-draw .42s ease-out .46s backwards; }
+.sheets__tab:hover .ti-web-node--3 { animation: ti-web-land .44s cubic-bezier(.3, 1.5, .5, 1) .76s backwards; }
+@keyframes ti-web-draw {
+  from { stroke-dashoffset: 1; }
+  to   { stroke-dashoffset: 0; }
+}
+@keyframes ti-web-land {
+  0%   { scale: 0; opacity: 0; }
+  70%  { scale: 1.2; opacity: 1; }
+  100% { scale: 1; opacity: 1; }
 }
 
 /* FOLDER — the front leans out towards you. Squashing it onto its own bottom
@@ -5583,7 +5381,109 @@ body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: non
    catalogIconSvg drops the svg in as the whole content of whatever square it
    lands in: a row, the picker grid, a detail button, a ring. That one selector
    shape covers every place a catalog icon appears without touching a call site. */
-.cat-ico [class*="ci-"], .cat-ico [class*="ti-"] { transform-box: view-box; }
+.cat-ico [class*="ci-"], .cat-ico [class*="ti-"],
+.cat-ico [class*="ico-"] { transform-box: view-box; }
+/* the theme brush, lent to the objectives: the same sweep and the same stroke */
+:hover > .cat-ico .ico-brush { animation: ico-sweep 1.15s ease-in-out; }
+:hover > .cat-ico .ico-stroke { animation: ico-paint 1.15s ease-out; }
+
+/* SHAPE — the whole figure leans over its feet, head and all, so the stretch is
+   read where it travels furthest. Then it runs: every limb swings from its own
+   joint, and the two pairs are in opposite phase — arms against legs, which is
+   the only thing that makes a stride look like a stride. */
+.ci-runner { transform-origin: 12px 21px; }
+.ci-limb { transform-origin: 12px 8.7px; }
+.ci-runner > .ci-limb:nth-of-type(4),
+.ci-runner > .ci-limb:nth-of-type(5) { transform-origin: 12px 13.2px; }
+:hover > .cat-ico .ci-runner { animation: ci-bend 1.6s ease-in-out; }
+:hover > .cat-ico .ci-limb--a { animation: ci-swing-a 1.6s ease-in-out; }
+:hover > .cat-ico .ci-limb--b { animation: ci-swing-b 1.6s ease-in-out; }
+@keyframes ci-bend {
+  0%   { rotate: 0deg; translate: 0 0; }
+  17%  { rotate: -13deg; }
+  39%  { rotate: 13deg; }
+  56%  { rotate: 0deg; translate: 0 0; }
+  67%  { translate: 0 -1.4px; }
+  78%  { translate: 0 0; }
+  89%  { translate: 0 -1.4px; }
+  100% { rotate: 0deg; translate: 0 0; }
+}
+@keyframes ci-swing-a {
+  0%, 56% { rotate: 0deg; }
+  67%     { rotate: 26deg; }
+  83%     { rotate: -22deg; }
+  100%    { rotate: 0deg; }
+}
+@keyframes ci-swing-b {
+  0%, 56% { rotate: 0deg; }
+  67%     { rotate: -24deg; }
+  83%     { rotate: 22deg; }
+  100%    { rotate: 0deg; }
+}
+
+/* DISH — the chopsticks draw one strand up out of the bowl, and let it back */
+.ci-sticks { transform-origin: 12px 11.4px; }
+.ci-noodle { transform-origin: 11.2px 10.9px; }
+:hover > .cat-ico .ci-sticks { animation: ci-lift-strand 1.2s ease-in-out; }
+:hover > .cat-ico .ci-noodle { animation: ci-strand 1.2s ease-in-out; }
+@keyframes ci-lift-strand {
+  0%   { translate: 0 0; rotate: 0deg; }
+  38%  { translate: .8px -2.8px; rotate: -5deg; }
+  62%  { translate: .9px -3.3px; rotate: -3.5deg; }
+  100% { translate: 0 0; rotate: 0deg; }
+}
+@keyframes ci-strand {
+  0%   { translate: 0 0; scale: 1 1; }
+  38%  { translate: .8px -2.8px; scale: 1 1.5; }
+  62%  { translate: .9px -3.3px; scale: 1 1.7; }
+  100% { translate: 0 0; scale: 1 1; }
+}
+
+/* FIRE — it burns from its foot: the body wavers, the heart beats behind it */
+.ci-fire, .ci-ember { transform-origin: 12px 21.5px; }
+:hover > .cat-ico .ci-fire { animation: ci-burn 1.15s ease-in-out; }
+:hover > .cat-ico .ci-ember { animation: ci-burn-heart 1.15s ease-in-out .08s; }
+@keyframes ci-burn {
+  0%, 100% { scale: 1 1; translate: 0 0; }
+  22%      { scale: .93 1.09; translate: -.6px 0; }
+  50%      { scale: 1.07 .94; translate: .5px 0; }
+  76%      { scale: .97 1.05; translate: -.3px 0; }
+}
+@keyframes ci-burn-heart {
+  0%, 100% { scale: 1 1; opacity: .8; }
+  40%      { scale: .84 1.16; opacity: 1; }
+  72%      { scale: 1.12 .9; opacity: .9; }
+}
+
+/* FLOWER — a bud that opens. Every petal is the same shape turned about the
+   centre, so one gesture unfurls six times, each a beat behind the last: folded
+   in and twisted at the start, overshooting a little as it opens, then settling.
+   The heart sets itself once there is a flower to sit in. The turn that places a
+   petal and the turn that opens it share that centre, so they compose instead of
+   fighting. */
+.ci-bloom, .ci-heart { transform-origin: 12px 12px; }
+:hover > .cat-ico .ci-bloom {
+  animation: ci-unfurl .95s cubic-bezier(.22, 1.35, .3, 1) backwards;
+}
+:hover > .cat-ico .ci-bloom--2 { animation-delay: .07s; }
+:hover > .cat-ico .ci-bloom--3 { animation-delay: .14s; }
+:hover > .cat-ico .ci-bloom--4 { animation-delay: .21s; }
+:hover > .cat-ico .ci-bloom--5 { animation-delay: .28s; }
+:hover > .cat-ico .ci-bloom--6 { animation-delay: .35s; }
+:hover > .cat-ico .ci-heart {
+  animation: ci-heart-set .7s cubic-bezier(.2, 1.6, .3, 1) .42s backwards;
+}
+@keyframes ci-unfurl {
+  0%   { scale: .1; rotate: -40deg; opacity: 0; }
+  40%  { opacity: 1; }
+  74%  { scale: 1.14; rotate: 6deg; }
+  100% { scale: 1; rotate: 0deg; opacity: 1; }
+}
+@keyframes ci-heart-set {
+  0%   { scale: 0; opacity: 0; }
+  60%  { scale: 1.3; opacity: 1; }
+  100% { scale: 1; opacity: 1; }
+}
 
 /* WATER — a drop falls and flattens on landing */
 /* It comes in small and grows into place rather than stretching tall: stretched
@@ -5838,13 +5738,16 @@ body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: non
 }
 
 /* HOME — the door swings open on its hinge and closes again */
-.ci-door { transform-origin: 9.5px 21px; }
-:hover > .cat-ico .ci-door { animation: ci-door-swing 1s cubic-bezier(.4, 0, .3, 1); }
-@keyframes ci-door-swing {
-  0%   { scale: 1 1; }
-  40%  { scale: .14 1; }
-  66%  { scale: .14 1; }
-  100% { scale: 1 1; }
+/* HOME — nobody opens a door on hover, and a door squashed onto its own hinge is
+   not a door opening. What says a house is lived in is the thread of smoke: it
+   lifts off the chimney and thins away, and a second one follows it. */
+.ci-smoke { transform-origin: 18px 4.9px; opacity: 0; }
+:hover > .cat-ico .ci-smoke { animation: ci-rise 1.5s ease-out; }
+:hover > .cat-ico .ci-smoke--2 { animation-delay: .5s; }
+@keyframes ci-rise {
+  0%   { opacity: 0; translate: 0 1px; scale: .5; }
+  22%  { opacity: .9; }
+  100% { opacity: 0; translate: -1.6px -4.6px; scale: 1.3; }
 }
 
 /* THE CANVAS GLYPHS, REUSED — target, flag, compass and bulb are the board's own
@@ -6614,6 +6517,7 @@ body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: non
   backdrop-filter: blur(14px) saturate(120%);
 }
 .thinking-board {
+  position: relative;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -6635,6 +6539,12 @@ body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: non
 .thinking-board__name:disabled {
   color: var(--muted);
   cursor: default;
+}
+/* an unnamed course asks for its name in the same quiet voice as everywhere else */
+.thinking-board__name::placeholder {
+  color: var(--muted);
+  opacity: .6;
+  font-weight: 500;
 }
 /* the theme signs its own saves, like every other signature in the app */
 .thinking-board__saved {
@@ -6706,6 +6616,12 @@ body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: non
 .thinking-tools {
   box-shadow: 0 10px 24px -18px color-mix(in srgb, #000 calc(var(--c-shade) * 130%), transparent);
 }
+/* The bars are stacked by hand so they keep their place above the board at all
+   times. A clip-path makes a stacking context of the element it is on, so while
+   the cloth is being woven the viewport rose above these two — and their shadow
+   on it only came back once the animation released it. */
+.thinking__bar--board,
+.thinking-tools { position: relative; z-index: 2; }
 .thinking-tools__section-switch {
   flex: 0 0 auto;
   align-self: stretch;
@@ -6761,6 +6677,8 @@ body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: non
    each tool is a dab of its own colour, not a grey chip with a coloured dot.
    They lift under the pointer and press when taken, which is the only thing in
    this app that ever says "pick me up". */
+/* display beats the hidden attribute; a tool a canvas cannot hold is not there */
+.thinking-tool[hidden] { display: none; }
 .thinking-tool {
   --block-color: var(--muted);
   flex: 0 0 auto;
@@ -6938,11 +6856,11 @@ body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: non
 .thinking-tool--problem, .thinking-block--problem, .thinking-link--problem { --block-color: var(--c-danger); }
 .thinking-tool--question, .thinking-block--question, .thinking-link--question { --block-color: var(--c-imp-1); }
 .thinking-tool--example, .thinking-block--example, .thinking-link--example { --block-color: var(--c-imp-2); }
-.thinking-tool--canvas, .thinking-block--canvas, .thinking-link--canvas, .thinking-add--canvas { --block-color: var(--c-imp-2); }
-.thinking-tool--folder, .thinking-block--folder, .thinking-link--folder, .thinking-add--folder { --block-color: var(--c-imp-5); }
-.thinking-tool--document, .thinking-block--document, .thinking-link--document, .thinking-add--document { --block-color: var(--c-imp-3); }
-.thinking-tool--planner, .thinking-block--planner, .thinking-link--planner, .thinking-add--planner { --block-color: var(--c-imp-1); }
-.thinking-tool--logbook, .thinking-block--logbook, .thinking-link--logbook, .thinking-add--logbook { --block-color: var(--c-imp-4); }
+.thinking-tool--canvas, .thinking-block--canvas, .thinking-link--canvas, .thinking-add--canvas, .thinking-row--canvas { --block-color: var(--c-imp-2); }
+.thinking-tool--folder, .thinking-block--folder, .thinking-link--folder, .thinking-add--folder, .thinking-row--folder { --block-color: var(--c-imp-5); }
+.thinking-tool--document, .thinking-block--document, .thinking-link--document, .thinking-add--document, .thinking-row--document { --block-color: var(--c-imp-3); }
+.thinking-tool--planner, .thinking-block--planner, .thinking-link--planner, .thinking-add--planner, .thinking-row--planner { --block-color: var(--c-imp-1); }
+.thinking-tool--logbook, .thinking-block--logbook, .thinking-link--logbook, .thinking-add--logbook, .thinking-row--logbook { --block-color: var(--c-imp-4); }
 .thinking-tool--solution, .thinking-block--solution, .thinking-link--solution { --block-color: var(--c-imp-4); }
 .thinking-tool--answer, .thinking-block--answer, .thinking-link--answer { --block-color: var(--c-imp-4); }
 .thinking-tool--task, .thinking-block--task, .thinking-link--task { --block-color: var(--c-imp-3); }
@@ -7069,42 +6987,57 @@ body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: non
   min-height: 0;
   overflow: auto;
   overscroll-behavior: contain;
-  background: color-mix(in srgb, var(--c-bg) 90%, var(--c-surface));
+  /* what lies past the cloth: bare ground, no weave, one shade down — so the
+     edge of the canvas is a thing you can see rather than guess at */
+  background: color-mix(in oklab, var(--c-bg) calc(100% - var(--c-shade) * 26%), #000);
   cursor: grab;
   scrollbar-width: none;
   touch-action: none;
 }
 .thinking-viewport::-webkit-scrollbar { display: none; }
+/* THE OVERVIEW — a quarter scale, so one window covers sixteen screens and the
+   nine-screen cloth sits inside it with ground to spare. zoom rather than a
+   transform: it shrinks the layout as well, so the scroll area follows and
+   there is no void left to pan into. Blocks stop taking the pointer, which is
+   what lets every drag and drop below keep working in plain coordinates. */
+/* the cloth is one block in a centring grid, and nothing scrolls: it is all
+   there, so there is nowhere to go */
+.thinking-board.is-overview .thinking-viewport {
+  display: grid;
+  place-content: center;
+  overflow: hidden;
+}
+.thinking-board.is-overview .thinking-blocks { pointer-events: none; }
+.thinking-board.is-overview .thinking-viewport { cursor: zoom-in; }
+.thinking-board.is-overview .thinking-tools__additions {
+  opacity: .35;
+  pointer-events: none;
+}
+/* it belongs to the full board; a canvas embedded in a sheet has no room for it */
+.thinking-board--inline #thinkingZoomOut { display: none; }
 .thinking-viewport.is-panning { cursor: grabbing; user-select: none; }
 .thinking-viewport.is-tool-drop {
   cursor: copy;
   box-shadow: inset 0 0 0 3px color-mix(in srgb, var(--accent) 70%, transparent);
 }
-.thinking-viewport.is-canvas-opening {
-  transform-origin: var(--thinking-transition-x) var(--thinking-transition-y);
-  animation: thinking-canvas-open .44s cubic-bezier(.2, .82, .22, 1);
-}
-.thinking-viewport.is-canvas-closing {
-  transform-origin: var(--thinking-transition-x) var(--thinking-transition-y);
-  animation: thinking-canvas-close .44s cubic-bezier(.2, .82, .22, 1);
-}
-@keyframes thinking-canvas-open {
-  0% { opacity: .18; transform: scale(.84); filter: blur(5px); }
-  58% { opacity: 1; transform: scale(1.018); filter: blur(0); }
-  100% { opacity: 1; transform: scale(1); filter: blur(0); }
-}
-@keyframes thinking-canvas-close {
-  0% { opacity: .2; transform: scale(1.1); filter: blur(5px); }
-  62% { opacity: 1; transform: scale(.988); filter: blur(0); }
-  100% { opacity: 1; transform: scale(1); filter: blur(0); }
-}
 /* THE CLOTH — a toile is a woven thing, and the lattice was already sitting on
    the crossings of a weave: the dots are the knots, so they get their threads.
    Same 24px step as before, so nothing new can beat against the scroll. */
+/* THE SELVEDGE — a toile is a woven piece and a woven piece has an edge. It is
+   bounded now (nine screens), so it says so: the cloth carries its own colour,
+   a hairline hem, and a shadow that lifts it off the ground beyond. */
 .thinking-plane {
   position: relative;
-  width: 20000px;
-  height: 12000px;
+  width: 5400px;
+  height: 3000px;
+  background-color: color-mix(in srgb, var(--c-bg) 90%, var(--c-surface));
+  /* The hem is drawn inward, not on the outline: you cannot scroll past the
+     cloth, so an edge sitting flush with the screen would never be seen. This
+     way the last stretch shades off and tells you the end is coming. */
+  box-shadow:
+    inset 0 0 0 3px color-mix(in srgb, var(--c-line) 95%, transparent),
+    inset 0 0 0 14px color-mix(in srgb, var(--c-line) 26%, transparent),
+    inset 0 0 130px -40px color-mix(in srgb, #000 calc(var(--c-shade) * 110%), transparent);
   background-image:
     radial-gradient(circle,
       color-mix(in srgb, var(--c-line) 40%, transparent) 1px, transparent 1.2px),
@@ -7752,13 +7685,129 @@ body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: non
   mask-image: linear-gradient(to bottom, black 62%, transparent 100%);
 }
 .thinking-folder__list {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(104px, 1fr));
-  align-items: start;
-  gap: 12px 8px;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
   min-height: 72px;
   pointer-events: auto;
 }
+/* THE ROWS — a mark, a name, and the whole line is the way in */
+.thinking-folder__row {
+  display: flex;
+  align-items: center;
+  border-radius: 8px;
+  transition: background .14s ease;
+}
+.thinking-folder__row:hover { background: color-mix(in srgb, var(--block-color) 13%, transparent); }
+.thinking-folder__open {
+  flex: 1 1 auto;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 9px;
+  border: 0;
+  border-radius: 8px;
+  padding: 7px 4px 7px 8px;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  font-size: .84rem;
+  text-align: left;
+  cursor: pointer;
+}
+.thinking-folder__mark {
+  flex: 0 0 auto;
+  width: 22px;
+  height: 22px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--block-color) 20%, transparent);
+  color: var(--block-color);
+}
+.thinking-folder__mark svg { width: 13px; height: 13px; }
+.thinking-folder__name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.thinking-folder__rename {
+  flex: 0 0 auto;
+  width: 24px;
+  height: 24px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 7px;
+  background: none;
+  color: var(--muted);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity .14s ease, color .14s ease;
+}
+.thinking-folder__rename svg { width: 13px; height: 13px; }
+.thinking-folder__row:hover .thinking-folder__rename,
+.thinking-folder__path:hover .thinking-folder__rename { opacity: .6; }
+.thinking-folder__rename:hover { opacity: 1; color: var(--accent); }
+.thinking-folder__row.is-renaming .thinking-folder__open { display: none; }
+.thinking-folder__field {
+  min-width: 0;
+  flex: 1 1 auto;
+  margin: 3px 0 3px 8px;
+  border: 0;
+  border-bottom: 1px solid var(--accent);
+  border-radius: 0;
+  padding: 1px 2px;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  outline: none;
+}
+.thinking-folder__del {
+  flex: 0 0 auto;
+  width: 24px;
+  height: 24px;
+  margin-right: 4px;
+  border: 0;
+  border-radius: 7px;
+  background: none;
+  color: var(--muted);
+  font-size: 1rem;
+  line-height: 1;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity .14s ease, color .14s ease;
+}
+.thinking-folder__row:hover .thinking-folder__del { opacity: .6; }
+.thinking-folder__del:hover { opacity: 1; color: var(--danger); }
+/* THE TRAIL — only drawn once a folder sits inside another */
+/* THE TRAIL — it lives in the block's own bar, where the name used to be, so
+   the folder is named once instead of twice */
+.thinking-folder__path {
+  display: flex;
+  align-items: center;
+  min-width: 0;
+  gap: 1px;
+  color: color-mix(in srgb, var(--muted) 70%, transparent);
+  font-size: inherit;
+}
+.thinking-block__type--canvas-title:has(.thinking-folder__path) { overflow: visible; }
+.thinking-folder__crumb {
+  max-width: 12ch;
+  overflow: hidden;
+  border: 0;
+  border-radius: 6px;
+  padding: 1px 4px;
+  background: none;
+  color: var(--muted);
+  font: inherit;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.thinking-folder__crumb:hover { color: var(--accent); background: var(--input-bg); }
+.thinking-folder__crumb--here { color: var(--text); font-weight: 650; cursor: default; }
 /* the preview list is the folder's working surface: same treatment as a stage */
 .thinking-folder__list--preview {
   margin: 0;
@@ -7777,38 +7826,21 @@ body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: non
   background: color-mix(in srgb, var(--surface-solid) 97%, var(--c-imp-5));
   box-shadow: 0 20px 55px color-mix(in srgb, var(--c-sky-3) 20%, transparent);
 }
-.thinking-folder__list > .thinking-block {
-  position: relative !important;
-  left: auto !important;
-  top: auto !important;
-  width: 100% !important;
-  max-width: none;
-  justify-self: stretch;
-}
-.thinking-folder__list > .thinking-block--organization.is-collapsed {
-  height: 112px;
-  min-height: 112px;
-}
-.thinking-folder__list > .thinking-block--organization:not(.is-collapsed) {
-  grid-column: 1 / -1;
-}
-.thinking-folder__list > .thinking-block.is-detaching {
-  position: fixed !important;
-}
 /* THE + TILE — a folder takes containers and nothing else, so the three it can
    hold are right there. Shut it is the app's own invitation, the dashed plate
    with a plus from the task view; open it is three dabs off the palette. */
 .thinking-folder__add {
   position: relative;
-  height: 112px;
+  height: 40px;
   display: grid;
   place-items: center;
+  margin-top: 4px;
 }
 .thinking-folder__add-open {
   width: 100%;
   height: 100%;
   border: 1px dashed color-mix(in srgb, var(--muted) 38%, transparent);
-  border-radius: 18px;
+  border-radius: 10px;
   background: none;
   color: color-mix(in srgb, var(--muted) 80%, transparent);
   font: inherit;
@@ -7826,7 +7858,7 @@ body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: non
 .thinking-folder__add.is-open > .thinking-folder__add-open { opacity: 0; pointer-events: none; }
 /* open, the three still need something to sit on */
 .thinking-folder__add.is-open {
-  border-radius: 18px;
+  border-radius: 10px;
   background: color-mix(in srgb, var(--c-surface) 20%, transparent);
 }
 .thinking-folder__add-choices {
@@ -7899,36 +7931,42 @@ body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: non
 }
 .thinking-block--organization.is-resizing { box-shadow: var(--thinking-lift); }
 
-/* L'OUVERTURE — the canvas is a hole cut in the plane, not a card on it. No
-   border at all: an inner shadow along the top lip, a lit edge below, and the
-   grid tightening one notch per level so depth is readable at a glance. */
-/* A hole has to be darker than what it is cut into, on every theme. Mixing
-   --c-sky-3 in did that on rain but not on dusk, where the zenith violet is
-   lighter than the page and the recess came out raised. Black is the only
-   direction that holds everywhere; --c-shade says how far a theme wants it. */
+/* LA FEUILLE POSÉE — a container is a sheet laid on the cloth, not a hole cut
+   into it. Nothing draws its edge: the drop shadow alone detaches it, the paper
+   carries no grid of its own, and the name is written in its top margin.
+
+   The shadow is mixed from black, never from --c-sky-3: on the violet themes
+   that colour is lighter than the page and every sheet would wear a halo
+   instead of casting a shadow. --c-shade says how far a theme wants it. */
 .thinking-block--organization:not(.is-collapsed) {
-  --canvas-recess: color-mix(in oklab, var(--c-bg) calc(100% - var(--c-shade) * 30%), #000);
-  --canvas-dots: radial-gradient(circle,
-    color-mix(in srgb, var(--c-line) 52%, transparent) 1px, transparent 1.2px);
-  --canvas-thread: color-mix(in srgb, var(--c-line) 16%, transparent);
-  --canvas-grid: 17px;
+  --thinking-corner-tl: 3px;
+  --thinking-corner-tr: 3px;
+  --thinking-corner-br: 3px;
+  --thinking-corner-bl: 3px;
+  --canvas-recess: color-mix(in oklab, var(--c-surface) 92%, var(--c-bg));
+  --canvas-dots: none;
+  --canvas-thread: transparent;
 }
 .thinking-block--organization:not(.is-collapsed)::before {
   background: var(--canvas-recess);
   box-shadow:
-    inset 0 2px 6px color-mix(in srgb, #000 calc(var(--c-shade) * 95%), transparent),
-    inset 0 1px 0 color-mix(in srgb, #000 calc(var(--c-shade) * 120%), transparent),
-    0 1px 0 color-mix(in srgb, var(--c-surface) 55%, transparent);
+    0 1px 2px color-mix(in srgb, #000 calc(var(--c-shade) * 50%), transparent),
+    0 16px 38px -14px color-mix(in srgb, #000 calc(var(--c-shade) * 110%), transparent);
 }
-.thinking-canvas__stage .thinking-block--organization:not(.is-collapsed) {
-  --canvas-recess: color-mix(in oklab, var(--c-bg) calc(100% - var(--c-shade) * 55%), #000);
-  --canvas-grid: 13px;
+/* the name sits in the sheet's own margin, quiet, the way a title page reads */
+.thinking-block--organization:not(.is-collapsed) > .thinking-block__head {
+  min-height: 30px;
+  padding: 9px 8px 3px 15px;
 }
-.thinking-canvas__stage .thinking-canvas__stage
-  .thinking-block--organization:not(.is-collapsed) {
-  --canvas-recess: color-mix(in oklab, var(--c-bg) calc(100% - var(--c-shade) * 80%), #000);
-  --canvas-grid: 10px;
+.thinking-block--organization:not(.is-collapsed) > .thinking-block__head
+  > .thinking-block__type {
+  color: var(--muted);
+  letter-spacing: .04em;
 }
+/* and the working surface keeps a margin of paper all round it */
+.thinking-canvas__stage,
+.thinking-folder__list--preview,
+.thinking-logbook--preview { margin: 0 11px 12px; }
 
 /* THE LOGBOOK — the notepad's ruled paper, but kept by the day: the entries
    stack newest first and each date sits in the margin the paper already draws,
@@ -7946,6 +7984,7 @@ body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: non
       color-mix(in srgb, var(--c-line) 24%, transparent) 30px);
   pointer-events: auto;
 }
+/* full screen it is the sheet itself, so it carries its own paper and shadow */
 .thinking-logbook--fullscreen {
   position: absolute;
   z-index: 2;
@@ -7956,14 +7995,13 @@ body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: non
       color-mix(in srgb, var(--c-danger) 30%, transparent) 83px, transparent 84px),
     repeating-linear-gradient(to bottom, transparent 0, transparent 31px,
       color-mix(in srgb, var(--c-line) 26%, transparent) 32px),
-    color-mix(in srgb, var(--surface-solid) 98%, var(--c-bg));
+    color-mix(in oklab, var(--c-surface) 92%, var(--c-bg));
   box-shadow: 0 22px 60px -20px color-mix(in srgb, #000 calc(var(--c-shade) * 120%), transparent);
 }
 .thinking-logbook__entry {
   display: grid;
   grid-template-columns: 62px 1fr;
   align-items: start;
-  gap: 0;
 }
 .thinking-logbook--fullscreen .thinking-logbook__entry { grid-template-columns: 82px 1fr; }
 /* the date lives in the margin, which is what makes it a journal and not a list */
@@ -7990,8 +8028,7 @@ body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: non
 }
 /* the entry already prints its own date inline; in here the margin owns it */
 .thinking-logbook__entry .thinking-journal__date { display: none; }
-/* and its head is chrome the page does not need: only the delete stays, at the
-   corner, on hover */
+/* and its head is chrome the page does not need: only the delete stays */
 .thinking-logbook__entry > .thinking-block > .thinking-block__head {
   position: absolute;
   z-index: 3;
@@ -8030,6 +8067,7 @@ body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: non
   background: color-mix(in srgb, var(--block-color) 32%, transparent);
   transform: translateY(-2px);
 }
+
 .thinking-document-sheet {
   position: absolute;
   z-index: 0;
@@ -8526,8 +8564,10 @@ body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: non
 .thinking-blank {
   position: absolute;
   z-index: 0;
-  left: 50vw;
-  top: 38vh;
+  /* placed in JS against the camera and the viewport; these are only what it
+     sits at before the first render, and they must not read as the window */
+  left: 0;
+  top: 0;
   width: 300px;
   display: flex;
   flex-direction: column;
@@ -8566,11 +8606,6 @@ body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: non
   .thinking-link-hint { top: calc(max(10px, env(safe-area-inset-top)) + 105px); max-width: calc(100% - 24px); white-space: nowrap; }
   .thinking-board__tip { display: none; }
   .thinking-trash { bottom: max(18px, env(safe-area-inset-bottom)); }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .thinking-viewport.is-canvas-opening,
-  .thinking-viewport.is-canvas-closing { animation-duration: .01ms; }
 }
 
 /* THE SKY — a full space rather than a card. The projects are not listed here,
@@ -9043,23 +9078,6 @@ body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: non
 }
 .step__text:focus { outline: none; }
 .step.is-done .step__text { color: var(--muted); text-decoration: line-through; }
-.step__when {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  border: 0;
-  background: none;
-  color: var(--muted);
-  font: inherit;
-  font-size: .76rem;
-  padding: 3px 6px;
-  border-radius: var(--r-sm);
-  cursor: pointer;
-  opacity: .55;
-}
-.step__when svg { width: 14px; height: 14px; }
-.step__when.is-set, .step:hover .step__when { opacity: 1; }
-.step__when:hover { color: var(--accent); }
 .step__del {
   border: 0;
   background: none;
@@ -9112,6 +9130,326 @@ body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: non
 }
 .jrn__row:hover .jrn__del { opacity: .7; }
 .jrn__del:hover { color: var(--danger); opacity: 1; }
+
+/* THE SHEETS — the strip of what an object carries, and the three bodies it
+   opens. The strip lives in the identity line of whatever is unfolded, so the
+   tabs sit where the title is, not above the content. */
+.sheets {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  min-width: 0;
+}
+.sheets[hidden] { display: none; }
+/* A mark alone — the three names side by side overran the line they sit on. A
+   sheet cannot be taken off here: it leaves with the object that carries it, so
+   nothing on this strip can be lost to a slip of the finger. */
+.sheets__tab {
+  position: relative;
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 6px;
+  width: 30px;
+  height: 28px;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  padding: 0;
+  background: none;
+  color: var(--muted);
+  font: inherit;
+  font-size: .74rem;
+  cursor: pointer;
+  transition: border-color .2s ease, color .2s ease, background .2s ease;
+}
+/* a kind the object does not carry yet: the mark is there, the sheet is not */
+.sheets__tab--empty {
+  border-style: dashed;
+  opacity: .45;
+}
+.sheets__tab--empty:hover,
+.sheets__tab--empty:focus-visible { opacity: 1; }
+.sheets__tab svg { width: 15px; height: 15px; display: block; }
+.sheets__tab:hover,
+.sheets__tab:focus-visible { border-color: var(--accent); color: var(--accent); }
+.sheets__tab.is-on {
+  border-color: color-mix(in srgb, var(--accent) 62%, transparent);
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+.sheet-journal { display: flex; flex-direction: column; }
+
+/* THE CANVAS SHEET — the laboratory's board, borrowed into the fold. It is given
+   a height of its own: a canvas is a space to arrange things in, and a box that
+   only grows with its content would start at nothing. */
+.sheet-canvas {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  min-height: 0;
+}
+.sheet-canvas__slot {
+  position: relative;
+  height: clamp(360px, 60vh, 700px);
+  border-top: 1px solid var(--border);
+  border-bottom: 1px solid var(--border);
+  overflow: hidden;
+  background: color-mix(in srgb, var(--c-bg) 90%, var(--c-surface));
+}
+/* laid over the board's own bottom corner rather than given a line of its own:
+   the top corner is where the board keeps its tools, the bottom one is empty */
+.sheet-canvas__full {
+  position: absolute;
+  z-index: 5;
+  right: 12px;
+  bottom: 12px;
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  background: color-mix(in srgb, var(--surface-solid) 88%, transparent);
+  -webkit-backdrop-filter: blur(8px);
+  backdrop-filter: blur(8px);
+  color: var(--muted);
+  cursor: pointer;
+  transition: border-color .2s ease, color .2s ease;
+}
+.sheet-canvas__full:hover { border-color: var(--accent); color: var(--accent); }
+/* the frame with no board in it: there is one board and two places wanting it */
+.sheet-canvas__away {
+  width: 100%;
+  height: 100%;
+  border: 0;
+  background: none;
+  color: var(--muted);
+  font: inherit;
+  font-size: .82rem;
+  cursor: pointer;
+  transition: color .2s ease;
+}
+.sheet-canvas__away:hover { color: var(--accent); }
+.sheet-canvas__full svg { width: 15px; height: 15px; }
+/* the board in a box: no exit bar, no title of the laboratory, and its own
+   corner instead of the screen's */
+.thinking-board--inline {
+  position: relative;
+  height: 100%;
+  border-radius: inherit;
+}
+/* In a sheet, every line spent on chrome is a line taken from the board: the way
+   back to the mother canvas, the way out and the saved mark are moves of the full
+   screen. A canvas of a constellation keeps one line all the same — its mark and
+   its name, which is how one steps from a course to the next. A task's canvas has
+   no such thing to say, and keeps nothing. */
+.thinking-board--inline > .thinking__bar--board,
+.thinking-board--inline > .thinking-board__tip { display: none; }
+.thinking-board--inline.is-sheet-bar > .thinking__bar--board {
+  display: flex;
+  /* it must not be squeezed by the board below it: dropping the minimum height
+     without pinning the basis let the viewport shrink the bar to a sliver, and
+     its own line was then clipped by the board's overflow */
+  flex: 0 0 auto;
+  min-height: 0;
+  padding: 6px 10px 2px;
+  gap: 7px;
+  background: none;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+.is-branch-canvas .thinking-board__name { font-weight: 600; }
+.thinking-board__addbranch {
+  flex: 0 0 auto;
+  border: 1px dashed var(--border);
+  border-radius: 999px;
+  padding: 3px 10px;
+  background: none;
+  color: var(--muted);
+  font: inherit;
+  font-size: .74rem;
+  cursor: pointer;
+  white-space: nowrap;
+  transition: border-color .2s ease, color .2s ease;
+}
+.thinking-board__addbranch:hover { border-color: var(--accent); color: var(--accent); }
+.thinking-board__addbranch[hidden] { display: none; }
+.thinking-board--inline > .thinking__bar--board > .thinking-board__exit,
+.thinking-board--inline > .thinking__bar--board > .thinking-board__saved { display: none; }
+/* the way back stays: a canvas made inside this one is entered from here, and
+   nothing else in a sheet leads out of it. It is dead on the floor canvas. */
+.thinking-board--inline > .thinking__bar--board > .detail__back {
+  width: 26px;
+  height: 26px;
+  border-radius: 8px;
+}
+.thinking-board--inline > .thinking__bar--board > .detail__back svg { width: 15px; height: 15px; }
+.thinking-board__branch[hidden] { display: none; }
+.thinking-board__branch { flex: 0 0 auto; }
+.thinking-board--inline.is-branch-canvas .thinking-board__name { font-size: .86rem; }
+.thinking-board--inline > .thinking-tools { padding: 7px 10px; }
+.thinking-board--inline .thinking-trash { min-width: 150px; min-height: 44px; bottom: 14px; }
+
+/* THE LOOM — a canvas does not fade in, it is made. The bars drop into place
+   from above, one after the other. Then the cloth comes off the loom: the warp
+   is strung down the frame, the weft crosses it, and what those two threads
+   leave behind is the grid that stays. It runs on the frame rather than on the
+   plane, so none of it has twenty thousand pixels to cover. */
+.thinking-board.is-weave-bars > .thinking__bar--board {
+  animation: weave-drop .24s cubic-bezier(.2, .8, .25, 1) both;
+}
+.thinking-board.is-weave-bars > .thinking-tools {
+  animation: weave-drop .24s cubic-bezier(.2, .8, .25, 1) .05s both;
+}
+.thinking-board.is-weaving > .thinking-viewport {
+  animation: weave-cloth .4s cubic-bezier(.25, .9, .3, 1) .06s both;
+}
+/* The cloth is clipped, and a clipped element takes its own ground with it: what
+   showed through the part not yet opened was the laboratory's floor — the sky and
+   the signature pooling from the corner. The board holds that ground itself while
+   the weaving lasts, in the very colour the viewport lays over it afterwards, so
+   nothing changes when it is handed back. */
+.thinking-board.is-weaving {
+  /* Only under the cloth. Covering the whole board put this ground behind the
+     bars as well, and they are translucent — their colour is whatever is behind
+     them, so they changed for the length of the weaving. It starts where the
+     threads start, at the height the bars actually take. */
+  background-image:
+    linear-gradient(color-mix(in srgb, var(--c-bg) 90%, var(--c-surface)),
+      color-mix(in srgb, var(--c-bg) 90%, var(--c-surface)));
+  background-repeat: no-repeat;
+  background-position: 0 var(--weave-top, 0px);
+  background-size: 100% 100%;
+}
+/* the loom is a flourish; anyone who has asked for stillness gets the cloth
+   already made */
+@media (prefers-reduced-motion: reduce) {
+  .thinking-board.is-weave-bars > .thinking__bar--board,
+  .thinking-board.is-weave-bars > .thinking-tools,
+  .thinking-board.is-weaving > .thinking-viewport { animation: none; }
+}
+@keyframes weave-drop {
+  from { transform: translateY(-115%); opacity: 0; }
+  to   { transform: translateY(0); opacity: 1; }
+}
+/* It opens from the middle rather than running down from the top. A front that
+   travels the whole height reads as a curtain on a large screen — the taller the
+   frame, the more it looks like the board sliding in. Opening symmetrically has
+   no direction to read as movement, and it costs half the distance at any size. */
+@keyframes weave-cloth {
+  from { clip-path: inset(50% 0 50% 0); }
+  to   { clip-path: inset(0); }
+}
+/* The threads are the board's own, in colour and in pitch — only denser while
+   they are being laid, as a thread under tension is. They start below the bars:
+   the cloth is woven in the frame, not over what holds it. `--weave-top` is the
+   height those bars actually take, measured when the weaving starts. */
+.thinking-board.is-weaving::before,
+.thinking-board.is-weaving::after {
+  content: "";
+  position: absolute;
+  z-index: 4;
+  top: var(--weave-top, 0px);
+  right: 0;
+  bottom: 0;
+  left: 0;
+  pointer-events: none;
+}
+/* the warp: strung outwards from the middle of the frame, up and down at once */
+.thinking-board.is-weaving::before {
+  background: repeating-linear-gradient(90deg,
+    color-mix(in srgb, var(--c-line) 34%, transparent) 0 1px, transparent 1px 24px);
+  animation: weave-warp .32s cubic-bezier(.3, .85, .3, 1) .06s both;
+}
+/* the weft: opening across it, a beat behind */
+.thinking-board.is-weaving::after {
+  background: repeating-linear-gradient(0deg,
+    color-mix(in srgb, var(--c-line) 28%, transparent) 0 1px, transparent 1px 24px);
+  animation: weave-weft .32s cubic-bezier(.3, .85, .3, 1) .16s both;
+}
+@keyframes weave-warp {
+  0%   { clip-path: inset(50% 0 50% 0); opacity: .85; }
+  58%  { clip-path: inset(0); opacity: .85; }
+  100% { clip-path: inset(0); opacity: 0; }
+}
+@keyframes weave-weft {
+  0%   { clip-path: inset(0 50% 0 50%); opacity: .85; }
+  58%  { clip-path: inset(0); opacity: .85; }
+  100% { clip-path: inset(0); opacity: 0; }
+}
+/* What is on the cloth arrives with the weft, not after it: waiting for the last
+   thread made the board feel slow for no reason. The threads are faint enough to
+   pass over a block without hiding it — which they have to, since they run in the
+   frame's own space and the blocks in the plane's, and no stacking order holds
+   both without one of them scrolling away from the other. */
+.thinking-board.is-weaving .thinking-blocks,
+.thinking-board.is-weaving .thinking-links,
+.thinking-board.is-weaving .thinking-blank {
+  animation: weave-settle .24s ease-out .16s both;
+}
+@keyframes weave-settle {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+/* after the loom, not before it: a media query carries no weight of its own */
+@media (prefers-reduced-motion: reduce) {
+  .thinking-board.is-weave-bars > .thinking__bar--board,
+  .thinking-board.is-weave-bars > .thinking-tools,
+  .thinking-board.is-weaving > .thinking-viewport { animation: none; }
+  .thinking-board.is-weaving::before,
+  .thinking-board.is-weaving::after { display: none; }
+  .thinking-board.is-weaving .thinking-blocks,
+  .thinking-board.is-weaving .thinking-links,
+  .thinking-board.is-weaving .thinking-blank { animation: none; }
+}
+
+/* A canvas takes the whole widened workspace, alone. It does not restack it: the
+   left column keeps its track and shrinks to nothing, which is a width the
+   browser can animate — a change of track count is not. */
+.goal-inline__workspace.is-canvas-open,
+.task-inline__workspace.is-canvas-open {
+  grid-template-columns: minmax(0, 0fr) minmax(0, 1fr);
+}
+.goal-inline__workspace.is-canvas-open > .psteps,
+.task-inline__workspace.is-canvas-open > .task-inline__main { overflow: hidden; }
+/* Placed by hand rather than by flow: a collapsed track still holds its child,
+   and nothing may drift into it as the widths change. */
+.goal-inline__workspace > .psteps,
+.task-inline__workspace > .task-inline__main { grid-column: 1; }
+.goal-inline__workspace > .goal-inline__sheet-section,
+.task-inline__workspace:not(.is-event) > .task-inline__note-section { grid-column: 2; }
+.goal-inline__workspace.is-canvas-open > .goal-inline__sheet-section,
+.task-inline__workspace.is-canvas-open > .task-inline__note-section {
+  border-left: 0;
+  box-shadow: none;
+  background: none;
+}
+/* A canvas takes the sheet's own padding too: there is never enough room to
+   think in, and a margin around a board is room spent on nothing. It runs from
+   edge to edge of the panel it opens in. */
+.task-inline__workspace > .task-inline__note-section[data-sheet="canvas"],
+.goal-inline__workspace > .goal-inline__sheet-section[data-sheet="canvas"] {
+  margin-top: 0;
+  padding: 0;
+  border-left: 0;
+  box-shadow: none;
+}
+/* A task row is a card with padding of its own; an objective row is not. The
+   fold itself has to widen: it clips what overflows it, so a sheet reaching past
+   its edge is not carried out into the padding, it is cut off there. Growing the
+   fold instead of overflowing the sheet is what actually reaches the card's edge.
+   The basis has to grow with the margins — a negative margin alone slides a flex
+   item sideways without making it any wider. */
+.item--task.is-canvas-open > .unfold {
+  flex-basis: calc(100% + var(--task-pad, 16px) * 2);
+  margin-left: calc(var(--task-pad, 16px) * -1);
+  margin-right: calc(var(--task-pad, 16px) * -1);
+}
+.unfold__inner .detail__section[data-sheet="canvas"] { margin-top: 0; }
+.pview__sec[data-sheet="canvas"] { margin: 0 -22px; }
 
 /* THE DREAM WALL — cards go where they are put; the layout is the thought */
 .pview__wallhead {
@@ -9250,31 +9588,7 @@ body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: non
   margin-bottom: 8px;
 }
 .psteps__head .detail__label { margin-bottom: 0; }
-.psteps__switch {
-  display: inline-flex;
-  border: 1px solid var(--border);
-  border-radius: 999px;
-  padding: 2px;
-  gap: 2px;
-}
-.psteps__tab {
-  border: 0;
-  background: none;
-  color: var(--muted);
-  font: inherit;
-  font-size: .74rem;
-  padding: 3px 10px;
-  border-radius: 999px;
-  cursor: pointer;
-  transition: color .2s, background .2s;
-}
-.psteps__tab:hover { color: var(--text); }
-.psteps__tab.is-on { background: var(--accent-soft); color: var(--accent); }
-
-/* the checklist reading; the roadmap keeps its own rules */
-.psteps__body:not(.goal-roadmap) { display: flex; flex-direction: column; }
 .step.is-done .step__text { color: var(--muted); text-decoration: line-through; }
-.step__when.is-late { color: var(--danger); opacity: 1; }
 /* the palette walks the course, so a row carries the colour of its position */
 .psteps__body .step .item__check { border-color: var(--step-color, var(--border)); }
 .psteps__body .step.is-done .item__check {
@@ -9302,6 +9616,7 @@ body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: non
   gap: 6px;
   margin-bottom: 6px;
 }
+
 .pbranch__icon {
   flex: 0 0 auto;
   display: grid;
@@ -9453,11 +9768,6 @@ body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: non
 .phabits__off:hover { color: var(--danger); opacity: 1; }
 .phabits__add { margin-top: 6px; }
 
-/* the line of a branch carries the aggregate: vivid while its moons are lit */
-.goal-roadmap[style*="--branch-pulse"] .goal-roadmap__track {
-  opacity: calc(.35 + var(--branch-pulse, 1) * .65);
-}
-
 /* THE RAYS — a star sends one out per constellation. The line is dimmed by the
    pulse of that branch's moons, the beads along it are its steps. */
 .sky-branches {
@@ -9583,35 +9893,8 @@ body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: non
   .skyshoot { display: none; }
 }
 
-/* THE RAIL — the panel is a tall column, so the course runs down it and the steps
-   are written beside. One line behind the whole branch rather than a segment per
-   row: it stays unbroken however tall a step's text grows. */
-.psteps__body--rail { position: relative; padding-left: 22px; }
-.vrail {
-  position: absolute;
-  left: 7px;
-  top: 10px;
-  bottom: 34px;                 /* stops above the add row, which is not a step */
-  width: 2px;
-  border-radius: 2px;
-  background: color-mix(in srgb, var(--text) 14%, transparent);
-}
-.vrail__fill {
-  position: absolute;
-  left: 0; right: 0; top: 0;
-  border-radius: 2px;
-  background: linear-gradient(var(--imp-1), var(--imp-3), var(--imp-5));
-  transition: height .35s ease;
-}
-/* the checkbox sits on the thread, so each step reads as a knot on it */
-.psteps__body--rail .step { position: relative; }
-.psteps__body--rail .step .item__check {
-  position: relative;
-  z-index: 1;
-  margin-left: -22px;
-  background: var(--surface-solid);
-}
-.psteps__body--rail form.sub-add { margin-left: -22px; }
+/* THE RAIL — the panel is a tall column{ position: relative; padding-left: 22px; }
+/* the checkbox sits on the thread{ position: relative; }
 
 /* THE STEP CARD — it opens beside its star on hover and waits while the pointer
    travels to it. Screen space, not sky space: text must not zoom with the camera. */
