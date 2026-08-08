@@ -12,12 +12,10 @@
      for them. Everything else that left a catalog still lives in another one, so
      it keeps drawing. Up here because loadState runs before the catalogs do. */
   const RETIRED_ICONS = { walk: "run", game: "star" };
-  /* How many bars a thing is weighed on — see IMPORTANCE. Up here for the same
-     reason: loadState runs first, and it carries the old pins over to them. */
-  const TASK_IMPORTANCE = 3;
-  const PROJECT_IMPORTANCE = 5;
   /* What a task or an objective can carry beside itself — see THE SHEETS. */
   const SHEET_KINDS = ["note", "journal", "canvas"];
+  /* read by saveState, which runs while the state is still being loaded */
+  let kanbanDrag = null;
   const state = loadState();
   // loadState migrates in memory; write it down once so the stored data matches
   // what the app is actually running on, instead of migrating again every launch
@@ -101,10 +99,7 @@
       for (let i = 0; i < projects.length; i++) {
         const project = projects[i];
         if (RETIRED_ICONS[project.icon]) project.icon = RETIRED_ICONS[project.icon];
-        if (project.pinned) {          // pinning is said with the bars now
-          if (!project.importance) project.importance = PROJECT_IMPORTANCE;
-          delete project.pinned;
-        }
+        delete project.pinned;         // pinning went, and weight is set aside
         delete project.subtasks;       // projects moved from subtasks to steps
         if (!project.icon) project.icon = "folder";
         if (!project.sky) project.sky = freeSkySpot(i);   // its place in the sky
@@ -174,12 +169,7 @@
       for (let i = 0; i < tasks.length; i++) {   // tasks can now belong to a project
         if (tasks[i].projectId === undefined) tasks[i].projectId = null;
         if (!tasks[i].dueDate) tasks[i].dueTime = null;   // no day, no hour
-        // Pinning said one thing — this matters — with no room to say how much.
-        // The bars say it with three levels, so what was pinned arrives full.
-        if (tasks[i].pinned) {
-          if (!tasks[i].importance) tasks[i].importance = TASK_IMPORTANCE;
-          delete tasks[i].pinned;
-        }
+        delete tasks[i].pinned;   // pinning is gone, and so is a task's weight
       }
       const events = saved.events || [];
       for (let i = 0; i < events.length; i++) {   // events are past/pending now, not checkable
@@ -228,7 +218,11 @@
             if (block.canvasHeight == null) block.canvasHeight = 330;
             if (block.cameraX == null) block.cameraX = 9000;
             if (block.cameraY == null) block.cameraY = 5000;
-            if (block.collapsed == null) block.collapsed = false;
+            // only a folder still unfolds in place; every other container is a
+            // tile you open, so any that were left standing open are shut
+            if (block.type === "folder") {
+              if (block.collapsed == null) block.collapsed = false;
+            } else block.collapsed = true;
           }
           if (block.type === "folder") {
             if (oldFolderLayout) block.blockWidth = 420;
@@ -562,19 +556,23 @@
   /* A course on show names its steps and holds its canvas, so stepping to the
      next constellation changes both at once. */
   function refreshBranchHead(project) {
-    const row = document.querySelector('#projectsList .item[data-id="' + project.id
+    const row = document.querySelector('.list--cards .item[data-id="' + project.id
       + '"].is-inline-open');
     if (!row) return;
     refreshInlineSteps(project);
     setProjectSheet(openProjectSheet, row, project);
   }
 
-  /* every step of every branch, in branch order — what progress and momentum read */
+  /* Every step of every branch, in branch order — what progress and momentum read.
+     What has been set aside is not counted: an objective is not less far along
+     for having put one of its steps out of the way. */
   function allProjectSteps(project) {
     const branches = projectBranches(project);
     const all = [];
     for (let i = 0; i < branches.length; i++) {
-      for (let j = 0; j < branches[i].steps.length; j++) all.push(branches[i].steps[j]);
+      for (let j = 0; j < branches[i].steps.length; j++) {
+        if (!branches[i].steps[j].aside) all.push(branches[i].steps[j]);
+      }
     }
     return all;
   }
@@ -655,6 +653,11 @@
 
   function saveState() {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(state));
+    // The kanban is a drawing of every task at once, so anything written to the
+    // state can change it: a task added, renamed, finished, set aside, deleted.
+    // It is asked for here rather than at each of those places, and answered
+    // once a frame — writing a note must not rebuild a board on every keystroke.
+    refreshKanban();
   }
 
   /* Where a project lands in the sky when it has never been placed. A golden-angle
@@ -687,6 +690,9 @@
       backToToday: "Revenir à aujourd'hui",
       newEventName: "Nouvel événement",
       undatedLabel: "Sans date",
+      undatedEmpty: "Aucun événement mis de côté",
+      undatedOneAside: "élément mis de côté",
+      undatedManyAside: "éléments mis de côté",
       projectsTitle: "Vos projets",
       addTaskTitle: "Ajouter une tâche",
       newTaskName: "Nouvelle tâche",
@@ -696,7 +702,6 @@
       groupToday: "Aujourd'hui",
       groupTomorrow: "Demain",
       groupNone: "Sans date",
-      groupDone: "Terminées",
       emptyTasks: "Aucune tâche. La journée est à vous.",
       emptyTasksAdd: "Ajoutez-en une ci-dessous.",
       addAria: "Ajouter",
@@ -732,6 +737,7 @@
       themeLight: "Clair",
       themeDark: "Sombre",
       themeSakura: "Sakura",
+      themeRonce: "Ronce",
       themeAqua: "Aquatique",
       themeForest: "Forêt",
       themeBoreal: "Boréal",
@@ -761,6 +767,7 @@
       decorLabel: "Décorations",
       decorParticles: "Particules",
       decorPetals: "Pétales",
+      decorThorns: "Ronces",
       decorBubbles: "Bulles",
       decorSeabed: "Fond marin",
       decorAurora: "Aurores",
@@ -851,7 +858,6 @@
       prevDayAria: "Jour précédent",
       nextDayAria: "Jour suivant",
       reminderTitle: "Rappel",
-      importanceAria: "Importance",
       paletteLabel: "Palette",
       paletteTheme: "Du thème",
       paletteAurora: "Aurore",
@@ -863,11 +869,26 @@
       editDateNone: "Aucune date",
       notesLabel: "Notes",
       subtasksLabel: "Sous-tâches",
+      railFold: "Replier les sous-tâches",
+      showCalendar: "Afficher le calendrier",
+      newProjectName: "Nouveau projet",
+      kanbanTitle: "Kanban",
+      kanbanTodo: "À faire",
+      kanbanLater: "Plus tard",
+      kanbanAside: "Mis de côté",
+      kanbanDone: "Terminé",
+      timerReset: "Réinitialiser le minuteur",
+      timerDone: "Minuteur terminé",
+      railUnfold: "Déplier les sous-tâches",
       stepsLabel: "Étapes",
       importantLabel: "Important",
       backAria: "Retour",
       notesPlaceholder: "Ajouter des notes…",
       sheetCanvas: "Toile",
+      asideLabel: "Mettre de côté",
+      pushTomorrow: "Reporter à demain",
+      pullToday: "Remettre à aujourd\u2019hui",
+      asideBack: "Remettre en jeu",
       sheetCanvasFull: "Ouvrir en plein écran",
       sheetCanvasGone: "Cette toile n’existe plus.",
       sheetCanvasAway: "Ouverte ailleurs — la ramener ici",
@@ -1050,6 +1071,9 @@
       backToToday: "Back to today",
       newEventName: "New event",
       undatedLabel: "No date",
+      undatedEmpty: "No event set aside",
+      undatedOneAside: "item set aside",
+      undatedManyAside: "items set aside",
       projectsTitle: "Your projects",
       addTaskTitle: "Add a task",
       newTaskName: "New task",
@@ -1059,7 +1083,6 @@
       groupToday: "Today",
       groupTomorrow: "Tomorrow",
       groupNone: "No date",
-      groupDone: "Done",
       emptyTasks: "No tasks. The day is yours.",
       emptyTasksAdd: "Add one below.",
       addAria: "Add",
@@ -1095,6 +1118,7 @@
       themeLight: "Light",
       themeDark: "Dark",
       themeSakura: "Sakura",
+      themeRonce: "Briar",
       themeAqua: "Aquatic",
       themeForest: "Forest",
       themeBoreal: "Boreal",
@@ -1124,6 +1148,7 @@
       decorLabel: "Decorations",
       decorParticles: "Particles",
       decorPetals: "Petals",
+      decorThorns: "Briar",
       decorBubbles: "Bubbles",
       decorSeabed: "Seabed",
       decorAurora: "Aurora",
@@ -1214,7 +1239,6 @@
       prevDayAria: "Previous day",
       nextDayAria: "Next day",
       reminderTitle: "Reminder",
-      importanceAria: "Importance",
       paletteLabel: "Palette",
       paletteTheme: "Theme\u2019s own",
       paletteAurora: "Aurora",
@@ -1226,11 +1250,26 @@
       editDateNone: "No date",
       notesLabel: "Notes",
       subtasksLabel: "Subtasks",
+      railFold: "Fold the subtasks",
+      showCalendar: "Show the calendar",
+      newProjectName: "New project",
+      kanbanTitle: "Kanban",
+      kanbanTodo: "To do",
+      kanbanLater: "Later",
+      kanbanAside: "Set aside",
+      kanbanDone: "Done",
+      timerReset: "Reset the timer",
+      timerDone: "Timer finished",
+      railUnfold: "Unfold the subtasks",
       stepsLabel: "Steps",
       importantLabel: "Important",
       backAria: "Back",
       notesPlaceholder: "Add notes…",
       sheetCanvas: "Canvas",
+      asideLabel: "Set aside",
+      pushTomorrow: "Push to tomorrow",
+      pullToday: "Bring back to today",
+      asideBack: "Put back in play",
       sheetCanvasFull: "Open full screen",
       sheetCanvasGone: "That canvas is gone.",
       sheetCanvasAway: "Open elsewhere — bring it back here",
@@ -1431,9 +1470,9 @@
   }
 
   const themeBarColors = {
-    light: "#f6ecf7", dark: "#1e1c26", sakura: "#fdeef2",
+    light: "#f6ecf7", dark: "#1e1c26", sakura: "#fdeef2", ronce: "#140b16",
     dawn: "#ffc9d8", day: "#d0e6ff", dusk: "#e97ba0", night: "#0c0f1a", rain: "#39414c",
-    aqua: "#0d3145", forest: "#e9efdd", boreal: "#0b1c2c"
+    aqua: "#0d3145", forest: "#131c14", boreal: "#0b1c2c"
   };
 
   /* A theme can bring decorations with it — sakura its petals, aquatic its
@@ -1443,6 +1482,7 @@
      yours, which is how you keep the petals if you want them everywhere. */
   const THEME_DECOR = {
     sakura: ["petals"],
+    ronce: ["thorns"],
     aqua: ["bubbles", "seabed"],
     forest: ["pollen"],
     boreal: ["aurora"]
@@ -1623,6 +1663,35 @@
         cluster.style.height = size + "px";
         cluster.style.animationDuration = rand(7, 13) + "s";
         cluster.style.animationDelay = -rand(0, 10) + "s";
+      }
+    },
+
+    /* the same three corners as the hanami, in briar. One rose stands beside
+       itself, which is the only thing on this page that is not what it seems. */
+    ronce: function () {
+      const corners = [
+        { cls: "sc-bough--ne", w: 44, delay: 0 },
+        { cls: "sc-bough--nw", w: 36, delay: -5 },
+        { cls: "sc-bough--w", w: 25, delay: -9 }
+      ];
+      for (let i = 0; i < corners.length; i++) {
+        const briar = sceneEl("sc-bough sc-bough--briar " + corners[i].cls);
+        briar.style.width = corners[i].w + "%";
+        briar.style.setProperty("--sway", rand(12, 18) + "s");
+        briar.style.setProperty("--sway-at", corners[i].delay + "s");
+      }
+      for (let i = 0; i < 4; i++) {
+        const rose = sceneEl("sc-blossom sc-blossom--rose");
+        // kept to the corners the briars come in from: a whole rose adrift in
+        // the middle of the page has nothing holding it up
+        rose.style.left = (i % 2 ? rand(70, 93) : rand(4, 26)) + "%";
+        rose.style.top = rand(6, 26) + "%";
+        const size = rand(28, 46);   // a rose needs the room to read as one
+        rose.style.width = size + "px";
+        rose.style.height = size + "px";
+        rose.style.animationDuration = rand(8, 14) + "s";
+        rose.style.animationDelay = -rand(0, 11) + "s";
+        if (i === 1) rose.classList.add("sc-rose--twin");
       }
     },
 
@@ -1873,8 +1942,8 @@
      gives you the same theme twice in a row often enough to feel broken.
      "auto" is left out of the bag — it is an hour, not a colour, and the point
      of the brush is to see somewhere else. */
-  const BRUSH_THEMES = ["light", "dark", "sakura", "aqua", "forest", "boreal",
-                        "dawn", "day", "dusk", "night", "rain"];
+  const BRUSH_THEMES = ["light", "dark", "sakura", "ronce", "aqua", "forest",
+                        "boreal", "dawn", "day", "dusk", "night", "rain"];
   let brushBag = [];
 
   function brushNextTheme() {
@@ -2284,6 +2353,27 @@
       p.style.setProperty("--spin", rand(180, 560) + "deg");
       p.style.animationDuration = rand(6, 12) + "s";
       p.style.animationDelay = -rand(0, 12) + "s";
+      decor.appendChild(p);
+    }
+  }
+  /* briar petals, and the decoy some of them carry */
+  function spawnThorns() {
+    for (let i = 0; i < 14; i++) {
+      const p = decorEl("thorn-petal");
+      const size = rand(9, 15);
+      p.style.width = size + "px";
+      p.style.height = size * 1.15 + "px";
+      p.style.left = rand(0, 100) + "%";
+      p.style.setProperty("--sway", rand(-70, 70) + "px");
+      p.style.setProperty("--spin", rand(180, 560) + "deg");
+      p.style.animationDuration = rand(7, 13) + "s";
+      p.style.animationDelay = -rand(0, 12) + "s";
+      // one in three splits: an illusion every petal performs is just a texture
+      if (i % 3 === 0) {
+        p.classList.add("thorn-petal--twin");
+        p.style.setProperty("--decoy", rand(5, 9) + "s");
+        p.style.setProperty("--decoy-x", rand(-34, 34) + "px");
+      }
       decor.appendChild(p);
     }
   }
@@ -3510,6 +3600,7 @@
     for (let i = 0; i < active.length; i++) {
       if (active[i] === "particles") spawnParticles();
       else if (active[i] === "petals") spawnPetals();
+      else if (active[i] === "thorns") spawnThorns();
       else if (active[i] === "bubbles") spawnBubbles();
       else if (active[i] === "seabed") spawnSeabed();
       else if (active[i] === "aurora") spawnAurora();
@@ -3670,8 +3761,11 @@
   function renderList(listName) {
     if (listsLocked(listName)) return;
     if (listName === "tasks") { renderTasks(); return; }
-    const listElement = document.getElementById(listName + "List");
+    const listElement = listName === "projects" ? projectHost()
+      : document.getElementById(listName + "List");
     const items = state[listName];
+    document.getElementById(listName + "List").innerHTML = "";
+    if (listName === "projects") document.getElementById("calProjectsList").innerHTML = "";
     listElement.innerHTML = "";
 
     if (items.length === 0) {
@@ -3692,14 +3786,30 @@
      tails. The day being read is held at the top of the screen while its rows
      scroll under it. Only the dateless blocks keep their manual (drag) order —
      everywhere a date exists, the clock decides. */
-  const collapsedGroups = { done: true };   // finished tasks start folded away
+  /* A task that is finished does not go anywhere: it stays on the line it was
+     worked on, and its ring says what it is. Nothing about a group depends on
+     `done`, so the row keeps exactly the place it had. */
+  const collapsedGroups = {};
 
   function taskGroup(task) {
-    if (task.done) return "done";
+    // set aside is not a date: whatever day it held, it waits in the tail
+    if (task.aside) return "none";
     if (!task.dueDate) return "none";
     if (dueSortKey(task) < Date.now()) return "late";
     if (task.dueDate === todayKey()) return "today";
     return "soon";
+  }
+
+  /* the tail keeps its order, with what was set aside gathered at the end of it */
+  function asideLast(tasks) {
+    const kept = [];
+    const aside = [];
+    const list = tasks || [];
+    for (let i = 0; i < list.length; i++) {
+      if (list[i].aside) aside.push(list[i]);
+      else kept.push(list[i]);
+    }
+    return kept.concat(aside);
   }
 
   /* clock order inside a block; weight is shown, never a reason to jump the queue */
@@ -3708,14 +3818,13 @@
   }
 
   function renderTasks() {
-    const box = document.getElementById("tasksList");
+    const box = taskHost();
     const places = taskRowPlaces();   // where every row stood before the rebuild
-    box.innerHTML = "";
+    document.getElementById("tasksList").innerHTML = "";
+    document.getElementById("calTasksList").innerHTML = "";
     renderTasksRing();
 
     const items = state.tasks;
-    if (items.length === 0) box.appendChild(createEmptyTasks());
-
     const buckets = {};
     for (let i = 0; i < items.length; i++) {
       const key = taskGroup(items[i]);
@@ -3725,6 +3834,14 @@
     if (buckets.late) buckets.late.sort(byDue);
     if (buckets.today) buckets.today.sort(byDue);
     if (buckets.soon) buckets.soon.sort(byDue);
+
+    if (inWorkBand(box)) {
+      renderBandGroup(box, buckets);
+      slideTaskRows(places);
+      return;
+    }
+
+    if (items.length === 0) box.appendChild(createEmptyTasks());
 
     if (buckets.late) {
       box.appendChild(createTaskGroup("late", translate("groupLate"), buckets.late));
@@ -3743,12 +3860,100 @@
     }
 
     // This group is also a permanent drop target, so it remains present at zero.
-    box.appendChild(createTaskGroup("none", translate("groupNone"), buckets.none || []));
-    if (buckets.done) {
-      box.appendChild(createTaskGroup("done", translate("groupDone"), buckets.done));
-    }
+    box.appendChild(createTaskGroup("none", translate("groupNone"), asideLast(buckets.none)));
 
     slideTaskRows(places);
+  }
+
+  /* ONE GROUP AT A TIME — a band cannot hold the whole flow read end to end, and
+     it has no need to: the calendar beside it is already the way to name a day.
+     What is not on the day being read — dated further on, or dated at all — is
+     reached by pressing the head, the same switch as a constellation's. What is
+     late is not among them: it is read in today, where it is done. */
+  const BAND_GROUPS = ["day", "later", "none"];
+  let bandGroup = "day";
+
+  function bandDayKey() { return shownDay(); }
+
+  /* its place among the others, read off the ramp everything else is coloured
+     from: an objective has no colour of its own to store */
+  function goalColor(project) {
+    const list = state.projects;
+    let at = 0;
+    for (let i = 0; i < list.length; i++) {
+      if (list[i].id === project.id) { at = i; break; }
+    }
+    return paletteColorAt(paletteStops(), list.length > 1 ? at / (list.length - 1) : 0);
+  }
+
+  function bandGroupLabel() {
+    if (bandGroup === "later") return translate("kanbanLater");
+    if (bandGroup === "none") return translate("groupNone");
+    return dayFlowLabel(bandDayKey());
+  }
+
+  function renderBandGroup(box, buckets) {
+    let group;
+    let carried = 0;
+    if (bandGroup === "later") {
+      // what is dated further on: what is late is read in today, where it is done
+      group = createTaskGroup("later", translate("kanbanLater"),
+                              (buckets.soon || []).slice().sort(byDue));
+    } else if (bandGroup === "none") {
+      group = createTaskGroup("none", translate("groupNone"), asideLast(buckets.none));
+    } else {
+      // WHAT WAS LEFT BEHIND — a task whose day has passed is read in today,
+      // above today's own work and under its own name, exactly as the column
+      // reads it. On any other day only that day's work is shown: yesterday is
+      // not where a late task is done.
+      const day = bandDayKey();
+      const late = [];
+      const behind = buckets.late || [];
+      for (let i = 0; i < behind.length; i++) {
+        if (day === todayKey() && behind[i].dueDate !== day) late.push(behind[i]);
+      }
+      if (late.length) {
+        const block = createTaskGroup("late", translate("groupLate"), late.sort(byDue));
+        block.classList.remove("is-collapsed");
+        box.appendChild(block);
+        carried = late.length;
+      }
+      group = createTaskDay(day, tasksOfDay(buckets, day));
+    }
+    // the head names the group here, so the group's own head folds nothing away
+    group.classList.remove("is-collapsed");
+    box.appendChild(group);
+    const count = group.querySelectorAll(".item").length;
+    if (!count && !carried) box.appendChild(createEmptyTasks());
+    paintBandHead(count + carried);
+    paintCardBackRows();
+  }
+
+  /* what a day holds: its own work. What was left behind is read above it, in a
+     block of its own — see the late block in renderBandGroup. */
+  function tasksOfDay(buckets, key) {
+    const pool = (buckets.today || []).concat(buckets.soon || [], buckets.late || []);
+    const found = [];
+    for (let i = 0; i < pool.length; i++) {
+      if (pool[i].dueDate === key) found.push(pool[i]);
+    }
+    return found.sort(byDue);
+  }
+
+  function paintBandHead(count) {
+    const name = document.getElementById("calGroupName");
+    if (!name) return;
+    name.textContent = bandGroupLabel();
+    document.getElementById("calGroupCount").textContent = count;
+  }
+
+  function cycleBandGroup() {
+    // a row held open freezes the list, and the switch would have nothing to
+    // redraw: leaving the group is leaving the task that stands in it
+    closeDetail();
+    const at = BAND_GROUPS.indexOf(bandGroup);
+    bandGroup = BAND_GROUPS[(at + 1) % BAND_GROUPS.length];
+    renderList("tasks");
   }
 
   /* MOVED, NOT REDRAWN — a list is rebuilt whole on every change, so without this
@@ -3797,8 +4002,9 @@
     });
   }
 
-  function taskRowPlaces() { return rowPlaces("#tasksList .item", "id"); }
-  function slideTaskRows(places) { slideRows("#tasksList .item", "id", places); }
+  const TASK_ROWS = "#tasksList .item, #calTasksList .item";
+  function taskRowPlaces() { return rowPlaces(TASK_ROWS, "id"); }
+  function slideTaskRows(places) { slideRows(TASK_ROWS, "id", places); }
 
   /* the same, for every step on screen: checklist rows and roadmap dots alike */
   const STEP_NODES = ".psteps [data-step-id]";
@@ -3883,18 +4089,79 @@
     group.appendChild(head);
 
     // a block without dates is the only place an order can still be made by hand
-    const byHand = key === "none" || key === "done";
+    const byHand = key === "none";
     group.appendChild(taskRows(tasks, { draggable: byHand }));
     return group;
+  }
+
+  /* One run, in the order the group keeps, with what is finished at its foot.
+     A done task still belongs to its day — it is not filed away in a group of
+     its own — but it stands behind the work still to do. */
+  function doneLast(tasks) {
+    const ahead = [];
+    const behind = [];
+    for (let i = 0; i < tasks.length; i++) {
+      if (tasks[i].done) behind.push(tasks[i]);
+      else ahead.push(tasks[i]);
+    }
+    return ahead.concat(behind);
   }
 
   function taskRows(tasks, opts) {
     const list = document.createElement("ul");
     list.className = "list list--cards";
-    for (let i = 0; i < tasks.length; i++) {
-      list.appendChild(createItemRow("tasks", tasks[i], opts));
+    const run = doneLast(tasks);
+    for (let i = 0; i < run.length; i++) {
+      list.appendChild(createItemRow("tasks", run[i], opts));
     }
     return list;
+  }
+
+  /* THE CONSTELLATION A TASK COMES FROM — the one thing that tells a task born of
+     a course from a task of its own: its constellation's mark, at the end of the
+     line, always there. Nothing else differs — same check, same strike. */
+  function taskBranch(task) {
+    const link = taskStepLink(task);
+    if (link) return link.branch;
+    const project = task.projectId && findItem("projects", task.projectId);
+    return project ? activeProjectBranch(project) : null;
+  }
+
+  function createGoalMark(task) {
+    const branch = taskBranch(task);
+    if (!branch) return null;
+    const mark = document.createElement("span");
+    mark.className = "item__goal";
+    mark.title = branch.name || "";
+    mark.innerHTML = habitSvg(branch.icon || CONSTELLATION_ICON_KEYS[0]);
+    return mark;
+  }
+
+  /* THE COLOUR A TASK WEARS — the step it came from, on the ramp; failing that,
+     the objective it belongs to. A step's colour is its place among the steps,
+     so it moves when the course does: reached, added, removed or reordered. */
+  function taskGoalColor(task) {
+    const fromStep = stepTaskColor(task);
+    if (fromStep) return fromStep;
+    const project = task.projectId && findItem("projects", task.projectId);
+    return project ? goalColor(project) : null;
+  }
+
+  /* the colour is carried by the row and worn by the constellation's mark */
+  function paintTaskColor(row, task) {
+    const color = taskGoalColor(task);
+    if (color) row.style.setProperty("--goal-color", color);
+    else row.style.removeProperty("--goal-color");
+  }
+
+  /* Nothing is rebuilt: only the colour each row wears is said again, which is
+     what lets it follow the course while a row is open and the list frozen. */
+  function repaintTaskColors() {
+    const rows = document.querySelectorAll(".item--task[data-id]");
+    for (let i = 0; i < rows.length; i++) {
+      const task = findTask(rows[i].dataset.id);
+      if (task) paintTaskColor(rows[i], task);
+    }
   }
 
   function groupLabel(text) {
@@ -3968,15 +4235,10 @@
     const dayKnown = !!(opts && opts.dayKnown);   // its block head already names the day
     const row = document.createElement("li");
     const kindClass = listName === "projects" ? " item--project" : " item--task";
-    row.className = (item.done ? "item item--open done" : "item item--open") + kindClass;
+    row.className = (item.done ? "item item--open done" : "item item--open") + kindClass
+      + (item.aside ? " is-aside" : "");
     row.dataset.id = item.id;
-    if (listName === "tasks") {
-      const stepColor = stepTaskColor(item);
-      if (stepColor) {
-        row.classList.add("item--step-linked");
-        row.style.setProperty("--task-step-color", stepColor);
-      }
-    }
+    if (listName === "tasks") paintTaskColor(row, item);
     const rowHead = listName === "projects" ? document.createElement("div") : row;
     if (listName === "projects") {
       rowHead.className = "project-tab";
@@ -3996,7 +4258,20 @@
       }
       if (row.classList.contains("is-open")) { closeDetail(); return; }
       openDetail(listName, item.id, fold.firstChild);
+      // In the work zone the calendar is the surface a task is thought on: it
+      // turns over onto the task's canvas while the band holds the rest — and
+      // the strip is lit by the same call, since it reads the card.
+      if (inWorkBand(row)) setTaskSheet("canvas");
     });
+    // the bar that crosses a finished task out: a real thing drawn over the row,
+    // not a decoration of its text
+    if (listName === "tasks") {
+      const strike = document.createElement("span");
+      strike.className = "item__strike";
+      strike.setAttribute("aria-hidden", "true");
+      row.appendChild(strike);
+      requestAnimationFrame(function () { placeStrike(row); });
+    }
     if (draggable) row.dataset.reorder = "1";
     // Every task can be dropped on the clock and every row can reach the bin.
     // Projects otherwise keep their existing manual reorder behaviour.
@@ -4006,25 +4281,15 @@
     }
 
     if (listName === "projects") {
-      const icon = document.createElement("button");
-      icon.type = "button";
-      icon.className = "item__ico item__ico--editable";
-      icon.setAttribute("aria-label", translate("editIconLabel"));
-      icon.title = translate("editIconLabel");
-      icon.innerHTML = projectSvg(item.icon || "folder");
-      icon.addEventListener("click", function (event) {
-        event.preventDefault();
-        event.stopPropagation();
-        openIconPickerForProject(item);
-      });
-      rowHead.appendChild(icon);
+      rowHead.appendChild(createGoalIcon(item));
     } else {
       rowHead.appendChild(createCheckbox(function () { toggleItem(listName, item.id); }));
     }
 
     const label = document.createElement("span");
-    label.className = "item__text";
-    label.textContent = item.text;
+    const fallback = translate(listName === "projects" ? "newProjectName" : "newTaskName");
+    label.className = item.text ? "item__text" : "item__text is-untitled";
+    label.textContent = item.text || fallback;
     const slot = document.createElement("span");
     slot.className = "item__slot";
 
@@ -4034,19 +4299,14 @@
     // piece when the actions come over it instead of being half-covered
     const meta = document.createElement("span");
     meta.className = "item__meta";
-    if (listName === "tasks" && item.subtasks && item.subtasks.length) meta.appendChild(createSubBadge(item));
-    if (listName === "tasks" && item.projectId) {
-      const star = createStarMark(item.projectId);
-      if (star) meta.appendChild(star);
-    }
+    if (listName === "tasks" && activeSubtasks(item).length) meta.appendChild(createSubBadge(item));
     if (listName === "projects" && allProjectSteps(item).length) meta.appendChild(createStepBadge(item));
+    if (listName === "tasks") {
+      const mark = createGoalMark(item);
+      if (mark) meta.appendChild(mark);
+    }
     const due = item.dueDate ? createDueBadge(item, dayKnown) : null;
     if (due) meta.appendChild(due);
-    if (listName === "projects") meta.appendChild(projectRowImportance(item));
-    else {
-      const weight = createImportanceMark(item, TASK_IMPORTANCE);
-      if (weight) meta.appendChild(weight);
-    }
     if (meta.firstChild) rowHead.appendChild(meta);
 
     // a task completes with its ring, so only a project needs the tick here
@@ -4059,6 +4319,13 @@
       actions.push(rowAction("when", ICON_WHEN, "rescheduleLabel", function () {
         openCalendar(item.id, "tasks");
       }));
+      actions.push(rowAction("aside", item.aside ? ICON_ASIDE_OFF : ICON_ASIDE,
+        item.aside ? "asideBack" : "asideLabel", function () {
+          toggleAside(item, function () {
+            renderList("tasks");
+            renderDailyTimeline();
+          });
+        }));
     }
     actions.push(rowAction("del", ICON_TRASH, "deleteAria", function () {
       removeItem(listName, item.id);
@@ -4098,6 +4365,34 @@
     + '<path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>'
     + '<line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/>';
   const ICON_TICK = '<polyline points="4 12.5 9.5 18 20 6"/>';
+  /* SETTING ASIDE — an eye half shut. What is set aside is not gone and not done:
+     it is out of the way. Both keep their place — a task at the end of the
+     undated tail, a step on its own course — greyed and shrunk, read as
+     something put down rather than as work waiting. */
+  const ICON_ASIDE = '<path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z"/>'
+    + '<circle cx="12" cy="12" r="3"/>';
+  const ICON_ASIDE_OFF = '<path d="M3 4.5 21 19.5"/>'
+    + '<path d="M10.2 6c.6-.1 1.2-.2 1.8-.2 6 0 9.5 6.2 9.5 6.2a17 17 0 0 1-3.2 3.7"/>'
+    + '<path d="M6.4 8.2A17 17 0 0 0 2.5 12S6 18.2 12 18.2c1.2 0 2.3-.2 3.3-.6"/>'
+    + '<path d="M10.3 10.3a2.6 2.6 0 0 0 3.5 3.5"/>';
+
+  /* SET ASIDE IS NOT A DATE — the flow has always shown what is set aside in the
+     tail where nothing has a day, whatever day it was holding. The data says the
+     same thing now: stepping out of the flow leaves the day behind. Coming back
+     is coming back undated, which is where a task with no day belongs. */
+  function putAside(item, on) {
+    item.aside = !!on;
+    if (!item.aside || !item.dueDate) return;
+    item.dueDate = null;
+    item.dueTime = null;
+    item.notified = false;
+  }
+
+  function toggleAside(item, after) {
+    putAside(item, !item.aside);
+    saveState();
+    if (after) after();
+  }
 
   function rowAction(name, paths, labelKey, onRun) {
     const button = document.createElement("button");
@@ -4113,6 +4408,19 @@
       onRun();
     });
     return button;
+  }
+
+  /* THE BAR AND THE LINE IT CROSSES — a row is one line when it is shut and a
+     surface when it is open, so the bar is set on whichever line carries the
+     name rather than on the middle of the whole thing. */
+  function placeStrike(row) {
+    if (!row) return;
+    const strike = row.querySelector(":scope > .item__strike");
+    if (!strike) return;
+    const name = row.querySelector(".item__slot .detail__name")
+      || row.querySelector(":scope > .item__text");
+    if (!name || !name.offsetHeight) return;
+    strike.style.top = (name.offsetTop + name.offsetHeight / 2) + "px";
   }
 
   function createRowActions(buttons) {
@@ -4217,7 +4525,7 @@
     row.addEventListener("pointerdown", function (event) {
       if (event.pointerType === "mouse" && event.button !== 0) return;
       if (event.target.closest(
-        ".item__check, .row-acts, .unfold, .detail__titlerow, .imp--edit, "
+        ".item__check, .row-acts, .unfold, .detail__titlerow, "
         + ".goal-inline__name, .goal-inline__journal-toggle, .sheets")) return;
       const from = { x: event.clientX, y: event.clientY };
       let started = false;
@@ -4397,12 +4705,39 @@
     return true;
   }
 
+  /* THE GRID AS A DESTINATION — with one group on show, the other days are no
+     longer in the list to be dropped into. The calendar is: a row let go on a
+     day takes that day and keeps no hour, exactly as a marker dragged onto it. */
+  function updateCalendarDrop() {
+    if (!rowDrag || !rowDrag.canSchedule) return null;
+    // turned over, the grid is behind the card: its cells are not there to aim at
+    if (calCard && calCard.classList.contains("is-flipped")) return null;
+    const key = calendarDayHit(rowDrag.pointerX, rowDrag.pointerY);
+    rowDrag.calendarDay = key;
+    showCalendarDayTarget(key);
+    return key;
+  }
+
   function updateRowDragDestinations() {
     const deleting = updateRowTrashDrop();
     const project = deleting ? null : updateProjectDrop();
-    const drop = (deleting || project) ? null : updateRowTimelineDrop();
-    const undatedDrop = (deleting || project) ? false : updateUndatedDrop();
-    return { deleting: deleting, drop: drop, undatedDrop: undatedDrop };
+    let onDay = null;
+    if (deleting || project) showCalendarDayTarget(null);
+    else onDay = updateCalendarDrop();
+    if (onDay) {
+      // a day of the grid answers alone: the rule and the groups let go
+      rowDrag.drop = null;
+      showTaskDrop(null);
+      rowDrag.undatedDrop = false;
+      rowDrag.undatedBeforeId = null;
+      rowDrag.undatedDay = null;
+      clearDropGroups();
+      if (rowDrag.crossedLists) restoreDraggedRowOrigin(rowDrag);
+    }
+    const spent = deleting || project || onDay;
+    const drop = spent ? null : updateRowTimelineDrop();
+    const undatedDrop = spent ? false : updateUndatedDrop();
+    return { deleting: deleting, drop: drop, undatedDrop: undatedDrop, onDay: onDay };
   }
 
   /* A TASK GIVEN TO A PROJECT — dropped on a project's row it joins that project,
@@ -4536,7 +4871,8 @@
     rowDrag.pointerY = event.clientY;
     moveRowGhost(event);
     const destination = updateRowDragDestinations();
-    if (destination.deleting || destination.drop || destination.undatedDrop || !rowDrag.canReorder) return;
+    if (destination.deleting || destination.drop || destination.undatedDrop
+      || destination.onDay || !rowDrag.canReorder) return;
 
     const listEl = rowDrag.listEl;
     const siblings = listEl.querySelectorAll('.item[data-reorder]:not(.is-dragging)');
@@ -4565,6 +4901,7 @@
     if (drag.ghost.parentNode) drag.ghost.remove();
     showTaskDrop(null);
     if (drag.canDelete) showTimelineTrash(false, false);
+    showCalendarDayTarget(null);
     clearDropGroups();
     clearHabitProjectTargets();
     dragEndedAt = Date.now() + 350;   // swallow the click that ends the drag
@@ -4602,6 +4939,23 @@
         refreshStepStructure(project);
         showToast(translate("taskLinked"));
       }
+      return;
+    }
+
+    if (drag.calendarDay && drag.canSchedule) {
+      const task = findTask(drag.row.dataset.id);
+      if (!task || task.done) return;
+      task.dueDate = drag.calendarDay;
+      task.dueTime = null;
+      task.aside = false;      // it has a day again: it is no longer set aside
+      task.notified = false;
+      collapsedGroups["day:" + task.dueDate] = false;
+      saveState();
+      // in the work zone the band follows the grid, so going to the day it was
+      // given shows it landing; elsewhere the day on show is the reader's own
+      if (workBandsOn()) goToDay(task.dueDate);
+      else { renderList("tasks"); renderDailyTimeline(); }
+      if (task.projectId) refreshProjectSteps(findItem("projects", task.projectId));
       return;
     }
 
@@ -4722,6 +5076,7 @@
     saveState();
     renderList(listName);
     if (listName === "tasks") renderDailyTimeline();
+    return item;
   }
 
   /* Remove an item from a state list, keeping its slot so Undo can restore it.
@@ -4766,30 +5121,42 @@
     const items = state[listName];
     let now = false;
     let linkedStep = null;
+    let flipped = null;
     for (let i = 0; i < items.length; i++) {
       if (items[i].id === id) {
         items[i].done = !items[i].done; // flip done state
         now = items[i].done;
+        flipped = items[i];
         items[i].doneDate = now ? todayKey() : null;   // feeds the project's momentum
         if (listName === "tasks" && now) linkedStep = completeTaskStep(items[i]);
         break;
       }
     }
     saveState();
+    // The badge is filled and the bar drawn where they stand, whether or not the
+    // list is about to be rebuilt: that is what lets the sweep and the stroke
+    // play on the row being read instead of on a row that has already moved.
+    const row = document.querySelector('.item[data-id="' + id + '"]');
+    if (row) {
+      row.classList.toggle("done", now);
+      placeStrike(row);
+    }
     if (openHost) {
-      // the list is frozen: repaint just this row and the ring
-      const row = document.querySelector('.item[data-id="' + id + '"]');
-      if (row) row.classList.toggle("done", now);
+      // the list is frozen while a row is open: nothing else is rebuilt
       renderTasksRing();
       listsDirty[listName] = true;
       if (listName === "tasks") renderDailyTimeline();
       if (linkedStep) refreshLinkedStepProject(linkedStep);
       return;
     }
-    renderList(listName);
     if (listName === "tasks") renderDailyTimeline();
     if (linkedStep) refreshLinkedStepProject(linkedStep);
+    // and the row only goes to the foot of its list once the bar has crossed it
+    if (now && row) setTimeout(function () { renderList(listName); }, STRIKE_MS);
+    else renderList(listName);
   }
+
+  const STRIKE_MS = 380;
 
   /* QUICK ADD — the rectangle unfolds into a single input. "Relire le rapport
      demain 18h !!" becomes a task dated tomorrow at 18:00 weighing two bars;
@@ -4946,7 +5313,7 @@
       const bits = [];
       const day = dayOf(parsed);
       if (day) bits.push(dueLabel({ dueDate: day, dueTime: timeOf(parsed, day) }));
-      if (parsed.flag) bits.push(config.flagText(parsed));
+      if (parsed.flag && config.flagText) bits.push(config.flagText(parsed));
       hint.hidden = bits.length === 0;
       if (bits.length) {
         hint.textContent = (quickTitle(text, parsed.ranges) || translate(config.fallbackName))
@@ -4956,8 +5323,12 @@
     }
 
     function open() {
+      // On a line of chips the field stands exactly where the chip stood, so it
+      // is cut to that chip's width rather than to one of its own.
+      const width = button.getBoundingClientRect().width;
       button.hidden = true;
       form.hidden = false;
+      if (form.classList.contains("quick--chip")) form.style.width = width + "px";
       input.focus();
       render();
     }
@@ -4968,7 +5339,10 @@
       render();
     }
 
-    button.addEventListener("click", open);
+    button.addEventListener("click", function () {
+      if (config.instead && config.instead()) return;   // answered elsewhere
+      open();
+    });
     input.addEventListener("input", render);
     input.addEventListener("scroll", function () { mirror.scrollLeft = input.scrollLeft; });
     input.addEventListener("blur", function () {
@@ -4998,19 +5372,52 @@
     form: "quickAdd", input: "quickInput", mirror: "quickMirror",
     hint: "quickHint", button: "addTaskBtn",
     fallbackName: "newTaskName",
-    flagText: function (parsed) { return translate("importanceAria") + " " + parsed.level; },
+    // the exclamation marks are read out of the title all the same: a task has no
+    // weight to give them to any more, so they are dropped rather than promised
+    flagText: null,
+    instead: function () {
+      if (!workBandsOn()) return false;
+      addBandTask();
+      return true;
+    },
     resolveDate: quickTaskDay,
     submit: function (parsed, title, day) {
-      addItem("tasks", title, day ? { date: day, time: parsed.time } : null, parsed.level);
+      addItem("tasks", title, day ? { date: day, time: parsed.time } : null, 0);
       if (day) goToDay(day);   // follow it rather than lose it from view
     }
   });
 
+  /* THE + OF A BAND — no line to write on, no hour to write in it: the task is
+     made in the group being read and opens straight away, wearing a temporary
+     name until it is given one. What a band is for is the day it shows, and an
+     hour belongs to the rule of time, which the calendar is covering. */
+  function addBandTask() {
+    const day = bandGroup === "none" ? null : bandDayKey();
+    const task = addItem("tasks", "", day ? { date: day, time: null } : null, 0);
+    if (!task) return;
+    requestAnimationFrame(function () {
+      const row = document.querySelector('#calTasksList .item[data-id="' + task.id + '"]');
+      if (!row) return;
+      row.click();   // the same opening a press on it gives
+      requestAnimationFrame(function () {
+        const name = document.getElementById("detailName");
+        if (name) { name.focus(); name.select(); }
+      });
+    });
+  }
+
   /* Navigating the grid is how a task gets its date: one written while another
      day is on show lands on that day. A date typed in the line still wins, and
      on today an undated line stays undated — the flow keeps its dateless tail. */
+  /* In the work zone the band shows one group and one only: a line written there
+     lands in the group being read, or on the day the grid is on when that group
+     cannot take a new task. Nothing may be written into a group and turn up in
+     another — the dateless tail is only the default where the whole flow is on
+     show and a task can be seen falling into it. */
   function quickTaskDay(parsed) {
-    return writtenDay(parsed);
+    const written = writtenDay(parsed);
+    if (written || !workBandsOn()) return written;
+    return bandGroup === "none" ? null : bandDayKey();
   }
 
   /* WHAT A WRITTEN LINE MEANS BY "WHEN" — one reading for tasks and events alike:
@@ -5032,13 +5439,15 @@
     return project;
   }
 
+  /* the same as the + of a task: the objective is made, it opens, and it wears a
+     temporary name until it is given one. Its mark is changed from its icon. */
   document.getElementById("addProjectBtn").addEventListener("click", function () {
     closeAllInlineRows();
     const project = newProject();
-    const row = document.querySelector('#projectsList .item[data-id="' + project.id + '"]');
+    const row = document.querySelector('.list--cards .item[data-id="' + project.id + '"]');
     if (row) toggleInlineProjectRow(row, project, row.querySelector(".unfold"));
     requestAnimationFrame(function () {
-      const name = document.querySelector('#projectsList .item[data-id="' + project.id
+      const name = document.querySelector('.list--cards .item[data-id="' + project.id
         + '"] .goal-inline__name');
       if (name) { name.focus(); name.select(); }
     });
@@ -5359,7 +5768,30 @@
       choice.addEventListener("click", function () { chooseIcon(key); });
       grid.appendChild(choice);
     }
+    grid.scrollLeft = 0;
+    requestAnimationFrame(paintIconRail);
   }
+
+  /* THE RAIL — one row that scrolls sideways rather than a grid that takes the
+     height everything else needs. An arrow is only there while there is
+     something left to reach on that side. */
+  const iconGridEl = document.getElementById("iconGrid");
+  const iconPrev = document.getElementById("iconPrev");
+  const iconNext = document.getElementById("iconNext");
+
+  function paintIconRail() {
+    const room = iconGridEl.scrollWidth - iconGridEl.clientWidth;
+    iconPrev.disabled = iconGridEl.scrollLeft < 4;
+    iconNext.disabled = iconGridEl.scrollLeft > room - 4;
+  }
+
+  function slideIconRail(way) {
+    iconGridEl.scrollBy({ left: way * iconGridEl.clientWidth * .8, behavior: "smooth" });
+  }
+
+  iconPrev.addEventListener("click", function () { slideIconRail(-1); });
+  iconNext.addEventListener("click", function () { slideIconRail(1); });
+  iconGridEl.addEventListener("scroll", paintIconRail);
 
   let iconPickerMode = { kind: "habit-new" };
 
@@ -5379,12 +5811,8 @@
       if (project) project.icon = iconKey;
       saveState();
       iconPicker.hidden = true;
-      if (currentProject() && currentProject().id === iconPickerMode.projectId) {
-        pviewIcon.innerHTML = projectSvg(iconKey);
-      }
-      const rowIcon = document.querySelector('#projectsList .item[data-id="'
-        + iconPickerMode.projectId + '"] .item__ico--editable');
-      if (rowIcon) rowIcon.innerHTML = projectSvg(iconKey);
+      if (project) refreshGoalMarks(project);
+      if (project && !skyView.hidden) renderSky();
       return;
     }
     if (iconPickerMode.kind === "habit-new") {
@@ -5419,9 +5847,10 @@
   function openIconPicker() {
     iconPickerMode = { kind: "habit-new" };
     buildIconPicker(HABIT_ICONS);
-    document.getElementById("habitNameField").hidden = false;
-    document.getElementById("habitNameInput").value = "";
     document.getElementById("iconPresets").hidden = false;   // presets only when creating
+    resetPickerPanel();
+    document.getElementById("habitNameField").hidden = false;
+    pickerName.value = "";
     iconPicker.hidden = false;
   }
 
@@ -5432,6 +5861,7 @@
     buildIconPicker(HABIT_ICONS, habit && habit.icon);
     document.getElementById("habitNameField").hidden = true;
     document.getElementById("iconPresets").hidden = true;
+    resetPickerPanel();
     iconPicker.hidden = false;
   }
 
@@ -5442,6 +5872,7 @@
     buildIconPicker(EVENT_ICONS, item && item.icon);
     document.getElementById("habitNameField").hidden = true;
     document.getElementById("iconPresets").hidden = true;
+    resetPickerPanel();
     iconPicker.hidden = false;
   }
 
@@ -5451,10 +5882,20 @@
     if (!project) return;
     iconPickerMode = { kind: "project", projectId: project.id };
     buildIconPicker(PROJECT_ICONS, project.icon);
-    document.getElementById("habitNameField").hidden = true;
     document.getElementById("iconPresets").hidden = true;
+    resetPickerPanel();
     iconPicker.hidden = false;
   }
+
+  /* the panel is shared: whatever the last opener hid, put back */
+  function resetPickerPanel() {
+    document.querySelector(".icon-rail").hidden = false;
+    pickerTitle.textContent = translate("pickIconTitle");
+    document.getElementById("habitNameField").hidden = true;
+  }
+
+  const pickerTitle = iconPicker.querySelector(".modal__title");
+  const pickerName = document.getElementById("habitNameInput");
 
   /* close the picker on the × or the backdrop */
   const iconCloseButtons = iconPicker.querySelectorAll("[data-close]");
@@ -5949,72 +6390,30 @@
     exerciseCloseButtons[i].addEventListener("click", function () { exerciseView.hidden = true; });
   }
 
-  /* IMPORTANCE — the one weight everything carries. An objective is weighed on
-     five bars, a task or a step on three: an objective is compared against the
-     other objectives of a life, a task only against the day it sits in. Whatever
-     the count, the bars run along the same palette — the lowest is --imp-1, the
-     highest --imp-5 — so a full task and a full objective burn the same colour.
-     TASK_IMPORTANCE and PROJECT_IMPORTANCE are declared at the top of the file. */
+  /* THE MARK — an objective's icon, in a block of its own; pressing it opens the
+     picker. Weight is set aside for now: nothing carries one any more. */
+  function createGoalIcon(project) {
+    const icon = document.createElement("button");
+    icon.type = "button";
+    icon.className = "item__ico item__ico--editable";
+    icon.dataset.goal = project.id;
+    icon.setAttribute("aria-label", translate("editIconLabel"));
+    icon.title = translate("editIconLabel");
+    icon.innerHTML = projectSvg(project.icon || "folder");
+    icon.addEventListener("click", function (event) {
+      event.preventDefault();
+      event.stopPropagation();
+      openIconPickerForProject(project);
+    });
+    return icon;
+  }
 
-  /* Read-only divs when no onChange; clickable buttons for editing. Clicking the
-     bar already reached clears the level, which is the only way back to none. */
-  function createImportanceBars(level, onChange, max) {
-    const count = max || PROJECT_IMPORTANCE;
-    const wrap = document.createElement("div");
-    wrap.className = onChange ? "imp imp--edit" : "imp";
-    for (let i = 1; i <= count; i++) {
-      const bar = document.createElement(onChange ? "button" : "div");
-      bar.className = i <= level ? "imp__bar is-on" : "imp__bar";
-      // spread the bars over the palette: 3 bars take stops 1, 3 and 5
-      const stop = count > 1 ? Math.round(1 + (i - 1) * 4 / (count - 1)) : 5;
-      bar.style.setProperty("--imp-stop", "var(--imp-" + stop + ")");
-      if (onChange) {
-        bar.type = "button";
-        bar.setAttribute("aria-label", translate("importanceAria") + " " + i);
-        const barLevel = i;
-        bar.addEventListener("click", function (event) {
-          event.stopPropagation();   // a row underneath must not read this as "open me"
-          onChange(level === barLevel ? 0 : barLevel);
-        });
-      }
-      wrap.appendChild(bar);
+  /* every mark of that objective on screen */
+  function refreshGoalMarks(project) {
+    const icons = document.querySelectorAll('.item__ico[data-goal="' + project.id + '"]');
+    for (let i = 0; i < icons.length; i++) {
+      icons[i].innerHTML = projectSvg(project.icon || "folder");
     }
-    return wrap;
-  }
-
-  /* the bars an object shows on its row: nothing at all while it weighs nothing */
-  function createImportanceMark(item, max) {
-    if (!item.importance) return null;
-    const bars = createImportanceBars(item.importance, null, max);
-    bars.classList.add("item__imp");
-    return bars;
-  }
-
-  function setImportance(item, level) {
-    item.importance = level || 0;
-    saveState();
-  }
-
-  /* An objective carries its weight on its row at all times. Unfolded, those same
-     bars widen into the control that sets it, in place — the weight is read and
-     changed at the one spot, instead of the row saying it and somewhere else
-     owning it. */
-  function projectRowImportance(project) {
-    const editable = openInlineProject === project.id;
-    const bars = createImportanceBars(project.importance || 0, editable ? function (level) {
-      setImportance(project, level);
-      const row = document.querySelector('#projectsList .item[data-id="' + project.id + '"]');
-      if (row) repaintProjectImportance(row, project);
-      liveSky();                  // its star is sized by the same number
-    } : null, PROJECT_IMPORTANCE);
-    bars.classList.add("item__imp");
-    if (editable) bars.classList.add("imp--sm");
-    return bars;
-  }
-
-  function repaintProjectImportance(row, project) {
-    const shown = row.querySelector(".item__meta > .item__imp");
-    if (shown) shown.replaceWith(projectRowImportance(project));
   }
 
   /* AGENDA — date/time picker, reused for a task's due date and an event's reschedule */
@@ -6329,23 +6728,6 @@
       if (items[i].id === id) return items[i];
     }
     return null;
-  }
-
-  /* which star a task came from, shown quietly at the end of its row */
-  function createStarMark(projectId) {
-    const project = findItem("projects", projectId);
-    if (!project) return null;
-    const mark = document.createElement("span");
-    mark.className = "item__star";
-    mark.innerHTML = iconSvg('<path d="M12 4 13.4 9 18.2 10.1 14.5 12.9 15.3 17.8 12 15.4 8.7 17.8 9.5 12.9 5.8 10.1 10.6 9 Z"/>');
-    const name = document.createElement("span");
-    name.textContent = project.text;
-    mark.appendChild(name);
-    mark.addEventListener("click", function (event) {
-      event.stopPropagation();
-      openProjectView(project.id);
-    });
-    return mark;
   }
 
   /* HABITS VIEW — manage all habits (rename / icon / delete) + completion history */
@@ -8221,7 +8603,7 @@
   }
 
   function showHabitProjectTargets() {
-    const rows = document.querySelectorAll("#projectsList .item--project");
+    const rows = document.querySelectorAll(".list--cards .item--project");
     for (let i = 0; i < rows.length; i++) {
       rows[i].classList.add("is-habit-drop-available");
       const tab = rows[i].querySelector(".project-tab");
@@ -8230,7 +8612,7 @@
   }
 
   function clearHabitProjectTargets() {
-    const rows = document.querySelectorAll("#projectsList .item--project");
+    const rows = document.querySelectorAll(".list--cards .item--project");
     for (let i = 0; i < rows.length; i++) {
       rows[i].classList.remove("is-habit-drop-available", "is-habit-drop-target");
     }
@@ -8240,7 +8622,7 @@
 
   function habitProjectDropAt(clientX, clientY) {
     const at = document.elementFromPoint(clientX, clientY);
-    const row = at && at.closest ? at.closest("#projectsList .item--project") : null;
+    const row = at && at.closest ? at.closest(".list--cards .item--project") : null;
     if (!row) return null;
     const project = findItem("projects", row.dataset.id);
     return project ? { row: row, project: project } : null;
@@ -8682,10 +9064,11 @@
   const detail = document.getElementById("detail");
   const detailName = document.getElementById("detailName");
   const detailIcon = document.getElementById("detailIcon");
-  const detailImp = document.getElementById("detailImp");
   const detailBell = document.getElementById("detailBell");
   const detailTrash = document.getElementById("detailTrash");
   const detailWhenDay = document.getElementById("detailWhenDay");
+  const detailTomorrow = document.getElementById("detailTomorrow");
+  const detailHide = document.getElementById("detailHide");
   const detailSheets = document.getElementById("detailSheets");
   const detailWorkspace = document.getElementById("detailWorkspace");
   const detailMain = document.getElementById("detailMain");
@@ -8717,13 +9100,14 @@
   /* small "has notes" mark on a row */
   /* "2/5" subtask progress badge on a row */
   function createSubBadge(item) {
+    const subs = activeSubtasks(item);   // what is set aside is not counted
     let done = 0;
-    for (let i = 0; i < item.subtasks.length; i++) {
-      if (item.subtasks[i].done) done++;
+    for (let i = 0; i < subs.length; i++) {
+      if (subs[i].done) done++;
     }
     const badge = document.createElement("span");
     badge.className = "item__sub";
-    badge.textContent = done + "/" + item.subtasks.length;
+    badge.textContent = done + "/" + subs.length;
     return badge;
   }
 
@@ -8770,14 +9154,24 @@
   function fillDetail(item) {
     const kind = detailTarget.kind;
     detailName.value = item.text || "";
+    detailName.placeholder = translate(kind === "events" ? "newEventName" : "newTaskName");
+    // measured now, not a frame later: the fold is sized right after this and a
+    // title that grows to two lines afterwards makes the row jump open
+    fitLine(detailName);
     // an event says how much it matters with its bell, not with the bars
-    detailImp.hidden = kind === "events";
-    if (!detailImp.hidden) fillDetailImportance(item);
     // the bell is the event's own flag, and the only way to take it back off
     // the bin and the day picker travel with the bell: an event has no actions
     // row to hold them
     detailTrash.hidden = kind !== "events";
-    detailWhenDay.hidden = kind !== "events";
+    detailTomorrow.hidden = kind !== "events";
+    // A day to move and an eye to set aside stand in the object's own tool line.
+    // Not in a band: there a task is planned by being dragged onto the calendar,
+    // which is right there, and the line is kept to its name.
+    const bandLine = kind === "tasks" && !!openHost && inWorkBand(openHost);
+    detailWhenDay.hidden = bandLine;
+    detailHide.hidden = bandLine;
+    if (kind === "events") setTomorrowMode(item);
+    setHideMode(item);
     detailBell.hidden = kind !== "events";
     if (kind === "events") {
       detailBell.classList.toggle("is-on", !!item.important);
@@ -8796,7 +9190,9 @@
     if (kind !== "events") renderSubtasks(item);
     // Scheduling and deletion stay on the row and through drag-and-drop; the
     // unfolded surface remains focused on the object's content.
-    setTaskSheet(RESTING_SHEET);
+    // In a band a sheet takes the place of the subtasks instead of opening
+    // beside them, so the row opens on the subtasks and nothing is hidden away.
+    setTaskSheet(openHost && inWorkBand(openHost) ? null : RESTING_SHEET);
     detailBody.scrollTop = 0;
   }
 
@@ -8830,6 +9226,12 @@
     // An event has no strip: its note is the only thing it has ever carried
     // beside a date and a bell, and it keeps it, always on show.
     const isEvent = detailTarget.kind === "events";
+    const row = openHost && hostRow(openHost);
+    // In a band the canvas is not a sheet: it opens on the calendar and leaves
+    // the subtasks where they are. Asking for it again takes it off the card.
+    const toCard = kind === "canvas" && inWorkBand(row);
+    if (toCard && item) openCanvasOnCard(withCanvas(item));
+    if (toCard) kind = null;
     if (kind && item && !isEvent && !sheetReachable(item, kind)) kind = RESTING_SHEET;
     openTaskSheet = kind || null;
     const open = !!openTaskSheet && !isEvent;
@@ -8837,16 +9239,39 @@
     detailWorkspace.classList.toggle("is-sheet-open", open);
     detailWorkspace.classList.toggle("is-canvas-open", openTaskSheet === "canvas");
     detailSheet.hidden = isEvent ? false : !open;
-    const row = openHost && hostRow(openHost);
     if (row) {
       row.classList.toggle("is-sheet-open", open);
       row.classList.toggle("is-canvas-open", openTaskSheet === "canvas");
     }
     if (openTaskSheet !== "canvas") releaseCanvasSheet(detailSheet);
+    paintDocRail(isEvent);
     if (!item) return;
     renderSheetInto(detailSheet, item, openTaskSheet);
-    if (!isEvent) paintSheetStrip(detailSheets, item, openTaskSheet, pickTaskSheet);
+    if (!isEvent) {
+      paintSheetStrip(detailSheets, item, openTaskSheet, pickTaskSheet, inWorkBand(row));
+    }
   }
+
+  /* THE PAGE AND ITS RAIL — on the card's back a task is read as a document: the
+     sheet takes the whole card and the subtasks stand in a rail beside it. The
+     rail folds down to a ribbon when the page wants the width. */
+  const detailRail = document.getElementById("detailRail");
+  let railFolded = false;
+
+  function paintDocRail(isEvent) {
+    const onBack = !!openHost && isCardBack(openHost) && !isEvent;
+    detailRail.hidden = !onBack;
+    const folded = onBack && railFolded;
+    detailWorkspace.classList.toggle("is-rail-folded", folded);
+    detailRail.textContent = folded ? "›" : "‹";
+    detailRail.setAttribute("aria-label", translate(folded ? "railUnfold" : "railFold"));
+  }
+
+  detailRail.addEventListener("click", function (event) {
+    event.stopPropagation();
+    railFolded = !railFolded;
+    paintDocRail(detailTarget.kind === "events");
+  });
 
   function pickTaskSheet(kind) {
     const item = currentDetailItem();
@@ -8865,10 +9290,11 @@
     const row = hostRow(host);
     host.appendChild(detailCard);
     // the identity line takes the place of the row's static label, so the title,
-    // the date, the pin and the importance stay exactly where they were
+    // the title, the date and the marks stay exactly where they were
     if (row) {
       row.querySelector(".item__slot").appendChild(detailHead);
       row.classList.add("is-open");
+      requestAnimationFrame(function () { placeStrike(row); });
     }
     openHost = host;
     return true;
@@ -8877,7 +9303,14 @@
   /* the fold's height is measured rather than left to the grid: a flexible row
      resolves to nothing here, which left the editor clipped to a sliver */
   let foldTimer = null;
+
+  /* The back of the calendar is not a pocket that opens: it is already the size
+     of the card, and the turn is the animation. Measuring and animating a height
+     there would fight the flip and squash what is written on it. */
+  function isCardBack(host) { return !!host.closest(".ecal__verso"); }
+
   function openFold(host) {
+    if (isCardBack(host)) return;
     fieldWake();                 // everything below is about to move
     const fold = host.parentNode;
     clearTimeout(foldTimer);
@@ -8885,6 +9318,7 @@
     foldTimer = setTimeout(function () { fold.style.height = "auto"; }, UNFOLD_MS);
   }
   function shutFold(host) {
+    if (isCardBack(host)) return;
     fieldWake();
     const fold = host.parentNode;
     clearTimeout(foldTimer);
@@ -8897,8 +9331,13 @@
   function releaseHost(host) {
     const row = hostRow(host);
     setTaskSheet(null);
+    if (host.closest(".ecal__verso")) setCalFlipped(false);
+    // the row is shutting, and the calendar may still be turned over onto its
+    // canvas: the two were opened by one press and go together
+    else if (row) closeCardCanvas(findItem("tasks", row.dataset.id));
     shutFold(host);
     if (row) row.classList.remove("is-open", "is-sheet-open", "is-canvas-open");
+    if (row) requestAnimationFrame(function () { placeStrike(row); });
     setTimeout(function () {
       if (detailCard.parentNode === host) {
         detailCard.insertBefore(detailHead, detailCard.firstChild);
@@ -8916,7 +9355,8 @@
   }
 
   /* A task and an objective may stay open side by side. Leaving both working
-     surfaces closes them together, so no orphaned fold remains in either column. */
+     surfaces closes them together, so no orphaned fold remains in either column
+     — everywhere but the work zone, where a band is a place and not a popup. */
   document.addEventListener("click", function (event) {
     if ((!openHost && !openInlineProject) || !event.target.closest) return;
     // A handler may have redrawn its own section before this one runs, detaching
@@ -8928,26 +9368,57 @@
     // a chip and the fold it opens are one object, though they sit apart
     // ticking a habit is a move of its own: the band sits over the task column
     // and beside the objectives, but touching it is not leaving what is open
-    if (event.target.closest(".item.is-open, .item--project.is-inline-open, "
-      + ".dtl__event:not(.dtl__add), .undated__chip, .day-fold, .habits-band, "
+    // a band row and the card it turned over are one object too: the row does
+    // not open under itself any more, so it is never `.is-open` to be spared by
+    // that name — its mark is the one that says the card is showing it
+    if (event.target.closest(".item.is-open, .item.is-on-card, "
+      + ".item--project.is-inline-open, "
+      + ".dtl__event:not(.dtl__add), .undated__chip, .ecal__verso, .habits-band, "
       + "#addProjectBtn")) return;
     if (event.target.closest(".modal, .detail")) return;   // pickers the editor opens
+    // In the work zone the objective is the context the calendar is worked in and
+    // stays open — it is shut by its own tab, the way it was opened. An open task
+    // is not context, it is what one is doing: leaving it shuts it, which is also
+    // what unfreezes the list it stands in. This is read after the guards above,
+    // or the very click that opens a row would close it again.
+    if (workBandsOn()) {
+      if (openHost) closeDetail();
+      return;
+    }
     closeAllInlineRows();
   });
 
 
+
   /* SUBTASKS */
+  /* Six at a time, newest first — the same reading as the course and the journal.
+     A task with thirty subtasks would otherwise make its own row taller than the
+     column it unfolds in. */
   function renderSubtasks(item) {
     subtaskList.innerHTML = "";
-    const subs = item.subtasks || [];
-    for (let i = subs.length - 1; i >= 0; i--) {
+    const subs = activeSubtasks(item);
+    const pageState = boundedListPage(subtaskListPages, item.id, subs.length);
+    const turn = function (page) {
+      subtaskListPages[item.id] = page;
+      renderSubtasks(item);
+    };
+    if (pageState.last > 0) {
+      subtaskList.appendChild(createProjectListPager("top", pageState, turn));
+    }
+    const newest = subs.length - 1 - pageState.page * PROJECT_LIST_PAGE_SIZE;
+    const oldest = Math.max(0, newest - PROJECT_LIST_PAGE_SIZE + 1);
+    for (let i = newest; i >= oldest; i--) {
       subtaskList.appendChild(createSubtaskRow(item, subs[i], i, subs.length));
+    }
+    if (pageState.last > 0) {
+      subtaskList.appendChild(createProjectListPager("bottom", pageState, turn));
     }
   }
 
   function createSubtaskRow(item, sub, index, total) {
     const row = document.createElement("li");
-    row.className = sub.done ? "step is-done" : "step";
+    row.className = "step" + (sub.done ? " is-done" : "")
+      + (sub.aside ? " is-aside" : "");
     row.dataset.subtaskId = sub.id;
     const color = paletteColorAt(paletteStops(), total > 1 ? index / (total - 1) : 0);
     row.style.setProperty("--step-color", color);
@@ -8964,6 +9435,17 @@
       saveState();
     });
 
+    const aside = document.createElement("button");
+    aside.type = "button";
+    aside.className = "step__aside";
+    const subAsideLabel = translate(sub.aside ? "asideBack" : "asideLabel");
+    aside.setAttribute("aria-label", subAsideLabel);
+    aside.title = subAsideLabel;
+    aside.innerHTML = iconSvg(sub.aside ? ICON_ASIDE_OFF : ICON_ASIDE);
+    aside.addEventListener("click", function () {
+      toggleAside(sub, function () { refreshAside(item); });
+    });
+
     const del = document.createElement("button");
     del.type = "button";
     del.className = "step__del";
@@ -8971,7 +9453,7 @@
     del.textContent = "×";
     del.addEventListener("click", function () { removeSubtask(item, sub.id); });
 
-    row.append(checkbox, label, del);
+    row.append(checkbox, label, aside, del);
     return row;
   }
 
@@ -9021,6 +9503,11 @@
      lost by that — the constellation they belong to is named in the title bar. */
   function setProjectSheet(kind, row, project) {
     const item = project || (row && findItem("projects", row.dataset.id));
+    // In a band the canvas is not a sheet either: it opens on the calendar and
+    // the course stays on show. Asking for it again takes it off the card.
+    const toCard = kind === "canvas" && inWorkBand(row);
+    if (toCard && item) openCanvasOnCard(withCanvas(item));
+    if (toCard) kind = null;
     if (kind && item && !sheetReachable(item, kind)) kind = RESTING_SHEET;
     openProjectSheet = kind || null;
     setInlineProjectLayout(!!openProjectSheet);
@@ -9042,7 +9529,7 @@
       paintSheetStrip(strip, item, openProjectSheet, function (pick) {
         if (pick === "canvas" && !canvasFitsInline()) { openCanvasFull(item); return; }
         setProjectSheet(pick, row, item);
-      });
+      }, inWorkBand(row));
     }
   }
 
@@ -9059,9 +9546,9 @@
     if (rowName) rowName.hidden = false;
     row.classList.remove("is-inline-open", "is-sheet-open");
     const closing = findItem("projects", row.dataset.id);
-    if (closing) repaintProjectImportance(row, closing);   // read-only again
     openProjectSheet = null;
     releaseCanvasSheet(row);
+    closeCardCanvas(closing);   // its board may be on the calendar, not in the row
     setInlineProjectLayout(false);
     row.setAttribute("aria-expanded", "false");
     fold.style.height = fold.getBoundingClientRect().height + "px";
@@ -9074,7 +9561,7 @@
 
   function closeOpenInlineProject() {
     if (!openInlineProject) return;
-    const row = document.querySelector("#projectsList .item--project.is-inline-open");
+    const row = document.querySelector(".list--cards .item--project.is-inline-open");
     openInlineProject = null;
     if (row) closeInlineProjectRow(row);
     else {
@@ -9097,15 +9584,15 @@
 
     // set before closing the other row: both rows repaint their bars from this
     openInlineProject = project.id;
-    const previous = document.querySelector("#projectsList .item--project.is-inline-open");
+    const previous = document.querySelector(".list--cards .item--project.is-inline-open");
     if (previous && previous !== row) closeInlineProjectRow(previous);
 
     // after the other row has closed: closing one clears the open sheet, which
-    // would take this one's resting note with it
-    openProjectSheet = RESTING_SHEET;
+    // would take this one's resting note with it. In a band the sheet replaces
+    // the course rather than opening beside it, so the course stays on show.
+    openProjectSheet = inWorkBand(row) ? null : RESTING_SHEET;
+    row.classList.add("is-inline-open");   // its name is measured at its open size
     renderInlineProject(fold.firstChild, project);
-    row.classList.add("is-inline-open");
-    repaintProjectImportance(row, project);   // the bars become the control
     row.setAttribute("aria-expanded", "true");
     fold.style.height = "0px";
     fold.offsetWidth;
@@ -9125,20 +9612,31 @@
     const rowName = tab.querySelector(".item__text");
     const oldName = tab.querySelector(".goal-inline__name");
     if (oldName) oldName.remove();
-    const name = document.createElement("input");
-    name.type = "text";
+    // a textarea rather than an input: shut, the row wraps its name over as many
+    // lines as it takes, and opening it must not suddenly cut the name short
+    const name = document.createElement("textarea");
     name.className = "goal-inline__name";
+    name.rows = 1;
     name.maxLength = 120;
     name.value = project.text || "";
+    name.placeholder = translate("newProjectName");
     name.addEventListener("input", function () {
       renameProject(project, name.value);
-      if (rowName) rowName.textContent = project.text;
+      if (rowName) {
+        rowName.textContent = project.text || translate("newProjectName");
+        rowName.classList.toggle("is-untitled", !project.text);
+      }
+      fitLine(name);
+    });
+    name.addEventListener("keydown", function (key) {
+      if (key.key === "Enter") { key.preventDefault(); name.blur(); }
     });
     name.addEventListener("change", function () {
       if (!skyView.hidden) renderSky();
     });
     if (rowName) rowName.hidden = true;
     tab.insertBefore(name, rowName || tab.querySelector(".item__slot"));
+    fitLine(name);   // before the fold is measured, for the same reason
 
     const strip = document.createElement("div");
     strip.className = "sheets";
@@ -9183,7 +9681,7 @@
      replaces the browser's scroll anchor, which is what made the page jump. Both
      axes are held, and the add field is focused without scrolling to it. */
   function refreshInlineSteps(project, options) {
-    const host = document.querySelector('#projectsList .item[data-id="' + project.id
+    const host = document.querySelector('.list--cards .item[data-id="' + project.id
       + '"] .psteps');
     if (!host) return false;
     const pageX = window.scrollX;
@@ -9720,14 +10218,15 @@
      Anything that changes the steps goes through here rather than picking one. */
   function redrawSteps(project, options) {
     const inline = refreshInlineSteps(project, options);
-    refreshProjectSteps(project, inline ? "#projectsList" : null);
+    refreshProjectSteps(project, inline ? ".list--cards" : null);
   }
 
   /* Refresh only the steps surfaces. Structural changes use this instead of
      rebuilding #projectsList, so the title, journal and open objective survive. */
   function refreshStepSections(project, options) {
     const inline = refreshInlineSteps(project, options);
-    refreshProjectSteps(project, inline ? "#projectsList" : null);
+    refreshProjectSteps(project, inline ? ".list--cards" : null);
+    repaintTaskColors();   // the ramp moved under whatever came from this course
     return inline;
   }
 
@@ -9757,6 +10256,7 @@
   const PROJECT_LIST_PAGE_SIZE = 6;
   const stepListPages = {};
   const journalListPages = {};
+  const subtaskListPages = {};
 
   function boundedListPage(store, key, total) {
     const last = Math.max(0, Math.ceil(total / PROJECT_LIST_PAGE_SIZE) - 1);
@@ -9789,7 +10289,7 @@
   /* The checklist follows the journal: its add line and newest six steps are at
      the top. Older groups are reached without making the objective grow forever. */
   function renderStepChecklist(host, project, branch) {
-    const steps = branch.steps;
+    const steps = activeSteps(branch);
     const pageKey = project.id + "|" + branch.id;
     const pageState = boundedListPage(stepListPages, pageKey, steps.length);
     host.appendChild(createStepChecklistAdd(project, branch));
@@ -9817,22 +10317,10 @@
      level redraws the bars alone — nothing else on a step depends on it, so the
      roadmap and the checklist showing the same step both follow without either
      of them being rebuilt. */
-  function createStepImportance(step) {
-    const bars = createImportanceBars(step.importance || 0, function (level) {
-      setImportance(step, level);
-      const shown = document.querySelectorAll('[data-step-id="' + step.id + '"] .step__imp');
-      for (let i = 0; i < shown.length; i++) {
-        shown[i].replaceWith(createStepImportance(step));
-      }
-    }, TASK_IMPORTANCE);
-    bars.classList.add("step__imp", "imp--sm");
-    if (step.importance) bars.classList.add("is-set");
-    return bars;
-  }
-
   function createStepChecklistRow(project, step, index, total, branch) {
     const row = document.createElement("div");
-    row.className = step.completedDate ? "step is-done" : "step";
+    row.className = "step" + (step.completedDate ? " is-done" : "")
+      + (step.aside ? " is-aside" : "");
     row.dataset.stepId = step.id;
     const color = paletteColorAt(paletteStops(), total > 1 ? index / (total - 1) : 0);
     row.style.setProperty("--step-color", color);
@@ -9870,7 +10358,17 @@
     row.appendChild(label);
     requestAnimationFrame(function () { fitLine(label); });
 
-    row.appendChild(createStepImportance(step));
+    const aside = document.createElement("button");
+    aside.type = "button";
+    aside.className = "step__aside";
+    const asideLabel = translate(step.aside ? "asideBack" : "asideLabel");
+    aside.setAttribute("aria-label", asideLabel);
+    aside.title = asideLabel;
+    aside.innerHTML = iconSvg(step.aside ? ICON_ASIDE_OFF : ICON_ASIDE);
+    aside.addEventListener("click", function () {
+      toggleAside(step, function () { refreshAsideStep(project); });
+    });
+    row.appendChild(aside);
 
     const del = document.createElement("button");
     del.type = "button";
@@ -9932,6 +10430,46 @@
     return at;
   }
 
+  /* WHAT IS SET ASIDE STAYS ON THE COURSE — it used to be filed away in an inbox,
+     which meant a second place to look and a second thing to keep in step. It is
+     read where it was left instead: greyed and shrunk, as a task set aside is. */
+  function activeSteps(branch) {
+    return branch.steps.slice();
+  }
+
+  /* a step set aside is redrawn where it stands, on its course */
+  function refreshAsideStep(project) {
+    refreshStepSections(project);
+    refreshBranchHead(project);
+    if (openProject === project.id) renderPanelSheets(project);
+  }
+
+  /* An objective sets steps aside and a task sets subtasks aside; both stay in
+     their list, greyed, and both come back the same way they left. */
+  function activeSubtasks(item) {
+    return (item.subtasks || []).slice();
+  }
+
+  /* setting one aside changes nothing but its own look: it is redrawn in place */
+  function refreshAside(owner) {
+    if (owner.constellations) { refreshAsideStep(owner); return; }
+    renderSubtasks(owner);
+    refreshOpenRow(owner);
+  }
+
+  function asideSteps(project) {
+    const branches = projectBranches(project);
+    const shelved = [];
+    for (let b = 0; b < branches.length; b++) {
+      for (let i = 0; i < branches[b].steps.length; i++) {
+        if (branches[b].steps[i].aside) {
+          shelved.push({ branch: branches[b], step: branches[b].steps[i] });
+        }
+      }
+    }
+    return shelved;
+  }
+
   /* put a step back where its state says it belongs; true if that moved it */
   function settleStep(branch, step) {
     if (!branch) return false;
@@ -9984,13 +10522,13 @@
       return;
     }
     const localDashboardNode = inlineNode && inlineNode.isConnected
-      && inlineNode.closest("#projectsList");
+      && inlineNode.closest(".list--cards");
     if (localDashboardNode) refreshInlineStep(project, step, inlineNode);
     if (completedTasks.length) refreshTasksCompletedByStep(project, completedTasks);
     if (localDashboardNode) {
       // Keep a simultaneously open Rêve panel current without replacing the
       // objective row that was just clicked.
-      refreshProjectSteps(project, "#projectsList");
+      refreshProjectSteps(project, ".list--cards");
       return;
     }
     refreshProjectSteps(project);
@@ -10011,7 +10549,7 @@
 
   /* the percentage on the closed objective tab, wherever a step changed */
   function refreshProjectBadge(project) {
-    const badge = document.querySelector('#projectsList .item[data-id="' + project.id
+    const badge = document.querySelector('.list--cards .item[data-id="' + project.id
       + '"] .project-tab .item__sub');
     if (badge) badge.textContent = Math.round(stepProgress(project) * 100) + "%";
   }
@@ -10146,7 +10684,7 @@
       slideSteps(places);
       return;
     }
-    const projectRow = document.querySelector('#projectsList .item[data-id="' + project.id + '"]');
+    const projectRow = document.querySelector('.list--cards .item[data-id="' + project.id + '"]');
     if (projectRow && step) {
       const nodes = projectRow.querySelectorAll("[data-step-id]");
       for (let i = 0; i < nodes.length; i++) {
@@ -10157,7 +10695,7 @@
       }
     }
     refreshProjectBadge(project);
-    refreshProjectSteps(project, "#projectsList");
+    refreshProjectSteps(project, ".list--cards");
   }
 
   /* current palette as five parsed rgb stops (--imp-1 .. --imp-5) */
@@ -10248,7 +10786,6 @@
   const projectView = document.getElementById("projectView");
   const pviewName = document.getElementById("pviewName");
   const pviewIcon = document.getElementById("pviewIcon");
-  const pviewImp = document.getElementById("pviewImp");
   const pviewWhy = document.getElementById("pviewWhy");
   const pviewOutcome = document.getElementById("pviewOutcome");
   const pviewDone = document.getElementById("pviewDone");
@@ -10292,12 +10829,8 @@
 
   function fillProjectView(project) {
     pviewName.value = project.text || "";
+    pviewIcon.dataset.goal = project.id;
     pviewIcon.innerHTML = projectSvg(project.icon || "folder");
-    pviewImp.innerHTML = "";
-    pviewImp.appendChild(createImportanceBars(project.importance || 0, function (level) {
-      setImportance(project, level);
-      fillProjectView(project);
-    }, PROJECT_IMPORTANCE));
     pviewWhy.value = project.why || "";
     pviewOutcome.value = project.outcome || "";
     fitLine(pviewWhy);
@@ -10317,9 +10850,28 @@
   }
 
   /* a one-line field that grows with what is typed into it */
+  /* A FIELD THAT CANNOT BE MEASURED — every steps section on screen is redrawn
+     at once, and some of them are on a page that is not being shown. A field
+     with no box measures nothing, so the height it asked for was zero and the
+     step read as an empty line for as long as nobody typed in it. Leave the
+     height to the stylesheet in that case, and fit it once it has a box. */
   function fitLine(field) {
     field.style.height = "auto";
-    field.style.height = field.scrollHeight + "px";
+    const wanted = field.scrollHeight;
+    if (!wanted) { field.style.height = ""; fitWhenShown(field); return; }
+    field.style.height = wanted + "px";
+  }
+
+  function fitWhenShown(field) {
+    if (!window.ResizeObserver || field.dataset.fitWait) return;
+    field.dataset.fitWait = "1";
+    const watcher = new ResizeObserver(function () {
+      if (!field.scrollHeight) return;
+      watcher.disconnect();
+      delete field.dataset.fitWait;
+      fitLine(field);
+    });
+    watcher.observe(field);
   }
 
   /* PROMOTION — an idea in the journal and a step on the line are both things
@@ -10406,21 +10958,34 @@
     const shown = [];
     const declared = Array.isArray(item.sheets) ? item.sheets : [];
     for (let i = 0; i < declared.length; i++) {
-      if (SHEET_KINDS.indexOf(declared[i]) !== -1 && shown.indexOf(declared[i]) === -1) {
+      if (sheetOffered(item, declared[i]) && shown.indexOf(declared[i]) === -1) {
         shown.push(declared[i]);
       }
     }
     for (let i = 0; i < SHEET_KINDS.length; i++) {
       const kind = SHEET_KINDS[i];
-      if (shown.indexOf(kind) === -1 && sheetFilled(item, kind)) shown.push(kind);
+      if (shown.indexOf(kind) === -1 && sheetOffered(item, kind) && sheetFilled(item, kind)) {
+        shown.push(kind);
+      }
     }
     return shown;
+  }
+
+  function sheetOffered(item, kind) {
+    return SHEET_KINDS.indexOf(kind) !== -1;
   }
 
   /* The note needs no adding: it is where an object opens, and it holds nothing
      until something is written in it. The other two are made on their first click. */
   function sheetReachable(item, kind) {
     return kind === RESTING_SHEET || sheetKinds(item).indexOf(kind) !== -1;
+  }
+
+  /* A canvas that opens on its own has to exist first: everywhere else it is
+     made by the press on its tab. */
+  function withCanvas(item) {
+    if (!sheetCanvasNode(item)) addSheet(item, "canvas");
+    return item;
   }
 
   function addSheet(item, kind) {
@@ -10568,8 +11133,31 @@
       collapsed: true   // it waits folded on the board until it is opened
     };
     tree.blocks.push(node);
+    furnishSheetCanvas(tree, node);
     touchCanvas(tree);
     return node;
+  }
+
+  /* WHAT EVERY SHEET CANVAS IS FURNISHED WITH — a notepad and a logbook, made
+     with it and standing on it: the note and the journal an object has always
+     carried, written on the canvas instead of behind two more tabs. Neither
+     holds anything of its own — they draw the object's own note and journal. */
+  function furnishSheetCanvas(tree, node) {
+    const camera = { x: node.cameraX || 0, y: node.cameraY || 0 };
+    const left = camera.x + 90;
+    const top = camera.y + 90;
+    // a document, not a plain note card: the object's note is a notepad now, and
+    // this is the same page the panel opens
+    tree.blocks.push({
+      id: thinkingId("b"), type: "document", text: "",
+      x: left, y: top, parentId: node.id, blockWidth: 300,
+      cameraX: camera.x, cameraY: camera.y, collapsed: true
+    });
+    tree.blocks.push({
+      id: thinkingId("b"), type: "logbook", text: "",
+      x: left + 340, y: top, parentId: node.id, blockWidth: 320,
+      collapsed: true
+    });
   }
 
   /* where a sheet's canvas is: the tree that holds it and the canvas itself.
@@ -10604,24 +11192,30 @@
      to look for and nothing to open first. Only the sheet itself waits — the
      first click on a mark is what brings it into being. `active` is the kind on
      show (or null), `pick` is given the kind to open, or null to close it. */
-  function paintSheetStrip(strip, item, active, pick) {
+  /* A band carries no strip at all: what a row opens, it opens by being opened —
+     the canvas on the calendar, the course under the name. Nothing is offered
+     twice, and nothing is offered that a 400px line cannot hold. The column
+     keeps its three marks. */
+  function paintSheetStrip(strip, item, active, pick, band) {
     strip.innerHTML = "";
     strip.className = "sheets";
+    if (band) return;
     const carried = sheetKinds(item);
     for (let i = 0; i < SHEET_KINDS.length; i++) {
       const kind = SHEET_KINDS[i];
-      strip.appendChild(createSheetTab(item, kind, active,
+      if (!sheetOffered(item, kind)) continue;
+      strip.appendChild(createSheetTab(item, kind, kind === active,
         carried.indexOf(kind) !== -1, pick));
     }
   }
 
-  function createSheetTab(item, kind, active, carried, pick) {
+  function createSheetTab(item, kind, on, carried, pick, sticky) {
     const tab = document.createElement("button");
     tab.type = "button";
-    tab.className = "sheets__tab" + (kind === active ? " is-on" : "")
+    tab.className = "sheets__tab" + (on ? " is-on" : "")
       + (carried ? "" : " sheets__tab--empty");
     tab.dataset.sheet = kind;
-    tab.setAttribute("aria-pressed", kind === active ? "true" : "false");
+    tab.setAttribute("aria-pressed", on ? "true" : "false");
     // The mark alone: three words side by side ran the strip past the end of
     // the line it sits on. The name stays in the title and for screen readers.
     tab.setAttribute("aria-label", translate(SHEET_LABELS[kind]));
@@ -10631,7 +11225,8 @@
       event.preventDefault();
       event.stopPropagation();
       if (!carried) { addSheet(item, kind); pick(kind); return; }
-      pick(kind === active ? null : kind);
+      // the one the calendar holds answers to itself: it is asked for either way
+      pick(sticky || !on ? kind : null);
     });
     return tab;
   }
@@ -10642,9 +11237,10 @@
     host.innerHTML = "";
     host.dataset.sheet = kind || "";
     if (!kind) return;
-    // The canvas gets no heading: its tab already names it, and every line of
-    // this sheet is a line the board does not have to think in.
-    if (kind !== "canvas") {
+    // Neither the canvas nor the notepad gets a heading: their tab already names
+    // them, and the page fills the panel edge to edge — a label above it would
+    // be a line taken from what is written on it.
+    if (kind !== "canvas" && kind !== "note") {
       const label = document.createElement("span");
       label.className = "detail__label";
       label.textContent = translate(SHEET_LABELS[kind]);
@@ -10655,23 +11251,15 @@
     else host.appendChild(createCanvasSheet(item));
   }
 
+  /* A NOTE IS A NOTEPAD — the panel shows the very page the canvas shows: the
+     same ruled paper, the same formatting bar, the same html. There is one note
+     and one design for it, opened in two places. */
   function createNoteSheet(item) {
-    const field = document.createElement("textarea");
-    field.className = "detail__notes";
-    field.rows = 1;
-    field.placeholder = translate("notesPlaceholder");
-    field.value = item.notes || "";
-    const fit = function () {
-      field.style.height = "auto";
-      field.style.height = field.scrollHeight + "px";
-    };
-    field.addEventListener("input", function () {
-      item.notes = field.value;
-      fit();
-      saveState();
-    });
-    requestAnimationFrame(fit);
-    return field;
+    const sheet = document.createElement("div");
+    sheet.className = "thinking-document-sheet thinking-document-sheet--panel";
+    const paper = createDocumentPaper(noteSource(item));
+    sheet.append(paper.toolbar, paper.body);
+    return sheet;
   }
 
   function createJournalSheet(owner) {
@@ -10750,7 +11338,10 @@
   }
 
   function mountCanvasSheet(slot, item) {
-    const found = sheetCanvasNode(item);
+    mountCanvasSheetAt(slot, sheetCanvasNode(item));
+  }
+
+  function mountCanvasSheetAt(slot, found) {
     if (!slot.isConnected || !found) return;
     releaseCanvasSheet();
     canvasSheetSlot = slot;
@@ -10981,6 +11572,11 @@
     liveSky();                    // a line written feeds the star's own glow
     const hosts = document.querySelectorAll('.jrn[data-owner="' + owner.id + '"]');
     for (let i = 0; i < hosts.length; i++) renderJournalInto(hosts[i], owner);
+    // the logbook on the canvas draws the same journal: it is drawn again
+    if (thinkingLive()) {
+      const tree = currentCanvas();
+      if (tree) { syncThinkingJournalBlocks(tree); renderThinkingCanvas(tree); }
+    }
   }
 
   /* THE PROJECT MODEL — a project is worked on in three places: the panel a star
@@ -12039,7 +12635,8 @@
     star.dataset.id = project.id;
     star.style.left = spot.x + "%";
     star.style.top = spot.y + "%";
-    star.style.setProperty("--star-size", (11 + (project.importance || 0) * 3.4) + "px");
+    // weight is set aside, so every star is the same size until it comes back
+    star.style.setProperty("--star-size", "18px");
     star.style.setProperty("--star-glow", momentum.toFixed(2));
     star.style.animationDuration = (7 - momentum * 4).toFixed(1) + "s";
 
@@ -12431,10 +13028,16 @@
   });
 
   /* live rename */
+  detailName.addEventListener("keydown", function (key) {
+    if (key.key === "Enter") { key.preventDefault(); detailName.blur(); }
+  });
+
   detailName.addEventListener("input", function () {
     const item = currentDetailItem();
     if (!item) return;
     item.text = detailName.value;
+    fitLine(detailName);
+    syncOpenCanvasTitle();   // its canvas wears the name, so it is worn as it is typed
     saveState();
     // A name does not change where a thing belongs, so nothing has to be rebuilt:
     // the row's own label is written in place. Rebuilding would queue a redraw of
@@ -12454,16 +13057,19 @@
     if (!row || detailTarget.kind !== "tasks") { refreshDetailSource(); return; }
 
     const label = row.querySelector(".item__text");
-    if (label) label.textContent = item.text;
+    if (label) {
+      label.textContent = item.text || translate("newTaskName");
+      label.classList.toggle("is-untitled", !item.text);
+    }
 
     const badge = row.querySelector(".item__sub");
-    const subs = item.subtasks || [];
+    const subs = activeSubtasks(item);
     if (subs.length && !badge) {
       const marks = rowMarks(row);
       // the badge sits after the note mark and before the star, the date and the
       // bars — the same order createItemRow lays them out in
       marks.insertBefore(createSubBadge(item),
-        marks.querySelector(".item__star, .item__due, .item__imp"));
+        marks.querySelector(".item__due"));
     } else if (!subs.length && badge) {
       const marks = badge.parentNode;
       badge.remove();
@@ -12491,7 +13097,77 @@
 
   detailWhenDay.addEventListener("click", function () {
     const item = currentDetailItem();
-    if (item) openCalendar(item.id, "events");
+    if (item) openCalendar(item.id, detailTarget.kind);
+  });
+
+  /* One day on, and the way back. It is the move made most often and the only one
+     that needs no choosing, so it is a button rather than a trip through the
+     picker — and once something has been carried forward, the same button is
+     what carries it home. It turns and takes the accent to say so. */
+  function setTomorrowMode(item) {
+    const ahead = !!item.date && item.date > todayKey();
+    detailTomorrow.classList.toggle("is-back", ahead);
+    const label = translate(ahead ? "pullToday" : "pushTomorrow");
+    detailTomorrow.setAttribute("aria-label", label);
+    detailTomorrow.title = label;
+  }
+
+  detailTomorrow.addEventListener("click", function () {
+    const item = currentDetailItem();
+    if (!item) return;
+    item.date = detailTomorrow.classList.contains("is-back")
+      ? todayKey() : shiftDateKey(item.date || todayKey(), 1);
+    saveState();
+    fillDetail(item);
+    renderEventCal();
+    renderDailyTimeline();
+    renderUndated();
+  });
+
+  /* Set aside: it keeps its name, its mark and its note, and goes back to the
+     strip where nothing has a day. The same eye as a task left in the tail — and
+     the same eye brings it back, rather than vanishing under the finger that has
+     just pressed it. */
+  /* An event dragged while its card is open changes under its own buttons: the
+     eye and the arrow are read from its date, so they are read again rather than
+     left saying what was true before the drop. */
+  function refreshOpenEvent(event) {
+    if (detailTarget.kind === "events" && detailTarget.id === event.id) fillDetail(event);
+  }
+
+  function setHideMode(item) {
+    // a task waits in the tail by its own flag; an event by having no day at all
+    const aside = detailTarget.kind === "tasks" ? !!item.aside : !item.date;
+    detailHide.classList.toggle("is-back", aside);
+    detailHide.innerHTML = iconSvg(aside ? ICON_ASIDE_OFF : ICON_ASIDE);
+    const label = translate(aside ? "asideBack" : "asideLabel");
+    detailHide.setAttribute("aria-label", label);
+    detailHide.title = label;
+  }
+
+  detailHide.addEventListener("click", function () {
+    const item = currentDetailItem();
+    if (!item) return;
+    if (detailTarget.kind === "tasks") {
+      toggleAside(item, function () {
+        renderList("tasks");
+        renderDailyTimeline();
+      });
+      setHideMode(item);
+      return;
+    }
+    if (item.date) {
+      item.date = null;
+      item.time = null;
+      undatedOpen = true;   // it must be seen where it went
+    } else {
+      item.date = sectionDay || todayKey();   // back onto the day on show
+    }
+    saveState();
+    fillDetail(item);
+    renderEventCal();
+    renderDailyTimeline();
+    renderUndated();
   });
 
   detailTrash.addEventListener("click", function () {
@@ -12511,33 +13187,6 @@
     renderUndated();
   });
 
-  /* The bars sit in the identity line, which travels into the row being edited:
-     the weight is set right where it is read. The row's own mark is repainted
-     rather than the list, so setting it never moves anything. */
-  function fillDetailImportance(item) {
-    const bars = createImportanceBars(item.importance || 0, function (level) {
-      setImportance(item, level);
-      fillDetailImportance(item);
-      refreshRowImportance(item);
-    }, TASK_IMPORTANCE);
-    bars.classList.add("imp--sm");   // the identity line is a row, not a dialog
-    detailImp.innerHTML = "";
-    detailImp.appendChild(bars);
-  }
-
-  function refreshRowImportance(item) {
-    const row = document.querySelector('.item[data-id="' + item.id + '"]');
-    if (!row) return;
-    const shown = row.querySelector(".item__meta > .item__imp");
-    const mark = createImportanceMark(item, TASK_IMPORTANCE);
-    if (shown && mark) shown.replaceWith(mark);
-    else if (shown) {
-      const marks = shown.parentNode;
-      shown.remove();
-      if (!marks.firstChild) marks.remove();
-    } else if (mark) rowMarks(row).appendChild(mark);
-  }
-
   detailIcon.addEventListener("click", openIconPickerForDetail);
 
   document.getElementById("subtaskForm").addEventListener("submit", function (event) {
@@ -12549,6 +13198,7 @@
     if (!item) return;
     if (!item.subtasks) item.subtasks = [];
     item.subtasks.push({ id: Date.now().toString(), text: text, done: false });
+    subtaskListPages[item.id] = 0;   // written now, read now
     saveState();
     input.value = "";
     input.focus();
@@ -12695,6 +13345,196 @@
     weekStart = shiftDateKey(dateKeyOf(focus), -3);
   }
 
+  /* THE WORK ZONE — unfolded, the calendar covers the page and hides the rule of
+     time behind it. The two bands it leaves on either side are not a second copy
+     of anything: the task list itself moves in, and moves home when the month is
+     folded again. One list, wherever it is being worked in. */
+  const calBandLeft = document.getElementById("calBandLeft");
+  const calBandRight = document.getElementById("calBandRight");
+
+  /* The lists are drawings and are redrawn where they are wanted. The ways to add
+     are not: the quick line holds what is being typed into it, its caret and its
+     highlighting, so there is one of each and it travels. Same rule as the editor
+     card and the board — a copy would fork what is half-written. */
+  const travellers = [];
+  function travels(id, band, into) {
+    const node = document.getElementById(id);
+    if (!node) return;
+    travellers.push({ node: node, band: band, into: into,
+                      home: node.parentNode, next: node.nextSibling });
+  }
+  // the + sits in the head, as it does for objectives; the line it opens stands
+  // just under it, where what is written will appear
+  travels("addTaskBtn", "calBandLeft", ".zone__head");
+  travels("quickAdd", "calBandLeft", "#calAddSlot");
+  // the way to a new objective is a + beside the title, as it is in the column
+  travels("addProjectBtn", "calBandRight", ".zone__head");
+
+  const calKanbanBtn = document.getElementById("calKanbanBtn");
+  // the four cells the laboratory used to wear: a kanban is made of them
+  calKanbanBtn.innerHTML = iconSvg(
+    '<rect class="ico-cell ico-cell--tl" x="3" y="4" width="8" height="7" rx="1.5"/>'
+    + '<rect class="ico-cell ico-cell--tr" x="13" y="4" width="8" height="4" rx="1.5"/>'
+    + '<rect class="ico-cell ico-cell--bl" x="3" y="13" width="8" height="7" rx="1.5"/>'
+    + '<rect class="ico-cell ico-cell--br" x="13" y="10" width="8" height="10" rx="1.5"/>');
+  calKanbanBtn.addEventListener("click", function (event) {
+    event.stopPropagation();
+    openKanbanOnCard();
+  });
+
+  const calCanvasBtn = document.getElementById("calCanvasBtn");
+  calCanvasBtn.innerHTML = thinkingIconSvg("web");
+  calCanvasBtn.addEventListener("click", function (event) {
+    event.stopPropagation();
+    // the canvas of the objective on show, or the one every canvas hangs from
+    const project = openInlineProject ? findItem("projects", openInlineProject) : null;
+    if (project) openCanvasOnCard(withCanvas(project));
+    else openMotherCanvasOnCard();
+  });
+
+  document.getElementById("calGroupSwitch").addEventListener("click", function (event) {
+    event.stopPropagation();
+    cycleBandGroup();
+  });
+
+  function setWorkBands(on) {
+    if (!calBandLeft) return;
+    const was = !calBandLeft.hidden;
+    // the zone covers the screen: the page under it has nowhere to go
+    document.documentElement.classList.toggle("is-work-zone", !!on);
+    calBandLeft.hidden = !on;
+    calBandRight.hidden = !on;
+    for (let i = 0; i < travellers.length; i++) {
+      const one = travellers[i];
+      const band = document.getElementById(one.band);
+      const host = one.into ? band.querySelector(one.into) : band;
+      if (on) host.appendChild(one.node);
+      else one.home.insertBefore(one.node, one.next);
+    }
+    if (was !== on) {
+      renderList("tasks");        // the flow is drawn where it is worked
+      renderList("projects");
+    }
+  }
+
+  /* WHERE THE FLOW IS DRAWN — the column when the month is folded, the band when
+     it is open. One at a time, and never both: the list is a drawing of the state
+     and not a thing with a life of its own, so it is drawn where it is needed
+     rather than carried there. That is also what lets the band show something
+     other than the column one day without either of them fighting the other. */
+  function workBandsOn() { return !!calBandLeft && !calBandLeft.hidden; }
+
+  /* THE MINI CALENDAR — the day, the hour and a timer, standing on the calendar's
+     own glass at the head of the band. It is also the way back to the grid: what
+     the card is turned over onto is taken off it and the calendar comes up. */
+  const TIMER_START = 25 * 60;
+  let timerLeft = TIMER_START;
+  let timerAt = 0;        // when the running stretch began, 0 while paused
+  let timerTick = 0;
+
+  function timerNow() {
+    if (!timerAt) return timerLeft;
+    return Math.max(0, timerLeft - Math.round((Date.now() - timerAt) / 1000));
+  }
+
+  function paintMiniCal() {
+    const date = document.getElementById("miniCalDate");
+    if (!date) return;
+    const locale = state.settings.language === "fr" ? "fr-FR" : "en-US";
+    const now = new Date();
+    const text = now.toLocaleDateString(locale, { weekday: "long", day: "numeric", month: "long" });
+    date.textContent = text.charAt(0).toUpperCase() + text.slice(1);
+    document.getElementById("miniCalClock").textContent =
+      String(now.getHours()).padStart(2, "0") + ":" + String(now.getMinutes()).padStart(2, "0");
+    paintTimer();
+  }
+
+  function paintTimer() {
+    const left = timerNow();
+    const face = document.getElementById("miniTimer");
+    if (!face) return;
+    face.textContent = Math.floor(left / 60) + ":" + String(left % 60).padStart(2, "0");
+    face.classList.toggle("is-running", !!timerAt);
+    face.classList.toggle("is-out", left === 0);
+    document.getElementById("miniTimerReset").hidden = left === TIMER_START && !timerAt;
+  }
+
+  function runTimer() {
+    clearInterval(timerTick);
+    timerTick = setInterval(function () {
+      paintTimer();
+      if (timerNow() > 0) return;
+      stopTimer();
+      showToast(translate("timerDone"));
+    }, 1000);
+  }
+
+  function stopTimer() {
+    timerLeft = timerNow();
+    timerAt = 0;
+    clearInterval(timerTick);
+    timerTick = 0;
+    paintTimer();
+  }
+
+  function toggleTimer() {
+    if (timerAt) { stopTimer(); return; }
+    if (!timerLeft) timerLeft = TIMER_START;
+    timerAt = Date.now();
+    runTimer();
+    paintTimer();
+  }
+
+  /* the card gives the calendar back: whatever it was turned over onto is taken
+     off it first, so the strip that pointed at a canvas stops pointing at one */
+  function showCalendarFront() {
+    if (!calCard || !calCard.classList.contains("is-flipped")) return;
+    if (openHost && isCardBack(openHost)) closeDetail();
+    else {
+      clearCardBack(document.getElementById("eventFold"));
+      setCalFlipped(false);
+    }
+    if (openHost) setTaskSheet(openTaskSheet);
+    const goalRow = document.querySelector(".list--cards .item--project.is-inline-open");
+    if (goalRow) setProjectSheet(openProjectSheet, goalRow);
+  }
+
+  document.getElementById("miniCal").addEventListener("click", function (event) {
+    if (event.target.closest(".mini-cal__timer")) return;   // its own two buttons
+    showCalendarFront();
+  });
+
+  document.getElementById("miniCal").addEventListener("keydown", function (event) {
+    if (event.key !== "Enter" && event.key !== " ") return;
+    event.preventDefault();
+    showCalendarFront();
+  });
+
+  document.getElementById("miniTimer").addEventListener("click", toggleTimer);
+
+  document.getElementById("miniTimerReset").addEventListener("click", function () {
+    timerLeft = TIMER_START;
+    if (timerAt) timerAt = Date.now();
+    paintTimer();
+  });
+
+  function taskHost() {
+    return workBandsOn()
+      ? document.getElementById("calTasksList")
+      : document.getElementById("tasksList");
+  }
+
+  function projectHost() {
+    return (calBandRight && !calBandRight.hidden)
+      ? document.getElementById("calProjectsList")
+      : document.getElementById("projectsList");
+  }
+
+  /* the band is narrow: a sheet has no second column to open into, so it opens
+     under the steps instead — and a canvas has no business in a band at all, it
+     goes onto the calendar */
+  function inWorkBand(node) { return !!node && !!node.closest(".ecal-band"); }
+
   function renderEventCal() {
     const locale = state.settings.language === "fr" ? "fr-FR" : "en-US";
     const shown = calExpanded ? new Date(ecalYear, ecalMonth, 1) : new Date(weekAnchorKey() + "T00:00");
@@ -12705,6 +13545,7 @@
     ecalGrid.classList.toggle("is-week", !calExpanded);
     ecalGrid.classList.toggle("is-month", calExpanded);
     ecalGrid.closest(".ecal").classList.toggle("is-expanded", calExpanded);
+    setWorkBands(calExpanded);
     appendWeekdayHeads(ecalGrid, calExpanded ? null : weekStart);
 
     // cells are placed by hand, which saves the run of empty pads before day 1
@@ -13110,6 +13951,26 @@
     }, CAL_MS + 260);
   }
   ecalToggle.addEventListener("click", toggleCalendar);
+
+  /* LEAVING BY SCROLLING — the work zone covers the page, so there is nothing to
+     scroll to while it is open. Pushing down anyway is read as asking for what
+     is under it: everything open is shut, the card is given back to the grid and
+     the month folds to its week. A band, a kanban column or a canvas keeps its
+     own scroll — the gesture only counts when it was aimed at the page. */
+  function leaveWorkZone() {
+    closeDetail();
+    closeOpenInlineProject();
+    showCalendarFront();
+    toggleCalendar();
+  }
+
+  window.addEventListener("wheel", function (event) {
+    if (!workBandsOn() || event.deltaY <= 0) return;
+    if (event.target.closest
+      && event.target.closest(".ecal-band, .kanban__list, .thinking-viewport, .modal, "
+        + ".thinking-document-body, .ecal__verso")) return;
+    leaveWorkZone();
+  }, { passive: true });
   /* goToDay, not showDay: coming home has to walk the grid back to today's week
      as well as reset the day, or the band looks for a cell that is not on screen */
   document.getElementById("dayToday").addEventListener("click", function () { goToDay(todayKey()); });
@@ -13174,28 +14035,54 @@
     return found;
   }
 
+  let undatedOpen = false;   // the loose side is folded until it is asked for
+
   function renderUndated() {
     const box = document.getElementById("undatedItems");
     if (!box) return;
+    // The line is about events alone now: work has the whole left band of the
+    // work zone, and a switch here was a second place to look for the same list.
     const loose = undatedEvents();
     const timeless = timelessEventsOnShownDay();
     box.innerHTML = "";
     // The strip itself is never taken away, only emptied: it holds its height so
     // that opening its halves mid-drag cannot push the rule of time down under a
     // pointer that has already been measured against it.
-    document.getElementById("loose").hidden = loose.length === 0;
-    document.getElementById("undatedLabel").hidden = loose.length === 0;
+    // The line is always on show now: it carries the way to write an event, so it
+    // has something to say even with nothing in it.
+    document.getElementById("loose").hidden = false;
+    document.getElementById("undatedLabel").hidden = false;
+    document.getElementById("undatedEmpty").hidden = loose.length > 0;
+    // Folded by default: the count stands for them, and opens them on a press.
+    const looseCount = document.getElementById("undatedCount");
+    looseCount.hidden = loose.length === 0;
+    const asideCount = loose.length + " "
+      + translate(loose.length > 1 ? "undatedManyAside" : "undatedOneAside");
+    // open, the count has said what it had to say: it becomes the way back,
+    // a single mark at the far end of what it opened
+    looseCount.textContent = undatedOpen ? "\u2039" : asideCount;
+    looseCount.setAttribute("aria-label", asideCount);
+    looseCount.title = asideCount;
+    looseCount.setAttribute("aria-expanded", undatedOpen ? "true" : "false");
+    looseCount.classList.toggle("is-on", undatedOpen);
+    box.hidden = !undatedOpen || loose.length === 0;
     for (let i = 0; i < loose.length; i++) box.appendChild(undatedChip(loose[i]));
 
+    // The day is always on the line now, and always at the end of it: what it
+    // holds is read there whether or not anything is waiting without an hour.
     const dayBox = document.getElementById("timelessItems");
     const dayGroup = document.getElementById("timeless");
     dayBox.innerHTML = "";
-    dayGroup.hidden = timeless.length === 0;
-    if (timeless.length) {
-      document.getElementById("timelessLabel").textContent = shownDayLabel();
-      for (let i = 0; i < timeless.length; i++) dayBox.appendChild(undatedChip(timeless[i]));
-    }
+    dayGroup.hidden = false;
+    document.getElementById("timelessLabel").textContent = shownDayLabel();
+    for (let i = 0; i < timeless.length; i++) dayBox.appendChild(undatedChip(timeless[i]));
   }
+
+  document.getElementById("undatedCount").addEventListener("click", function (event) {
+    event.stopPropagation();
+    undatedOpen = !undatedOpen;
+    renderUndated();
+  });
 
   /* the day a grid cell stands for, written out */
   function dayKeyLabel(key) {
@@ -13206,9 +14093,12 @@
     return text.charAt(0).toUpperCase() + text.slice(1);
   }
 
+  /* the day the grid is on; today until another one is picked */
+  function shownDay() { return sectionDay || todayKey(); }
+
   /* "Aujourd'hui" while the grid is on today, the day written out otherwise */
   function shownDayLabel() {
-    const key = sectionDay || todayKey();
+    const key = shownDay();
     if (key === todayKey()) return translate("groupToday");
     const locale = state.settings.language === "fr" ? "fr-FR" : "en-US";
     const text = new Date(key + "T00:00").toLocaleDateString(locale,
@@ -13317,6 +14207,7 @@
           event.time = drop.time;
         } else return;
         saveState();
+        refreshOpenEvent(event);
         renderEventCal();
         renderDailyTimeline();
         renderUndated();
@@ -14086,6 +14977,7 @@
           event.date = moveTo;   // the grid moves the day, the rule sets the hour
           event.time = originalTime;
           saveState();
+          refreshOpenEvent(event);
           renderEventCal();
           renderDailyTimeline();
           renderUndated();
@@ -14096,7 +14988,11 @@
           // that day too, and only its hour is given back
           event.date = loosen === "day" ? (sectionDay || todayKey()) : null;
           event.time = null;
+          // the loose side is folded by default: it opens on what just landed,
+          // or the chip would be dropped into a count and seem to vanish
+          if (loosen !== "day") undatedOpen = true;
           saveState();
+          refreshOpenEvent(event);
           renderEventCal();
           renderDailyTimeline();
           renderUndated();
@@ -14108,6 +15004,7 @@
           return;
         }
         saveState();
+        refreshOpenEvent(event);   // the hour it now stands at
         renderEventCal();
         renderDailyTimeline();
       };
@@ -14435,6 +15332,12 @@
     markPickedDay();
     paintDayToday();
     renderDailyTimeline();
+    // In the work zone the grid is the list's selector: picking a day is asking
+    // for that day's work. Everywhere else the flow stays where it was.
+    if (workBandsOn()) {
+      bandGroup = "day";
+      renderList("tasks");
+    }
   }
 
   function showDay(key) {
@@ -14444,8 +15347,12 @@
   /* An event written without a day stays without one: it waits over the rule of
      time until it is dropped onto it. Only a day actually recognised in the line
      dates it — nothing is guessed on the writer's behalf any more. */
+  /* The way to write an event stands on the day's side of the line now, so a line
+     with no day of its own lands on the day on show rather than in the loose
+     tail. Writing a day still wins, and dropping the chip back over there is
+     still what makes an event dateless. */
   function quickEventDay(parsed) {
-    return writtenDay(parsed);
+    return writtenDay(parsed) || sectionDay || todayKey();
   }
   function quickEventTime(parsed) {
     return parsed.time || null;
@@ -14477,17 +15384,384 @@
     showDay(key);
   }
 
-  /* one fold under the day row, reused by timeline events */
-  function openEventFold(event) {
+  /* THE CARD TURNS OVER — what is opened from the rule of time is written on the
+     back of the calendar. Same box, same height: nothing below can be pushed by
+     it, which is the whole point of not opening a fold under the day row. */
+  const calCard = document.querySelector(".ecal");
+
+  function openEventFold(event) { openCardBack("events", event.id); }
+
+  /* A canvas has no business in a band 400px wide: it opens on the calendar,
+     which turns over to hold it. The board is a singleton, so it simply moves
+     there — the same mount as a sheet, with the card's back as its frame. */
+  function openCanvasOnCard(item) {
+    showCanvasOnCard("canvas:" + item.id, item.id, function () {
+      return sheetCanvasNode(item);
+    });
+  }
+
+  /* the board of the whole laboratory, on the card: what a band opens when
+     nothing of its own is open */
+  function openMotherCanvasOnCard() {
+    showCanvasOnCard("canvas:mother", null, function () {
+      const tree = baseThinkingCanvas();
+      return tree ? { tree: tree, node: tree } : null;
+    });
+  }
+
+  function showCanvasOnCard(key, ownerId, find) {
     const host = document.getElementById("eventFold");
-    const key = "event:" + event.id;
+    if (host.dataset.object === key && canvasSheetSlot) {
+      releaseCanvasSheet();
+      setCalFlipped(false);
+      return;
+    }
+    // only if the card is what the editor is written on: a row keeps its own
+    if (openHost && isCardBack(openHost)) closeDetail();
+    clearCardBack(host);
+    const slot = document.createElement("div");
+    slot.className = "sheet-canvas__slot sheet-canvas__slot--card";
+    host.classList.add("is-canvas");
+    if (ownerId) slot.dataset.owner = ownerId;
+    host.appendChild(slot);
+    showCardBack();
+    host.dataset.object = key;
+    cardBackId = ownerId;
+    paintCardBackRows();
+    paintCanvasButton();
+    requestAnimationFrame(function () { mountCanvasSheetAt(slot, find()); });
+  }
+
+  /* THE KANBAN — every task at once, sorted by what can be done with it: what is
+     to do, what waits for later, what has been put aside, what is finished. It
+     opens on the calendar, as a canvas does — the band keeps its one day, this
+     takes the whole card. Nothing new is stored: a column is read from the day,
+     the aside flag and the done flag, and pressing an eye or a tick is what
+     moves a card from one to the next. */
+  const KANBAN_COLUMNS = ["todo", "later", "aside", "done"];
+  const KANBAN_LABELS = {
+    todo: "kanbanTodo", later: "kanbanLater", aside: "kanbanAside", done: "kanbanDone"
+  };
+
+  function kanbanColumnOf(task) {
+    if (task.done) return "done";
+    if (task.aside) return "aside";
+    if (task.dueDate && task.dueDate <= todayKey()) return "todo";
+    return "later";
+  }
+
+  function openKanbanOnCard() {
+    const host = document.getElementById("eventFold");
+    if (host.dataset.object === "kanban") { setCalFlipped(false); return; }
+    if (openHost && isCardBack(openHost)) closeDetail();
+    clearCardBack(host);
+    host.classList.add("is-kanban");
+    host.appendChild(buildKanban());
+    showCardBack();
+    host.dataset.object = "kanban";
+    paintKanbanButton();
+  }
+
+  function buildKanban() {
+    const board = document.createElement("div");
+    board.className = "kanban";
+    const held = { todo: [], later: [], aside: [], done: [] };
+    for (let i = 0; i < state.tasks.length; i++) {
+      held[kanbanColumnOf(state.tasks[i])].push(state.tasks[i]);
+    }
+    for (let c = 0; c < KANBAN_COLUMNS.length; c++) {
+      const key = KANBAN_COLUMNS[c];
+      const column = document.createElement("section");
+      column.className = "kanban__col kanban__col--" + key;
+      const head = document.createElement("div");
+      head.className = "kanban__head";
+      const name = document.createElement("span");
+      name.className = "kanban__name";
+      name.textContent = translate(KANBAN_LABELS[key]);
+      const count = document.createElement("span");
+      count.className = "kanban__count";
+      count.textContent = held[key].length;
+      head.append(name, count);
+      const list = document.createElement("div");
+      list.className = "kanban__list";
+      for (let i = 0; i < held[key].length; i++) {
+        list.appendChild(kanbanCard(held[key][i]));
+      }
+      column.append(head, list);
+      board.appendChild(column);
+    }
+    return board;
+  }
+
+  function kanbanCard(task) {
+    const card = document.createElement("article");
+    card.className = task.done ? "kanban__card is-done" : "kanban__card";
+    card.dataset.id = task.id;
+    const color = taskGoalColor(task);
+    if (color) card.style.setProperty("--goal-color", color);
+    const text = document.createElement("span");
+    text.className = "kanban__text";
+    text.textContent = task.text || translate("newTaskName");
+    card.appendChild(text);
+    const mark = createGoalMark(task);
+    if (mark) card.appendChild(mark);
+    if (task.dueDate) {
+      const when = document.createElement("span");
+      when.className = "kanban__when";
+      when.textContent = shortDateLabel(task.dueDate);
+      card.appendChild(when);
+    }
+    armKanbanDrag(card, task);
+    return card;
+  }
+
+  /* WHAT A COLUMN MEANS WHEN A CARD LANDS IN IT — a column is not a place, it is
+     a state read back from the task, so a drop has to write that state. Three of
+     them are one flag and translate cleanly. Two are a decision the column does
+     not make for us, and in both the smallest one that a drag back can undo is
+     taken: a card sent to "later" is pushed one day on rather than stripped of
+     its date (pushing keeps the hour), and a card pulled into "to do" is given
+     today rather than the day on show. Reopening a finished task does not reopen
+     the step it came from — reaching a step stays a durable event. */
+  function applyKanbanMove(task, column) {
+    if (column === "done") {
+      if (!task.done) {
+        const link = completeTaskStep(task);
+        task.done = true;
+        task.doneDate = todayKey();
+        if (link) refreshLinkedStepProject(link);
+      }
+      return;
+    }
+    task.done = false;
+    task.doneDate = null;
+    if (column === "aside") { putAside(task, true); return; }
+    putAside(task, false);
+    if (column === "todo") {
+      if (!task.dueDate || task.dueDate > todayKey()) {
+        task.dueDate = todayKey();
+        task.notified = false;
+      }
+      return;
+    }
+    if (task.dueDate && task.dueDate <= todayKey()) {
+      task.dueDate = shiftDateKey(todayKey(), 1);
+      task.notified = false;
+    }
+  }
+
+  /* the manual order is the order of the list itself: a card dropped between two
+     others is moved there, which the dateless columns keep as written and the
+     dated ones read after the clock */
+  function moveTaskBefore(task, beforeId) {
+    const at = state.tasks.indexOf(task);
+    if (at !== -1) state.tasks.splice(at, 1);
+    let to = state.tasks.length;
+    if (beforeId) {
+      for (let i = 0; i < state.tasks.length; i++) {
+        if (state.tasks[i].id === beforeId) { to = i; break; }
+      }
+    }
+    state.tasks.splice(to, 0, task);
+  }
+
+  function armKanbanDrag(card, task) {
+    card.addEventListener("pointerdown", function (event) {
+      if (event.pointerType === "mouse" && event.button !== 0) return;
+      event.preventDefault();
+      const box = card.getBoundingClientRect();
+      const ghost = card.cloneNode(true);
+      ghost.className = "kanban__card kanban__ghost";
+      ghost.style.width = box.width + "px";
+      document.body.appendChild(ghost);
+      kanbanDrag = {
+        task: task, card: card, ghost: ghost, pointerId: event.pointerId,
+        dx: event.clientX - box.left, dy: event.clientY - box.top, moved: false
+      };
+      card.classList.add("is-dragging");
+      moveKanbanGhost(event.clientX, event.clientY);
+      document.addEventListener("pointermove", onKanbanDragMove);
+      document.addEventListener("pointerup", endKanbanDrag);
+      document.addEventListener("pointercancel", endKanbanDrag);
+    });
+  }
+
+  function moveKanbanGhost(x, y) {
+    kanbanDrag.ghost.style.left = (x - kanbanDrag.dx) + "px";
+    kanbanDrag.ghost.style.top = (y - kanbanDrag.dy) + "px";
+  }
+
+  function onKanbanDragMove(event) {
+    if (!kanbanDrag) return;
+    event.preventDefault();
+    kanbanDrag.moved = true;
+    moveKanbanGhost(event.clientX, event.clientY);
+    const spot = kanbanDropAt(event.clientX, event.clientY);
+    const columns = document.querySelectorAll(".kanban__col");
+    for (let i = 0; i < columns.length; i++) {
+      columns[i].classList.toggle("is-drop-target",
+                                  !!spot && columns[i] === spot.column);
+    }
+    kanbanDrag.spot = spot;
+  }
+
+  function kanbanDropAt(x, y) {
+    const columns = document.querySelectorAll(".kanban__col");
+    for (let i = 0; i < columns.length; i++) {
+      const box = columns[i].getBoundingClientRect();
+      if (x < box.left || x > box.right || y < box.top || y > box.bottom) continue;
+      const cards = columns[i].querySelectorAll(".kanban__card:not(.is-dragging)");
+      let beforeId = null;
+      for (let c = 0; c < cards.length; c++) {
+        const spot = cards[c].getBoundingClientRect();
+        if (y < spot.top + spot.height / 2) { beforeId = cards[c].dataset.id; break; }
+      }
+      return { column: columns[i], key: KANBAN_COLUMNS[i], beforeId: beforeId };
+    }
+    return null;
+  }
+
+  function endKanbanDrag() {
+    if (!kanbanDrag) return;
+    const drag = kanbanDrag;
+    kanbanDrag = null;
+    document.removeEventListener("pointermove", onKanbanDragMove);
+    document.removeEventListener("pointerup", endKanbanDrag);
+    document.removeEventListener("pointercancel", endKanbanDrag);
+    drag.ghost.remove();
+    drag.card.classList.remove("is-dragging");
+    const columns = document.querySelectorAll(".kanban__col");
+    for (let i = 0; i < columns.length; i++) columns[i].classList.remove("is-drop-target");
+    if (!drag.moved || !drag.spot) return;
+    applyKanbanMove(drag.task, drag.spot.key);
+    moveTaskBefore(drag.task, drag.spot.beforeId);
+    saveState();
+    refreshKanban();
+    renderList("tasks");
+    renderDailyTimeline();
+  }
+
+  /* the board is a drawing of the tasks: it is drawn again whenever one changes,
+     at most once a frame, and never under a card being carried */
+  let kanbanPaint = 0;
+
+  function refreshKanban() {
+    const host = document.getElementById("eventFold");
+    if (!host || host.dataset.object !== "kanban" || kanbanDrag) return;
+    cancelAnimationFrame(kanbanPaint);
+    kanbanPaint = requestAnimationFrame(function () {
+      if (host.dataset.object !== "kanban" || kanbanDrag) return;
+      host.innerHTML = "";
+      host.appendChild(buildKanban());
+    });
+  }
+
+  function paintKanbanButton() {
+    const button = document.getElementById("calKanbanBtn");
+    if (!button) return;
+    const host = document.getElementById("eventFold");
+    button.classList.toggle("is-on", host.dataset.object === "kanban");
+  }
+
+  /* THE BAND'S OWN WAY IN — the canvas of the objective that is open, or the
+     mother canvas when none is. It is lit while the card is holding one. */
+  function paintCanvasButton() {
+    const button = document.getElementById("calCanvasBtn");
+    if (!button) return;
+    const host = document.getElementById("eventFold");
+    button.classList.toggle("is-on", (host.dataset.object || "").indexOf("canvas:") === 0);
+  }
+
+  /* WHAT WAS ON THE BACK, TAKEN OFF IT — the board is a singleton that lives in
+     the laboratory and is only lent out. Wiping the markup that holds it would
+     throw the one board away, so it is handed back first. */
+  function clearCardBack(host) {
+    host.classList.remove("is-kanban");
+    if (canvasSheetSlot && host.contains(canvasSheetSlot)) {
+      // The strip that pointed at the canvas has to stop saying so before the
+      // board goes home: handing it back redraws the lists, and a row still
+      // reading "canvas" would open it on the card again, over what is arriving.
+      if (openProjectSheet === "canvas") openProjectSheet = null;
+      releaseCanvasSheet(host);
+    }
+    host.innerHTML = "";
+    host.classList.remove("is-canvas", "is-doc");
+  }
+
+  /* SHUTTING A CANVAS THAT IS NOT WHERE IT WAS OPENED — closing the sheet let go
+     of the board only if the row was holding it. On the card it was left there,
+     turned over and on show while the strip already read "nothing open" — and the
+     next press on the tab was then taken for the second half of a toggle, so it
+     closed what looked closed instead of opening it. */
+  function closeCardCanvas(item) {
+    if (!item || !canvasSheetSlot) return;
+    const host = document.getElementById("eventFold");
+    if (host.dataset.object !== "canvas:" + item.id) return;   // someone else's
+    if (!host.contains(canvasSheetSlot)) return;
+    releaseCanvasSheet(host);
+    setCalFlipped(false);
+  }
+
+  /* The angle only ever grows, so a back that is already facing us cannot be
+     shown again with one half turn: that would show the front. It turns away
+     and comes back — which is also how switching between two objects reads. */
+  function showCardBack() {
+    if (calCard && calCard.classList.contains("is-flipped")) setCalFlipped(false);
+    setCalFlipped(true);
+  }
+
+  function openCardBack(kind, id) {
+    const item = findItem(kind, id);
+    if (!item) return;
+    const host = document.getElementById("eventFold");
+    const key = kind + ":" + id;
     if (host.dataset.object === key && openHost) { closeDetail(); return; }
     closeDetail();
-    host.innerHTML = "";
+    clearCardBack(host);
+    // a task is a page here, an event is the short line it has always been
+    host.classList.toggle("is-doc", kind === "tasks");
+    const inner = document.createElement("div");
+    inner.className = "unfold__inner";
+    host.appendChild(inner);
+    if (kind === "events") openEventDetail(item, inner);
+    else openDetail("tasks", id, inner);
+    showCardBack();
     host.dataset.object = key;
-    const fold = createUnfold();
-    host.appendChild(fold);
-    openEventDetail(event, fold.firstChild);
+    cardBackId = id;
+    paintCardBackRows();
+  }
+
+  /* The turn is an angle that only ever grows, never a state that flips back and
+     forth. Switching from one event to the next turns the card away and back in
+     the same breath — two half turns that add up to a whole one — and the card
+     is seen turning rather than silently swapping what is written on it. */
+  let calFlipAngle = 0;
+
+  function setCalFlipped(on) {
+    if (!calCard) return;
+    calFlipAngle += 180;
+    calCard.style.setProperty("--cal-flip", calFlipAngle + "deg");
+    calCard.classList.toggle("is-flipped", !!on);
+    const host = document.getElementById("eventFold");
+    host.setAttribute("aria-hidden", on ? "false" : "true");
+    if (!on) {
+      host.dataset.object = "";
+      cardBackId = null;
+      paintCardBackRows();
+      paintCanvasButton();
+      paintKanbanButton();
+    }
+  }
+
+  /* WHICH ROW IS ON THE BACK — the row no longer opens under itself, so nothing
+     in the band would otherwise say what the card is showing. */
+  let cardBackId = null;
+
+  function paintCardBackRows() {
+    const rows = document.querySelectorAll(".ecal-band .item");
+    for (let i = 0; i < rows.length; i++) {
+      rows[i].classList.toggle("is-on-card", !!cardBackId && rows[i].dataset.id === cardBackId);
+    }
   }
 
   /* A task already has a place of its own in the list: clicking its mark on the
@@ -15171,10 +16445,94 @@
     return null;
   }
 
+  /* WHOSE NOTE A NOTE IS — one written under a task block belongs to that task;
+     one written on a sheet canvas belongs to whatever hangs that canvas, task or
+     objective. Either way the block is a drawing of the object's own note, read
+     from it and written straight back into it. */
   function thinkingTaskForNote(canvas, block) {
     if (!canvas || !block || block.type !== "note") return null;
     const parent = findThinkingParent(canvas, block.parentId);
-    return parent && parent.type === "task" ? thinkingTaskItem(parent) : null;
+    if (!parent) return null;
+    if (parent.type === "task") return thinkingTaskItem(parent);
+    if (parent.type !== "canvas") return null;
+    const host = sheetCanvasHost(parent.id);
+    if (!host) return null;
+    return host.kind === "task" ? host.task : host.project;
+  }
+
+  /* the object a sheet canvas hangs from, whichever kind it is */
+  function sheetCanvasItem(id) {
+    const host = sheetCanvasHost(id);
+    if (!host) return null;
+    return host.kind === "task" ? host.task : host.project;
+  }
+
+  /* THE LOGBOOK OF AN OBJECT IS ITS JOURNAL — the entries under it are not blocks
+     with a life of their own: they are the object's journal drawn as blocks. The
+     journal is the state, the blocks are its drawing, so they are made to match
+     it here — the same arrangement the auto folders are kept in. */
+  function syncThinkingJournalBlocks(tree) {
+    if (!tree || !tree.blocks) return;
+    let changed = false;
+    const logbooks = [];
+    for (let i = 0; i < tree.blocks.length; i++) {
+      const block = tree.blocks[i];
+      if (block.type !== "logbook") continue;
+      const parent = findThinkingParent(tree, block.parentId);
+      if (!parent || parent.type !== "canvas") continue;
+      const item = sheetCanvasItem(parent.id);
+      if (item) logbooks.push({ book: block, item: item });
+    }
+    for (let i = 0; i < logbooks.length; i++) {
+      if (syncOneLogbook(tree, logbooks[i].book, logbooks[i].item)) changed = true;
+    }
+    if (changed) touchCanvas(tree);
+  }
+
+  function syncOneLogbook(tree, book, item) {
+    const entries = item.journal || [];
+    const drawn = {};
+    let changed = false;
+    for (let i = tree.blocks.length - 1; i >= 0; i--) {
+      const block = tree.blocks[i];
+      if (block.parentId !== book.id || block.type !== "journal") continue;
+      const entry = block.journalEntryId ? findJournalEntry(item, block.journalEntryId) : null;
+      if (!entry) { tree.blocks.splice(i, 1); changed = true; continue; }
+      drawn[entry.id] = true;
+      if (block.text !== entry.text || block.journalDate !== entry.date) {
+        block.text = entry.text || "";
+        block.journalDate = entry.date;
+        changed = true;
+      }
+    }
+    for (let i = 0; i < entries.length; i++) {
+      if (drawn[entries[i].id]) continue;
+      tree.blocks.push({
+        id: thinkingId("b"), type: "journal", text: entries[i].text || "",
+        x: book.x, y: book.y, parentId: book.id,
+        journalDate: entries[i].date, journalEntryId: entries[i].id
+      });
+      changed = true;
+    }
+    return changed;
+  }
+
+  function findJournalEntry(item, id) {
+    const entries = item.journal || [];
+    for (let i = 0; i < entries.length; i++) {
+      if (entries[i].id === id) return entries[i];
+    }
+    return null;
+  }
+
+  /* the journal an entry block belongs to, when it is one of those drawings */
+  function thinkingJournalOwner(canvas, block) {
+    if (!canvas || !block || block.type !== "journal" || !block.journalEntryId) return null;
+    const book = findThinkingParent(canvas, block.parentId);
+    if (!book || book.type !== "logbook") return null;
+    const parent = findThinkingParent(canvas, book.parentId);
+    if (!parent || parent.type !== "canvas") return null;
+    return sheetCanvasItem(parent.id);
   }
 
   function refreshThinkingTaskViews() {
@@ -15865,7 +17223,7 @@
       previewY: previewY,
       cameraX: previewX + stageWidth / 2 - thinkingViewport.clientWidth / 2,
       cameraY: previewY + stageHeight / 2 - thinkingViewport.clientHeight / 2,
-      collapsed: false
+      collapsed: true
     };
     for (let i = 0; i < selected.length; i++) selected[i].parentId = grouped.id;
     canvas.blocks.push(grouped);
@@ -15983,6 +17341,9 @@
       paths = '<path d="M6 21V4"/><g class="ti-flag"><path d="M6 5h11l-2 3 2 3H6"/></g>';
     } else if (name === "compass") {
       paths = '<circle cx="12" cy="12" r="9"/><g class="ti-needle"><path d="m15.5 8.5-2 5-5 2 2-5Z"/></g>';
+    } else if (name === "inbox") {
+      paths = '<path d="M3 13.5 5.4 5.2A2 2 0 0 1 7.3 3.8h9.4a2 2 0 0 1 1.9 1.4L21 13.5"/>'
+        + '<path d="M3 13.5h5l1.3 2.4h5.4l1.3-2.4h5V18a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>';
     } else if (name === "web") {
       // three thoughts and the ties between them: the shape of a canvas said
       // without drawing a board. pathLength lets each tie draw itself whole
@@ -16151,13 +17512,24 @@
     return null;
   }
 
+  /* the bar of the board on show, said again: what it wears has just changed */
+  function syncOpenCanvasTitle() {
+    if (!canvasSheetSlot) return;
+    const tree = currentCanvas();
+    const node = currentThinkingCanvasNode() || tree;
+    if (tree && node) syncThinkingCanvasHeader(tree, node);
+  }
+
   function syncThinkingCanvasHeader(tree, canvasNode) {
     const parent = thinkingCanvasParent(tree, canvasNode);
     const owner = sheetCanvasOwner(canvasNode.id);
-    // A constellation's canvas is not named by hand: it wears the name of the
-    // course, here and folded on the mother canvas.
-    if (owner && canvasNode.title !== (owner.branch.name || "")) {
-      canvasNode.title = owner.branch.name || "";
+    const held = sheetCanvasHost(canvasNode.id);
+    const heldTask = held && held.kind === "task" ? held.task : null;
+    // Neither is named by hand: a canvas wears the name of what it belongs to —
+    // the course, or the task — here and folded on the mother canvas.
+    const worn = owner ? (owner.branch.name || "") : heldTask ? (heldTask.text || "") : null;
+    if (worn !== null && canvasNode.title !== worn) {
+      canvasNode.title = worn;
       saveState();
     }
     // In a sheet the canvas it opened on is the floor: there is nowhere above it
@@ -16166,26 +17538,29 @@
     // with no door.
     const inSheet = !!canvasSheetSlot;
     const atSheetFloor = inSheet && canvasNode.id === canvasSheetRootId;
-    thinkingBoard.classList.toggle("is-branch-canvas", !!owner);
-    thinkingBoard.classList.toggle("is-sheet-bar", !!owner || (inSheet && !atSheetFloor));
+    thinkingBoard.classList.toggle("is-branch-canvas", !!owner || !!heldTask);
+    thinkingBoard.classList.toggle("is-sheet-bar",
+                                   !!owner || !!heldTask || (inSheet && !atSheetFloor));
     thinkingBranch.hidden = !owner;
     thinkingAddBranch.hidden = !owner;
     if (owner) {
       thinkingBranch.innerHTML = habitSvg(owner.branch.icon || CONSTELLATION_ICON_KEYS[0]);
       thinkingBranch.disabled = projectBranches(owner.project).length < 2;
     }
-    thinkingName.disabled = !parent;
+    // What the canvas belongs to is named on its own row, not here
+    thinkingName.disabled = !parent || worn !== null;
     // A course with no name yet is left empty rather than filled with the word
     // "canvas": what belongs there is an invitation, not a stand-in.
-    thinkingName.value = owner ? (owner.branch.name || "")
+    thinkingName.value = worn !== null ? worn
       : parent ? thinkingOrganizationTitle(canvasNode) : "";
     const back = document.getElementById("thinkingBoardBack");
     back.disabled = !thinkingBackTarget(tree, canvasNode) || atSheetFloor;
     back.setAttribute("aria-label", translate(parent ? "thinkingCloseCanvas" : "thinkingBaseCanvas"));
     thinkingName.placeholder = translate(owner ? "branchName"
+      : heldTask ? "newTaskName"
       : parent ? "thinkingUntitled" : "thinkingBaseCanvas");
     const tools = document.querySelectorAll(".thinking-tool[data-block-type]");
-    const host = sheetCanvasHost(canvasNode.id);
+    const host = held;
     for (let i = 0; i < tools.length; i++) {
       const type = tools[i].dataset.blockType;
       tools[i].disabled = !thinkingOrganizationAllows(canvasNode, { type: type });
@@ -16514,20 +17889,54 @@
     return null;
   }
 
-  function createThinkingDocumentSheet(tree, documentNode) {
-    const sheetWidth = Math.min(820, Math.max(620, thinkingViewport.clientWidth - 160));
-    if (documentNode.sheetX == null) {
-      documentNode.sheetX = documentNode.cameraX
-        + thinkingViewport.clientWidth / 2 - sheetWidth / 2;
+  /* THE PAPER AND WHAT IT WRITES ON — the ruled page, its formatting bar and all
+     the selection machinery are one thing; what they read and write is another.
+     A document block writes into its own html; the same paper hung on a sheet
+     canvas, or opened in a note panel, writes into the object's note. One page,
+     two sources, and never two designs to keep in step. */
+  function documentSource(tree, documentNode) {
+    const parent = findThinkingParent(tree, documentNode.parentId);
+    const owner = parent && parent.type === "canvas" ? sheetCanvasItem(parent.id) : null;
+    if (owner) return noteSource(owner);
+    return {
+      read: function () { return documentNode.documentHtml || ""; },
+      write: function (html) { documentNode.documentHtml = html; touchCanvas(tree); },
+      placeholder: translate("thinkingDocumentPlaceholder")
+    };
+  }
+
+  /* an object's note, written on the same paper wherever it is opened */
+  function noteSource(owner) {
+    return {
+      owner: owner.id,
+      read: function () { return owner.notes || ""; },
+      write: function (html) {
+        owner.notes = html;
+        saveState();
+        paintOtherNotePapers(owner, html);
+      },
+      placeholder: translate("notesPlaceholder")
+    };
+  }
+
+  /* the same note may be open twice — in a panel and on its canvas: the other
+     page is set to what was just written, without being rebuilt under the caret */
+  function paintOtherNotePapers(owner, html) {
+    const papers = document.querySelectorAll('.thinking-document-body[data-note-owner="'
+      + owner.id + '"]');
+    for (let i = 0; i < papers.length; i++) {
+      if (papers[i] !== document.activeElement && papers[i].innerHTML !== html) {
+        papers[i].innerHTML = html;
+      }
     }
-    if (documentNode.sheetY == null) documentNode.sheetY = documentNode.cameraY + 56;
+  }
 
-    const sheet = document.createElement("section");
-    sheet.className = "thinking-document-sheet";
-    sheet.style.left = documentNode.sheetX + "px";
-    sheet.style.top = documentNode.sheetY + "px";
-    sheet.style.width = sheetWidth + "px";
-
+  /* THE PAPER — the ruled page and its formatting bar, with every bit of the
+     selection machinery that makes the two work together. It is given a source
+     and nothing else: what it reads, what it writes into, and what to say when
+     it is empty. A document block on a canvas and a note panel hang the same
+     one. */
+  function createDocumentPaper(source) {
     const toolbar = document.createElement("div");
     toolbar.className = "thinking-document-toolbar";
     toolbar.setAttribute("role", "toolbar");
@@ -16541,17 +17950,10 @@
       { command: "insertOrderedList", label: "thinkingNumberedAria" }
     ];
 
-    const body = document.createElement("div");
-    body.className = "thinking-document-body";
-    body.contentEditable = "true";
-    body.setAttribute("data-placeholder", translate("thinkingDocumentPlaceholder"));
-    body.innerHTML = documentNode.documentHtml || "";
+    const body = createDocumentBody(source);
     const liftedLegacyHighlight = liftNoteTransparentRuns(body);
     const normalizedLegacyHighlight = normalizeNoteHighlights(body, false);
-    if (liftedLegacyHighlight || normalizedLegacyHighlight) {
-      documentNode.documentHtml = body.innerHTML;
-      touchCanvas(tree);
-    }
+    if (liftedLegacyHighlight || normalizedLegacyHighlight) source.write(body.innerHTML);
     let savedSelection = null;
     let pendingHighlight = false;
     let managesHighlightTyping = false;
@@ -16600,8 +18002,7 @@
       for (let i = 0; i < boundaries.length; i++) boundaries[i].remove();
       liftNoteTransparentRuns(body);
       normalizeNoteHighlights(body, true);
-      documentNode.documentHtml = serializedDocumentHtml();
-      touchCanvas(tree);
+      source.write(serializedDocumentHtml());
       /* Typing must never override the explicit toolbar choice. The DOM caret
          can briefly remain next to the previous highlighted wrapper while the
          browser dispatches input, which used to turn the tool back on. */
@@ -16692,8 +18093,7 @@
           applyThinkingDocumentFormat(this.dataset.command, body, null);
         }
         rememberSelection();
-        documentNode.documentHtml = serializedDocumentHtml();
-        touchCanvas(tree);
+        source.write(serializedDocumentHtml());
         syncToolbarState(true);
       });
       toolbar.appendChild(button);
@@ -16705,8 +18105,37 @@
       syncToolbarState(!movedCaret);
     });
     body.addEventListener("mouseup", function () { syncToolbarState(false); });
-    sheet.append(toolbar, body);
+    return { toolbar: toolbar, body: body };
+  }
+
+  function createThinkingDocumentSheet(tree, documentNode) {
+    const sheetWidth = Math.min(820, Math.max(620, thinkingViewport.clientWidth - 160));
+    if (documentNode.sheetX == null) {
+      documentNode.sheetX = documentNode.cameraX
+        + thinkingViewport.clientWidth / 2 - sheetWidth / 2;
+    }
+    if (documentNode.sheetY == null) documentNode.sheetY = documentNode.cameraY + 56;
+
+    const sheet = document.createElement("section");
+    sheet.className = "thinking-document-sheet";
+    sheet.style.left = documentNode.sheetX + "px";
+    sheet.style.top = documentNode.sheetY + "px";
+    sheet.style.width = sheetWidth + "px";
+
+    const paper = createDocumentPaper(documentSource(tree, documentNode));
+    sheet.append(paper.toolbar, paper.body);
     return sheet;
+  }
+
+  /* the page itself, ready to be hung anywhere: a panel does the same */
+  function createDocumentBody(source) {
+    const body = document.createElement("div");
+    body.className = "thinking-document-body";
+    body.contentEditable = "true";
+    body.setAttribute("data-placeholder", source.placeholder);
+    body.innerHTML = source.read();
+    if (source.owner) body.dataset.noteOwner = source.owner;
+    return body;
   }
 
 /* THE LOGBOOK — a journal is kept by the day, so its entries are not scattered
@@ -16773,6 +18202,18 @@
 
   /* Today's page. One click has to land you on a caret, not on a form. */
   function addThinkingLogbookEntry(tree, logbook) {
+    // a logbook that draws an object's journal writes into that journal: the
+    // page comes back on the next sync, with the entry behind it
+    const parent = findThinkingParent(tree, logbook.parentId);
+    const item = parent && parent.type === "canvas" ? sheetCanvasItem(parent.id) : null;
+    if (item) {
+      const written = addProjectJournal(item, "");
+      syncThinkingJournalBlocks(tree);
+      renderThinkingCanvas(tree);
+      const field = thinkingBlocks.querySelector(".thinking-block--journal textarea");
+      if (field) field.focus();
+      return written;
+    }
     const entry = {
       id: thinkingId("b"), type: "journal", text: "",
       x: logbook.x, y: logbook.y, parentId: logbook.id,
@@ -17063,6 +18504,7 @@
 
   function renderThinkingCanvas(canvas) {
     syncThinkingAutoFolders(canvas);
+    syncThinkingJournalBlocks(canvas);   // the journals drawn from what they draw
     const viewedCanvas = currentThinkingCanvasNode() || canvas;
     syncThinkingCanvasHeader(canvas, viewedCanvas);
     thinkingBoard.classList.toggle("is-folder-view", viewedCanvas.type === "folder");
@@ -17305,16 +18747,11 @@
 
   function thinkingBlockSize(block, width, height) {
     if (width && height) return { width: width, height: height };
-    if (block.type === "folder" || block.type === "logbook") {
+    if (block.type === "folder") {
       return { width: block.collapsed ? 112 : block.blockWidth || 420,
         height: block.collapsed ? 112 : 180 };
     }
-    if (isThinkingOrganization(block)) {
-      return {
-        width: block.collapsed ? 112 : block.canvasWidth || 650,
-        height: block.collapsed ? 112 : (block.canvasHeight || 330) + THINKING_CANVAS_CHROME
-      };
-    }
+    if (isThinkingOrganization(block)) return { width: 112, height: 112 };
     if (block.type === "text") return { width: thinkingBlockNaturalWidth(block),
       height: block.blockHeight || 56 };
     if (THINKING_FLOW_TYPES.indexOf(block.type) !== -1) {
@@ -17938,6 +19375,14 @@
     card.addEventListener("pointerdown", function () { clearTimeout(clickTimer); });
     card.addEventListener("click", function (event) {
       if (!hitsCanvasSurface(event)) return;
+      // Only a folder still has something to unfold, and only its head answers a
+      // click once it is open. Everything else is a tile: one click goes in, so
+      // there is no second gesture to wait for and no delay before it moves.
+      if (block.type !== "folder") {
+        if (event.detail > 1) return;
+        navigateThinkingCanvas(block.id, true);
+        return;
+      }
       if (!block.collapsed && !head.contains(event.target)) return;
       if (event.detail > 1) {
         clearTimeout(clickTimer);
@@ -18512,6 +19957,12 @@
           ? syncThinkingActionText(block) : null;
         const currentNoteTask = block.type === "note" ? thinkingTaskForNote(canvas, block) : null;
         if (currentNoteTask) currentNoteTask.notes = block.text;
+        // an entry drawn from a journal is written straight back into it
+        const journalOwner = thinkingJournalOwner(canvas, block);
+        if (journalOwner) {
+          const entry = findJournalEntry(journalOwner, block.journalEntryId);
+          if (entry) entry.text = block.text;
+        }
         if (!block.blockHeight || contained) {
           fitThinkingText(text, block.type === "text" ? 32 : nested ? 32 : 36);
         }
@@ -18599,7 +20050,7 @@
       addAnswer.addEventListener("click", function () { addThinkingAnswer(canvas, block); });
       actions.appendChild(addAnswer);
     }
-    if (organization) {
+    if (block.type === "folder") {
       const fold = document.createElement("button");
       fold.type = "button";
       fold.className = "thinking-block__canvas-action";
@@ -18615,18 +20066,18 @@
       });
 
       actions.appendChild(fold);
-      // a folder is browsed where it stands: it has no fullscreen to open
-      if (block.type !== "folder") {
-        const fullscreen = document.createElement("button");
-        fullscreen.type = "button";
-        fullscreen.className = "thinking-block__canvas-action";
-        fullscreen.setAttribute("aria-label", translate("thinkingOpenOrganization"));
-        fullscreen.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 4H4v5M15 4h5v5M9 20H4v-5M15 20h5v-5"/></svg>';
-        fullscreen.addEventListener("click", function () {
-          navigateThinkingCanvas(block.id, true);
-        });
-        actions.appendChild(fullscreen);
-      }
+    }
+    // a folder is browsed where it stands: it has no fullscreen to open
+    if (organization && block.type !== "folder") {
+      const fullscreen = document.createElement("button");
+      fullscreen.type = "button";
+      fullscreen.className = "thinking-block__canvas-action";
+      fullscreen.setAttribute("aria-label", translate("thinkingOpenOrganization"));
+      fullscreen.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 4H4v5M15 4h5v5M9 20H4v-5M15 20h5v-5"/></svg>';
+      fullscreen.addEventListener("click", function () {
+        navigateThinkingCanvas(block.id, true);
+      });
+      actions.appendChild(fullscreen);
     }
 
     /* An organization block has no footer strip: its count and its two canvas
@@ -19897,7 +21348,7 @@
       owner.branch.name = thinkingName.value;
       // the row's own head says the same name: written into it rather than
       // redrawn, so the field being typed in is not replaced under the cursor
-      const shown = document.querySelector('#projectsList .item[data-id="'
+      const shown = document.querySelector('.list--cards .item[data-id="'
         + owner.project.id + '"] .psteps .pbranch__name');
       if (shown) shown.value = owner.branch.name;
     }
@@ -20265,8 +21716,10 @@
   document.getElementById("dtl").classList.toggle("is-scrubbable", state.settings.timeScrub);
   setPane(1);        // the app opens on the day
   requestAnimationFrame(function () { pagesEl.classList.add("is-live"); });
+  paintMiniCal();
   setInterval(function () {
     renderDailyTimeline();   // advance the sun, roll the date over at midnight
+    paintMiniCal();          // the hour, and the day when it turns
     if (state.sun && state.sun.lat != null) ensureSunData();   // refresh weather when stale
     if (state.settings.theme === "auto") applyTheme("auto");   // follow the hour
   }, 30000);
