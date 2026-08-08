@@ -6458,6 +6458,11 @@ body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: non
 .ecal {
   position: relative;
   perspective: 1400px;   /* the card turns in its own depth, see THE CARD TURNS OVER */
+  /* Read by the reactive field. The calendar is made of gradients, so the
+     browser otherwise reports a transparent background despite the visible
+     glass. On desktop the open ribbon has no common sheet; its cells answer
+     individually instead (see the override below). */
+  --field-panel-opacity: .17;
   /* named so the back can reach back out through them, see THE BOARD ON THE CARD */
   --ecal-pad-x: 14px;
   --ecal-pad-top: 14px;
@@ -6717,6 +6722,7 @@ body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: non
     border-radius: 30px;
   }
   .ecal:not(.is-expanded) {
+    --field-panel-opacity: 0;
     background: none;
     box-shadow: none;
     backdrop-filter: none;
@@ -10813,6 +10819,14 @@ html.is-work-zone body { overflow: hidden; }
   backdrop-filter: none;
   transform: none;
 }
+/* These rows remain visually and geometrically boxless. The value is consumed
+   only by the background canvas: it lends their existing rectangle the same
+   opacity as `var(--surface)`, without a pseudo-element, padding or new node. */
+.ecal-band .item--task,
+.ecal-band .item--project.is-inline-open,
+.ecal-band .item--project:not(.is-inline-open) > .project-tab {
+  --field-panel-opacity: var(--c-veil);
+}
 .ecal-band .item--task { padding: 0; --task-pad: 0px; }
 /* One separator, not two: the title bar's own wash is what tells one row from
    the next, so the rule between them goes and a gap takes its place. */
@@ -11123,11 +11137,16 @@ html.is-work-zone body { overflow: hidden; }
    card is holding one. */
 .ecal-band .zone__head > .zone__action { flex: 0 0 auto; }
 #calCanvasBtn svg, #calTaskCanvasBtn svg { width: 17px; height: 17px; }
+#calKanbanBtn.is-on,
 #calCanvasBtn.is-on,
 #calTaskCanvasBtn.is-on,
 #calSkyBtn.is-on {
   color: var(--accent);
   background: color-mix(in srgb, var(--accent) 12%, transparent);
+  /* The active wash is intentionally much clearer than a normal button. Keep
+     its visual colour, but not the near-zero physical weight that 12% would
+     otherwise give it on the reactive field. */
+  --field-panel-opacity: var(--c-veil);
 }
 
 /* THE HEAD IS THE SELECTOR — one group is on show, and the band's own head names

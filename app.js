@@ -2578,11 +2578,29 @@
      opaque: a solid card sinks the cells, a barely-tinted one grazes them. The
      rects are taken fresh on every frame the field draws, so a scroll drags the
      hollows along with the panels that made them, without a line of extra code. */
-  const PANEL_SELECTOR = ".item--task, .item--project, .habit, .hcard,"
-    + " .quick__field, .ecal, .modal__card";
+  /* Every solid thing in the task view speaks the same small contract to the
+     field. A project changes carrier when it opens: shut, its tab is the pane;
+     open, the complete row is. Keeping those selectors exclusive prevents the
+     title from digging the same cells twice. `data-field-panel` is the opt-in
+     for a pane made only of gradients, whose opacity backgroundColor cannot
+     report (the unfolded calendar is the first one). */
+  const PANEL_SELECTOR = ".item--task,"
+    + " .item--project.is-inline-open,"
+    + " .item--project:not(.is-inline-open) > .project-tab,"
+    + " .habit, .hcard, .quick__field, .undated__chip, .dtl__event-icon,"
+    + " .ecal__day, .zone__action, [data-field-panel], .modal__card";
+  /* Rows in the calendar's work bands deliberately have no painted card. They
+     still own their existing rectangle, though, so the field can give that
+     rectangle the weight of a normal task without inserting a box in layout. */
+  const VIRTUAL_PANEL_SELECTOR = ".ecal-band .item--task,"
+    + " .ecal-band .item--project.is-inline-open,"
+    + " .ecal-band .item--project:not(.is-inline-open) > .project-tab,"
+    + " #calKanbanBtn.is-on, #calCanvasBtn.is-on,"
+    + " #calTaskCanvasBtn.is-on, #calSkyBtn.is-on";
   const PANEL_DEPTH = .55;    // how much of a panel's own opacity is dug
   let panels = [];
   let panelsMoving = false;
+  let panelsDirty = true;
 
   const SUN_ALPHA = .15;
   const SUN_RADIUS = 120;
@@ -2723,9 +2741,18 @@
     const found = document.querySelectorAll(PANEL_SELECTOR);
     panels = [];
     for (let i = 0; i < found.length; i++) {
-      const depth = alphaOf(getComputedStyle(found[i]).backgroundColor);
+      const style = getComputedStyle(found[i]);
+      /* A translucent gradient has no computed backgroundColor. Such a pane
+         declares its visual opacity explicitly; ordinary surfaces continue to
+         be measured exactly as before. */
+      const declared = (found[i].hasAttribute("data-field-panel")
+        || found[i].matches(VIRTUAL_PANEL_SELECTOR))
+        ? parseFloat(style.getPropertyValue("--field-panel-opacity")) : NaN;
+      const depth = Number.isFinite(declared)
+        ? Math.max(0, Math.min(1, declared)) : alphaOf(style.backgroundColor);
       if (depth > .02) panels.push({ el: found[i], depth: depth, top: NaN, left: NaN });
     }
+    panelsDirty = false;
   }
 
   function gatherEnergy(now) {
@@ -2863,6 +2890,7 @@
   function fieldDraw(now) {
     const ctx = fieldCtx;
     ctx.clearRect(0, 0, fieldW, fieldH);
+    if (panelsDirty) readPanels();
     if (now - inkReadAt > 800) {           // follows a theme or palette change
       fieldInk = getComputedStyle(fieldCanvas).color;
       buildRowShades();
@@ -2929,6 +2957,25 @@
     liveUntil = performance.now() + FOLLOW_MS;
     if (fieldFrame) return;
     fieldFrame = requestAnimationFrame(fieldStep);
+  }
+
+  /* Lists and calendar cells are rebuilt in place, while folds only change a
+     class. Watching those two structural signals makes every current (and later)
+     task-view surface join the field on the very frame it appears. Styles are
+     deliberately not observed: animations already remain live through
+     FOLLOW_MS and observing their per-frame transforms would only duplicate it. */
+  const fieldPanelRoot = document.getElementById("app");
+  if (fieldPanelRoot && typeof MutationObserver !== "undefined") {
+    const fieldPanelObserver = new MutationObserver(function () {
+      panelsDirty = true;
+      fieldWake();
+    });
+    fieldPanelObserver.observe(fieldPanelRoot, {
+      childList: true,
+      subtree: true,
+      attributes: true,
+      attributeFilter: ["class", "hidden"]
+    });
   }
 
   /* The sky and the well fill the screen. The field goes on drawing under them for
