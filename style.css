@@ -2647,6 +2647,20 @@ button.tgroup__head--day:hover {
   box-shadow: inset 0 1px 0 color-mix(in srgb, var(--c-surface) 24%, transparent);
 }
 .item--project.is-inline-open > .project-tab > .row-acts { display: none; }
+/* THE GAUGE IS THE RULE UNDER THE HEAD — open, how far the course has gone is
+   read across the whole width between the name and the two panels below it: a
+   length shown by a length, and the line that separates them at the same time. */
+.item--project.is-inline-open > .project-tab { flex-wrap: wrap; }
+.item--project.is-inline-open > .project-tab > .item__meta {
+  order: 9;
+  flex: 1 1 100%;
+  margin: 10px 0 0;
+  opacity: 1;
+}
+.item--project.is-inline-open > .project-tab > .item__meta > .item__gauge {
+  width: 100%;
+  flex: 1 1 auto;
+}
 /* The marks step aside on hover to let those actions through. Here there are
    none, so they have nothing to make room for — and fading them took the
    importance bars away exactly as the pointer reached them. */
@@ -4829,6 +4843,29 @@ body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: non
 
 /* row indicators */
 .item--open { cursor: pointer; }
+/* THE PROGRESS OF A COURSE — a track and what has been walked of it, drawn from
+   the palette the steps themselves are coloured from. */
+.item__gauge {
+  position: relative;
+  flex: 0 0 auto;
+  width: 56px;
+  height: 4px;
+  border-radius: 3px;
+  background: color-mix(in srgb, var(--c-line) 34%, transparent);
+  overflow: hidden;
+}
+.item__gauge::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 0;
+  bottom: 0;
+  width: var(--fill, 0%);
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--imp-1), var(--imp-3) 52%, var(--imp-5));
+  transition: width .42s cubic-bezier(.3, .82, .3, 1);
+}
+
 .item__sub {
   flex: 0 0 auto;
   font-size: .7rem;
@@ -10715,7 +10752,14 @@ html.is-work-zone body { overflow: hidden; }
   margin-left: auto;
   opacity: 1;
 }
-.ecal-band .item--project:not(.is-inline-open) .item__sub { display: none; }
+.ecal-band .item--project:not(.is-inline-open) .item__gauge { display: none; }
+/* open, the gauge is the whole line under the name: nothing else stands there,
+   and a length is best read across the width it is given */
+.ecal-band .item--project.is-inline-open > .project-tab > .item__meta {
+  flex: 1 1 100%;
+  margin-left: 0;
+}
+.ecal-band .item--project.is-inline-open .item__gauge { width: 100%; max-width: none; }
 
 /* THE HEAD OF THE LINE — the check first, the name beside it, everything else on
    the line under them. The break is a pseudo-element with a line of its own, so

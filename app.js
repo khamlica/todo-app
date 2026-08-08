@@ -14,8 +14,10 @@
   const RETIRED_ICONS = { walk: "run", game: "star" };
   /* What a task or an objective can carry beside itself — see THE SHEETS. */
   const SHEET_KINDS = ["note", "journal", "canvas"];
-  /* read by saveState, which runs while the state is still being loaded */
+  /* read by saveState and by listsLocked, both of which can run before the parts
+     of the file that own them have been reached */
   let kanbanDrag = null;
+  let canvasSheetSlot = null;   // the frame the one board is lent to, if any
   const state = loadState();
   // loadState migrates in memory; write it down once so the stored data matches
   // what the app is actually running on, instead of migrating again every launch
@@ -223,6 +225,13 @@
             if (block.type === "folder") {
               if (block.collapsed == null) block.collapsed = false;
             } else block.collapsed = true;
+          }
+          // a page whose corner was frozen outside the cloth was placed against
+          // a window that never existed; dropping it lets it be found again
+          if (block.sheetX != null && (block.sheetX < 0 || block.sheetX > 5400
+              || block.sheetY < 0 || block.sheetY > 3000)) {
+            delete block.sheetX;
+            delete block.sheetY;
           }
           if (block.type === "folder") {
             if (oldFolderLayout) block.blockWidth = 420;
@@ -3739,8 +3748,19 @@
      the objective list tears down the very frame the canvas is mounted in, which
      unmounts the board, remounts it and weaves it again — for a task written on
      it. Both surfaces defer instead, and redraw once whatever is open lets go. */
+  /* WHAT A LIST MAY NOT PULL FROM UNDER ITSELF — an open editor and a board lent
+     to a row live inside a row, and rebuilding the list would take the ground
+     from under them. A board on the card's back is held by the card, not by a
+     row: nothing there is torn down by a redraw, so nothing has to wait for it.
+     Locking on any mounted board at all froze the lists behind the mother canvas
+     and behind a task's canvas alike — a project added then appeared only once
+     the board had been given back. */
+  function canvasHeldByRow() {
+    return !!canvasSheetSlot && !!canvasSheetSlot.closest(".item");
+  }
+
   function listsLocked(which) {
-    if (!openHost && !canvasSheetSlot) return false;
+    if (!openHost && !canvasHeldByRow()) return false;
     listsDirty[which] = true;
     return true;
   }
@@ -4300,7 +4320,9 @@
     const meta = document.createElement("span");
     meta.className = "item__meta";
     if (listName === "tasks" && activeSubtasks(item).length) meta.appendChild(createSubBadge(item));
-    if (listName === "projects" && allProjectSteps(item).length) meta.appendChild(createStepBadge(item));
+    // the gauge is there whether or not the course has been laid out yet: it is
+    // the object's own measure, and one that appears later has to be waited for
+    if (listName === "projects") meta.appendChild(createStepBadge(item));
     if (listName === "tasks") {
       const mark = createGoalMark(item);
       if (mark) meta.appendChild(mark);
@@ -9112,11 +9134,22 @@
   }
 
   /* step progress badge on a project row, as a percentage */
+  /* HOW FAR ALONG A COURSE IS — a gauge that fills rather than a number to read:
+     a distance is shown by a distance. The figure stays as its label, for anyone
+     who wants it exactly and for anyone who cannot see it. */
   function createStepBadge(item) {
-    const badge = document.createElement("span");
-    badge.className = "item__sub";
-    badge.textContent = Math.round(stepProgress(item) * 100) + "%";
-    return badge;
+    const gauge = document.createElement("span");
+    gauge.className = "item__gauge";
+    paintStepGauge(gauge, item);
+    return gauge;
+  }
+
+  function paintStepGauge(gauge, item) {
+    const pct = Math.round(stepProgress(item) * 100);
+    gauge.style.setProperty("--fill", pct + "%");
+    gauge.setAttribute("role", "progressbar");
+    gauge.setAttribute("aria-valuenow", pct);
+    gauge.title = pct + "%";
   }
 
 
@@ -9696,8 +9729,8 @@
     restore();
 
     const row = host.closest(".item--project");
-    const badge = row && row.querySelector(".project-tab .item__sub");
-    if (badge) badge.textContent = Math.round(stepProgress(project) * 100) + "%";
+    const gauge = row && row.querySelector(".project-tab .item__gauge");
+    if (gauge) paintStepGauge(gauge, project);
 
     if (options && options.focusBranch) {
       const body = host.querySelector('.psteps__body[data-branch="'
@@ -10549,9 +10582,9 @@
 
   /* the percentage on the closed objective tab, wherever a step changed */
   function refreshProjectBadge(project) {
-    const badge = document.querySelector('.list--cards .item[data-id="' + project.id
-      + '"] .project-tab .item__sub');
-    if (badge) badge.textContent = Math.round(stepProgress(project) * 100) + "%";
+    const gauge = document.querySelector('.list--cards .item[data-id="' + project.id
+      + '"] .project-tab .item__gauge');
+    if (gauge) paintStepGauge(gauge, project);
   }
 
   function removeStep(project, id) {
@@ -11143,9 +11176,15 @@
      carried, written on the canvas instead of behind two more tabs. Neither
      holds anything of its own — they draw the object's own note and journal. */
   function furnishSheetCanvas(tree, node) {
-    const camera = { x: node.cameraX || 0, y: node.cameraY || 0 };
-    const left = camera.x + 90;
-    const top = camera.y + 90;
+    /* Placed on the middle of the cloth, which is where every canvas opens.
+       They used to be set 90px in from the camera — a scroll position, caught
+       at creation against whatever window existed then, which is never the
+       small frame of a sheet. So they sat off to one side of the view that was
+       meant to show them. */
+    const width = 300 + 40 + 320;
+    const left = THINKING_WORLD_X - width / 2;
+    const top = THINKING_WORLD_Y - 120;
+    const camera = thinkingHomeCamera();   // each is a container with a view of its own
     // a document, not a plain note card: the object's note is a notepad now, and
     // this is the same page the panel opens
     tree.blocks.push({
@@ -11301,7 +11340,6 @@
      than a second, smaller one being built beside it. It is the move the editor
      card already makes into the row that unfolds: one board, wherever it is
      wanted. Leaving the sheet puts it back where it waits. */
-  let canvasSheetSlot = null;
   let canvasSheetWatcher = null;
   let canvasSheetRootId = null;   // the canvas the sheet opened on, its floor
 
@@ -11363,15 +11401,10 @@
         const canvas = currentCanvas();
         if (!canvas || canvasSheetSlot !== slot) return;
         requestThinkingLinks(canvas);
-        // The column widens over half a second, so the frame the board first
-        // measured is not the one it ends up in. While the weaving lasts, the
-        // view is framed again on every step of that widening; after it, the
-        // size is the reader's own business and the camera is left alone.
-        if (thinkingBoard.classList.contains("is-weaving")) {
-          frameThinkingCanvas(canvas, currentThinkingCanvasNode() || canvas);
-        } else {
-          placeThinkingBlank(currentThinkingCanvasNode() || canvas);
-        }
+        // The column widens over half a second, so the size measured first is
+        // never the one it settles at — and the last step used to land after the
+        // weaving, when nothing centred any more. It centres on every step.
+        centreThinkingCanvas(currentThinkingCanvasNode() || canvas);
       });
       canvasSheetWatcher.observe(slot);
     }
@@ -11484,36 +11517,25 @@
   function showSheetCanvas(found) {
     openThinkingCanvas(found.tree.id);
     if (found.node !== found.tree) navigateThinkingCanvas(found.node.id);
-    frameThinkingCanvas(found.tree, found.node);
+    centreThinkingCanvas(found.node);
   }
 
   /* A camera is a scroll offset, so the same one shows a different part of the
      world in a frame of another size — and a sheet, a task's column and the full
      screen are never the same size. Opening a canvas therefore frames what is on
      it rather than restoring an offset measured somewhere else. */
-  function frameThinkingCanvas(tree, canvasNode) {
-    const blocks = tree.blocks || [];
-    let minX = null;
-    let minY = null;
-    let maxX = null;
-    let maxY = null;
-    for (let i = 0; i < blocks.length; i++) {
-      const block = blocks[i];
-      if (block.parentId !== canvasNode.id) continue;
-      const size = thinkingBlockSize(block);
-      if (minX === null || block.x < minX) minX = block.x;
-      if (minY === null || block.y < minY) minY = block.y;
-      if (maxX === null || block.x + size.width > maxX) maxX = block.x + size.width;
-      if (maxY === null || block.y + size.height > maxY) maxY = block.y + size.height;
-    }
-    const centreX = minX === null ? THINKING_WORLD_X : (minX + maxX) / 2;
-    const centreY = minY === null ? THINKING_WORLD_Y : (minY + maxY) / 2;
-    // an empty canvas centres on the world's home, which is where a first block
-    // is put and where the blank state is drawn
-    canvasNode.cameraX = Math.max(0, centreX - thinkingViewport.clientWidth / 2);
-    canvasNode.cameraY = Math.max(0, centreY - thinkingViewport.clientHeight / 2);
-    thinkingViewport.scrollLeft = canvasNode.cameraX;
-    thinkingViewport.scrollTop = canvasNode.cameraY;
+  /* THE ONE CENTRING — every canvas opens on the middle of the cloth, in every
+     view. Everything is made there now, so there is nothing to go looking for:
+     this used to frame on the bounding box of the blocks, measured while an
+     inline column was still widening, and the view ended up slightly off to one
+     side. It measures when it is asked and writes down the camera it used. */
+  function centreThinkingCanvas(canvasNode) {
+    if (!canvasNode) return;
+    const camera = thinkingHomeCamera();
+    canvasNode.cameraX = camera.x;
+    canvasNode.cameraY = camera.y;
+    thinkingViewport.scrollLeft = camera.x;
+    thinkingViewport.scrollTop = camera.y;
     placeThinkingBlank(canvasNode);
   }
 
@@ -13412,6 +13434,14 @@
       else one.home.insertBefore(one.node, one.next);
     }
     if (was !== on) {
+      // An open task does not survive the move: the row holding its editor is
+      // rebuilt on the other side, and what it carried — its strip of sheets —
+      // would be left standing in a view that no longer offers them.
+      if (openHost) closeDetail();
+      // An objective does survive it, so what it had open is set to what the
+      // view it lands in opens on: the column has a second track for a sheet,
+      // a band has not — there a sheet takes the course's own place.
+      if (openProjectSheet) openProjectSheet = on ? null : RESTING_SHEET;
       renderList("tasks");        // the flow is drawn where it is worked
       renderList("projects");
     }
@@ -17496,11 +17526,7 @@
     thinkingLinkFrom = null;
     syncThinkingCanvasHeader(canvas, canvas);
     renderThinkingCanvas(canvas);
-    requestAnimationFrame(function () {
-      const camera = thinkingHomeCamera();
-      thinkingViewport.scrollLeft = camera.x;
-      thinkingViewport.scrollTop = camera.y;
-    });
+    requestAnimationFrame(function () { centreThinkingCanvas(canvas); });
   }
 
   function thinkingCanvasParent(tree, canvasNode) {
@@ -17621,9 +17647,7 @@
     touchCanvas(tree);
     renderThinkingCanvas(tree);
     requestAnimationFrame(function () {
-      const camera = thinkingHomeCamera();
-      thinkingViewport.scrollLeft = camera.x;
-      thinkingViewport.scrollTop = camera.y;
+      centreThinkingCanvas(canvasNode);
       // stepping into a canvas is the cloth being made again, not the whole
       // board zooming and blurring out of the block it came from
       if (weave) weaveBoard(false);
@@ -18110,11 +18134,13 @@
 
   function createThinkingDocumentSheet(tree, documentNode) {
     const sheetWidth = Math.min(820, Math.max(620, thinkingViewport.clientWidth - 160));
-    if (documentNode.sheetX == null) {
-      documentNode.sheetX = documentNode.cameraX
-        + thinkingViewport.clientWidth / 2 - sheetWidth / 2;
-    }
-    if (documentNode.sheetY == null) documentNode.sheetY = documentNode.cameraY + 56;
+    /* Placed against the middle of the cloth, not against the block's stored
+       camera. That camera is frozen when the block is made, and the ones made
+       for a task or a project are made while no board is open — so it was
+       measured against a window that did not exist, and the page landed askew.
+       The canvas opens on the middle, so that is where the page belongs. */
+    if (documentNode.sheetX == null) documentNode.sheetX = THINKING_WORLD_X - sheetWidth / 2;
+    if (documentNode.sheetY == null) documentNode.sheetY = THINKING_WORLD_Y - 240;
 
     const sheet = document.createElement("section");
     sheet.className = "thinking-document-sheet";
@@ -18194,8 +18220,12 @@
     if (fullscreen) {
       const width = Math.min(720, Math.max(420, thinkingViewport.clientWidth - 160));
       sheet.style.width = width + "px";
-      sheet.style.left = (logbook.cameraX + thinkingViewport.clientWidth / 2 - width / 2) + "px";
-      sheet.style.top = (logbook.cameraY + 44) + "px";
+      /* On the middle of the cloth, like the notepad's page and like everything
+         else made here. Deriving it from the block's camera placed it against a
+         value read before the view had centred, so the page opened a whole
+         screen to one side. */
+      sheet.style.left = (THINKING_WORLD_X - width / 2) + "px";
+      sheet.style.top = (THINKING_WORLD_Y - 240) + "px";
     }
     return sheet;
   }
