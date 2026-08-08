@@ -106,7 +106,6 @@
         if (!project.icon) project.icon = "folder";
         if (!project.sky) project.sky = freeSkySpot(i);   // its place in the sky
         if (!project.journal) project.journal = [];
-        if (!project.dream) project.dream = [];
         if (project.why == null) project.why = "";
         if (project.outcome == null) project.outcome = "";
         delete project.targetDate;   // a project no longer has a date of its own
@@ -393,7 +392,8 @@
           decorations: withField((saved.settings && saved.settings.decorations) || [],
                                  saved.settings && saved.settings.fieldOn),
           fieldOn: true,   // once seen, the choice is the user's
-          timeScrub: !!(saved.settings && saved.settings.timeScrub),
+          timeScrub: saved.settings && saved.settings.timeScrub != null
+            ? !!saved.settings.timeScrub : true,
           treeFull: !!(saved.settings && saved.settings.treeFull),
           treeWisps: !(saved.settings && saved.settings.treeWisps === false),
           treeTrunk: !(saved.settings && saved.settings.treeTrunk === false),
@@ -407,7 +407,7 @@
         }
       };
     } catch (err) {
-      return { tasks: [], projects: [], habits: [], canvases: [], events: [], sun: null, settings: { name: "", theme: "auto", language: "fr", palette: "theme", glass: "motif", decorations: ["field"], fieldOn: true, timeScrub: false, treeFull: false, treeWisps: true, treeTrunk: true, treeBranches: true, treeBlooms: ["corolla"], treeSap: true, themeDecorLent: [], themeEdits: {}, paletteEdits: {}, themePalettes: {} } };
+      return { tasks: [], projects: [], habits: [], canvases: [], events: [], sun: null, settings: { name: "", theme: "auto", language: "fr", palette: "theme", glass: "motif", decorations: ["field"], fieldOn: true, timeScrub: true, treeFull: false, treeWisps: true, treeTrunk: true, treeBranches: true, treeBlooms: ["corolla"], treeSap: true, themeDecorLent: [], themeEdits: {}, paletteEdits: {}, themePalettes: {} } };
     }
   }
 
@@ -925,9 +925,6 @@
       moonNew: "Nouvelle habitude…",
       moonOff: "Détacher l'habitude",
       moonEmptyAdd: "Aucune habitude pour l'instant — ajoutez-en une…",
-      dreamLabel: "Mur de rêve",
-      dreamAdd: "Carte",
-      dreamPlaceholder: "Une idée, une référence, une envie…",
       journalLabel: "Journal",
       journalAdd: "Noter une avancée, une idée…",
       journalEmpty: "Rien de consigné pour l'instant.",
@@ -1306,9 +1303,6 @@
       moonNew: "New habit…",
       moonOff: "Detach the habit",
       moonEmptyAdd: "No habit yet — add one…",
-      dreamLabel: "Dream wall",
-      dreamAdd: "Card",
-      dreamPlaceholder: "An idea, a reference, a want…",
       journalLabel: "Journal",
       journalAdd: "Log a move, an idea…",
       journalEmpty: "Nothing logged yet.",
@@ -1554,6 +1548,7 @@
       themeButtons[i].classList.toggle("is-active", themeButtons[i].dataset.theme === themeName);
     }
     paintZellige();   // the mosaic is cut from the theme, so it is recut with it
+    if (changed) repaintSky();   // the gas in the deep takes the theme's signature
     tuneThresholdInk();   // a new sky may be a new colour under the threshold
     if (changed) renderScene();   // and a new theme is a different place entirely
     // The step ramp is the theme's now, and step colours are written inline by
@@ -2594,6 +2589,7 @@
      that cast them. */
   const FOLLOW_MS = 700;
   let liveUntil = 0;
+  let fieldCovered = false;   // a full-screen space is over it: nobody can see it
 
   function readColour(text) {
     const raw = text.trim();
@@ -2901,15 +2897,31 @@
     if (presses.length || trail.length || settling || pointerMoved
         || panelsMoving || now < liveUntil) {
       pointerMoved = false;
-      fieldWake();
+      // NOT fieldWake: waking is what an event does, and it pushes the tail back
+      // by another FOLLOW_MS. Asking for the next frame through it meant the field
+      // kept extending its own reprieve and repainted for ever, behind everything.
+      if (!fieldCanvas.hidden && !fieldCovered) fieldFrame = requestAnimationFrame(fieldStep);
     }
   }
 
   function fieldWake() {
-    if (fieldCanvas.hidden) return;
+    if (fieldCanvas.hidden || fieldCovered) return;
     liveUntil = performance.now() + FOLLOW_MS;
     if (fieldFrame) return;
     fieldFrame = requestAnimationFrame(fieldStep);
+  }
+
+  /* The sky and the well fill the screen. The field goes on drawing under them for
+     nothing, and on a phone that nothing is a canvas the size of the screen, every
+     frame, competing with the very view the user is looking at. */
+  function coverField(covered) {
+    fieldCovered = covered;
+    if (covered) {
+      if (fieldFrame) cancelAnimationFrame(fieldFrame);
+      fieldFrame = null;
+      return;
+    }
+    fieldWake();
   }
 
   function onFieldMove(event) {
@@ -3887,13 +3899,22 @@
 
   /* ONE GROUP AT A TIME — a band cannot hold the whole flow read end to end, and
      it has no need to: the calendar beside it is already the way to name a day.
-     What is not on the day being read — dated further on, or dated at all — is
-     reached by pressing the head, the same switch as a constellation's. What is
-     late is not among them: it is read in today, where it is done. */
-  const BAND_GROUPS = ["day", "later", "none"];
+     Three groups, read the same way here and on the kanban: the day itself, the
+     day after it, and what has no day at all — undated work with what was set
+     aside gathered at its end. What is late is in none of them: it is read in
+     today, where it is done. Anything dated further on is reached by walking the
+     grid, which moves the two day groups with it. */
+  const BAND_GROUPS = ["day", "next", "aside"];
   let bandGroup = "day";
 
   function bandDayKey() { return shownDay(); }
+
+  /* the day a group writes into: none for the dateless one */
+  function bandGroupDay() {
+    if (bandGroup === "aside") return null;
+    if (bandGroup === "next") return shiftDateKey(bandDayKey(), 1);
+    return bandDayKey();
+  }
 
   /* its place among the others, read off the ramp everything else is coloured
      from: an objective has no colour of its own to store */
@@ -3907,20 +3928,20 @@
   }
 
   function bandGroupLabel() {
-    if (bandGroup === "later") return translate("kanbanLater");
-    if (bandGroup === "none") return translate("groupNone");
-    return dayFlowLabel(bandDayKey());
+    if (bandGroup === "aside") return translate("kanbanAside");
+    return dayFlowLabel(bandGroupDay());
   }
 
   function renderBandGroup(box, buckets) {
     let group;
     let carried = 0;
-    if (bandGroup === "later") {
-      // what is dated further on: what is late is read in today, where it is done
-      group = createTaskGroup("later", translate("kanbanLater"),
-                              (buckets.soon || []).slice().sort(byDue));
-    } else if (bandGroup === "none") {
-      group = createTaskGroup("none", translate("groupNone"), asideLast(buckets.none));
+    if (bandGroup === "next") {
+      const next = bandGroupDay();
+      group = createTaskDay(next, tasksOfDay(buckets, next));
+    } else if (bandGroup === "aside") {
+      // no day at all, in the order the kanban gives it: what waits first, what
+      // was deliberately put away after it
+      group = createTaskGroup("none", translate("kanbanAside"), asideLast(buckets.none));
     } else {
       // WHAT WAS LEFT BEHIND — a task whose day has passed is read in today,
       // above today's own work and under its own name, exactly as the column
@@ -4271,17 +4292,13 @@
         + ".goal-inline__journal-toggle")) return;
       if (Date.now() < dragEndedAt) return;          // the click that ends a drag
       // In the main app an objective unfolds in place. Its star in Rêve still
-      // opens the complete workspace with the journal and dream wall.
+      // opens the complete workspace with the journal.
       if (listName === "projects") {
         toggleInlineProjectRow(row, item, fold);
         return;
       }
       if (row.classList.contains("is-open")) { closeDetail(); return; }
       openDetail(listName, item.id, fold.firstChild);
-      // In the work zone the calendar is the surface a task is thought on: it
-      // turns over onto the task's canvas while the band holds the rest — and
-      // the strip is lit by the same call, since it reads the card.
-      if (inWorkBand(row)) setTaskSheet("canvas");
     });
     // the bar that crosses a finished task out: a real thing drawn over the row,
     // not a decoration of its text
@@ -5414,7 +5431,7 @@
      name until it is given one. What a band is for is the day it shows, and an
      hour belongs to the rule of time, which the calendar is covering. */
   function addBandTask() {
-    const day = bandGroup === "none" ? null : bandDayKey();
+    const day = bandGroupDay();
     const task = addItem("tasks", "", day ? { date: day, time: null } : null, 0);
     if (!task) return;
     requestAnimationFrame(function () {
@@ -5439,7 +5456,7 @@
   function quickTaskDay(parsed) {
     const written = writtenDay(parsed);
     if (written || !workBandsOn()) return written;
-    return bandGroup === "none" ? null : bandDayKey();
+    return bandGroupDay();
   }
 
   /* WHAT A WRITTEN LINE MEANS BY "WHEN" — one reading for tasks and events alike:
@@ -5790,30 +5807,8 @@
       choice.addEventListener("click", function () { chooseIcon(key); });
       grid.appendChild(choice);
     }
-    grid.scrollLeft = 0;
-    requestAnimationFrame(paintIconRail);
+    grid.scrollTop = 0;
   }
-
-  /* THE RAIL — one row that scrolls sideways rather than a grid that takes the
-     height everything else needs. An arrow is only there while there is
-     something left to reach on that side. */
-  const iconGridEl = document.getElementById("iconGrid");
-  const iconPrev = document.getElementById("iconPrev");
-  const iconNext = document.getElementById("iconNext");
-
-  function paintIconRail() {
-    const room = iconGridEl.scrollWidth - iconGridEl.clientWidth;
-    iconPrev.disabled = iconGridEl.scrollLeft < 4;
-    iconNext.disabled = iconGridEl.scrollLeft > room - 4;
-  }
-
-  function slideIconRail(way) {
-    iconGridEl.scrollBy({ left: way * iconGridEl.clientWidth * .8, behavior: "smooth" });
-  }
-
-  iconPrev.addEventListener("click", function () { slideIconRail(-1); });
-  iconNext.addEventListener("click", function () { slideIconRail(1); });
-  iconGridEl.addEventListener("scroll", paintIconRail);
 
   let iconPickerMode = { kind: "habit-new" };
 
@@ -5906,17 +5901,57 @@
     buildIconPicker(PROJECT_ICONS, project.icon);
     document.getElementById("iconPresets").hidden = true;
     resetPickerPanel();
+    fillPickerCap(project);
     iconPicker.hidden = false;
   }
 
-  /* the panel is shared: whatever the last opener hid, put back */
-  function resetPickerPanel() {
-    document.querySelector(".icon-rail").hidden = false;
-    pickerTitle.textContent = translate("pickIconTitle");
-    document.getElementById("habitNameField").hidden = true;
+  /* THE HEADING, WHERE THE MARK IS — why an objective is being done and what it
+     looks like once it is: the two lines its own view carries, written here as
+     well, into the same two fields of the same object. */
+  const pickerWhy = document.getElementById("iconWhy");
+  const pickerOutcome = document.getElementById("iconOutcome");
+
+  function fillPickerCap(project) {
+    document.getElementById("iconCap").hidden = false;
+    pickerWhy.value = project.why || "";
+    pickerOutcome.value = project.outcome || "";
+    fitLine(pickerWhy);
+    fitLine(pickerOutcome);
   }
 
-  const pickerTitle = iconPicker.querySelector(".modal__title");
+  function pickerProject() {
+    return iconPickerMode.kind === "project"
+      ? findItem("projects", iconPickerMode.projectId) : null;
+  }
+
+  pickerWhy.addEventListener("input", function () {
+    const project = pickerProject();
+    if (!project) return;
+    project.why = pickerWhy.value;
+    fitLine(pickerWhy);
+    saveState();
+    if (currentProject() && currentProject().id === project.id) {
+      document.getElementById("pviewWhy").value = project.why;
+    }
+  });
+
+  pickerOutcome.addEventListener("input", function () {
+    const project = pickerProject();
+    if (!project) return;
+    project.outcome = pickerOutcome.value;
+    fitLine(pickerOutcome);
+    saveState();
+    if (currentProject() && currentProject().id === project.id) {
+      document.getElementById("pviewOutcome").value = project.outcome;
+    }
+  });
+
+  /* the panel is shared: whatever the last opener hid, put back */
+  function resetPickerPanel() {
+    document.getElementById("habitNameField").hidden = true;
+    document.getElementById("iconCap").hidden = true;
+  }
+
   const pickerName = document.getElementById("habitNameInput");
 
   /* close the picker on the × or the backdrop */
@@ -9582,6 +9617,7 @@
     openProjectSheet = null;
     releaseCanvasSheet(row);
     closeCardCanvas(closing);   // its board may be on the calendar, not in the row
+    closeCardSky(closing);      // and the map it opened onto is on the calendar too
     setInlineProjectLayout(false);
     row.setAttribute("aria-expanded", "false");
     fold.style.height = fold.getBoundingClientRect().height + "px";
@@ -9618,7 +9654,13 @@
     // set before closing the other row: both rows repaint their bars from this
     openInlineProject = project.id;
     const previous = document.querySelector(".list--cards .item--project.is-inline-open");
-    if (previous && previous !== row) closeInlineProjectRow(previous);
+    if (previous && previous !== row) {
+      // one objective hands the card to the next: the map stays where it is and
+      // dives to the other star, rather than being sent home and brought back
+      skyHandover = inWorkBand(row);
+      closeInlineProjectRow(previous);
+      skyHandover = false;
+    }
 
     // after the other row has closed: closing one clears the open sheet, which
     // would take this one's resting note with it. In a band the sheet replaces
@@ -9633,6 +9675,8 @@
     setTimeout(function () {
       if (openInlineProject === project.id && fold.isConnected) fold.style.height = "auto";
     }, INLINE_PROJECT_MS);
+    // an objective opened in the band is read against the map it stands in
+    if (inWorkBand(row)) openSkyOnCard(project);
   }
 
   function renderInlineProject(host, project) {
@@ -9690,7 +9734,8 @@
       openSky();
       openProjectView(project.id);
     });
-    tab.insertBefore(skyJump, rowName || tab.querySelector(".item__slot"));
+    // not in a band: the calendar beside it is already showing that very sky
+    if (!inWorkBand(row)) tab.insertBefore(skyJump, rowName || tab.querySelector(".item__slot"));
 
     // The dashboard objective is a working view: steps stay in their concrete
     // list here, while Rêve keeps the choice between its list and roadmap.
@@ -10265,7 +10310,10 @@
 
   function refreshStepStructure(project, options) {
     const inline = refreshStepSections(project, options);
-    if (!inline) renderList("projects");   // update the badge of a closed objective
+    // A closed objective shows one thing of its course: how far it has gone.
+    // Rebuilding the whole list to repaint one gauge threw away every row —
+    // and in a band, the objective standing open with it.
+    if (!inline) refreshProjectBadge(project);
     return inline;
   }
 
@@ -10565,7 +10613,7 @@
       return;
     }
     refreshProjectSteps(project);
-    renderList("projects");
+    refreshProjectBadge(project);   // the gauge is all a row reads off a step
   }
 
   /* A click in the dashboard must not rebuild the project list: replacing the
@@ -10826,7 +10874,6 @@
   const pviewSheets = document.getElementById("pviewSheets");
   const pviewSheet = document.getElementById("pviewSheet");
   let openPanelSheet = null;   // the kind on show in the star's panel
-  const pviewWall = document.getElementById("pviewWall");
   const PVIEW_MS = 340;
   let openProject = null;   // id of the project on screen, if any
 
@@ -10873,7 +10920,6 @@
       translate(project.done ? "reopenLabel" : "completeLabel");
     renderStepsInto(pviewSteps, project);
     renderPanelSheets(project);
-    renderWall(project);
   }
 
   function daysUntil(isoDate) {
@@ -11019,6 +11065,38 @@
   function withCanvas(item) {
     if (!sheetCanvasNode(item)) addSheet(item, "canvas");
     return item;
+  }
+
+  /* THE DREAM WALL IS GONE — a board of loose cards is what the canvas already
+     does, and does better: there a thought can be tied to another, folded away,
+     turned into a task. What was written on a wall is not lost with it — every
+     card comes over as an idea on the objective's own canvas, in the rows it
+     stood in — and the wall is dropped from the state for good. */
+  function retireDreamWalls() {
+    let carried = false;
+    for (let i = 0; i < state.projects.length; i++) {
+      const project = state.projects[i];
+      const cards = project.dream;
+      delete project.dream;
+      if (!Array.isArray(cards) || !cards.length) continue;
+      withCanvas(project);
+      const found = sheetCanvasNode(project);
+      if (!found) continue;
+      let place = 0;
+      for (let c = 0; c < cards.length; c++) {
+        if (!cards[c] || !cards[c].text) continue;   // an empty card said nothing
+        found.tree.blocks.push({
+          id: thinkingId("b"), type: "idea", text: cards[c].text,
+          x: THINKING_WORLD_X - 290 + (place % 3) * 190,
+          y: THINKING_WORLD_Y + 90 + Math.floor(place / 3) * 92,
+          parentId: found.node.id
+        });
+        place++;
+      }
+      touchCanvas(found.tree);
+      carried = true;
+    }
+    if (carried) saveState();
   }
 
   function addSheet(item, kind) {
@@ -11612,7 +11690,7 @@
       icon: "folder",
       sky: freeSkySpot(state.projects.length),
       why: "", outcome: "",
-      journal: [], dream: []
+      journal: []
     };
     if (extra) {
       const keys = Object.keys(extra);
@@ -11712,94 +11790,6 @@
     return row;
   }
 
-  /* DREAM WALL — free canvas of text cards. Nothing is arranged for you: the
-     layout is the thought. Cards are dragged around and edited in place. */
-  function renderWall(project) {
-    pviewWall.innerHTML = "";
-    for (let i = 0; i < project.dream.length; i++) {
-      pviewWall.appendChild(createDreamCard(project, project.dream[i]));
-    }
-  }
-
-  function createDreamCard(project, card) {
-    const el = document.createElement("div");
-    el.className = "wall__card";
-    el.style.left = card.x + "%";
-    el.style.top = card.y + "%";
-
-    const text = document.createElement("textarea");
-    text.className = "wall__text";
-    text.value = card.text || "";
-    text.placeholder = translate("dreamPlaceholder");
-    text.addEventListener("input", function () {
-      card.text = text.value;
-      saveState();
-    });
-
-    const grip = document.createElement("span");
-    grip.className = "wall__grip";
-    armWallDrag(grip, el, card);
-
-    const del = document.createElement("button");
-    del.type = "button";
-    del.className = "wall__del";
-    del.setAttribute("aria-label", translate("deleteAria"));
-    del.textContent = "×";
-    del.addEventListener("click", function () {
-      for (let i = 0; i < project.dream.length; i++) {
-        if (project.dream[i].id === card.id) { project.dream.splice(i, 1); break; }
-      }
-      saveState();
-      renderWall(project);
-    });
-
-    el.append(grip, del, text);
-    return el;
-  }
-
-  /* drag by the grip only, so the textarea keeps its own pointer behaviour */
-  function armWallDrag(grip, el, card) {
-    grip.addEventListener("pointerdown", function (event) {
-      event.preventDefault();
-      grip.setPointerCapture(event.pointerId);
-      const area = pviewWall.getBoundingClientRect();
-      const start = { x: event.clientX, y: event.clientY, cx: card.x, cy: card.y };
-      el.classList.add("is-dragging");
-
-      const move = function (moveEvent) {
-        const dx = (moveEvent.clientX - start.x) / area.width * 100;
-        const dy = (moveEvent.clientY - start.y) / area.height * 100;
-        card.x = Math.max(0, Math.min(88, start.cx + dx));
-        card.y = Math.max(0, Math.min(84, start.cy + dy));
-        el.style.left = card.x + "%";
-        el.style.top = card.y + "%";
-      };
-      const up = function () {
-        grip.removeEventListener("pointermove", move);
-        grip.removeEventListener("pointerup", up);
-        el.classList.remove("is-dragging");
-        saveState();
-      };
-      grip.addEventListener("pointermove", move);
-      grip.addEventListener("pointerup", up);
-    });
-  }
-
-  document.getElementById("pviewDreamAdd").addEventListener("click", function () {
-    const project = currentProject();
-    if (!project) return;
-    // drop new cards down a gentle diagonal rather than all in the same corner
-    const step = project.dream.length;
-    project.dream.push({
-      id: Date.now().toString(), text: "",
-      x: 4 + (step * 17) % 70, y: 6 + (step * 13) % 60
-    });
-    saveState();
-    renderWall(project);
-    const last = pviewWall.lastChild.querySelector(".wall__text");
-    if (last) last.focus();
-  });
-
   pviewName.addEventListener("input", function () {
     const project = currentProject();
     if (project) renameProject(project, pviewName.value);
@@ -11892,7 +11882,18 @@
   /* A star is a point, not a blob: a hard bright core barely wider than a pixel,
      with a small halo around it. Most are faint and tiny; a few carry the eye.
      Softening them evenly is what made the first sky look like out-of-focus lights. */
-  function dustTile(seed, count, tile, maxSize, brightness) {
+  /* Stars are not all one white. A real field runs from blue through white to amber,
+     and that spread is most of what stops a scatter of identical dots from reading
+     as noise on a screen. Blue-white is the common case, amber the minority. */
+  const STAR_TONES = [
+    { core: "202,222,255", halo: "170,200,255" },   // blue
+    { core: "248,251,255", halo: "210,228,255" },   // white, the common one
+    { core: "248,251,255", halo: "210,228,255" },
+    { core: "255,244,224", halo: "255,226,180" },   // straw
+    { core: "255,226,188", halo: "255,196,136" }    // amber
+  ];
+
+  function dustTile(seed, count, tile, maxSize, brightness, flares) {
     const rand = seedRandom(seed);
     return tilePaint(tile, function (ctx, wrapped) {
       for (let i = 0; i < count; i++) {
@@ -11903,74 +11904,190 @@
         const core = 0.32 + roll * roll * roll * maxSize;
         const glow = 0.28 + roll * roll * brightness;
         const reach = core + 1.6;
+        const tone = STAR_TONES[Math.floor(rand() * STAR_TONES.length)];
         wrapped(x, y, reach, function (c, cx, cy) {
           const halo = c.createRadialGradient(cx, cy, 0, cx, cy, reach);
-          halo.addColorStop(0, "rgba(226,238,255," + (glow * 0.55).toFixed(3) + ")");
-          halo.addColorStop(1, "rgba(200,220,255,0)");
+          halo.addColorStop(0, "rgba(" + tone.halo + "," + (glow * 0.55).toFixed(3) + ")");
+          halo.addColorStop(1, "rgba(" + tone.halo + ",0)");
           c.fillStyle = halo;
           c.beginPath();
           c.arc(cx, cy, reach, 0, Math.PI * 2);
           c.fill();
-          c.fillStyle = "rgba(248,251,255," + Math.min(1, glow + 0.25).toFixed(3) + ")";
+          c.fillStyle = "rgba(" + tone.core + ","
+            + Math.min(1, glow + 0.25).toFixed(3) + ")";
           c.beginPath();
           c.arc(cx, cy, core, 0, Math.PI * 2);
           c.fill();
         });
       }
+      for (let i = 0; i < (flares || 0); i++) paintFlare(rand, wrapped, tile);
     });
   }
 
+  /* A handful of stars bright enough to flare. The cross is not realism — the eye
+     has no aperture — it is the convention every photograph of a sky carries, and
+     without a few of them a field of pinpricks stays a texture instead of a sky. */
+  function paintFlare(rand, wrapped, tile) {
+    const x = rand() * tile;
+    const y = rand() * tile;
+    const reach = 11 + rand() * 15;
+    const lit = 0.22 + rand() * 0.2;
+    const tone = STAR_TONES[Math.floor(rand() * STAR_TONES.length)];
+    wrapped(x, y, reach, function (c, cx, cy) {
+      for (let k = 0; k < 2; k++) {
+        const across = k === 0;
+        const beam = c.createLinearGradient(
+          across ? cx - reach : cx, across ? cy : cy - reach,
+          across ? cx + reach : cx, across ? cy : cy + reach);
+        beam.addColorStop(0, "rgba(" + tone.halo + ",0)");
+        beam.addColorStop(0.5, "rgba(255,255,255," + lit.toFixed(3) + ")");
+        beam.addColorStop(1, "rgba(" + tone.halo + ",0)");
+        c.fillStyle = beam;
+        if (across) c.fillRect(cx - reach, cy - 0.5, reach * 2, 1);
+        else c.fillRect(cx - 0.5, cy - reach, 1, reach * 2);
+      }
+      const bloom = c.createRadialGradient(cx, cy, 0, cx, cy, 4.2);
+      bloom.addColorStop(0, "rgba(255,255,255,.95)");
+      bloom.addColorStop(0.4, "rgba(" + tone.core + ",.6)");
+      bloom.addColorStop(1, "rgba(" + tone.halo + ",0)");
+      c.fillStyle = bloom;
+      c.beginPath();
+      c.arc(cx, cy, 4.2, 0, Math.PI * 2);
+      c.fill();
+    });
+  }
+
+  /* THE TINT — the night itself never moves: the black, the stars and the ink that
+     has to be read on them are the same under every theme, because a star field only
+     exists against a dark ground and five of the twelve themes are light. What does
+     follow the theme is the gas. Its hue is the theme's signature, so ronce hangs a
+     deep rose in the deep and boreal a green water, and it is still a sky. */
+  function skyHue() {
+    const rgb = readColour(getComputedStyle(document.documentElement)
+      .getPropertyValue("--c-sig"));
+    const red = rgb[0] / 255;
+    const green = rgb[1] / 255;
+    const blue = rgb[2] / 255;
+    const high = Math.max(red, green, blue);
+    const span = high - Math.min(red, green, blue);
+    if (!span) return 268;                       // a grey signature keeps the violet
+    let turn;
+    if (high === red) turn = (green - blue) / span + (green < blue ? 6 : 0);
+    else if (high === green) turn = (blue - red) / span + 2;
+    else turn = (red - green) / span + 4;
+    return turn * 60;
+  }
+
   function buildStarfield() {
-    if (skyDeep.dataset.built) return;
-    skyDeep.dataset.built = "1";
+    const tint = Math.round(skyHue()).toString();
+    if (skyDeep.dataset.built === tint) return;
+    skyDeep.dataset.built = tint;
     const sheets = [
-      { sel: ".skydeep__dust--far", seed: 20260804, count: 260, tile: 420, size: 0.5, glow: 0.30 },
-      { sel: ".skydeep__dust--mid", seed: 77003311, count: 150, tile: 560, size: 0.9, glow: 0.45 },
-      { sel: ".skydeep__dust--near", seed: 991221, count: 70, tile: 700, size: 1.5, glow: 0.62 }
+      { sel: ".skydeep__dust--far", seed: 20260804, count: 260, tile: 420, size: 0.5, glow: 0.30, flares: 0 },
+      { sel: ".skydeep__dust--mid", seed: 77003311, count: 150, tile: 560, size: 0.9, glow: 0.45, flares: 0 },
+      { sel: ".skydeep__dust--near", seed: 991221, count: 70, tile: 700, size: 1.5, glow: 0.62, flares: 1 }
     ];
     for (let i = 0; i < sheets.length; i++) {
       const el = skyDeep.querySelector(sheets[i].sel);
       el.style.backgroundImage = dustTile(sheets[i].seed, sheets[i].count, sheets[i].tile,
-        sheets[i].size, sheets[i].glow);
+        sheets[i].size, sheets[i].glow, sheets[i].flares);
       el.style.backgroundSize = sheets[i].tile + "px " + sheets[i].tile + "px";
+      // the camera slides these, so it must know how far before the tile repeats
+      el.dataset.tile = sheets[i].tile;
+      el.style.setProperty("--tile", sheets[i].tile + "px");
     }
     buildNebula();
     buildGalaxies();
+    skySheets = null;   // the sheets know their tiles now, so read them again
+  }
+
+  /* Cut from the theme, so it is recut with it. Read through getElementById rather
+     than the const above: this is called from applyTheme, which runs at boot long
+     before the sky's own bindings exist. A deep never raised has nothing to redo —
+     it will read the theme itself the first time it opens. */
+  function repaintSky() {
+    const deep = document.getElementById("skyDeep");
+    if (!deep || !deep.dataset.built) return;
+    buildStarfield();
   }
 
   /* Clouds of gas: broad, faint, never twice the same colour, which is what keeps
-     them from reading as a gradient someone drew. */
+     them from reading as a gradient someone drew. Fewer and far larger than they
+     were: a dozen small ones read as smudges on the glass, where a handful of big
+     ones read as distance. */
   function buildNebula() {
     const rand = seedRandom(5150607);
-    const tile = 1400;
-    const hues = [252, 266, 284, 300, 318];      // violet drifting to mauve and rose
+    /* Painted at 700 and shown at 1900. Gas is nothing but soft gradient, so it has
+       no detail to lose to a stretch — and painting it small is what the size costs
+       nothing on. At 1400 the tile took some three hundred milliseconds of blocked
+       main thread the first time the sky opened, and four times the bitmap to hold.
+       Shown at 1900 and no wider: past that a single cloud fills the screen and
+       stops reading as a cloud. */
+    const tile = 700;
+    const shown = 1900;
+    // spread around the theme's signature, so the clouds are never one flat colour
+    const base = skyHue();
+    const hues = [base - 32, base - 18, base, base + 16, base + 34];
     const neb = skyDeep.querySelector(".skydeep__neb");
     neb.style.backgroundImage = tilePaint(tile, function (ctx, wrapped) {
-      for (let i = 0; i < 11; i++) {
-        const x = rand() * tile;
-        const y = rand() * tile;
-        const wide = 240 + rand() * 460;
-        const tall = 140 + rand() * 280;
-        const hue = hues[Math.floor(rand() * hues.length)];
-        const alpha = 0.06 + rand() * 0.10;
-        wrapped(x, y, wide, function (c, cx, cy) {
-          c.save();
-          c.translate(cx, cy);
-          c.scale(1, tall / wide);
-          const cloud = c.createRadialGradient(0, 0, 0, 0, 0, wide);
-          cloud.addColorStop(0, "hsla(" + hue + ",66%,66%," + alpha.toFixed(3) + ")");
-          cloud.addColorStop(0.55, "hsla(" + (hue - 14) + ",64%,54%," + (alpha * 0.42).toFixed(3) + ")");
-          cloud.addColorStop(1, "hsla(" + (hue - 14) + ",64%,50%,0)");
-          c.fillStyle = cloud;
-          c.beginPath();
-          c.arc(0, 0, wide, 0, Math.PI * 2);
-          c.fill();
-          c.restore();
-        });
+      /* The alpha looks impossibly low written down, and it is: four to six lobes
+         overlap on every cloud, so what lands on the screen is several times this.
+         Set where it reads right, the number by itself means nothing. */
+      /* Fifteen, not seven. Shown at 1900 the screen holds about a fifth of the
+         tile, so seven clouds meant one on screen and bare sky either side of it.
+         What makes gas read as gas is that there is always some of it. */
+      for (let i = 0; i < 15; i++) {
+        // squared, so most are modest and one or two are the structure of the sky;
+        // and the bigger it is the fainter it burns, or it turns into a flat wash
+        const roll = rand();
+        paintCloud(rand, wrapped, rand() * tile, rand() * tile,
+          tile * (0.15 + roll * roll * 0.386), hues[Math.floor(rand() * hues.length)],
+          0.05 + (1 - roll) * 0.06);
       }
       carveRifts(ctx, rand, tile, wrapped);
     });
-    neb.style.backgroundSize = tile + "px " + tile + "px";
+    neb.style.backgroundSize = shown + "px " + shown + "px";
+  }
+
+  /* One cloud, built from lobes rather than from one ellipse. However big you make
+     a single radial gradient it stays a smudge, because its edge is a perfect
+     circle and nothing in a sky has one. Offset, squashed and turned each their own
+     way, the same gradients give a ragged edge and a core that sits off-centre. */
+  function paintCloud(rand, wrapped, x, y, wide, hue, alpha) {
+    const lobes = 4 + Math.floor(rand() * 3);
+    for (let i = 0; i < lobes; i++) {
+      const turn = rand() * Math.PI * 2;
+      const off = wide * 0.4 * rand();
+      const span = wide * (0.44 + rand() * 0.56);
+      const squash = 0.42 + rand() * 0.48;
+      const tilt = rand() * Math.PI;
+      const tone = hue + (rand() - 0.5) * 18;
+      const lit = i ? alpha * (0.45 + rand() * 0.55) : alpha * 1.2;   // the first is the core
+      wrapped(x + Math.cos(turn) * off, y + Math.sin(turn) * off, span,
+        function (c, cx, cy) {
+          c.save();
+          c.translate(cx, cy);
+          c.rotate(tilt);
+          c.scale(1, squash);
+          /* Half-saturated, not fully. Gas photographed wide is far paler than the
+             colour it is named after — pushed to 70% the theme's rose stops being
+             a nebula and becomes pink paint rolled across the screen. */
+          const cloud = c.createRadialGradient(0, 0, 0, 0, 0, span);
+          // a lit core washes towards white, which is also what lifts a cloud off a
+          // background of its own hue — a blue nebula on navy is otherwise invisible
+          cloud.addColorStop(0, i
+            ? "hsla(" + tone + ",50%,64%," + lit.toFixed(3) + ")"
+            : "hsla(" + tone + ",32%,84%," + lit.toFixed(3) + ")");
+          cloud.addColorStop(0.42,
+            "hsla(" + (tone - 12) + ",46%,50%," + (lit * 0.5).toFixed(3) + ")");
+          cloud.addColorStop(1, "hsla(" + (tone - 12) + ",44%,44%,0)");
+          c.fillStyle = cloud;
+          c.beginPath();
+          c.arc(0, 0, span, 0, Math.PI * 2);
+          c.fill();
+          c.restore();
+        });
+    }
   }
 
   /* THE RIFTS — the dark lanes across the Milky Way are not shadow painted on, they
@@ -11984,14 +12101,14 @@
       let x = rand() * tile;
       let y = rand() * tile;
       let heading = rand() * Math.PI * 2;
-      const steps = 26 + Math.floor(rand() * 18);
-      const stride = tile / 34;
+      const steps = 30 + Math.floor(rand() * 20);
+      const stride = tile / 30;
       for (let k = 0; k < steps; k++) {
         heading += (rand() - 0.5) * 0.55;        // it wanders, it does not run straight
         x += Math.cos(heading) * stride;
         y += Math.sin(heading) * stride;
-        const blot = 26 + rand() * 46;
-        const bite = 0.1 + rand() * 0.16;
+        const blot = tile * (0.024 + rand() * 0.043);   // in tiles: the tile resizes
+        const bite = 0.12 + rand() * 0.2;
         wrapped(x, y, blot, function (c, cx, cy) {
           const hole = c.createRadialGradient(cx, cy, 0, cx, cy, blot);
           hole.addColorStop(0, "rgba(0,0,0," + bite.toFixed(3) + ")");
@@ -12010,11 +12127,12 @@
   /* Far galaxies are clouds, not lamps. A single ellipse with a bright middle read
      as a lens flare — a heap of light. Each is built instead from several faint
      lobes, offset and turned a little, so the edge is ragged and the light comes
-     from the gas rather than from a point. Violet, because that is what a dust
-     cloud lit from within actually leans towards. */
+     from the gas rather than from a point. They take the theme's hue with the
+     nebula, so the whole deep reads as one place. */
   function buildGalaxies() {
     const rand = seedRandom(31415926);
     const tile = 1800;
+    const base = skyHue();
     const gal = skyDeep.querySelector(".skydeep__gal");
     gal.style.backgroundImage = tilePaint(tile, function (ctx, wrapped) {
       for (let i = 0; i < 5; i++) {
@@ -12022,7 +12140,7 @@
         const y = rand() * tile;
         const wide = 52 + rand() * 66;
         const tilt = rand() * Math.PI;
-        const hue = 262 + rand() * 26;              // violet, drifting towards mauve
+        const hue = base + rand() * 26 - 13;        // the signature, barely drifting
         const lobes = [];
         for (let k = 0; k < 5; k++) {
           lobes.push({
@@ -12071,17 +12189,35 @@
     gal.style.backgroundSize = tile + "px " + tile + "px";
   }
 
-  /* One streak now and then, never on a schedule you could learn. */
-  let shootTimer = 0;
-  function startShootingStars() {
-    clearTimeout(shootTimer);
+  /* WHAT MOVES OUT THERE — four things happen in the sky and none of them are on
+     the same clock. One shared schedule would make them take turns, and taking
+     turns is what tells you it is a loop. Each keeps its own, so they overlap now
+     and then and at other times the sky is simply still for a while. */
+  const skyClocks = [];
+
+  function startSkyLife() {
+    stopSkyLife();
+    wander(shootOnce, 5000, 12000);
+    wander(twinkleOnce, 3500, 9000);
+    wander(driftOnce, 15000, 24000);
+    wander(passerbyOnce, 45000, 70000);
+  }
+
+  function wander(play, least, spread) {
+    const clock = { id: 0 };
+    skyClocks.push(clock);
     const again = function () {
-      shootTimer = setTimeout(function () {
-        if (!skyView.hidden) shootOnce();
+      clock.id = setTimeout(function () {
+        if (!skyView.hidden) play();
         again();
-      }, 5000 + Math.random() * 12000);
+      }, least + Math.random() * spread);
     };
     again();
+  }
+
+  function stopSkyLife() {
+    for (let i = 0; i < skyClocks.length; i++) clearTimeout(skyClocks[i].id);
+    skyClocks.length = 0;
   }
 
   function shootOnce() {
@@ -12096,25 +12232,65 @@
     skyShoot.appendChild(streak);
   }
 
+  /* A star that was there all along and that you happen to catch. It does not
+     arrive: it brightens out of the field and settles back into it. */
+  function twinkleOnce() {
+    const spark = document.createElement("i");
+    spark.className = "skytwinkle";
+    spark.style.left = (6 + Math.random() * 88) + "%";
+    spark.style.top = (6 + Math.random() * 84) + "%";
+    spark.style.setProperty("--reach", (22 + Math.random() * 20).toFixed(0) + "px");
+    spark.style.animationDuration = (2.4 + Math.random() * 2.4).toFixed(2) + "s";
+    spark.addEventListener("animationend", function () { spark.remove(); });
+    skyShoot.appendChild(spark);
+  }
+
+  /* A thread of gas pulled across the field over the best part of a minute. It
+     should be something you notice having moved, not something you watch move. */
+  function driftOnce() {
+    const wisp = document.createElement("i");
+    wisp.className = Math.random() < 0.5 ? "skywisp" : "skywisp is-back";
+    wisp.style.top = (8 + Math.random() * 72) + "%";
+    wisp.style.setProperty("--span", (300 + Math.random() * 420).toFixed(0) + "px");
+    wisp.style.setProperty("--lean", (Math.random() * 28 - 14).toFixed(0) + "deg");
+    wisp.style.animationDuration = (38 + Math.random() * 26).toFixed(0) + "s";
+    wisp.addEventListener("animationend", function () { wisp.remove(); });
+    skyShoot.appendChild(wisp);
+  }
+
+  /* Something crossing, far out. A rock would fall and be gone; this holds its line
+     and takes half a minute over it, and that difference is the whole of it. What
+     it is is never said, which is the point of putting it there. */
+  function passerbyOnce() {
+    const craft = document.createElement("i");
+    craft.className = Math.random() < 0.5 ? "skycraft" : "skycraft is-back";
+    craft.style.top = (12 + Math.random() * 64) + "%";
+    craft.style.setProperty("--lean", (Math.random() * 16 - 8).toFixed(0) + "deg");
+    craft.style.animationDuration = (30 + Math.random() * 28).toFixed(0) + "s";
+    craft.addEventListener("animationend", function () { craft.remove(); });
+    skyShoot.appendChild(craft);
+  }
+
   function openSky() {
+    returnSky();   // it may be lent to the calendar: take it back before raising it
+    coverField(true);
     skyView.hidden = false;
     buildStarfield();
     placeCamera();
     applyCamera();
-    startShootingStars();
+    startSkyLife();
     renderSky();
     requestAnimationFrame(function () { skyView.classList.add("is-open"); });
   }
 
   function closeSky() {
-    clearTimeout(shootTimer);
+    stopSkyLife();
     if (openProject) closeProjectView();   // the panel cannot outlive the sky it sits in
     skyView.classList.remove("is-open");
-    setTimeout(function () { skyView.hidden = true; }, PVIEW_MS);
+    setTimeout(function () { skyView.hidden = true; coverField(false); }, PVIEW_MS);
   }
 
   function renderSky() {
-    closeStepCard(true);
     const stars = skyCamera.querySelectorAll(".pstar");
     for (let i = 0; i < stars.length; i++) stars[i].remove();
     skyEmptyMsg.hidden = state.projects.length > 0;
@@ -12127,7 +12303,10 @@
     }
     renderBranches(spots);
     renderSkyRoll();
-    if (openProject) markFocusedStar(openProject);   // a redraw must not lose the dive
+    // a redraw must not lose the dive — and on the card the dive is not the panel
+    // being open, it is the objective the band has open, so it is read from there
+    if (openProject) markFocusedStar(openProject);
+    else if (skyOnCard && cardBackId) markFocusedStar(cardBackId);
   }
 
   /* THE ROLL — the same projects, listed by name in the corner. Twelve stars are a
@@ -12205,18 +12384,26 @@
       const centre = spots[project.id];
       if (!centre) continue;
       const laid = layoutConstellation(project, centre, area);
+      // THE COURSE BEING WALKED — an objective may be pursued several ways at
+      // once and the sky draws them all, which left no way to tell which one is
+      // the one open. The others step back, exactly as the other objectives do
+      // under a dive: still there, plainly behind.
+      const walked = project.activeConstellationId;
       for (let b = 0; b < laid.length; b++) {
-        markup += branchRay(centre, laid[b].nodes, laid[b].branch, project.id, b);
-        markup += habitFacets(laid[b], project.id, b);
+        const off = laid.length > 1 && laid[b].branch.id !== walked;
+        markup += branchRay(centre, laid[b].nodes, laid[b].branch, project.id, b, off);
+        markup += habitFacets(laid[b], project.id, b, off);
         for (let i = 0; i < laid[b].nodes.length; i++) {
           const star = createBranchStar(project, laid[b].branch.steps[i], laid[b].nodes[i]);
           star.dataset.project = project.id;
+          if (off) star.classList.add("is-off");
           skyCamera.appendChild(star);
         }
         for (let m = 0; m < laid[b].moons.length; m++) {
           const habitStar = createHabitStar(laid[b].moons[m], laid[b].moonSpots[m],
             project, laid[b].branch);
           habitStar.dataset.project = project.id;
+          if (off) habitStar.classList.add("is-off");
           skyCamera.appendChild(habitStar);
         }
       }
@@ -12254,6 +12441,7 @@
           el: stars[starAt],
           offset: { x: node.x - previous.x, y: node.y - previous.y },
           at: { x: node.x, y: node.y },
+          rest: { x: node.x, y: node.y },
           v: { x: 0, y: 0 }
         });
         previous = node;
@@ -12265,6 +12453,7 @@
           el: moons[moonAt],
           offset: { x: spot.x - centre.x, y: spot.y - centre.y },
           at: { x: spot.x, y: spot.y },
+          rest: { x: spot.x, y: spot.y },
           v: { x: 0, y: 0 }
         });
       }
@@ -12291,11 +12480,11 @@
       const part = skyChain.parts[p];
       let previous = skyChain.centre;
       for (let i = 0; i < part.chain.length; i++) {
-        awake = pullTowards(part.chain[i], previous, ratio) || awake;
+        awake = pullTowards(part.chain[i], previous, ratio, skyChain.area) || awake;
         previous = part.chain[i].at;
       }
       for (let m = 0; m < part.hangs.length; m++) {
-        awake = pullTowards(part.hangs[m], skyChain.centre, ratio) || awake;
+        awake = pullTowards(part.hangs[m], skyChain.centre, ratio, skyChain.area) || awake;
       }
       const nodes = [];
       for (let i = 0; i < part.chain.length; i++) nodes.push(part.chain[i].at);
@@ -12312,15 +12501,20 @@
     }
   }
 
-  function pullTowards(bead, anchor, ratio) {
+  /* Moved by `translate` rather than by left/top. A bead is one of dozens and this
+     runs on every one of them every frame: left/top makes the browser lay the whole
+     camera out again each time, where a translate is only slid about. It rides on
+     top of the -50% centring the stars already carry, which is why it is `translate`
+     and not `transform`. */
+  function pullTowards(bead, anchor, ratio, area) {
     const wantX = anchor.x + bead.offset.x;
     const wantY = anchor.y + bead.offset.y;
     bead.v.x = (bead.v.x + (wantX - bead.at.x) * CHAIN_STIFF) * CHAIN_DAMP;
     bead.v.y = (bead.v.y + (wantY - bead.at.y) * CHAIN_STIFF) * CHAIN_DAMP;
     bead.at.x += bead.v.x;
     bead.at.y += bead.v.y;
-    bead.el.style.left = bead.at.x + "%";
-    bead.el.style.top = bead.at.y + "%";
+    bead.el.style.translate = (bead.at.x - bead.rest.x) / 100 * area.width + "px "
+      + (bead.at.y - bead.rest.y) / 100 * area.height + "px";
     const offX = (wantX - bead.at.x) * ratio;
     return Math.abs(offX) + Math.abs(wantY - bead.at.y) > CHAIN_REST
       || Math.abs(bead.v.x) + Math.abs(bead.v.y) > CHAIN_REST;
@@ -12340,10 +12534,12 @@
       for (let i = 0; i < laid[b].nodes.length && starAt < stars.length; i++, starAt++) {
         stars[starAt].style.left = laid[b].nodes[i].x + "%";
         stars[starAt].style.top = laid[b].nodes[i].y + "%";
+        stars[starAt].style.translate = "";   // the swing is over, the place is real
       }
       for (let m = 0; m < laid[b].moonSpots.length && moonAt < moons.length; m++, moonAt++) {
         moons[moonAt].style.left = laid[b].moonSpots[m].x + "%";
         moons[moonAt].style.top = laid[b].moonSpots[m].y + "%";
+        moons[moonAt].style.translate = "";
       }
       setRaySegments(project.id, b, centre, laid[b].nodes);
     }
@@ -12433,13 +12629,14 @@
   }
 
   /* the two sides that turn a lone habit star into the fourth corner of a diamond */
-  function habitFacets(part, projectId, index) {
+  function habitFacets(part, projectId, index, off) {
     let markup = "";
     for (let h = 0; h < part.moonSpots.length; h++) {
       const at = h + 1;
       if (part.nodes.length < at + 2) continue;
       const spot = part.moonSpots[h];
-      markup += '<polyline class="facet" data-project="' + projectId + '" data-facet="'
+      markup += '<polyline class="facet' + (off ? " is-off" : "") + '" data-project="'
+        + projectId + '" data-facet="'
         + index + "-" + h + '" points="' + part.nodes[at - 1].x + "," + part.nodes[at - 1].y
         + " " + spot.x + "," + spot.y + " " + part.nodes[at + 1].x + "," + part.nodes[at + 1].y
         + '" vector-effect="non-scaling-stroke"/>';
@@ -12450,10 +12647,13 @@
   /* The line between two steps already reached is lit: the course shows how far it
      has actually been walked, not merely where it goes. The central star counts as
      reached — it is where the walking started. */
-  function branchRay(centre, nodes, branch, projectId, index) {
+  function branchRay(centre, nodes, branch, projectId, index, off) {
     if (!nodes.length) return "";
     const pulse = branchPulse(branch);
     const faint = pulse === null ? 0.34 : (0.12 + pulse * 0.42).toFixed(2);
+    // a course not on show keeps its own reading of how far it has gone, taken
+    // down as a whole: what is lit on it is still lit, only further away
+    const back = off ? 0.4 : 1;
     const steps = branch.steps;
     let markup = "";
     let from = centre;
@@ -12464,7 +12664,8 @@
       markup += '<line class="ray' + (lit ? " is-lit" : "") + '" data-project="' + projectId
         + '" data-branch="' + index + '" data-seg="' + i + '"'
         + ' x1="' + from.x + '" y1="' + from.y + '" x2="' + nodes[i].x + '" y2="' + nodes[i].y
-        + '" opacity="' + (lit ? 1 : faint) + '" vector-effect="non-scaling-stroke"/>';
+        + '" opacity="' + ((lit ? 1 : faint) * back).toFixed(2)
+        + '" vector-effect="non-scaling-stroke"/>';
       from = nodes[i];
       reached = here;
     }
@@ -12479,15 +12680,11 @@
     dot.style.top = spot.y + "%";
     dot.style.setProperty("--mag", (spot.magnitude || 0.8).toFixed(2));
     dot.setAttribute("aria-label", step.text || translate("stepPlaceholder"));
-    dot.title = step.text || "";
     dot.addEventListener("click", function (event) {
       event.stopPropagation();
       if (Date.now() < nodeDragEnd) return;   // the click that ends a drag
-      toggleStep(project, step.id);
-      liveSky();
+      reachStarStep(project, step);
     });
-    dot.addEventListener("pointerenter", function () { openStepCard(project, step, dot); });
-    dot.addEventListener("pointerleave", function () { closeStepCard(false); });
     armNodeDrag(dot, project, function (dx, dy) {
       step.dx = dx;
       step.dy = dy;
@@ -12495,10 +12692,51 @@
     return dot;
   }
 
+  /* REACHING A STAR OF ANOTHER COURSE — the sky shows every constellation of an
+     objective at once, while the band shows one: the one on show. Pressing a star
+     that belongs to another is asking for that course, so it is brought forward
+     first and the step is reached in it. What is ticked and what is read are then
+     the same thing, which they were not when the tick landed in a course nobody
+     could see. */
+  function reachStarStep(project, step) {
+    selectStarProject(project);
+    const branch = branchOfStep(project, step.id);
+    if (branch && project.activeConstellationId !== branch.id) {
+      project.activeConstellationId = branch.id;
+      redrawSteps(project);
+      refreshBranchHead(project);
+    }
+    toggleStep(project, step.id);
+    liveSky();
+  }
+
+  /* A star belongs to an objective before it belongs to a course, and the sky draws
+     every objective at once: pressing one that is not the objective on show asks
+     for that objective, exactly as pressing a star of another course asks for that
+     course. What "on show" means is the surface: raised full screen it is the
+     workspace, and only when one is already open — a press on a star of a sky at
+     rest is not a request to open a panel. On the calendar it is the objective
+     open in the band, so the press is passed to its row: one way of opening an
+     objective there, whether it is asked for by name or by light. The card does
+     not turn over for it — the map is already what it is showing. */
+  function selectStarProject(project) {
+    if (!skyOnCard) {
+      if (openProject && openProject !== project.id) openProjectView(project.id);
+      return;
+    }
+    if (openInlineProject === project.id) {
+      if (cardBackId !== project.id) openSkyOnCard(project);   // marked, not dived
+      return;
+    }
+    const row = document.querySelector('#calProjectsList .item--project[data-id="'
+      + project.id + '"]');
+    if (row) row.click();
+    else openSkyOnCard(project);   // nothing to open in the band: dive all the same
+  }
+
   /* Any star of a constellation can be taken and put where it looks right. What is
      stored is its offset from its objective, so the shape still travels as one. */
   let nodeDragEnd = 0;
-  let nodeDragging = false;
 
   function armNodeDrag(el, project, place) {
     el.addEventListener("pointerdown", function (event) {
@@ -12515,8 +12753,6 @@
         const dy = moveEvent.clientY - start.y;
         if (!moved && Math.abs(dx) + Math.abs(dy) < 4) return;
         moved = true;
-        nodeDragging = true;
-        closeStepCard(true);        // the card belongs to a star standing still
         el.classList.add("is-dragging");
         const at = {
           x: Math.max(1, Math.min(99, start.left + dx / area.width / sky.scale * 100)),
@@ -12533,7 +12769,6 @@
         el.removeEventListener("pointercancel", up);
         el.removeEventListener("lostpointercapture", up);
         el.classList.remove("is-dragging");
-        nodeDragging = false;
         if (!moved) return;
         nodeDragEnd = Date.now() + 250;
         saveState();
@@ -12566,73 +12801,12 @@
 
   /* Its brightness is what the phase of a moon used to say: kept every day, it burns;
      let go, it barely shows. */
-  /* EDITING A STEP IN THE SKY — a plain click still ticks it, because that is the
-     move you make twenty times a day. Everything else waits on hover: the card
-     opens beside the star and stays while the pointer travels to it, so reaching it
-     never means crossing a gap that closes behind you. */
-  let stepCardFor = null;
-  let stepCardTimer = 0;
-
-  function openStepCard(project, step, star) {
-    if (nodeDragging) return;
-    if (stepCardFor === step.id) { clearTimeout(stepCardTimer); return; }
-    closeStepCard(true);
-    stepCardFor = step.id;
-    const card = document.createElement("div");
-    card.className = "scard";
-    const area = skyField.getBoundingClientRect();
-    const at = star.getBoundingClientRect();
-    card.style.left = (at.left + at.width / 2 - area.left) + "px";
-    card.style.top = (at.top + at.height / 2 - area.top + 16) + "px";
-
-    const name = document.createElement("input");
-    name.type = "text";
-    name.className = "scard__name";
-    name.maxLength = 200;
-    name.value = step.text || "";
-    name.placeholder = translate("stepPlaceholder");
-    name.addEventListener("input", function () {
-      step.text = name.value;
-      saveState();
-      star.title = step.text || "";
-    });
-
-    const drop = document.createElement("button");
-    drop.type = "button";
-    drop.className = "scard__btn scard__btn--del";
-    drop.setAttribute("aria-label", translate("deleteAria"));
-    drop.innerHTML = iconSvg('<polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>');
-    drop.addEventListener("click", function () {
-      closeStepCard(true);
-      removeStep(project, step.id);
-      liveSky();
-    });
-
-    card.append(name, drop);
-    card.addEventListener("pointerenter", function () { clearTimeout(stepCardTimer); });
-    card.addEventListener("pointerleave", function () { closeStepCard(false); });
-    skyField.appendChild(card);
-    requestAnimationFrame(function () { card.classList.add("is-open"); });
-  }
-
-  function closeStepCard(now) {
-    clearTimeout(stepCardTimer);
-    const shut = function () {
-      const card = skyField.querySelector(".scard");
-      if (card) card.remove();
-      stepCardFor = null;
-    };
-    if (now) shut();
-    else stepCardTimer = setTimeout(shut, 260);   // time to travel from star to card
-  }
-
   function createHabitStar(habit, spot, project, branch) {
     const star = document.createElement("span");
     star.className = "bstar bmoon is-habit";
     star.style.left = spot.x + "%";
     star.style.top = spot.y + "%";
     star.style.setProperty("--mag", (0.4 + habitPhase(habit) * 0.6).toFixed(2));
-    star.title = (habit.name || "") + " · " + Math.round(habitPhase(habit) * 100) + "%";
     armNodeDrag(star, project, function (dx, dy) {
       if (!branch.habitSky) branch.habitSky = {};
       branch.habitSky[habit.id] = { dx: dx, dy: dy };
@@ -12680,6 +12854,12 @@
     // diving in leaves the sky open underneath, so going back surfaces into it
     star.addEventListener("click", function () {
       if (Date.now() < starDragEnd) return;   // the click that ends a drag
+      // The workspace belongs to the sky raised full screen, where there is room
+      // for it. On the card it would cover the very band it doubles — and going
+      // from one star to the next is a move inside the map, not a new thing
+      // opened: the camera dives, the card says which objective it now stands
+      // for, and nothing turns over or is drawn again.
+      if (skyOnCard) { selectStarProject(project); return; }
       openProjectView(project.id);
     });
     return star;
@@ -12771,7 +12951,8 @@
   let skyRest = SKY_REST;       // where the wheel left it, to come back to after a dive
   let skyPlaced = false;
   let skyRolling = 0;
-  let skyLayers = null;
+  let skySheets = null;
+  const SHEET_STEP = 8;   // pixels a painted sheet must drift before a repaint is worth it
 
   /* The sky opens centred at rest zoom, but only the first time: coming back to a
      map you have panned and left where it was is the whole point of placing stars. */
@@ -12794,15 +12975,53 @@
     aimCamera(px - worldX * scale, py - worldY * scale, scale);
   }
 
+  /* the sheets, read once and kept: this runs on every frame of every pan */
+  function readSheets() {
+    const found = skyDeep.querySelectorAll("[data-far]");
+    skySheets = [];
+    for (let i = 0; i < found.length; i++) {
+      skySheets.push({
+        el: found[i],
+        far: parseFloat(found[i].dataset.far),
+        tile: parseFloat(found[i].dataset.tile) || 0,
+        atX: NaN,
+        atY: NaN
+      });
+    }
+    return skySheets;
+  }
+
+  /* an offset brought back inside one tile. The sheet repeats, so this shows the
+     very same picture, but the sheet never travels further than the tile it carries
+     and so never needs more than one tile of overhang to stay covered. */
+  function wrapTile(value, tile) {
+    const at = value % tile;
+    return at > 0 ? at - tile : at;
+  }
+
   function applyCamera() {
     skyCamera.style.transform = "translate(" + sky.x.toFixed(1) + "px,"
       + sky.y.toFixed(1) + "px) scale(" + sky.scale.toFixed(3) + ")";
-    if (!skyLayers) skyLayers = skyDeep.querySelectorAll("[data-far]");
-    for (let i = 0; i < skyLayers.length; i++) {
-      const far = parseFloat(skyLayers[i].dataset.far);
-      // the further a layer, the less it answers: that difference is the depth
-      skyLayers[i].style.backgroundPosition =
-        (sky.x * far).toFixed(1) + "px " + (sky.y * far).toFixed(1) + "px";
+    const sheets = skySheets || readSheets();
+    for (let i = 0; i < sheets.length; i++) {
+      const sheet = sheets[i];
+      // the further a sheet, the less it answers: that difference is the depth
+      const x = sky.x * sheet.far;
+      const y = sky.y * sheet.far;
+      if (sheet.tile) {
+        sheet.el.style.transform = "translate3d(" + wrapTile(x, sheet.tile).toFixed(1)
+          + "px," + wrapTile(y, sheet.tile).toFixed(1) + "px,0)";
+        continue;
+      }
+      // The gas has tiles too wide to overhang — a phone would be holding a texture
+      // the size of four screens — so these two keep repainting. They are also the
+      // two that barely move, so they only redraw once they have something to show.
+      const stepX = Math.round(x / SHEET_STEP) * SHEET_STEP;
+      const stepY = Math.round(y / SHEET_STEP) * SHEET_STEP;
+      if (stepX === sheet.atX && stepY === sheet.atY) continue;
+      sheet.atX = stepX;
+      sheet.atY = stepY;
+      sheet.el.style.backgroundPosition = stepX + "px " + stepY + "px";
     }
   }
 
@@ -13024,6 +13243,7 @@
   const wellView = document.getElementById("wellView");
 
   function openWell() {
+    coverField(true);
     wellView.hidden = false;
     requestAnimationFrame(function () {
       wellView.classList.add("is-open");
@@ -13035,13 +13255,17 @@
     wellView.classList.remove("is-open");
     stopGrowth();
     stopSap();
-    setTimeout(function () { wellView.hidden = true; }, 300);
+    setTimeout(function () { wellView.hidden = true; coverField(false); }, 300);
   }
 
   document.getElementById("wellBtn").addEventListener("click", openWell);
   document.getElementById("wellBack").addEventListener("click", closeWell);
 
-  document.getElementById("skyBack").addEventListener("click", closeSky);
+  document.getElementById("skyBack").addEventListener("click", function () {
+    // on the card there is nothing to close but the objective that opened it
+    if (skyOnCard) closeOpenInlineProject();
+    else closeSky();
+  });
   document.getElementById("skyBtn").addEventListener("click", openSky);
   document.addEventListener("keydown", function (event) {
     if (event.key !== "Escape") return;
@@ -13268,6 +13492,50 @@
 
   /* Draw the month: label, weekday row, leading blanks, day cells with event dots. */
   /* one day cell, shared by the week strip and the month grid */
+  function paintDayEvents(cell, key) {
+    const dayEvents = eventsOnDay(key);
+    if (!dayEvents.length) return;
+    const dots = document.createElement("span");   // one dot per event, along the bottom
+    dots.className = "ecal__dots";
+    const shown = Math.min(dayEvents.length, 3);
+    let hasImportant = false;
+    for (let k = 0; k < dayEvents.length; k++) {
+      if (dayEvents[k].important) { hasImportant = true; break; }
+    }
+    for (let k = 0; k < shown; k++) {
+      const dot = document.createElement("span");
+      dot.className = "ecal__dot";
+      dots.appendChild(dot);
+    }
+    cell.appendChild(dots);
+    if (hasImportant) {   // a red bell in the top-right corner, away from the dots
+      const bell = document.createElement("span");
+      bell.className = "ecal__bell";
+      bell.innerHTML = iconSvg(ICON_BELL);
+      cell.appendChild(bell);
+    }
+  }
+
+  function paintDayTasks(cell, key) {
+    const open = [];
+    for (let i = 0; i < state.tasks.length; i++) {
+      const task = state.tasks[i];
+      if (!task.done && !task.aside && task.dueDate === key) open.push(task);
+    }
+    if (!open.length) return;
+    const dots = document.createElement("span");
+    dots.className = "ecal__dots";
+    const shown = Math.min(open.length, 3);
+    for (let k = 0; k < shown; k++) {
+      const dot = document.createElement("span");
+      dot.className = "ecal__dot ecal__dot--task";
+      const color = taskGoalColor(open[k]);
+      if (color) dot.style.setProperty("--goal-color", color);
+      dots.appendChild(dot);
+    }
+    cell.appendChild(dots);
+  }
+
   function createCalDay(key, dayNumber, row, col, focus) {
     const cell = document.createElement("button");
     cell.type = "button";
@@ -13284,28 +13552,12 @@
     num.textContent = String(dayNumber);
     cell.appendChild(num);
 
-    const dayEvents = eventsOnDay(key);
-    if (dayEvents.length) {
-      const dots = document.createElement("span");   // one dot per event, along the bottom
-      dots.className = "ecal__dots";
-      const shown = Math.min(dayEvents.length, 3);
-      let hasImportant = false;
-      for (let k = 0; k < dayEvents.length; k++) {
-        if (dayEvents[k].important) { hasImportant = true; break; }
-      }
-      for (let k = 0; k < shown; k++) {
-        const dot = document.createElement("span");
-        dot.className = "ecal__dot";
-        dots.appendChild(dot);
-      }
-      cell.appendChild(dots);
-      if (hasImportant) {   // a red bell in the top-right corner, away from the dots
-        const bell = document.createElement("span");
-        bell.className = "ecal__bell";
-        bell.innerHTML = iconSvg(ICON_BELL);
-        cell.appendChild(bell);
-      }
-    }
+    // UNFOLDED, THE GRID IS THE WORK ZONE — a day then says what is to be done on
+    // it, not what is happening on it: one dot per task still open, in the colour
+    // of what it comes from. Folded, it is the week of the day, and it says its
+    // events as it always has.
+    if (calExpanded) paintDayTasks(cell, key);
+    else paintDayEvents(cell, key);
     cell.addEventListener("click", function () {
       if (Date.now() < calendarDayDragUntil) return;
       if (!calExpanded && col !== 3) centerWeekOnDay(key, cell);
@@ -13414,6 +13666,24 @@
     else openMotherCanvasOnCard();
   });
 
+  document.getElementById("calSkyBtn").addEventListener("click", function (event) {
+    event.stopPropagation();
+    // the star of the objective on show, or the whole map when none is open
+    openSkyOnCard(openInlineProject ? findItem("projects", openInlineProject) : null);
+  });
+
+  /* the same way in on the other side: a task opens no board by being opened any
+     more, so this is where its canvas is asked for — and the mother canvas when
+     no task is open, which is the one place a band could otherwise not reach */
+  const calTaskCanvasBtn = document.getElementById("calTaskCanvasBtn");
+  calTaskCanvasBtn.innerHTML = thinkingIconSvg("web");
+  calTaskCanvasBtn.addEventListener("click", function (event) {
+    event.stopPropagation();
+    const task = detailTarget.kind === "tasks" ? currentDetailItem() : null;
+    if (task) openCanvasOnCard(withCanvas(task));
+    else openMotherCanvasOnCard();
+  });
+
   document.getElementById("calGroupSwitch").addEventListener("click", function (event) {
     event.stopPropagation();
     cycleBandGroup();
@@ -13422,6 +13692,11 @@
   function setWorkBands(on) {
     if (!calBandLeft) return;
     const was = !calBandLeft.hidden;
+    /* THE ZONE OPENS AT THE TOP — it covers the page, and the page keeps the
+       scroll it had: unfolding halfway down left the calendar off-screen with
+       nothing able to scroll back to it, the zone having just locked the page.
+       Sent home before the lock, never after. */
+    if (on && !was) window.scrollTo(0, 0);
     // the zone covers the screen: the page under it has nowhere to go
     document.documentElement.classList.toggle("is-work-zone", !!on);
     calBandLeft.hidden = !on;
@@ -13993,6 +14268,20 @@
     showCalendarFront();
     toggleCalendar();
   }
+
+  /* LEAVING BY PRESSING NOTHING — the ground around the calendar is still the
+     page, and pressing the page is asking for the page: the same leaving as the
+     wheel, from the one gesture that has no other meaning here. Everything the
+     zone is made of is spared, and so is anything raised over it. */
+  document.addEventListener("click", function (event) {
+    if (!workBandsOn() || !event.target.closest) return;
+    // a handler may have redrawn what was pressed: a click from inside something
+    // just rebuilt was never a click on the ground
+    if (!event.target.isConnected) return;
+    if (event.target.closest(".ecal, .ecal-band, .topbar, .modal, .detail, "
+      + ".sky-view, .pview, .well-view, .thinking-board, .habits-band")) return;
+    leaveWorkZone();
+  });
 
   window.addEventListener("wheel", function (event) {
     if (!workBandsOn() || event.deltaY <= 0) return;
@@ -15462,22 +15751,102 @@
     requestAnimationFrame(function () { mountCanvasSheetAt(slot, find()); });
   }
 
+  /* THE SKY, ON THE CARD — an objective is one point among the others, and the
+     work zone finally has the room to say so: opening one in the band turns the
+     calendar over onto the map and dives to its star. The sky is a singleton, so
+     the card borrows it exactly as it borrows the board — it is moved here and
+     handed back, never copied, or the page would end up with two of them. */
+  let skyOnCard = false;
+
+  function openSkyOnCard(project) {
+    const host = document.getElementById("eventFold");
+    // already the map on show: this is a move within one sky, not another sky.
+    // Turning the card away and back to say so would throw the starfield out and
+    // build it again for a camera move.
+    if (skyOnCard && (host.dataset.object || "").indexOf("sky") === 0) {
+      if (!project) return;   // asked for the map it is already showing
+      host.dataset.object = "sky:" + project.id;
+      cardBackId = project.id;
+      paintCardBackRows();
+      focusStar(project);
+      return;
+    }
+    if (openHost && isCardBack(openHost)) closeDetail();
+    clearCardBack(host);
+    host.classList.add("is-sky");
+    skyView.classList.add("is-oncard");
+    skyView.hidden = false;
+    host.appendChild(skyView);
+    showCardBack();
+    skyOnCard = true;
+    host.dataset.object = project ? "sky:" + project.id : "sky";
+    cardBackId = project ? project.id : null;
+    paintCardBackRows();
+    paintSkyButton();
+    buildStarfield();
+    startSkyLife();
+    // the field has no size until it is in the card: everything measured off it
+    // waits a frame, or the camera is placed against a box of nothing
+    requestAnimationFrame(function () {
+      if (!skyOnCard) return;
+      placeCamera();
+      applyCamera();
+      renderSky();
+      skyView.classList.add("is-open");
+      if (project) focusStar(project);
+    });
+  }
+
+  /* handed back whole: the sky belongs to the page, the card only borrows it */
+  function returnSky() {
+    if (!skyOnCard) return;
+    skyOnCard = false;
+    stopSkyLife();
+    const stars = skyCamera.querySelectorAll(".pstar");
+    for (let i = 0; i < stars.length; i++) stars[i].classList.remove("is-focused");
+    skyView.classList.remove("is-open", "is-oncard", "is-diving");
+    skyView.hidden = true;
+    document.body.appendChild(skyView);
+    paintSkyButton();
+  }
+
+  /* lit while the card is holding the map, as the two other ways in are */
+  function paintSkyButton() {
+    const button = document.getElementById("calSkyBtn");
+    if (!button) return;
+    const host = document.getElementById("eventFold");
+    button.classList.toggle("is-on", (host.dataset.object || "").indexOf("sky") === 0);
+  }
+
+  /* the row that turned the card over is the row that turns it back — unless it
+     is turning it over to another objective, which is not a closing at all */
+  let skyHandover = false;
+
+  function closeCardSky(project) {
+    if (!project || !skyOnCard || skyHandover) return;
+    const host = document.getElementById("eventFold");
+    if (host.dataset.object !== "sky:" + project.id) return;
+    setCalFlipped(false);
+  }
+
   /* THE KANBAN — every task at once, sorted by what can be done with it: what is
      to do, what waits for later, what has been put aside, what is finished. It
      opens on the calendar, as a canvas does — the band keeps its one day, this
      takes the whole card. Nothing new is stored: a column is read from the day,
      the aside flag and the done flag, and pressing an eye or a tick is what
-     moves a card from one to the next. */
-  const KANBAN_COLUMNS = ["todo", "later", "aside", "done"];
+     moves a card from one to the next. The same three states the band's switch
+     reads, with the finished ones added: today, tomorrow, and what has no day —
+     where anything set aside ends up, since setting aside drops the date. */
+  const KANBAN_COLUMNS = ["todo", "next", "aside", "done"];
   const KANBAN_LABELS = {
-    todo: "kanbanTodo", later: "kanbanLater", aside: "kanbanAside", done: "kanbanDone"
+    todo: "kanbanTodo", next: "groupTomorrow", aside: "kanbanAside", done: "kanbanDone"
   };
 
   function kanbanColumnOf(task) {
     if (task.done) return "done";
-    if (task.aside) return "aside";
-    if (task.dueDate && task.dueDate <= todayKey()) return "todo";
-    return "later";
+    if (task.aside || !task.dueDate) return "aside";
+    if (task.dueDate <= todayKey()) return "todo";
+    return "next";   // tomorrow, and whatever is dated past it
   }
 
   function openKanbanOnCard() {
@@ -15495,7 +15864,7 @@
   function buildKanban() {
     const board = document.createElement("div");
     board.className = "kanban";
-    const held = { todo: [], later: [], aside: [], done: [] };
+    const held = { todo: [], next: [], aside: [], done: [] };
     for (let i = 0; i < state.tasks.length; i++) {
       held[kanbanColumnOf(state.tasks[i])].push(state.tasks[i]);
     }
@@ -15514,8 +15883,27 @@
       head.append(name, count);
       const list = document.createElement("div");
       list.className = "kanban__list";
-      for (let i = 0; i < held[key].length; i++) {
-        list.appendChild(kanbanCard(held[key][i]));
+      // Both day columns carry their neighbour: what earlier days did not finish
+      // is read at the head of today, where it is done, and what is dated past
+      // tomorrow at the foot of tomorrow, since no grid here can be walked to it.
+      const run = key === "aside" ? asideLast(held[key]) : held[key];
+      if (key === "todo" || key === "next") {
+        const edge = key === "todo" ? todayKey() : shiftDateKey(todayKey(), 1);
+        const own = [];
+        const other = [];
+        for (let i = 0; i < run.length; i++) {
+          if (run[i].dueDate === edge) own.push(run[i]);
+          else other.push(run[i]);
+        }
+        const block = other.length
+          ? kanbanLot(key === "todo" ? "late" : "far",
+                      translate(key === "todo" ? "groupLate" : "kanbanLater"), other)
+          : null;
+        if (block && key === "todo") list.appendChild(block);
+        for (let i = 0; i < own.length; i++) list.appendChild(kanbanCard(own[i]));
+        if (block && key === "next") list.appendChild(block);
+      } else {
+        for (let i = 0; i < run.length; i++) list.appendChild(kanbanCard(run[i]));
       }
       column.append(head, list);
       board.appendChild(column);
@@ -15523,9 +15911,23 @@
     return board;
   }
 
+  /* a run of cards inside a column, under its own name and behind a rule */
+  function kanbanLot(kind, title, tasks) {
+    const block = document.createElement("div");
+    block.className = "kanban__lot kanban__lot--" + kind;
+    const name = document.createElement("span");
+    name.className = "kanban__lotName";
+    name.textContent = title;
+    block.appendChild(name);
+    for (let i = 0; i < tasks.length; i++) block.appendChild(kanbanCard(tasks[i]));
+    return block;
+  }
+
   function kanbanCard(task) {
     const card = document.createElement("article");
-    card.className = task.done ? "kanban__card is-done" : "kanban__card";
+    card.className = "kanban__card";
+    if (task.done) card.classList.add("is-done");
+    if (task.aside) card.classList.add("is-aside");
     card.dataset.id = task.id;
     const color = taskGoalColor(task);
     if (color) card.style.setProperty("--goal-color", color);
@@ -15549,10 +15951,13 @@
      a state read back from the task, so a drop has to write that state. Three of
      them are one flag and translate cleanly. Two are a decision the column does
      not make for us, and in both the smallest one that a drag back can undo is
-     taken: a card sent to "later" is pushed one day on rather than stripped of
-     its date (pushing keeps the hour), and a card pulled into "to do" is given
-     today rather than the day on show. Reopening a finished task does not reopen
-     the step it came from — reaching a step stays a durable event. */
+     taken: a card pulled into "to do" is given today rather than the day on show,
+     and one sent to tomorrow is dated tomorrow — unless it was already dated
+     further on, which is that column's own tail and must survive being reordered
+     inside it. A card dropped where there is no day loses the day it had; one
+     that never had a day is left alone, so shuffling that column sets nothing
+     aside. Reopening a finished task does not reopen the step it came from —
+     reaching a step stays a durable event. */
   function applyKanbanMove(task, column) {
     if (column === "done") {
       if (!task.done) {
@@ -15565,7 +15970,10 @@
     }
     task.done = false;
     task.doneDate = null;
-    if (column === "aside") { putAside(task, true); return; }
+    if (column === "aside") {
+      if (task.dueDate) putAside(task, true);
+      return;
+    }
     putAside(task, false);
     if (column === "todo") {
       if (!task.dueDate || task.dueDate > todayKey()) {
@@ -15574,7 +15982,7 @@
       }
       return;
     }
-    if (task.dueDate && task.dueDate <= todayKey()) {
+    if (!task.dueDate || task.dueDate <= todayKey()) {
       task.dueDate = shiftDateKey(todayKey(), 1);
       task.notified = false;
     }
@@ -15696,17 +16104,21 @@
   /* THE BAND'S OWN WAY IN — the canvas of the objective that is open, or the
      mother canvas when none is. It is lit while the card is holding one. */
   function paintCanvasButton() {
-    const button = document.getElementById("calCanvasBtn");
-    if (!button) return;
     const host = document.getElementById("eventFold");
-    button.classList.toggle("is-on", (host.dataset.object || "").indexOf("canvas:") === 0);
+    const on = (host.dataset.object || "").indexOf("canvas:") === 0;
+    const buttons = [document.getElementById("calCanvasBtn"),
+      document.getElementById("calTaskCanvasBtn")];
+    for (let i = 0; i < buttons.length; i++) {
+      if (buttons[i]) buttons[i].classList.toggle("is-on", on);
+    }
   }
 
   /* WHAT WAS ON THE BACK, TAKEN OFF IT — the board is a singleton that lives in
      the laboratory and is only lent out. Wiping the markup that holds it would
      throw the one board away, so it is handed back first. */
   function clearCardBack(host) {
-    host.classList.remove("is-kanban");
+    if (host.contains(skyView)) returnSky();   // before the markup around it goes
+    host.classList.remove("is-kanban", "is-sky");
     if (canvasSheetSlot && host.contains(canvasSheetSlot)) {
       // The strip that pointed at the canvas has to stop saying so before the
       // board goes home: handing it back redraws the lists, and a row still
@@ -15775,11 +16187,13 @@
     const host = document.getElementById("eventFold");
     host.setAttribute("aria-hidden", on ? "false" : "true");
     if (!on) {
+      returnSky();
       host.dataset.object = "";
       cardBackId = null;
       paintCardBackRows();
       paintCanvasButton();
       paintKanbanButton();
+      paintSkyButton();
     }
   }
 
@@ -21726,6 +22140,7 @@
   applyTheme(state.settings.theme);
   applyPalette(state.settings.palette);
   applyLanguage(state.settings.language);
+  retireDreamWalls();   // before anything is drawn from the projects
   appReady = true;
   renderList("tasks");
   renderList("projects");

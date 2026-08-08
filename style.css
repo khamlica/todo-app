@@ -1394,21 +1394,24 @@ body {
 
 /* the sky: one turn of the star, one orbit of its motes, a little behind it */
 .ico-star, .ico-orbit { transform-origin: 12px 12px; }
-.topbar__btn:hover .ico-star { animation: ico-turn 1.15s cubic-bezier(.5, 0, .18, 1); }
-.topbar__btn:hover .ico-orbit { animation: ico-turn 1.5s cubic-bezier(.42, 0, .22, 1); }
+/* the band wears the same star as the bar above: one answer, wherever it is asked */
+.topbar__btn:hover .ico-star,
+.zone__action:hover .ico-star { animation: ico-turn 1.15s cubic-bezier(.5, 0, .18, 1); }
+.topbar__btn:hover .ico-orbit,
+.zone__action:hover .ico-orbit { animation: ico-turn 1.5s cubic-bezier(.42, 0, .22, 1); }
 @keyframes ico-turn { from { rotate: 0deg; } to { rotate: 360deg; } }
 
 /* the canvas: the two columns trade their rhythm, small for tall */
 /* the four cells shuffle their heights when approached — wherever they are worn */
 .ico-cell { transition: y .34s cubic-bezier(.35, 0, .2, 1), height .34s cubic-bezier(.35, 0, .2, 1); }
 .topbar__btn:hover .ico-cell--tl,
-#calKanbanBtn:hover .ico-cell--tl { y: 4px; height: 4px; }
+.zone__action:hover .ico-cell--tl { y: 4px; height: 4px; }
 .topbar__btn:hover .ico-cell--bl,
-#calKanbanBtn:hover .ico-cell--bl { y: 10px; height: 10px; }
+.zone__action:hover .ico-cell--bl { y: 10px; height: 10px; }
 .topbar__btn:hover .ico-cell--tr,
-#calKanbanBtn:hover .ico-cell--tr { y: 4px; height: 7px; }
+.zone__action:hover .ico-cell--tr { y: 4px; height: 7px; }
 .topbar__btn:hover .ico-cell--br,
-#calKanbanBtn:hover .ico-cell--br { y: 13px; height: 7px; }
+.zone__action:hover .ico-cell--br { y: 13px; height: 7px; }
 
 /* the brush: one soft stroke, laid down and let go. pathLength="1" on the mark
    means the dash numbers are fractions of it and need no measuring. */
@@ -3081,6 +3084,15 @@ button.tgroup__head--day:hover {
   transition: border-color .2s ease;
 }
 .field__input:focus { border-color: var(--accent); }
+/* a line of the heading: it grows with what is written rather than scrolling */
+.field__input--line {
+  font: inherit;
+  font-size: .95rem;
+  line-height: 1.45;
+  resize: none;
+  overflow: hidden;
+}
+.field__input--line + .field__input--line { margin-top: 8px; }
 
 .themes, .langs { display: flex; flex-wrap: wrap; gap: 8px; }
 .themes .theme { flex: 1 1 26%; }
@@ -3889,42 +3901,22 @@ body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: non
 }
 
 /* icon catalog */
-/* THE RAIL — the icons run in one line and scroll, with an arrow on each side.
-   A grid of them took the height the weight and the name need. */
-.icon-rail {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-.icon-rail__nav {
-  flex: 0 0 auto;
-  width: 22px;
-  height: 42px;
-  display: grid;
-  place-items: center;
-  padding: 0;
-  border: 0;
-  border-radius: 8px;
-  background: none;
-  color: var(--muted);
-  font-size: 1.2rem;
-  line-height: 1;
-  cursor: pointer;
-  transition: color .18s ease, opacity .18s ease;
-}
-.icon-rail__nav:hover { color: var(--accent); }
-.icon-rail__nav:disabled { opacity: .18; cursor: default; }
+/* THE CATALOGUE — every icon at once, wrapped into a plate the eye reads whole.
+   A rail showed six at a time and made choosing a walk. It scrolls when there are
+   more than fit, and never past the room the rest of the panel needs. */
 .icon-grid {
-  display: flex;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(54px, 1fr));
   gap: 10px;
-  overflow-x: auto;
+  max-height: min(42vh, 300px);
+  overflow-y: auto;
   scrollbar-width: none;
-  scroll-behavior: smooth;
+  padding: 2px;
+  margin: -2px;
 }
 .icon-grid::-webkit-scrollbar { display: none; }
 .icon-choice {
-  flex: 0 0 auto;
-  width: 54px;
+  width: 100%;
   aspect-ratio: 1;
   border: 1px solid var(--border);
   background: var(--input-bg);
@@ -4320,8 +4312,6 @@ body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: non
 }
 .cal__clear { background: var(--input-bg); color: var(--muted); }
 .cal__confirm { background: var(--accent); color: #fff; font-weight: 600; }
-
-.icon-rail[hidden] { display: none; }
 
 /* THE MARK OF A CONSTELLATION — what a task born of a course carries, at the end
    of its line. It is the only thing that tells it from a task of its own: the
@@ -5637,16 +5627,16 @@ body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: non
 .ti-web-node--3 { transform-origin: 16px 17px; }
 /* the web draws itself thread by thread, on every mark that wears it */
 .sheets__tab:hover .ti-web-link--1,
-#calCanvasBtn:hover .ti-web-link--1,
+.zone__action:hover .ti-web-link--1,
 #thinkingBtn:hover .ti-web-link--1 { animation: ti-web-draw .42s ease-out; }
 .sheets__tab:hover .ti-web-node--2,
-#calCanvasBtn:hover .ti-web-node--2,
+.zone__action:hover .ti-web-node--2,
 #thinkingBtn:hover .ti-web-node--2 { animation: ti-web-land .44s cubic-bezier(.3, 1.5, .5, 1) .3s backwards; }
 .sheets__tab:hover .ti-web-link--2,
-#calCanvasBtn:hover .ti-web-link--2,
+.zone__action:hover .ti-web-link--2,
 #thinkingBtn:hover .ti-web-link--2 { animation: ti-web-draw .42s ease-out .46s backwards; }
 .sheets__tab:hover .ti-web-node--3,
-#calCanvasBtn:hover .ti-web-node--3,
+.zone__action:hover .ti-web-node--3,
 #thinkingBtn:hover .ti-web-node--3 { animation: ti-web-land .44s cubic-bezier(.3, 1.5, .5, 1) .76s backwards; }
 @keyframes ti-web-draw {
   from { stroke-dashoffset: 1; }
@@ -6593,6 +6583,11 @@ body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: non
 }
 /* dots remain legible on today's translucent signature tint */
 .ecal__day.is-today .ecal__dot { background: color-mix(in srgb, var(--text) 60%, transparent); }
+/* unfolded, a dot stands for a task and wears the colour of what it comes from */
+.ecal__dot--task,
+.ecal__day.is-today .ecal__dot--task {
+  background: var(--goal-color, color-mix(in srgb, var(--text) 62%, transparent));
+}
 /* an important event: just a red bell in the top-right corner (cell stays neutral) */
 .ecal__bell {
   position: absolute;
@@ -6624,7 +6619,12 @@ body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: non
     opacity: .28;
   }
   .ecal.is-expanded {
-    padding: 18px 20px 10px;
+    /* the names are what the back reaches out through: they have to say what the
+       card is really wearing, or the map is cut for the folded one */
+    --ecal-pad-top: 18px;
+    --ecal-pad-x: 20px;
+    --ecal-pad-bottom: 10px;
+    padding: var(--ecal-pad-top) var(--ecal-pad-x) var(--ecal-pad-bottom);
     background:
       radial-gradient(95% 75% at 50% -12%,
         color-mix(in srgb, var(--c-sig) 11%, transparent), transparent 64%),
@@ -9041,7 +9041,20 @@ body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: non
    carried by the star itself (size, glow, ring, colour), so nothing has to be
    read to be understood. */
 .sky-view {
-  --starlight: #eaf1ff;
+  /* 100vw, not the right edge: fixed stops at the scrollbar, and the page it leaves
+     showing there is a strip of the app's own theme running down the night. */
+  width: 100vw;
+  /* A tenth of the theme's signature, no more: enough that the starlight leans warm
+     under dawn and cold under boreal, never enough to stop being starlight. */
+  --starlight: color-mix(in oklab, #eaf1ff 90%, var(--c-sig));
+  /* The night is fixed, so the ink read on it is fixed with it. Left to inherit,
+     the app's own text colour comes through, and on any of the light themes that
+     is near-black type standing on a black sky. */
+  color: var(--starlight);
+  --text: #eef3ff;
+  --muted: color-mix(in srgb, #eef3ff 62%, transparent);
+  --border: color-mix(in srgb, #eef3ff 16%, transparent);
+  --input-bg: rgba(255, 255, 255, .06);
   position: fixed;
   inset: 0;
   z-index: 60;
@@ -9165,16 +9178,21 @@ body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: non
 /* THE CAMERA — the layer the whole starfield rides on. Opening a project moves
    this, not the page: the sky travels, the star stays in sight. */
 .sky-view__field.is-panning { cursor: grabbing; }
+/* No transition here. The camera is written by hand every frame, so a transition
+   would restart a six-hundred-millisecond interpolation sixty times a second: the
+   sky would trail the finger by half a second and never catch up. The easing it
+   needs it already has, in rollCamera. */
 .sky-view__camera {
   position: absolute;
-  transform-origin: 0 0;
   inset: 0;
   transform-origin: 0 0;
-  transition: transform .62s cubic-bezier(.22,.61,.36,1);
 }
 /* while diving, everything but the chosen star steps back, and the tools move
    off the panel's half so they stay reachable */
-.sky-view.is-diving .pstar { opacity: .18; }
+/* Back, not out: at a tenth the head of every other constellation went dark while
+   its beads stayed lit, so those shapes read as strung on nothing. An objective
+   not being the one looked at is not an objective gone. */
+.sky-view.is-diving .pstar { opacity: .55; }
 .sky-view.is-diving .pstar.is-focused { opacity: 1; }
 .pstar.is-focused .pstar__glow { opacity: 1; }
 .pstar.is-focused { cursor: default; }
@@ -9305,8 +9323,7 @@ body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: non
 }
 
 /* THE PROJECT WORKSPACE — what a star opens into. Wide screens split the heading
-   and the trajectory from the steps and the journal; the wall runs underneath,
-   full width, because a wall needs room. */
+   and the trajectory from the steps and the journal. */
 .pview {
   position: fixed;
   top: 0; right: 0; bottom: 0;
@@ -9323,6 +9340,8 @@ body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: non
   --muted: color-mix(in srgb, #eef3ff 66%, transparent);
   --border: color-mix(in srgb, #eef3ff 16%, transparent);
   --input-bg: rgba(255, 255, 255, .06);
+  /* its own night too, whatever the app wears */
+  color: var(--text);
   background: linear-gradient(to right,
     color-mix(in srgb, #070d1e 62%, transparent) 0%,
     color-mix(in srgb, #070d1e 86%, transparent) 10%,
@@ -9943,71 +9962,6 @@ body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: non
 .unfold__inner .detail__section[data-sheet="canvas"] { margin-top: 0; }
 .pview__sec[data-sheet="canvas"] { margin: 0 -22px; }
 
-/* THE DREAM WALL — cards go where they are put; the layout is the thought */
-.pview__wallhead {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 10px;
-}
-.pview__wallhead .detail__label { margin-bottom: 0; }
-.wall {
-  position: relative;
-  min-height: 340px;
-  border: 1px dashed var(--border);
-  border-radius: var(--radius);
-  background: color-mix(in srgb, var(--c-surface) 30%, transparent);
-  overflow: hidden;
-}
-.wall__card {
-  position: absolute;
-  width: 190px;
-  min-height: 92px;
-  display: flex;
-  border-radius: var(--r-md);
-  background: var(--surface-solid);
-  border: 1px solid var(--border);
-  box-shadow: var(--shadow);
-}
-.wall__card.is-dragging { z-index: 3; }
-.wall__grip {
-  position: absolute;
-  left: 0; right: 22px; top: 0;
-  height: 16px;
-  border-radius: var(--r-md) 0 0 0;
-  cursor: grab;
-  touch-action: none;   /* only the grip swallows the touch; the card scrolls with the page */
-  background: linear-gradient(color-mix(in srgb, var(--c-line) 45%, transparent), transparent);
-}
-.wall__card.is-dragging .wall__grip { cursor: grabbing; }
-.wall__del {
-  position: absolute;
-  right: 2px; top: 0;
-  border: 0;
-  background: none;
-  color: var(--muted);
-  font-size: 1rem;
-  line-height: 1;
-  padding: 3px 6px;
-  cursor: pointer;
-  opacity: 0;
-}
-.wall__card:hover .wall__del { opacity: .7; }
-.wall__del:hover { color: var(--danger); opacity: 1; }
-.wall__text {
-  flex: 1 1 auto;
-  resize: none;
-  border: 0;
-  background: none;
-  color: var(--text);
-  font: inherit;
-  font-size: .86rem;
-  line-height: 1.45;
-  padding: 20px 11px 11px;
-}
-.wall__text:focus { outline: none; }
-.wall__text::placeholder { color: var(--muted); }
-
 
 /* NARROW — the panel becomes a bottom sheet and the camera lifts the star up top */
 @media (max-width: 860px) {
@@ -10033,14 +9987,23 @@ body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: non
   }
   /* the notch is at the top of the screen, not at the top of a sheet */
   .pview__bar { padding-top: 10px; }
+  /* A blur is recomputed every time what stands behind it moves, and behind this
+     one is a sky that never holds still. On a phone the sheet is two thirds of the
+     screen, so that is two thirds of the screen blurred again on every frame, for
+     a sky you cannot make out through it anyway. It carries its own dark instead. */
+  .pview {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+    background: linear-gradient(to bottom,
+      color-mix(in srgb, #070d1e 95%, transparent),
+      color-mix(in srgb, #0a1226 98%, transparent));
+  }
 }
 @media (max-width: 700px) {
   .pview__body { padding: 18px 16px 34px; gap: 26px; }
   .pview__bar { padding: 10px 14px; }
   .pview__act span { display: none; }
   .pview__act { padding: 7px 10px; }
-  .wall { min-height: 420px; }
-  .wall__card { width: 150px; }
   .pstar__name { font-size: .74rem; max-width: 110px; overflow: hidden; text-overflow: ellipsis; }
 }
 
@@ -10297,6 +10260,12 @@ body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: non
   stroke-width: 1.5;
   filter: drop-shadow(0 0 3px color-mix(in srgb, var(--starlight) 70%, transparent));
 }
+/* A filter is a render pass of its own, per segment, redone on every frame a
+   constellation swings. A phone cannot pay that a dozen times over, and the
+   brighter stroke already says which stretch has been walked. */
+@media (max-width: 860px) {
+  .sky-branches line.is-lit { filter: none; }
+}
 
 /* a step on a ray: hollow while it waits, filled once it is reached */
 .bstar {
@@ -10322,10 +10291,12 @@ body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: non
 
 /* A habit closes the diamond; it cannot be ticked, but it can be placed. It burns
    a shade warmer than the steps around it — the way a cooler star reads amber next
-   to a blue-white one, so the eye tells the two apart without being told. */
+   to a blue-white one, so the eye tells the two apart without being told. It takes
+   the same tenth of the signature the steps do, so the gap between them holds
+   whatever the theme: under a warm one both warm, and this one stays the warmer. */
 .bstar.is-habit {
   cursor: grab;
-  --starlight: #ffe7c6;
+  --starlight: color-mix(in oklab, #ffe7c6 90%, var(--c-sig));
 }
 .bstar.is-dragging { cursor: grabbing; z-index: 3; }
 
@@ -10333,6 +10304,11 @@ body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: non
 /* the constellation belongs to the objective under the eye, so it stays full */
 .sky-view.is-diving .bstar,
 .sky-view.is-diving .sky-branches { opacity: 1; }
+/* A COURSE THAT IS NOT THE ONE OPEN — taken down as a whole rather than given a
+   flat opacity of its own: a filter multiplies what each star already says, so a
+   step reached still reads as reached on a course standing behind. */
+.bstar.is-off { filter: opacity(.4); }
+.sky-branches polyline.facet.is-off { opacity: .22; }
 /* the deep recedes as the camera pulls back, which is where the depth is felt */
 .sky-view.is-diving .skydeep { opacity: .55; transition: opacity .5s ease; }
 .skydeep { transition: opacity .5s ease; }
@@ -10340,15 +10316,25 @@ body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: non
 /* THE DUST — a few hundred faint points behind everything. Depth is what makes a
    handful of dots read as a sky instead of as a diagram. */
 /* THE DEEP — sheets of sky at their own distances. Each is a tile repeated for
-   ever, so panning never runs out of stars and nothing is held in memory. The
-   camera writes background-position on all of them, scaled by how far each sits:
-   that difference alone is what the eye reads as depth. */
+   ever, so panning never runs out of stars and nothing is held in memory. Each
+   answers the camera by its own fraction, and that difference alone is what the
+   eye reads as depth. */
 .skydeep { position: absolute; inset: 0; pointer-events: none; overflow: hidden; }
 .skydeep > div {
   position: absolute;
   inset: -20%;
   background-repeat: repeat;
-  will-change: background-position;
+}
+/* Moving a sheet by background-position repaints it whole and hands the picture
+   back to the card every frame; moving it by transform costs nothing at all,
+   because the tile is uploaded once and only slid about afterwards. The price is
+   overhang: the offset is wrapped back inside a single tile, so the sheet has to
+   carry one spare tile past the near edges or the far ones would show through. */
+.skydeep > .skydeep__dust {
+  inset: 0;
+  right: calc(-1 * var(--tile, 20%));
+  bottom: calc(-1 * var(--tile, 20%));
+  will-change: transform;
 }
 /* the gas drifts on its own, slowly enough that you only notice having noticed */
 .skydeep__neb { animation: neb-drift 190s linear infinite; opacity: .95; }
@@ -10392,58 +10378,130 @@ body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: non
   12%  { opacity: 1; }
   to   { opacity: 0; transform: translate(120%, 0) scaleX(1); }
 }
+
+/* A far star catching the light for a moment. It swells a little and lets go — it
+   must not pop, or it reads as something arriving rather than something noticed.
+   The cross is the same convention the painted field wears on its brightest few. */
+.skytwinkle {
+  position: absolute;
+  width: 3px; height: 3px;
+  margin: -1.5px 0 0 -1.5px;
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 0 10px 3px color-mix(in srgb, var(--starlight) 70%, transparent);
+  opacity: 0;
+  animation: twinkle-once 3s ease-in-out forwards;
+}
+.skytwinkle::before,
+.skytwinkle::after {
+  content: "";
+  position: absolute;
+  left: 50%; top: 50%;
+  transform: translate(-50%, -50%);
+}
+.skytwinkle::before {
+  width: var(--reach, 20px); height: 1px;
+  background: linear-gradient(to right, transparent,
+    color-mix(in srgb, var(--starlight) 88%, transparent), transparent);
+}
+.skytwinkle::after {
+  width: 1px; height: var(--reach, 20px);
+  background: linear-gradient(to bottom, transparent,
+    color-mix(in srgb, var(--starlight) 88%, transparent), transparent);
+}
+@keyframes twinkle-once {
+  0%   { opacity: 0; transform: scale(.35); }
+  38%  { opacity: 1; transform: scale(1); }
+  62%  { opacity: .8; transform: scale(.9); }
+  100% { opacity: 0; transform: scale(.45); }
+}
+
+/* Gas crossing the field. No blur filter on it: it is already nothing but a soft
+   gradient, and a filter would be recomputed on every frame of a minute-long
+   crossing — the one thing the deep was rewritten to stop doing. */
+.skywisp {
+  position: absolute;
+  left: 0;
+  width: var(--span, 400px);
+  height: calc(var(--span, 400px) * .44);
+  margin-top: calc(var(--span, 400px) * -.22);
+  rotate: var(--lean, 0deg);
+  background: radial-gradient(closest-side ellipse,
+    color-mix(in srgb, var(--starlight) 14%, transparent) 0%,
+    color-mix(in srgb, var(--starlight) 7%, transparent) 44%,
+    transparent 100%);
+  opacity: 0;
+  animation: wisp-drift 44s linear forwards;
+}
+.skywisp.is-back { animation-name: wisp-drift-back; }
+@keyframes wisp-drift {
+  from { opacity: 0; transform: translateX(-45vw); }
+  16%  { opacity: 1; }
+  84%  { opacity: 1; }
+  to   { opacity: 0; transform: translateX(115vw); }
+}
+@keyframes wisp-drift-back {
+  from { opacity: 0; transform: translateX(115vw); }
+  16%  { opacity: 1; }
+  84%  { opacity: 1; }
+  to   { opacity: 0; transform: translateX(-45vw); }
+}
+
+/* Something crossing, far out. A rock falls and is gone; this holds its line and
+   takes half a minute over it, and that is the whole difference. The light on it
+   keeps its own time, so the two never fall into step. */
+.skycraft {
+  position: absolute;
+  left: 0;
+  width: 3px; height: 3px;
+  rotate: var(--lean, 0deg);
+  border-radius: 50%;
+  background: #fff;
+  box-shadow: 0 0 6px 2px color-mix(in srgb, var(--starlight) 70%, transparent);
+  opacity: 0;
+  animation: craft-cross 40s linear forwards;
+}
+.skycraft::before {          /* the little it drags behind */
+  content: "";
+  position: absolute;
+  right: 3px; top: 50%;
+  width: 38px; height: 1px;
+  transform: translateY(-50%);
+  background: linear-gradient(to left,
+    color-mix(in srgb, var(--starlight) 62%, transparent), transparent);
+}
+.skycraft::after {
+  content: "";
+  position: absolute;
+  inset: -1px;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--starlight) 85%, transparent);
+  animation: craft-blink 2.6s ease-in-out infinite;
+}
+.skycraft.is-back { animation-name: craft-cross-back; }
+.skycraft.is-back::before {
+  right: auto; left: 3px;
+  background: linear-gradient(to right,
+    color-mix(in srgb, var(--starlight) 62%, transparent), transparent);
+}
+@keyframes craft-cross {
+  from { opacity: 0; transform: translateX(-8vw); }
+  12%  { opacity: .9; }
+  88%  { opacity: .9; }
+  to   { opacity: 0; transform: translateX(108vw); }
+}
+@keyframes craft-cross-back {
+  from { opacity: 0; transform: translateX(108vw); }
+  12%  { opacity: .9; }
+  88%  { opacity: .9; }
+  to   { opacity: 0; transform: translateX(-8vw); }
+}
+@keyframes craft-blink { 0%, 100% { opacity: .12; } 50% { opacity: 1; } }
+
 @media (prefers-reduced-motion: reduce) {
   .skydeep__neb, .skydeep__dust--mid, .skydeep__dust--near { animation: none; }
   .skyshoot { display: none; }
 }
-
-/* THE RAIL — the panel is a tall column{ position: relative; padding-left: 22px; }
-/* the checkbox sits on the thread{ position: relative; }
-
-/* THE STEP CARD — it opens beside its star on hover and waits while the pointer
-   travels to it. Screen space, not sky space: text must not zoom with the camera. */
-.scard {
-  position: absolute;
-  z-index: 4;
-  transform: translate(-50%, 0) translateY(-4px);
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 6px 8px;
-  border: 1px solid color-mix(in srgb, var(--starlight) 22%, transparent);
-  border-radius: 999px;
-  background: color-mix(in srgb, #0b1226 82%, transparent);
-  backdrop-filter: blur(10px) saturate(130%);
-  box-shadow: 0 10px 28px rgba(0, 0, 0, .45);
-  opacity: 0;
-  transition: opacity .16s ease, transform .16s ease;
-}
-.scard.is-open { opacity: 1; transform: translate(-50%, 0); }
-.scard__name {
-  width: 150px;
-  border: 0;
-  background: none;
-  color: var(--starlight);
-  font: inherit;
-  font-size: .84rem;
-  padding: 2px 4px;
-}
-.scard__name:focus { outline: none; }
-.scard__name::placeholder { color: color-mix(in srgb, var(--starlight) 45%, transparent); }
-.scard__btn {
-  flex: 0 0 auto;
-  border: 0;
-  background: none;
-  color: color-mix(in srgb, var(--starlight) 62%, transparent);
-  font: inherit;
-  font-size: .74rem;
-  padding: 3px 7px;
-  border-radius: 999px;
-  cursor: pointer;
-}
-.scard__btn svg { width: 13px; height: 13px; display: block; }
-.scard__btn:hover { color: var(--starlight); background: rgba(255, 255, 255, .08); }
-.scard__btn--del:hover { color: var(--danger); }
 
 
 /* THE WORK ZONE — the bands beside the unfolded calendar, and everything that has
@@ -10494,7 +10552,34 @@ html.is-work-zone body { overflow: hidden; }
 }
 .ecal-band .zone__head > .add-card:hover { background: var(--accent-soft); color: var(--accent); }
 .ecal-band .zone__head > .add-card .add-card__label { display: none; }
-.ecal-band .zone__head > .add-card .add-card__plus { width: auto; font-size: 1.25rem; }
+/* THE + IS DRAWN, NOT WRITTEN — beside two icons centred by their box, a glyph
+   centred by its line box lands high and off to one side. So it is drawn, at the
+   size the objectives' + actually comes out: that one is a 24-unit drawing shown
+   in 17px, its arms running 5 to 19 and its stroke 2 — a little under 10px of
+   cross, a hair over 1.4 thick. Copied in pixels rather than in intent. */
+.ecal-band .zone__head > .add-card .add-card__plus {
+  position: relative;
+  width: 10px;
+  height: 10px;
+  font-size: 0;
+}
+.ecal-band .zone__head > .add-card .add-card__plus::before,
+.ecal-band .zone__head > .add-card .add-card__plus::after {
+  content: "";
+  position: absolute;
+  border-radius: 1px;
+  background: currentColor;
+}
+.ecal-band .zone__head > .add-card .add-card__plus::before {
+  left: 0; right: 0; top: 50%;
+  height: 1.4px;
+  transform: translateY(-50%);
+}
+.ecal-band .zone__head > .add-card .add-card__plus::after {
+  top: 0; bottom: 0; left: 50%;
+  width: 1.4px;
+  transform: translateX(-50%);
+}
 
 /* ONE COLUMN, ALWAYS — there is no second track to open a sheet into, so the
    workspace gives up its tracks entirely and a sheet takes the place of what it
@@ -10602,10 +10687,11 @@ html.is-work-zone body { overflow: hidden; }
 }
 
 /* NO BOXES IN A BAND — a band is already a delimited space, and drawing a card
-   around a shut row says the same thing twice while eating the width twice over.
-   A shut row stands directly on the band; an open one keeps the card, since it
-   is no longer one line among others but a surface being worked on. */
+   inside it says the same thing twice while eating the width twice over. Nothing
+   is framed here, open or shut: a row that is open shows it by being open, and
+   the rule under its head is all the separation it needs. */
 .ecal-band .item--task,
+.ecal-band .item--task.is-open,
 .ecal-band .item--task:last-child,
 .ecal-band .project-tab,
 .ecal-band .item--project.is-inline-open,
@@ -10715,19 +10801,11 @@ html.is-work-zone body { overflow: hidden; }
 .ecal-band .item--project.is-inline-open .goal-inline { padding-top: 0; }
 .ecal-band .item--project.is-inline-open .pbranch__head { margin-bottom: 4px; }
 
-/* AN OPEN ROW WEARS THE CARD — the same glass as in the column, drawn around
-   what is already there. It takes the room that was already free: the band's own
-   margin on the sides, the gap between rows above and below. The padding gives
-   back exactly what the negative margin took, so the outer box keeps its size —
-   nothing is narrowed, nothing below it moves. */
+/* NO FRAME AROUND AN OPEN ROW — neither object is boxed here: what is open shows
+   it by being open, and its head's own rule is all the separation it needs. The
+   band keeps its side margin all the same, since the light under the pointer
+   reaches into it. */
 .ecal-band { padding: 0 10px; }
-.ecal-band .item--task.is-open {
-  margin: -6px -10px;
-  /* the border counts in the box too: 1 + 5 on each side gives back the 6 the
-     margin took, and the row keeps the exact height it had shut */
-  padding: 5px 9px;
-  border: 1px solid color-mix(in srgb, var(--c-line) 52%, transparent);
-}
 .ecal-band .item__slot .detail__name,
 .ecal-band .item--project.is-inline-open .goal-inline__name {
   font-size: 1.13rem;
@@ -10934,8 +11012,10 @@ html.is-work-zone body { overflow: hidden; }
    objective: the canvas of what is open, or the mother canvas. Lit while the
    card is holding one. */
 .ecal-band .zone__head > .zone__action { flex: 0 0 auto; }
-#calCanvasBtn svg { width: 17px; height: 17px; }
-#calCanvasBtn.is-on {
+#calCanvasBtn svg, #calTaskCanvasBtn svg { width: 17px; height: 17px; }
+#calCanvasBtn.is-on,
+#calTaskCanvasBtn.is-on,
+#calSkyBtn.is-on {
   color: var(--accent);
   background: color-mix(in srgb, var(--accent) 12%, transparent);
 }
@@ -11062,6 +11142,43 @@ html.is-work-zone body { overflow: hidden; }
   text-decoration: line-through;
   text-decoration-color: color-mix(in srgb, var(--muted) 55%, transparent);
 }
+/* A DAY CARRIES ITS NEIGHBOUR — what was left behind at the head of today, what
+   is dated past tomorrow at the foot of tomorrow. Both are read the way the band
+   frames what is late: their own name, and the cards set in behind a rule. */
+.kanban__lot {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding-left: 11px;
+}
+.kanban__lot--late { margin-bottom: 10px; }
+.kanban__lot--far { margin-top: 10px; }
+.kanban__lot::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  top: 22px;
+  bottom: 2px;
+  width: 2px;
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--danger) 55%, transparent);
+}
+.kanban__lot--far::before { background: color-mix(in srgb, var(--muted) 40%, transparent); }
+.kanban__lotName {
+  margin-left: -11px;
+  font-size: .68rem;
+  font-weight: 650;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+  color: var(--danger);
+}
+.kanban__lot--far .kanban__lotName { color: var(--muted); }
+/* set aside is a state one can see: the card waits, dimmed, at the foot of the
+   dateless column */
+.kanban__card.is-aside { opacity: .55; }
+.kanban__card.is-aside:hover { opacity: .8; }
+
 .kanban__when {
   flex: 0 0 auto;
   align-self: center;
@@ -11228,5 +11345,34 @@ html.is-work-zone body { overflow: hidden; }
   border-radius: calc(var(--radius) - 1px);
   overflow: hidden;
 }
+/* THE SKY ON THE CARD — the same reaching-out as the board: a map has no use for
+   a margin either, and the night is cut to the card's own corners. The tools come
+   down to the size a 400px zone can carry. */
+/* The back itself does the reaching, not the map inside it: a child hung on
+   negative offsets in a frame that does not clip has nothing holding it to the
+   card, and any disagreement about which box it is measured from is painted
+   straight over the bands. The frame takes the card's whole surface and cuts to
+   its corners; the map fills it and can no longer be anywhere else. */
+.ecal__verso.is-sky {
+  top: calc(1px - var(--ecal-pad-top));
+  left: calc(1px - var(--ecal-pad-x));
+  right: calc(1px - var(--ecal-pad-x));
+  bottom: calc(1px - var(--ecal-pad-bottom));
+  border-radius: calc(var(--radius) - 1px);
+  overflow: hidden;
+}
+.ecal__verso > .sky-view.is-oncard {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+}
+.sky-view.is-oncard .sky-tools { top: 8px; left: 8px; }
+.sky-view.is-oncard .sky-tool { width: 28px; height: 28px; }
+.sky-view.is-oncard .sky-tool svg { width: 15px; height: 15px; }
+/* the roll says twice what the band beside it already says, name for name: on
+   the card the map is the map, and the list of objectives is the right band */
+.sky-view.is-oncard .skyroll { display: none; }
+.sky-view.is-oncard .sky-view__empty { font-size: .86rem; }
+
 .thinking-board--inline > .thinking-tools { overflow-x: auto; scrollbar-width: none; }
 .thinking-board--inline > .thinking-tools::-webkit-scrollbar { display: none; }

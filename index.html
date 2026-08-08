@@ -12,7 +12,7 @@
   <title>Mes tâches</title>
   <!-- the version travels in the query: without it a browser may keep
        serving the stylesheet it already has, and the app looks unchanged -->
-  <link rel="stylesheet" href="./style.css?v=587">
+  <link rel="stylesheet" href="./style.css?v=610">
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="apple-touch-icon" href="./icons/icon-192.png">
   <!-- svg tab icon, png fallback for browsers that ignore it -->
@@ -160,6 +160,9 @@
               <!-- every task at once, sorted by what can be done with it -->
               <button class="zone__action" id="calKanbanBtn" type="button"
                       data-i18n-aria="kanbanTitle" aria-label="Kanban"></button>
+              <!-- the canvas of the task on show, or the one they all hang from -->
+              <button class="zone__action" id="calTaskCanvasBtn" type="button"
+                      data-i18n-aria="sheetCanvas" aria-label="Toile"></button>
             </div>
             <!-- where the line to write a task stands, under the head -->
             <div id="calAddSlot"></div>
@@ -168,6 +171,15 @@
           <aside class="ecal-band ecal-band--right" id="calBandRight" hidden>
             <div class="zone__head">
               <h2 class="zone__title" data-i18n="projectsTitle">Vos objectifs</h2>
+              <!-- back to the map: an objective opens onto it by itself, this is
+                   how one returns to it once something else has taken the card -->
+              <button class="zone__action" id="calSkyBtn" type="button"
+                      data-i18n-aria="skyAria" aria-label="Le ciel des projets">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <g class="ico-star"><path d="M12 3 13.6 8.2 18.5 9.4 14.7 12.6 15.5 17.6 12 15.1 8.5 17.6 9.3 12.6 5.5 9.4 10.4 8.2 Z"/></g>
+                  <g class="ico-orbit"><circle cx="19" cy="5" r="1"/><circle cx="4.5" cy="17.5" r="1"/><circle cx="20" cy="18" r="1"/></g>
+                </svg>
+              </button>
               <!-- the canvas of whatever is open, or the mother canvas: one way
                    in for the whole band, beside the way to a new objective -->
               <button class="zone__action" id="calCanvasBtn" type="button"
@@ -634,11 +646,9 @@
   <!-- habit icon picker -->
   <div id="iconPicker" class="modal" hidden>
     <div class="modal__backdrop" data-close></div>
+    <!-- no head: what the panel is for is what it shows, and pressing anywhere
+         outside it is already how one leaves -->
     <div class="modal__card">
-      <div class="modal__head">
-        <h2 class="modal__title" data-i18n="pickIconTitle">Choisir une icône</h2>
-        <button class="modal__close" data-close data-i18n-aria="closeAria" aria-label="Fermer">×</button>
-      </div>
       <label class="field" id="habitNameField">
         <span class="field__label" data-i18n="habitNameLabel">Nom de l'habitude</span>
         <input id="habitNameInput" class="field__input" type="text" data-i18n-placeholder="habitNamePlaceholder"
@@ -655,14 +665,19 @@
           <span data-i18n="exerciseTitle">Exercices rapides</span>
         </button>
       </div>
-      <!-- one row that scrolls: a grid of icons took the height the rest needs -->
-      <div class="icon-rail">
-        <button class="icon-rail__nav" id="iconPrev" type="button"
-                data-i18n-aria="prevMonthAria" aria-label="Précédent">‹</button>
-        <div class="icon-grid" id="iconGrid"></div>
-        <button class="icon-rail__nav" id="iconNext" type="button"
-                data-i18n-aria="nextMonthAria" aria-label="Suivant">›</button>
+      <!-- the heading an objective is kept on: why it is being done, and what it
+           looks like once it is. The same two lines its own view carries. -->
+      <div class="field" id="iconCap" hidden>
+        <span class="field__label" data-i18n="capLabel">Le cap</span>
+        <textarea id="iconWhy" class="field__input field__input--line" rows="1"
+                  data-i18n-placeholder="whyPlaceholder" placeholder="Pourquoi ce projet ?"></textarea>
+        <textarea id="iconOutcome" class="field__input field__input--line" rows="1"
+                  data-i18n-placeholder="outcomePlaceholder"
+                  placeholder="À quoi ça ressemble, une fois fini ?"></textarea>
       </div>
+      <!-- the catalogue: everything at once, read as a plate rather than walked
+           through one screenful at a time -->
+      <div class="icon-grid" id="iconGrid"></div>
     </div>
   </div>
 
@@ -915,16 +930,6 @@
           <section class="pview__sec" id="pviewSheet"></section>
         </div>
       </div>
-
-      <section class="pview__sec pview__sec--wall">
-        <div class="pview__wallhead">
-          <span class="detail__label" data-i18n="dreamLabel">Mur de rêve</span>
-          <button id="pviewDreamAdd" class="zone__action" type="button" data-i18n-aria="dreamAdd" aria-label="Carte">
-            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
-          </button>
-        </div>
-        <div id="pviewWall" class="wall"></div>
-      </section>
     </div>
   </div>
 
@@ -987,6 +992,6 @@
     <button id="toastAction" class="toast__action" type="button" hidden></button>
   </div>
 
-  <script src="./app.js?v=587"></script>
+  <script src="./app.js?v=610"></script>
 </body>
 </html>
