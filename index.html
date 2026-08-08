@@ -12,7 +12,7 @@
   <title>Mes tâches</title>
   <!-- the version travels in the query: without it a browser may keep
        serving the stylesheet it already has, and the app looks unchanged -->
-  <link rel="stylesheet" href="./style.css?v=614">
+  <link rel="stylesheet" href="./style.css?v=617">
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="apple-touch-icon" href="./icons/icon-192.png">
   <!-- svg tab icon, png fallback for browsers that ignore it -->
@@ -648,7 +648,7 @@
     <div class="modal__backdrop" data-close></div>
     <!-- no head: what the panel is for is what it shows, and pressing anywhere
          outside it is already how one leaves -->
-    <div class="modal__card">
+    <div class="modal__card icons">
       <label class="field" id="habitNameField">
         <span class="field__label" data-i18n="habitNameLabel">Nom de l'habitude</span>
         <input id="habitNameInput" class="field__input" type="text" data-i18n-placeholder="habitNamePlaceholder"
@@ -678,6 +678,11 @@
       <!-- the catalogue: everything at once, read as a plate rather than walked
            through one screenful at a time -->
       <div class="icon-grid" id="iconGrid"></div>
+      <!-- a second plate, for the objectives only: the sky one steers by -->
+      <div class="field" id="iconMore" hidden>
+        <span class="field__label" data-i18n="spaceLabel">Le ciel</span>
+        <div class="icon-grid" id="iconGridMore"></div>
+      </div>
     </div>
   </div>
 
@@ -992,6 +997,6 @@
     <button id="toastAction" class="toast__action" type="button" hidden></button>
   </div>
 
-  <script src="./app.js?v=614"></script>
+  <script src="./app.js?v=617"></script>
 </body>
 </html>

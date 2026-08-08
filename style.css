@@ -3969,6 +3969,14 @@ body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: non
 }
 
 /* SLEEP VIEW */
+/* THE CATALOGUE PANEL — wider than the other cards, because the plates are meant
+   to be read whole. At 360px the grid came out five to a row and the sky ran off
+   the bottom of its own scroller. */
+.modal__card.icons { max-width: 580px; max-height: 88vh; overflow-y: auto; }
+/* one scroller, not three nested: the card is already the thing that scrolls
+   when the plates do not fit, which on a wide screen they now always do */
+.modal__card.icons .icon-grid { max-height: none; overflow: visible; }
+
 .modal__card.sleep { max-width: 460px; }
 .sleep__today { text-align: center; margin-bottom: 24px; }
 .sleep__today .field__label { display: block; margin-bottom: 8px; }
@@ -6084,6 +6092,104 @@ body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: non
 /* FOLDER — the front leans out, as on the canvas, in this drawing's own units */
 .ci-fold-front { transform-origin: 12px 20px; }
 :hover > .cat-ico .ci-fold-front { animation: ti-open-fold .95s cubic-bezier(.4, 0, .25, 1); }
+
+
+/* THE SKY PLATE — the objectives' second row. Everything here turns about the
+   middle of the box, because everything here is either a light or in orbit
+   around one; the sky button's own star is lent whole, animation included. */
+:hover > .cat-ico .ico-star { animation: ico-turn 1.15s cubic-bezier(.5, 0, .18, 1); }
+:hover > .cat-ico .ico-orbit { animation: ico-turn 1.5s cubic-bezier(.42, 0, .22, 1); }
+
+/* SUPERNOVA — the core goes up, the shell runs out past the rays and thins to
+   nothing. The wave has to start inside the core, or it reads as a ring that
+   was always there rather than as one the star just threw off. */
+.ci-nova-core, .ci-nova-wave, .ci-nova-rays { transform-origin: 12px 12px; }
+:hover > .cat-ico .ci-nova-core { animation: ci-nova-flash 1.15s ease-out; }
+:hover > .cat-ico .ci-nova-wave { animation: ci-nova-blast 1.15s cubic-bezier(.15, .7, .3, 1); }
+:hover > .cat-ico .ci-nova-rays { animation: ci-nova-throw 1.15s cubic-bezier(.2, .8, .3, 1); }
+@keyframes ci-nova-flash {
+  0%   { scale: 1; }
+  22%  { scale: 1.55; }
+  100% { scale: 1; }
+}
+@keyframes ci-nova-blast {
+  0%   { scale: .38; opacity: 1; }
+  70%  { scale: 1.7; opacity: 0; }
+  71%  { scale: .38; opacity: 0; }
+  100% { scale: 1; opacity: 1; }
+}
+@keyframes ci-nova-throw {
+  0%   { scale: .8; opacity: .5; }
+  30%  { scale: 1.12; opacity: 1; }
+  100% { scale: 1; opacity: 1; }
+}
+
+/* PLANET — it tips on its axis and rights itself. Globe and ring turn together
+   as one body: the ring is cut to meet the globe's edge, so anything that moves
+   one without the other pulls the join apart. */
+.ci-planet { transform-origin: 12px 11.5px; }
+:hover > .cat-ico .ci-planet { animation: ci-tilt 1.5s ease-in-out; }
+@keyframes ci-tilt {
+  0%, 100% { rotate: 0deg; }
+  35%      { rotate: 19deg; }
+  70%      { rotate: -9deg; }
+}
+
+/* SHOOTING STAR — it crosses, and the trail is drawn behind the head rather
+   than travelling with it, which is what a streak actually is */
+.ci-shoot { transform-origin: 12px 12px; }
+.ci-shoot-trail path { stroke-dasharray: 1; }
+:hover > .cat-ico .ci-shoot { animation: ci-streak 1.1s cubic-bezier(.3, 0, .35, 1); }
+:hover > .cat-ico .ci-shoot-trail path { animation: ci-tail .55s ease-out backwards; }
+:hover > .cat-ico .ci-shoot-trail path:nth-of-type(2) { animation-delay: .07s; }
+:hover > .cat-ico .ci-shoot-trail path:nth-of-type(3) { animation-delay: .14s; }
+@keyframes ci-streak {
+  0%   { translate: 5px -5px; opacity: 0; }
+  22%  { translate: 0 0; opacity: 1; }
+  74%  { translate: 0 0; opacity: 1; }
+  100% { translate: -4px 4px; opacity: 0; }
+}
+@keyframes ci-tail {
+  from { stroke-dashoffset: 1; }
+  to   { stroke-dashoffset: 0; }
+}
+
+/* NEBULA — gas turns over slowly and the stars caught in it come up in turn */
+.ci-neb-cloud, .ci-neb-swirl { transform-origin: 12px 12px; }
+.ci-neb-spark circle { transform-box: fill-box; transform-origin: center; }
+:hover > .cat-ico .ci-neb-cloud { animation: ci-drift-gas 1.9s ease-in-out; }
+:hover > .cat-ico .ci-neb-swirl { animation: ci-curl 1.9s ease-in-out; }
+:hover > .cat-ico .ci-neb-spark circle { animation: ci-light 1s ease-out backwards; }
+:hover > .cat-ico .ci-neb-spark circle:nth-of-type(2) { animation-delay: .18s; }
+:hover > .cat-ico .ci-neb-spark circle:nth-of-type(3) { animation-delay: .36s; }
+@keyframes ci-drift-gas {
+  0%, 100% { scale: 1 1; rotate: 0deg; }
+  45%      { scale: 1.07 .95; rotate: 4deg; }
+}
+@keyframes ci-curl {
+  0%, 100% { rotate: 0deg; }
+  45%      { rotate: 26deg; }
+}
+
+/* SHIP — it holds, then lifts, and the beam under it goes out as it goes */
+.ci-ship-dome, .ci-ship-hull { transform-origin: 12px 11px; }
+.ci-ship-beam path { stroke-dasharray: 1; }
+:hover > .cat-ico .ci-ship-dome,
+:hover > .cat-ico .ci-ship-hull { animation: ci-hover-lift 1.3s cubic-bezier(.4, 0, .3, 1); }
+:hover > .cat-ico .ci-ship-beam path { animation: ci-beam-down .8s ease-out backwards; }
+:hover > .cat-ico .ci-ship-beam path:nth-of-type(2) { animation-delay: .08s; }
+:hover > .cat-ico .ci-ship-beam path:nth-of-type(3) { animation-delay: .16s; }
+@keyframes ci-hover-lift {
+  0%   { translate: 0 0; }
+  40%  { translate: 0 -2.2px; }
+  68%  { translate: 0 -2.2px; }
+  100% { translate: 0 0; }
+}
+@keyframes ci-beam-down {
+  0%   { stroke-dashoffset: 1; opacity: .3; }
+  60%  { stroke-dashoffset: 0; opacity: 1; }
+  100% { stroke-dashoffset: 0; opacity: 1; }
+}
 
 /* BRIEFCASE — picked up, and it swings once on the way */
 .ci-case { transform-origin: 12px 3px; }

@@ -133,7 +133,7 @@
         // becomes the first of them, and nothing is lost doing it.
         if (!project.constellations || !project.constellations.length) {
           project.constellations = [{
-            id: project.id + "c", name: "", icon: CONSTELLATION_ICON_KEYS[0],
+            id: project.id + "c", name: "", icon: freeConstellationIcon(),
             habitIds: [], steps: project.steps
           }];
         }
@@ -143,7 +143,7 @@
           if (!branch.steps) branch.steps = [];
           if (!branch.habitIds) branch.habitIds = [];
           if (branch.name == null) branch.name = "";
-          if (!branch.icon) branch.icon = CONSTELLATION_ICON_KEYS[c % CONSTELLATION_ICON_KEYS.length];
+          if (!branch.icon) branch.icon = freeConstellationIcon(project.constellations);
           // a course is walked in order: what was reached comes first, the rest
           // keeps the order it was written in
           // a step is not scheduled any more: only the task it is turned into is,
@@ -519,7 +519,7 @@
   function projectBranches(project) {
     if (!project.constellations || !project.constellations.length) {
       project.constellations = [{
-        id: project.id + "c", name: "", icon: CONSTELLATION_ICON_KEYS[0],
+        id: project.id + "c", name: "", icon: freeConstellationIcon(),
         habitIds: [], steps: []
       }];
     }
@@ -632,11 +632,28 @@
     saveState();
   }
 
+  /* THE MARK OF A COURSE — dealt in catalogue order, the first course of every
+     objective wore the same glyph, the second the next one, and the tail of the
+     catalogue was never seen at all. It is drawn instead, and never twice in the
+     same objective while there are unused ones left. */
+  function freeConstellationIcon(branches) {
+    const free = [];
+    for (let i = 0; i < CONSTELLATION_ICON_KEYS.length; i++) {
+      let taken = false;
+      for (let b = 0; branches && b < branches.length; b++) {
+        if (branches[b].icon === CONSTELLATION_ICON_KEYS[i]) { taken = true; break; }
+      }
+      if (!taken) free.push(CONSTELLATION_ICON_KEYS[i]);
+    }
+    const pool = free.length ? free : CONSTELLATION_ICON_KEYS;
+    return pool[Math.floor(Math.random() * pool.length)];
+  }
+
   function addBranch(project, name) {
     const branches = projectBranches(project);
     const branch = {
       id: Date.now().toString(), name: name || "",
-      icon: CONSTELLATION_ICON_KEYS[branches.length % CONSTELLATION_ICON_KEYS.length],
+      icon: freeConstellationIcon(branches),
       habitIds: [], steps: []
     };
     branches.push(branch);
@@ -748,6 +765,7 @@
       themeDark: "Sombre",
       themeSakura: "Sakura",
       themeRonce: "Ronce",
+      spaceLabel: "Le ciel",
       themeAqua: "Aquatique",
       themeForest: "Forêt",
       themeBoreal: "Boréal",
@@ -1126,6 +1144,7 @@
       themeDark: "Dark",
       themeSakura: "Sakura",
       themeRonce: "Briar",
+      spaceLabel: "The sky",
       themeAqua: "Aquatic",
       themeForest: "Forest",
       themeBoreal: "Boreal",
@@ -5482,7 +5501,11 @@
   /* the same as the + of a task: the objective is made, it opens, and it wears a
      temporary name until it is given one. Its mark is changed from its icon. */
   document.getElementById("addProjectBtn").addEventListener("click", function () {
+    // the card is already showing the map: the new objective is a star arriving in
+    // it, so the row that was open lets go without turning the calendar back over
+    skyHandover = skyOnCard;
     closeAllInlineRows();
+    skyHandover = false;
     const project = newProject();
     const row = document.querySelector('.list--cards .item[data-id="' + project.id + '"]');
     if (row) toggleInlineProjectRow(row, project, row.querySelector(".unfold"));
@@ -5503,8 +5526,8 @@
      named parts inside whenever the icon's own box is hovered, wherever it sits. */
   function catalogIconSvg(iconKey, catalog) {
     const drawing = (catalog && catalog[iconKey]) || HABIT_ICONS[iconKey]
-      || EVENT_ICONS[iconKey] || PROJECT_ICONS[iconKey] || EXERCISE_ICONS[iconKey]
-      || CONSTELLATION_ICONS[iconKey] || "";
+      || EVENT_ICONS[iconKey] || PROJECT_ICONS[iconKey] || SPACE_ICONS[iconKey]
+      || EXERCISE_ICONS[iconKey] || CONSTELLATION_ICONS[iconKey] || "";
     // the celestial alphabet shares one gesture, so it is grouped rather than
     // having every point and thread of twelve drawings named by hand
     const body = iconKey && iconKey.indexOf("constellation-") === 0
@@ -5595,8 +5618,6 @@
       + '<g class="ti-glass"><path d="M8.5 15.5C7 14.3 6 12.5 6 10.5a6 6 0 1 1 12 0c0 2-1 3.8-2.5 5-.6.5-.8 1-.8 1.5H9.3c0-.5-.2-1-.8-1.5Z"/></g>'
       + '<g class="ti-wire"><path stroke-width="1.15" d="M10.5 15.4v-2.5M13.5 15.4v-2.5M10.5 12.9l.75-1.6.75 1.6.75-1.6.75 1.6"/></g>'
       + '<path d="M9 18h6M10 21h4"/>',
-    rocket: '<g class="ci-rocket"><path d="M12 15l-3-3a11 11 0 0 1 5-8c1.9-1.9 4-2 5-2s1.1 3.1-.8 5a11 11 0 0 1-8 5z"/><path d="M9 12H4s.5-2.8 2-4c1.5-.4 3 0 3 0"/><path d="M12 15v5s2.8-.5 4-2c.4-1.5 0-3 0-3"/></g>'
-      + '<path class="ci-exhaust" d="M4.5 16.5c-1.5 1.3-2 5-2 5s3.7-.5 5-2c.7-.9.7-2.2-.1-3a2.1 2.1 0 0 0-2.9 0z"/>',
     // the back is a closed shape rather than two loose ends, and the pocket in
     // front of it is the tapered one a real folder has; the two share an edge
     folder: '<path d="M3.2 18.6V6.6A1.6 1.6 0 0 1 4.8 5h4.05a1.6 1.6 0 0 1 1.28.64l1.06 1.42a1.6 1.6 0 0 0 1.28.64h6.75A1.6 1.6 0 0 1 20.8 9.3v9.3"/>'
@@ -5610,7 +5631,6 @@
     book: HABIT_ICONS.book,
     write: HABIT_ICONS.write,
     code: HABIT_ICONS.code,
-    star: HABIT_ICONS.star,
     music: HABIT_ICONS.music,
     // the brush of the theme button, which already sweeps and lays its stroke
     brush: '<path class="ico-stroke" pathLength="1" d="M2.6 21.4c4-.5 7.6-2.4 10.6-5.4"/>'
@@ -5655,6 +5675,48 @@
     }
     return markup;
   }
+
+  /* THE SKY — a second row under the objectives list, for the ones who think of
+     a project as something to steer by. The rocket and the star moved here from
+     the list above; the twelve constellations are the ones branches already use,
+     so a project and its branches can wear the same alphabet. */
+  const CELESTIAL_ICONS = {
+    rocket: '<g class="ci-rocket"><path d="M12 15l-3-3a11 11 0 0 1 5-8c1.9-1.9 4-2 5-2s1.1 3.1-.8 5a11 11 0 0 1-8 5z"/><path d="M9 12H4s.5-2.8 2-4c1.5-.4 3 0 3 0"/><path d="M12 15v5s2.8-.5 4-2c.4-1.5 0-3 0-3"/></g>'
+      + '<path class="ci-exhaust" d="M4.5 16.5c-1.5 1.3-2 5-2 5s3.7-.5 5-2c.7-.9.7-2.2-.1-3a2.1 2.1 0 0 0-2.9 0z"/>',
+    star: HABIT_ICONS.star,
+    // the sky button's own glyph, which already turns with its three satellites
+    orbit: '<g class="ico-star"><path d="M12 3 13.6 8.2 18.5 9.4 14.7 12.6 15.5 17.6 12 15.1 8.5 17.6 9.3 12.6 5.5 9.4 10.4 8.2 Z"/></g>'
+      + '<g class="ico-orbit"><circle cx="19" cy="5" r="1"/><circle cx="4.5" cy="17.5" r="1"/><circle cx="20" cy="18" r="1"/></g>',
+    supernova: '<circle class="ci-nova-core" cx="12" cy="12" r="2.6"/>'
+      + '<circle class="ci-nova-wave" cx="12" cy="12" r="6.4"/>'
+      + '<g class="ci-nova-rays"><path d="M12 1.6v2.6M12 19.8v2.6M1.6 12h2.6M19.8 12h2.6'
+      + 'M4.7 4.7 6.5 6.5M17.5 17.5l1.8 1.8M19.3 4.7 17.5 6.5M6.5 17.5 4.7 19.3"/></g>',
+    // A full ellipse draws a line straight through the globe and the pair reads
+    // as a hoop. The ring is cut instead: the near half whole, the far half kept
+    // only where it clears the globe, so it passes behind as a real ring does.
+    // The arc ends are computed against the circle, not eyeballed.
+    planet: '<g class="ci-planet"><circle cx="12" cy="10.2" r="4.2"/>'
+      + '<path d="M22.2 8.48A11 4.4 -22 0 1 1.8 16.72'
+      + 'M1.8 16.72A11 4.4 -22 0 1 7.83 9.69'
+      + 'M14.89 7.15A11 4.4 -22 0 1 22.2 8.48"/></g>',
+    shootingstar: '<g class="ci-shoot"><path class="ci-shoot-head" d="m17.4 3.2 1.15 2.85L21.4 7.2l-2.85 1.15L17.4 11.2l-1.15-2.85L13.4 7.2l2.85-1.15Z"/>'
+      + '<g class="ci-shoot-trail"><path pathLength="1" d="M14.6 10.4 4.2 20.8"/>'
+      + '<path pathLength="1" d="M15.6 14.6 11 19.2"/>'
+      + '<path pathLength="1" d="M9.4 8.4 4.8 13"/></g></g>',
+    // six arcs round an uneven ring: a cloud, without a curve to get wrong
+    nebula: '<path class="ci-neb-cloud" d="M20 11.5A5 5 0 0 0 15.5 6A5 5 0 0 0 8 5.2'
+      + 'A5 5 0 0 0 4.2 11A5.5 5.5 0 0 0 8.6 17.4A5.5 5.5 0 0 0 16.2 16.6A5 5 0 0 0 20 11.5Z"/>'
+      + '<path class="ci-neb-swirl" d="M8.9 12.6c1.1-2.3 3.6-3.1 5.6-1.8"/>'
+      + '<g class="ci-neb-spark"><circle cx="8.2" cy="8.4" r=".85"/>'
+      + '<circle cx="15.4" cy="7.6" r=".85"/><circle cx="13.6" cy="14.6" r=".85"/></g>',
+    ship: '<path class="ci-ship-dome" d="M8.5 9.8a3.5 3.5 0 0 1 7 0"/>'
+      + '<ellipse class="ci-ship-hull" cx="12" cy="10.6" rx="8.6" ry="2.7"/>'
+      + '<g class="ci-ship-beam"><path pathLength="1" d="M9.6 13.2 6.6 20.4"/>'
+      + '<path pathLength="1" d="M12 13.4V21"/>'
+      + '<path pathLength="1" d="M14.4 13.2l3 7.2"/></g>'
+  };
+
+  const SPACE_ICONS = Object.assign({}, CELESTIAL_ICONS, CONSTELLATION_ICONS);
 
   /* the preconfigured exercise habit draws from here; out of the picker grid */
   const EXERCISE_ICONS = {
@@ -5795,9 +5857,7 @@
   }
 
   /* Fill the shared picker from the catalog relevant to the object being edited. */
-  function buildIconPicker(catalog, activeKey) {
-    const grid = document.getElementById("iconGrid");
-    const source = catalog || HABIT_ICONS;
+  function fillIconGrid(grid, source, activeKey) {
     const keys = Object.keys(source);
     grid.innerHTML = "";
     for (let i = 0; i < keys.length; i++) {
@@ -5811,6 +5871,14 @@
       grid.appendChild(choice);
     }
     grid.scrollTop = 0;
+  }
+
+  /* the second plate is optional: only the objectives have a sky to offer */
+  function buildIconPicker(catalog, activeKey, extra) {
+    fillIconGrid(document.getElementById("iconGrid"), catalog || HABIT_ICONS, activeKey);
+    const more = document.getElementById("iconMore");
+    more.hidden = !extra;
+    if (extra) fillIconGrid(document.getElementById("iconGridMore"), extra, activeKey);
   }
 
   let iconPickerMode = { kind: "habit-new" };
@@ -5901,7 +5969,7 @@
     const project = projectOrEvent && projectOrEvent.id ? projectOrEvent : currentProject();
     if (!project) return;
     iconPickerMode = { kind: "project", projectId: project.id };
-    buildIconPicker(PROJECT_ICONS, project.icon);
+    buildIconPicker(PROJECT_ICONS, project.icon, SPACE_ICONS);
     document.getElementById("iconPresets").hidden = true;
     resetPickerPanel();
     fillPickerCap(project);
@@ -11687,11 +11755,24 @@
      opens, the objective unfolded in the dashboard list, and a block on a canvas.
      Everything that makes or changes one goes through here, so the three cannot
      drift apart, and a project made on a canvas is the same object as any other. */
+  /* An objective arrives wearing one of the sky's own bodies, picked at random.
+     Objects only, not constellations: those are twelve of the twenty and would
+     take most draws, and they are meant to be chosen rather than dealt.
+     Never the one the last objective got: two in a row reads as a bug. */
+  function randomSpaceIcon() {
+    const keys = Object.keys(CELESTIAL_ICONS);
+    const last = state.projects.length
+      ? state.projects[state.projects.length - 1].icon : null;
+    let pick = keys[Math.floor(Math.random() * keys.length)];
+    if (pick === last) pick = keys[(keys.indexOf(pick) + 1) % keys.length];
+    return pick;
+  }
+
   function createProject(text, extra) {
     const project = {
       id: (extra && extra.id) || Date.now().toString(),
       text: text || translate("addProjectAria"),
-      icon: "folder",
+      icon: randomSpaceIcon(),
       sky: freeSkySpot(state.projects.length),
       why: "", outcome: "",
       journal: []
@@ -12368,7 +12449,9 @@
      objective leaves it as a ray, its steps strung along it and its moons at the
      root. Read from the star outwards: how many ways, how far each has gone, and
      whether anyone is still walking it. */
-  const BRANCH_FAN = 104;      // degrees the rays spread over
+  const BRANCH_FAN = 104;      // degrees two rays spread over
+  const BRANCH_FAN_STEP = 70;  // each further ray opens the spread by this much
+  const BRANCH_FAN_MAX = 300;  // never a whole turn: the west is where the name is
   const BRANCH_FIRST = 74;     // pixels from the star to the first node
   const BRANCH_GAP = 40;       // pixels between two nodes of a ray
   const BRANCH_MOON = 42;      // where the moons sit: clear of the star's own halo
@@ -12583,9 +12666,16 @@
     return ((hash >>> 0) % 1000) / 1000;
   }
 
+  /* A ray is read from the star outwards, so two rays leaving in nearly the same
+     direction are one tangle. A fixed fan held for two and then stacked the third
+     and the fourth on the same side: the constellation grew sideways instead of
+     around its star. The spread opens with the count until it is a true star
+     shape, stopping short of a whole turn — the west stays clear for the name. */
   function branchAngle(index, total) {
     if (total < 2) return 0;
-    return (-BRANCH_FAN / 2 + index * (BRANCH_FAN / (total - 1))) * Math.PI / 180;
+    const fan = total < 3 ? BRANCH_FAN
+      : Math.min(BRANCH_FAN_MAX, BRANCH_FAN + (total - 2) * BRANCH_FAN_STEP);
+    return (-fan / 2 + index * (fan / (total - 1))) * Math.PI / 180;
   }
 
   /* a point at `pixels` from the star along the ray, given back in field percent:
