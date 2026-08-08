@@ -5736,6 +5736,10 @@ body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: non
    shape covers every place a catalog icon appears without touching a call site. */
 .cat-ico [class*="ci-"], .cat-ico [class*="ti-"],
 .cat-ico [class*="ico-"] { transform-box: view-box; }
+/* An svg root clips at its viewBox, so any part that swells or steps outside
+   the 24 units gets a flat edge sliced off it mid-gesture. The glyphs are drawn
+   to fill their box, so almost every animation touches that edge somewhere. */
+.cat-ico { overflow: visible; }
 /* the theme brush, lent to the objectives: the same sweep and the same stroke */
 :hover > .cat-ico .ico-brush { animation: ico-sweep 1.15s ease-in-out; }
 :hover > .cat-ico .ico-stroke { animation: ico-paint 1.15s ease-out; }
@@ -5814,7 +5818,7 @@ body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: non
    The heart sets itself once there is a flower to sit in. The turn that places a
    petal and the turn that opens it share that centre, so they compose instead of
    fighting. */
-.ci-bloom, .ci-heart { transform-origin: 12px 12px; }
+.ci-bloom, .ci-pistil { transform-origin: 12px 12px; }
 :hover > .cat-ico .ci-bloom {
   animation: ci-unfurl .95s cubic-bezier(.22, 1.35, .3, 1) backwards;
 }
@@ -5823,8 +5827,8 @@ body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: non
 :hover > .cat-ico .ci-bloom--4 { animation-delay: .21s; }
 :hover > .cat-ico .ci-bloom--5 { animation-delay: .28s; }
 :hover > .cat-ico .ci-bloom--6 { animation-delay: .35s; }
-:hover > .cat-ico .ci-heart {
-  animation: ci-heart-set .7s cubic-bezier(.2, 1.6, .3, 1) .42s backwards;
+:hover > .cat-ico .ci-pistil {
+  animation: ci-pistil-set .7s cubic-bezier(.2, 1.6, .3, 1) .42s backwards;
 }
 @keyframes ci-unfurl {
   0%   { scale: .1; rotate: -40deg; opacity: 0; }
@@ -5832,7 +5836,7 @@ body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: non
   74%  { scale: 1.14; rotate: 6deg; }
   100% { scale: 1; rotate: 0deg; opacity: 1; }
 }
-@keyframes ci-heart-set {
+@keyframes ci-pistil-set {
   0%   { scale: 0; opacity: 0; }
   60%  { scale: 1.3; opacity: 1; }
   100% { scale: 1; opacity: 1; }
@@ -6078,7 +6082,7 @@ body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: non
 }
 
 /* FOLDER — the front leans out, as on the canvas, in this drawing's own units */
-.ci-fold-front { transform-origin: 12px 20.5px; }
+.ci-fold-front { transform-origin: 12px 20px; }
 :hover > .cat-ico .ci-fold-front { animation: ti-open-fold .95s cubic-bezier(.4, 0, .25, 1); }
 
 /* BRIEFCASE — picked up, and it swings once on the way */

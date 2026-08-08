@@ -550,6 +550,7 @@
     if (index < 0) index = 0;
     project.activeConstellationId = branches[(index + 1) % branches.length].id;
     saveState();
+    lightSky();
     redrawSteps(project);   // the star's panel shows one branch too, redraw it as well
     refreshBranchHead(project);
   }
@@ -5596,8 +5597,10 @@
       + '<path d="M9 18h6M10 21h4"/>',
     rocket: '<g class="ci-rocket"><path d="M12 15l-3-3a11 11 0 0 1 5-8c1.9-1.9 4-2 5-2s1.1 3.1-.8 5a11 11 0 0 1-8 5z"/><path d="M9 12H4s.5-2.8 2-4c1.5-.4 3 0 3 0"/><path d="M12 15v5s2.8-.5 4-2c.4-1.5 0-3 0-3"/></g>'
       + '<path class="ci-exhaust" d="M4.5 16.5c-1.5 1.3-2 5-2 5s3.7-.5 5-2c.7-.9.7-2.2-.1-3a2.1 2.1 0 0 0-2.9 0z"/>',
-    folder: '<path d="M3 19.5V6a2 2 0 0 1 2-2h4l2 2.5h8a2 2 0 0 1 2 2v11"/>'
-      + '<path class="ci-fold-front" d="M2 11h20l-1.6 7.6A2 2 0 0 1 18.4 20.5H5.6a2 2 0 0 1-1.96-1.5Z"/>',
+    // the back is a closed shape rather than two loose ends, and the pocket in
+    // front of it is the tapered one a real folder has; the two share an edge
+    folder: '<path d="M3.2 18.6V6.6A1.6 1.6 0 0 1 4.8 5h4.05a1.6 1.6 0 0 1 1.28.64l1.06 1.42a1.6 1.6 0 0 0 1.28.64h6.75A1.6 1.6 0 0 1 20.8 9.3v9.3"/>'
+      + '<path class="ci-fold-front" d="M2.35 12.1a1.35 1.35 0 0 1 1.33-1.6h16.64a1.35 1.35 0 0 1 1.33 1.6l-1.22 6.4A1.9 1.9 0 0 1 18.56 20H5.44a1.9 1.9 0 0 1-1.87-1.5Z"/>',
     briefcase: '<g class="ci-case"><rect x="3" y="7" width="18" height="13" rx="2"/><path d="M8 7V5a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/><path d="M3 12h18"/><path d="M10 12v2h4v-2"/></g>',
     // a lived-in house: the door stays shut, the chimney says someone is in
     home: '<path d="M3.2 12 12 4.6l8.8 7.4"/><path d="M5.8 11V21h12.4V11"/>'
@@ -5635,7 +5638,7 @@
       + 'c0 1.7-1.3 3.1-3 3.1Z"/>',
     // Six petals and a heart, no stem: the flower is the whole drawing. Each petal
     // is the same shape turned about the centre, so one path opens six times.
-    flower: flowerPetals() + '<circle class="ci-heart" cx="12" cy="12" r="1.9"/>'
+    flower: flowerPetals() + '<circle class="ci-pistil" cx="12" cy="12" r="1.9"/>'
   };
 
   /* The turn that places a petal is written without a centre of its own: the
@@ -10886,6 +10889,7 @@
   function openProjectView(id) {
     const project = findItem("projects", id);
     if (!project) return;
+    lightSky();
     if (openProject === id) return;   // already dived on this one
     if (skyView.hidden) openSky();
     openProject = id;
@@ -12271,7 +12275,18 @@
     skyShoot.appendChild(craft);
   }
 
+  /* WHAT THE FULL SCREEN BORROWS, IT GIVES BACK — the card does not own the sky
+     either, so raising it full screen takes it off the calendar. Left at that, the
+     card stayed turned over onto the hole where the sky had been. It turns back to
+     the calendar while the sky is away, and takes it again on the way out, on the
+     same objective it was reading. */
+  let skyLentToCard = null;      // "" for the map with no objective, an id otherwise
+
   function openSky() {
+    if (skyOnCard) {
+      skyLentToCard = cardBackId || "";
+      setCalFlipped(false);      // hands the sky back and shows the calendar again
+    }
     returnSky();   // it may be lent to the calendar: take it back before raising it
     coverField(true);
     skyView.hidden = false;
@@ -12279,6 +12294,7 @@
     placeCamera();
     applyCamera();
     startSkyLife();
+    skyFlat = false;
     renderSky();
     requestAnimationFrame(function () { skyView.classList.add("is-open"); });
   }
@@ -12287,7 +12303,14 @@
     stopSkyLife();
     if (openProject) closeProjectView();   // the panel cannot outlive the sky it sits in
     skyView.classList.remove("is-open");
-    setTimeout(function () { skyView.hidden = true; coverField(false); }, PVIEW_MS);
+    setTimeout(function () {
+      skyView.hidden = true;
+      coverField(false);
+      if (skyLentToCard === null) return;
+      const back = skyLentToCard;
+      skyLentToCard = null;
+      openSkyOnCard(back ? findItem("projects", back) : null);
+    }, PVIEW_MS);
   }
 
   function renderSky() {
@@ -12305,6 +12328,7 @@
     renderSkyRoll();
     // a redraw must not lose the dive — and on the card the dive is not the panel
     // being open, it is the objective the band has open, so it is read from there
+    if (skyFlat) return;
     if (openProject) markFocusedStar(openProject);
     else if (skyOnCard && cardBackId) markFocusedStar(cardBackId);
   }
@@ -12390,7 +12414,7 @@
       // under a dive: still there, plainly behind.
       const walked = project.activeConstellationId;
       for (let b = 0; b < laid.length; b++) {
-        const off = laid.length > 1 && laid[b].branch.id !== walked;
+        const off = !skyFlat && laid.length > 1 && laid[b].branch.id !== walked;
         markup += branchRay(centre, laid[b].nodes, laid[b].branch, project.id, b, off);
         markup += habitFacets(laid[b], project.id, b, off);
         for (let i = 0; i < laid[b].nodes.length; i++) {
@@ -12720,12 +12744,18 @@
      objective there, whether it is asked for by name or by light. The card does
      not turn over for it — the map is already what it is showing. */
   function selectStarProject(project) {
+    // out of a flat sky the star pressed is often the one already chosen: nothing
+    // switches, so nothing would move the camera, and the press has to dive itself
+    const flat = skyFlat;
+    lightSky();               // a press on a star is a choice, so it reads again
     if (!skyOnCard) {
       if (openProject && openProject !== project.id) openProjectView(project.id);
+      else if (flat && openProject === project.id) focusStar(project);
       return;
     }
     if (openInlineProject === project.id) {
       if (cardBackId !== project.id) openSkyOnCard(project);   // marked, not dived
+      else if (flat) focusStar(project);
       return;
     }
     const row = document.querySelector('#calProjectsList .item--project[data-id="'
@@ -13065,6 +13095,27 @@
     aimCamera(restX - x * scale, restY - y * scale, scale);
   }
 
+  /* THE WHOLE SKY AT ONCE — a dive is a reading aid: one objective and one course
+     lit, the others set behind. It is also a blindfold, because a map is read whole.
+     Pressing the empty black drops the reading without dropping the choice: every
+     light comes back to the same strength while what is open stays open, and the
+     next star pressed lights it again. The camera comes back with it: a dive is a
+     zoom as much as a light, and one gesture undoes the whole of it. */
+  let skyFlat = false;
+
+  function flattenSky() {
+    resetCamera();
+    if (skyFlat) return;
+    skyFlat = true;
+    renderSky();            // the courses are set back at draw time, so redraw
+  }
+
+  function lightSky() {
+    if (!skyFlat) return;
+    skyFlat = false;
+    if (!skyView.hidden) renderSky();
+  }
+
   function markFocusedStar(projectId) {
     const stars = skyCamera.querySelectorAll(".pstar");
     for (let i = 0; i < stars.length; i++) {
@@ -13092,6 +13143,7 @@
     if (event.target.closest(".pstar")) return;
     if (Date.now() < skyPanEnd) return;      // the click that ends a pan
     if (openProject) closeProjectView();
+    flattenSky();
   });
 
   /* PANNING — the sky has no edges. Taking hold of the empty black and pulling moves
@@ -15759,6 +15811,8 @@
   let skyOnCard = false;
 
   function openSkyOnCard(project) {
+    skyFlat = false;
+    skyLentToCard = null;      // the card is taking it now, nothing left to give back
     const host = document.getElementById("eventFold");
     // already the map on show: this is a move within one sky, not another sky.
     // Turning the card away and back to say so would throw the starfield out and
