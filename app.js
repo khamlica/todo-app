@@ -90,11 +90,9 @@
           habits[i].completedDates = habits[i].completedOn ? [habits[i].completedOn] : [];
         }
         delete habits[i].completedOn;
-        if (habits[i].type === "sleep") {   // min/max = recommended zone; target = bedtime goal
-          const c = habits[i].config || (habits[i].config = {});
-          if (c.min == null) c.min = c.target != null ? c.target : 7;   // old target was the zone min
-          if (c.max == null) c.max = 9;
-          if (c.target == null) c.target = 8;
+        if (habits[i].type === "sleep") {
+          /* Older numeric logs are preserved but deliberately left inert. New
+             entries store only bedtime and wake-up estimates. */
           if (!habits[i].sleepLog) habits[i].sleepLog = {};
         }
         if (habits[i].type === "exercise") {
@@ -194,6 +192,13 @@
         if (!events[i].date) events[i].date = null;   // it waits over the rule
         if (!events[i].time) events[i].time = null;   // a day without an hour is allowed
         if (events[i].projectId === undefined) events[i].projectId = null;
+      }
+      // a ritual is a page you go back and read: a name to find it by, and what
+      // you wrote under it. The tint is its place on the mosaic's hue ramp.
+      const rituals = saved.rituals || [];
+      for (let i = 0; i < rituals.length; i++) {
+        if (rituals[i].body == null) rituals[i].body = "";
+        if (rituals[i].tint == null) rituals[i].tint = (i * .618034) % 1;
       }
       const ideas = saved.ideas || [];
       for (let i = ideas.length - 1; i >= 0; i--) {
@@ -408,6 +413,7 @@
         canvases: canvases,
         events: events,
         ideas: ideas,
+        rituals: rituals,
         sun: saved.sun || null,
         settings: {
           name: (saved.settings && saved.settings.name) || "",
@@ -436,7 +442,7 @@
         }
       };
     } catch (err) {
-      return { tasks: [], projects: [], habits: [], canvases: [], events: [], ideas: [], sun: null, settings: { name: "", theme: "auto", language: "fr", palette: "theme", glass: "motif", decorations: [], fieldMode: false, projectMode: "work", timeScrub: true, treeFull: false, treeWisps: true, treeTrunk: true, treeBranches: true, treeBlooms: ["corolla"], treeSap: true, autoBands: { dawn: "dawn", day: "day", dusk: "dusk", night: "night" }, themeDecorLent: [], themeEdits: {}, paletteEdits: {}, themePalettes: {} } };
+      return { tasks: [], projects: [], habits: [], canvases: [], events: [], ideas: [], rituals: [], sun: null, settings: { name: "", theme: "auto", language: "fr", palette: "theme", glass: "motif", decorations: [], fieldMode: false, projectMode: "work", timeScrub: true, treeFull: false, treeWisps: true, treeTrunk: true, treeBranches: true, treeBlooms: ["corolla"], treeSap: true, autoBands: { dawn: "dawn", day: "day", dusk: "dusk", night: "night" }, themeDecorLent: [], themeEdits: {}, paletteEdits: {}, themePalettes: {} } };
     }
   }
 
@@ -871,19 +877,11 @@
       habitNamePlaceholder: "Ex. Boire de l'eau",
       presetsLabel: "Préconfigurées",
       sleepTitle: "Sommeil",
-      sleepTonight: "Cette nuit",
-      sleepGood: "Dans la cible",
-      sleepShort: "Trop court",
-      sleepLong: "Trop long",
-      sleepConfig: "Configuration",
-      sleepAgeLabel: "Âge",
-      sleepTargetLabel: "Objectif (h)",
-      sleepWakeLabel: "Réveil visé",
-      sleepReco: "Recommandé :",
-      sleepBedtime: "Coucher conseillé :",
-      sleepAvgLabel: "Moyenne 7 j",
-      sleepDebtLabel: "Dette",
-      sleepBedNotif: "Il est l'heure de dormir",
+      sleepEstimateHint: "Notez simplement vos horaires estimés.",
+      sleepBedEstimateLabel: "Coucher estimé",
+      sleepWakeEstimateLabel: "Lever estimé",
+      sleepSave: "Enregistrer",
+      sleepSaved: "Sommeil enregistré",
       exerciseTitle: "Exercices rapides",
       exerciseSearchPlaceholder: "Rechercher un exercice…",
       exerciseCatalogEmpty: "Aucun résultat.",
@@ -1013,6 +1011,17 @@
       cityPlaceholder: "Rechercher une ville…",
       historyLabel: "Historique",
       streakLabel: "Série",
+      ritualsAria: "Les rituels",
+      ritualsTitle: "Les rituels",
+      ritualsSearchPlaceholder: "Rechercher un rituel…",
+      ritualsEmpty: "Aucun rituel encore. Le premier vous attend.",
+      ritualsNothing: "Aucun rituel de ce nom.",
+      ritualNew: "Nouveau rituel",
+      ritualCreate: "Créer « {name} »",
+      ritualUntitled: "Rituel sans nom",
+      ritualBodyPlaceholder: "Écrivez ici ce que vous voudrez relire…",
+      ritualSaved: "Enregistré",
+      ritualDeleteAria: "Supprimer le rituel",
       thinkingAria: "Espace de réflexion",
       thinkingUntitled: "Toile sans titre",
       thinkingSaved: "Enregistré",
@@ -1271,19 +1280,11 @@
       habitNamePlaceholder: "e.g. Drink water",
       presetsLabel: "Preset",
       sleepTitle: "Sleep",
-      sleepTonight: "Last night",
-      sleepGood: "On target",
-      sleepShort: "Too short",
-      sleepLong: "Too long",
-      sleepConfig: "Configuration",
-      sleepAgeLabel: "Age",
-      sleepTargetLabel: "Target (h)",
-      sleepWakeLabel: "Wake-up time",
-      sleepReco: "Recommended:",
-      sleepBedtime: "Suggested bedtime:",
-      sleepAvgLabel: "7-day avg",
-      sleepDebtLabel: "Debt",
-      sleepBedNotif: "Time to sleep",
+      sleepEstimateHint: "Simply note your estimated times.",
+      sleepBedEstimateLabel: "Estimated bedtime",
+      sleepWakeEstimateLabel: "Estimated wake-up",
+      sleepSave: "Save",
+      sleepSaved: "Sleep saved",
       exerciseTitle: "Quick exercises",
       exerciseSearchPlaceholder: "Search an exercise…",
       exerciseCatalogEmpty: "No match.",
@@ -1413,6 +1414,17 @@
       cityPlaceholder: "Search a city…",
       historyLabel: "History",
       streakLabel: "Streak",
+      ritualsAria: "The rituals",
+      ritualsTitle: "The rituals",
+      ritualsSearchPlaceholder: "Search a ritual…",
+      ritualsEmpty: "No ritual yet. The first one is waiting.",
+      ritualsNothing: "No ritual under that name.",
+      ritualNew: "New ritual",
+      ritualCreate: "Create “{name}”",
+      ritualUntitled: "Unnamed ritual",
+      ritualBodyPlaceholder: "Write here what you will want to read again…",
+      ritualSaved: "Saved",
+      ritualDeleteAria: "Delete the ritual",
       thinkingAria: "Thinking space",
       thinkingUntitled: "Untitled canvas",
       thinkingSaved: "Saved",
@@ -1561,6 +1573,8 @@
     for (let i = 0; i < languageButtons.length; i++) {
       languageButtons[i].classList.toggle("is-active", languageButtons[i].dataset.lang === language);
     }
+    // the tabs are written by the script, so they are not in the tagged sweep above
+    if (appReady && !ritualsView.hidden) renderRituals();
   }
 
   /* NATIVE TOOLTIPS — browsers paint `title` in their own opaque window and do
@@ -1690,6 +1704,8 @@
       themeButtons[i].classList.toggle("is-active", themeButtons[i].dataset.theme === themeName);
     }
     paintZellige();   // the mosaic is cut from the theme, so it is recut with it
+    // and the ritual tabs are cut from the mosaic, so they follow it
+    if (changed && appReady && !ritualsView.hidden) renderRituals();
     if (changed) repaintSky();   // the gas in the deep takes the theme's signature
     tuneThresholdInk();   // a new sky may be a new colour under the threshold
     if (changed) renderScene();   // and a new theme is a different place entirely
@@ -3462,6 +3478,7 @@
   let zelligeTiles = [];
   let zelligeFrame = null, zelligeLast = 0, zelligeClock = 0;
   let zelligeAlive = false;
+  let zelligeHideTimer = null;
   let zelligePointerX = -9999, zelligePointerY = -9999;
   let zelligePointerInside = false;
 
@@ -3521,13 +3538,10 @@
      strength. Mixing the theme's own colours together would have run a lavender
      into a teal through grey, which is how the whole thing went to pastel.
      The accent goes in twice so the theme's own colour holds more of the wall. */
-  function buildZelligeRamp() {
+  /* The theme's hues, in wheel order. Read on their own so anything cut from
+     the mosaic — a wall, a ritual tab — is cut from the same colours. */
+  function zelligeHues() {
     const css = getComputedStyle(zelligeCanvas);
-    const page = readColour(getComputedStyle(document.documentElement)
-      .getPropertyValue("--c-bg"));
-    const pageLum = (page[0] * .2126 + page[1] * .7152 + page[2] * .0722) / 255;
-    const damp = .04;             // the layer's own opacity does the attenuating
-
     const hues = [];
     for (let i = 0; i < ZL_SEEDS.length; i++) {
       const raw = css.getPropertyValue(ZL_SEEDS[i]).trim();
@@ -3536,6 +3550,17 @@
     const accentHue = hueOf(readColour(css.getPropertyValue("--zl-6")));
     hues.push(accentHue - 9, accentHue + 9);
     hues.sort(function (a, b) { return a - b; });
+    return hues;
+  }
+
+  function buildZelligeRamp() {
+    const css = getComputedStyle(zelligeCanvas);
+    const page = readColour(getComputedStyle(document.documentElement)
+      .getPropertyValue("--c-bg"));
+    const pageLum = (page[0] * .2126 + page[1] * .7152 + page[2] * .0722) / 255;
+    const damp = .04;             // the layer's own opacity does the attenuating
+
+    const hues = zelligeHues();
 
     zelligeRamp = [];
     zelligeRampHue = [];
@@ -4005,6 +4030,7 @@
   function setZelligeOn(on) {
     if (on === zelligeCanvas.classList.contains("is-lit")) return;
     if (on) {
+      clearTimeout(zelligeHideTimer);   // a room reopened before the fade ended
       zelligeCanvas.hidden = false;
       zelligeAlive = true;
       paintZellige();
@@ -4028,7 +4054,7 @@
       window.removeEventListener("resize", onZelligeResize);
       clearTimeout(zelligeResizeTimer);
       // let the fade finish before the canvas goes, or it blinks out
-      setTimeout(function () { zelligeCanvas.hidden = true; }, 1200);
+      zelligeHideTimer = setTimeout(function () { zelligeCanvas.hidden = true; }, 1200);
     }
   }
 
@@ -6171,13 +6197,6 @@
     regrow = setTimeout(function () { if (!wellView.hidden) drawTree(); }, 160);
   });
 
-  /* 7.5 -> "7h30", 8 -> "8h" */
-  function formatHours(value) {
-    const whole = Math.floor(value);
-    const mins = Math.round((value - whole) * 60);
-    return mins ? whole + "h" + String(mins).padStart(2, "0") : whole + "h";
-  }
-
   /* reps logged today for one exercise; 0 if none */
   function exerciseCount(habit, key, date) {
     const day = (habit.exerciseLog || {})[date];
@@ -6573,7 +6592,6 @@
       type: "sleep",
       name: translate("sleepTitle"),
       icon: "sleep",
-      config: { age: null, min: 7, max: 9, target: 8, wake: "07:00" },
       sleepLog: {}
     });
     saveState();
@@ -6600,215 +6618,56 @@
     openExerciseView(state.habits[state.habits.length - 1].id);
   });
 
-  /* SLEEP VIEW — log last night's hours on a slider, configure targets, get an
-     age-based recommendation. */
+  /* SLEEP VIEW — a deliberately small memory: two estimated times make today's
+     habit complete. No target, interpretation, score or reminder is derived. */
   const sleepView = document.getElementById("sleepView");
+  const sleepForm = document.getElementById("sleepForm");
+  const sleepBedEstimate = document.getElementById("sleepBedEstimate");
+  const sleepWakeEstimate = document.getElementById("sleepWakeEstimate");
   let sleepHabitId = null;
-  const sleepSlider = document.getElementById("sleepSlider");
-  const sleepAge = document.getElementById("sleepAge");
-  const sleepTarget = document.getElementById("sleepTarget");
-  const sleepWake = document.getElementById("sleepWake");
 
   function currentSleep() {
     const habit = findItem("habits", sleepHabitId);
     return (habit && habit.type === "sleep") ? habit : null;
   }
 
-  const sleepZone = document.getElementById("sleepZone");
-  const sleepBubble = document.getElementById("sleepBubble");
-
-  // position within the track's inner region (thumb radius 11px inset each side)
-  function insetLeft(fraction) { return "calc(11px + (100% - 22px) * " + fraction + ")"; }
-  function sliderFrac(v) {
-    const smin = parseFloat(sleepSlider.min), smax = parseFloat(sleepSlider.max);
-    return (v - smin) / (smax - smin);
-  }
-
   function openSleepView(id) {
     sleepHabitId = id;
     const habit = currentSleep();
     if (!habit) return;
-    if (!habit.config) habit.config = { age: null, min: 7, max: 9, target: 8, wake: "07:00" };
     if (!habit.sleepLog) habit.sleepLog = {};
-    const cfg = habit.config;
-    sleepAge.value = cfg.age != null ? cfg.age : "";
-    sleepTarget.value = cfg.target != null ? cfg.target : "";
-    sleepWake.value = cfg.wake || "";
-    const logged = habit.sleepLog[todayKey()];
-    sleepSlider.value = logged != null ? logged : (cfg.target || cfg.min || 8);
-    buildSleepTicks();
-    renderSleepView();
+    const entry = habit.sleepLog[todayKey()];
+    const estimate = entry && typeof entry === "object" ? entry : {};
+    sleepBedEstimate.value = estimate.bedtime || "";
+    sleepWakeEstimate.value = estimate.wakeTime || "";
     sleepView.hidden = false;
-  }
-
-  /* half-hour ticks under the track (taller on the hour) */
-  function buildSleepTicks() {
-    const ticks = document.getElementById("sleepTicks");
-    ticks.innerHTML = "";
-    const smin = parseFloat(sleepSlider.min), smax = parseFloat(sleepSlider.max);
-    for (let v = smin; v <= smax + 0.001; v += 0.5) {
-      const tick = document.createElement("span");
-      tick.className = Math.abs(v - Math.round(v)) < 0.001 ? "sleep__tick is-hour" : "sleep__tick";
-      tick.style.left = insetLeft((v - smin) / (smax - smin));
-      ticks.appendChild(tick);
-    }
-  }
-
-  function updateSleepBubble() {
-    const val = parseFloat(sleepSlider.value);
-    sleepBubble.textContent = formatHours(val);
-    sleepBubble.style.left = insetLeft(sliderFrac(val));
-  }
-
-  function renderSleepView() {
-    const habit = currentSleep();
-    if (!habit) return;
-    const cfg = habit.config;
-    const val = parseFloat(sleepSlider.value);
-
-    // good zone = the recommended [min, max] range
-    if (cfg.min != null && cfg.max != null && cfg.max >= cfg.min) {
-      sleepZone.hidden = false;
-      sleepZone.style.left = insetLeft(sliderFrac(cfg.min));
-      sleepZone.style.width = "calc((100% - 22px) * " + (sliderFrac(cfg.max) - sliderFrac(cfg.min)) + ")";
-    } else {
-      sleepZone.hidden = true;
-    }
-    updateSleepBubble();
-
-    document.getElementById("sleepVal").textContent = formatHours(val);
-    const status = document.getElementById("sleepStatus");
-    if (cfg.min != null && val < cfg.min) { status.textContent = translate("sleepShort"); status.className = "sleep__status is-short"; }
-    else if (cfg.max != null && val > cfg.max) { status.textContent = translate("sleepLong"); status.className = "sleep__status is-long"; }
-    else { status.textContent = translate("sleepGood"); status.className = "sleep__status is-good"; }
-
-    // recommended zone (min–max, set from age)
-    const recoEl = document.getElementById("sleepReco");
-    if (cfg.min != null && cfg.max != null) {
-      recoEl.hidden = false;
-      document.getElementById("sleepRecoTxt").textContent = translate("sleepReco") + " " + cfg.min + "–" + cfg.max + " h";
-    } else {
-      recoEl.hidden = true;
-    }
-
-    const bed = bedtime(cfg.wake, cfg.target);   // bedtime uses the objectif
-    const bedEl = document.getElementById("sleepBedtime");
-    bedEl.hidden = !bed;
-    if (bed) bedEl.textContent = translate("sleepBedtime") + " " + bed;
-
-    renderSleepWeek(habit);
-  }
-
-  /* bedtime = wake-up time minus the target hours (wraps past midnight) */
-  function bedtime(wake, hours) {
-    if (!wake || hours == null) return null;
-    const parts = wake.split(":");
-    let total = parseInt(parts[0], 10) * 60 + parseInt(parts[1], 10) - Math.round(hours * 60);
-    total = ((total % 1440) + 1440) % 1440;
-    return String(Math.floor(total / 60)).padStart(2, "0") + ":" + String(total % 60).padStart(2, "0");
-  }
-
-  /* last 7 days as {days, avg, debt}; debt is the deficit vs the recommended minimum */
-  function sleepWeekData(habit) {
-    const cfg = habit.config || {};
-    const log = habit.sleepLog || {};
-    const now = new Date();
-    const days = [];
-    for (let i = 6; i >= 0; i--) {
-      const d = new Date(now);
-      d.setDate(now.getDate() - i);
-      const key = dateKey(d.getFullYear(), d.getMonth(), d.getDate());
-      days.push({ hours: log[key], date: new Date(d) });
-    }
-    let sum = 0, cnt = 0, debt = 0;
-    for (let i = 0; i < days.length; i++) {
-      const h = days[i].hours;
-      if (h == null) continue;
-      sum += h; cnt++;
-      if (cfg.min != null && h < cfg.min) debt += cfg.min - h;
-    }
-    return { days: days, avg: cnt ? sum / cnt : null, debt: debt };
-  }
-
-  function renderSleepWeek(habit) {
-    const wk = sleepWeekData(habit);
-    document.getElementById("sleepAvg").textContent = wk.avg != null ? formatHours(wk.avg) : "–";
-    document.getElementById("sleepDebt").textContent = wk.debt > 0.01 ? "-" + formatHours(wk.debt) : "0h";
-    document.getElementById("sleepChart").innerHTML = sleepWeekSvg(wk.days, habit.config || {});
-  }
-
-  /* 7-day bar chart with the recommended [min,max] band shaded behind */
-  function sleepWeekSvg(days, cfg) {
-    const locale = state.settings.language === "fr" ? "fr-FR" : "en-US";
-    const W = 280, H = 122, padX = 6, padT = 10, padB = 20;
-    const plotW = W - padX * 2, plotH = H - padT - padB, y0 = padT + plotH;
-    let hi = cfg.max || 9;
-    for (let i = 0; i < days.length; i++) if (days[i].hours != null && days[i].hours > hi) hi = days[i].hours;
-    hi = Math.ceil(hi + 0.5);
-    const yAt = function (h) { return y0 - (h / hi) * plotH; };
-    const step = plotW / days.length;
-    const bw = Math.min(24, step * 0.5);
-    let svg = '<svg viewBox="0 0 ' + W + ' ' + H + '" class="swk">';
-    if (cfg.min != null && cfg.max != null) {
-      const yb = yAt(cfg.max).toFixed(1);
-      const hb = Math.max(0, yAt(cfg.min) - yAt(cfg.max)).toFixed(1);
-      svg += '<rect class="swk-zone" x="' + padX + '" y="' + yb + '" width="' + plotW + '" height="' + hb + '"/>';
-    }
-    for (let i = 0; i < days.length; i++) {
-      const cx = padX + step * i + step / 2;
-      svg += '<text class="swk-wd" x="' + cx.toFixed(1) + '" y="' + (H - 6) + '">'
-        + days[i].date.toLocaleDateString(locale, { weekday: "narrow" }) + "</text>";
-      const h = days[i].hours;
-      if (h == null) continue;
-      const inRange = cfg.min != null && h >= cfg.min && (cfg.max == null || h <= cfg.max);
-      svg += '<rect class="swk-bar' + (inRange ? "" : " is-out") + '" x="' + (cx - bw / 2).toFixed(1)
-        + '" y="' + yAt(h).toFixed(1) + '" width="' + bw.toFixed(1) + '" height="' + (y0 - yAt(h)).toFixed(1) + '" rx="3"/>';
-    }
-    return svg + "</svg>";
-  }
-
-  sleepSlider.addEventListener("input", function () { updateSleepBubble(); renderSleepView(); });
-  sleepSlider.addEventListener("change", function () {
-    const habit = currentSleep();
-    if (!habit) return;
-    habit.sleepLog[todayKey()] = parseFloat(sleepSlider.value);
-    saveState();
-    renderSleepView();   // refresh week average / debt / chart
-    renderHabits();
-  });
-  function bindSleepConfig(input, key, asNumber) {
-    input.addEventListener("change", function () {
-      const habit = currentSleep();
-      if (!habit) return;
-      const raw = input.value;
-      habit.config[key] = raw === "" ? null : (asNumber ? parseFloat(raw) : raw);
-      saveState();
-      renderSleepView();
-      renderHabits();
+    requestAnimationFrame(function () {
+      (sleepBedEstimate.value ? sleepWakeEstimate : sleepBedEstimate).focus();
     });
   }
-  bindSleepConfig(sleepTarget, "target", true);   // objectif (bedtime only)
-  bindSleepConfig(sleepWake, "wake", false);
-  sleepWake.addEventListener("change", ensureNotifyPermission);   // enable bedtime reminders
 
-  // age fixes the recommended [min, max] zone
-  sleepAge.addEventListener("change", function () {
+  sleepForm.addEventListener("submit", function (event) {
+    event.preventDefault();
     const habit = currentSleep();
-    if (!habit) return;
-    const raw = sleepAge.value;
-    habit.config.age = raw === "" ? null : parseFloat(raw);
-    const reco = recommendedSleep(habit.config.age);
-    if (reco) { habit.config.min = reco.min; habit.config.max = reco.max; }
+    if (!habit || !sleepForm.reportValidity()) return;
+    const day = todayKey();
+    habit.sleepLog[day] = {
+      bedtime: sleepBedEstimate.value,
+      wakeTime: sleepWakeEstimate.value
+    };
+    if (!habit.completedDates) habit.completedDates = [];
+    if (habit.completedDates.indexOf(day) === -1) habit.completedDates.push(day);
     saveState();
-    renderSleepView();
+    sleepView.hidden = true;
     renderHabits();
+    renderWelcomeHabits();
+    showToast(translate("sleepSaved"));
   });
 
   const sleepCloseButtons = sleepView.querySelectorAll("[data-close]");
   for (let i = 0; i < sleepCloseButtons.length; i++) {
     sleepCloseButtons[i].addEventListener("click", function () { sleepView.hidden = true; });
   }
-
   /* EXERCISE VIEW — pick exercises from a catalog (search to add), log reps with
      -/+1/+10 controls, each with its own daily target. */
   const exerciseView = document.getElementById("exerciseView");
@@ -7381,25 +7240,6 @@
   }
   function showReminder(task) {
     notify(translate("reminderTitle"), task.text, "task-" + task.id);
-  }
-
-  /* foreground bedtime reminder: wake - target, once per day when the app is open */
-  function checkSleepReminder() {
-    if (!window.Notification || Notification.permission !== "granted") return;
-    let habit = null;
-    for (let i = 0; i < state.habits.length; i++) {
-      if (state.habits[i].type === "sleep") { habit = state.habits[i]; break; }
-    }
-    if (!habit || !habit.config) return;
-    const bt = bedtime(habit.config.wake, habit.config.target);
-    if (!bt) return;
-    const now = new Date();
-    const nowHM = String(now.getHours()).padStart(2, "0") + ":" + String(now.getMinutes()).padStart(2, "0");
-    if (nowHM === bt && habit.bedNotifiedOn !== todayKey()) {
-      habit.bedNotifiedOn = todayKey();
-      saveState();
-      notify(translate("sleepTitle"), translate("sleepBedNotif"), "sleep-bed");
-    }
   }
 
   /* Notify for any due, not-yet-notified task. Runs on load and on a timer. */
@@ -9243,17 +9083,15 @@
     }
   }
 
-  /* THE HABIT BAND — compact yes-or-no icons atop the task column, with water
-     rising over an icon once ticked. They always tick today, whatever day the
-     grid is showing: a habit is lived now, it is not planned. Sleep and exercise
-     are left out — they are a value to enter, not a box to tick. */
+  /* THE HABIT BAND — ordinary habits tick directly. Sleep joins the strip but
+     opens its two-time memory first; exercise keeps its dedicated room. */
   function renderHabitCells() {
     const box = document.getElementById("habitCells");
     box.innerHTML = "";
     const today = todayKey();
     for (let i = 0; i < state.habits.length; i++) {
       const habit = state.habits[i];
-      if (habit.type === "sleep" || habit.type === "exercise") continue;
+      if (habit.type === "exercise") continue;
       box.appendChild(habitCell(habit, today));
     }
   }
@@ -9497,6 +9335,10 @@
         event.preventDefault();
         return;
       }
+      if (habit.type === "sleep") {
+        openSleepView(habit.id);
+        return;
+      }
       toggleHabit(habit.id, tile);   // flips the "done" class the water reads
       tile.setAttribute("aria-pressed", tile.classList.contains("done") ? "true" : "false");
       renderWelcomeHabits();         // the rings on the threshold show the same day
@@ -9613,16 +9455,7 @@
 
   /* one lookup per habit kind: a plain tick, a night in range, a full session */
   function laneDays(habit) {
-    if (habit.type === "sleep") {
-      const cfg = habit.config || {};
-      const log = habit.sleepLog || {};
-      const out = {};
-      for (const key in log) {
-        const hours = log[key];
-        out[key] = hours >= (cfg.min || 0) && (cfg.max == null || hours <= cfg.max);
-      }
-      return out;
-    }
+    if (habit.type === "sleep") return completedSet(habit);
     if (habit.type === "exercise") {
       const out = {};
       const log = habit.exerciseLog || {};
@@ -9688,7 +9521,6 @@
     head.append(iconBtn, nameInput, del);
 
     card.appendChild(head);
-    if (habit.type === "sleep") card.appendChild(buildSleepStats(habit));   // avg / debt / week chart
     if (habit.type === "exercise") card.appendChild(buildExerciseStats(habit));   // per-exercise today + week rate
 
     const stats = document.createElement("div");
@@ -9700,25 +9532,6 @@
 
     card.appendChild(stats);
     return card;
-  }
-
-  /* sleep-specific stats block for the habits view: 7-day average, debt, week chart */
-  function buildSleepStats(habit) {
-    const wk = sleepWeekData(habit);
-    const wrap = document.createElement("div");
-    wrap.className = "hcard__sleep";
-    const avg = wk.avg != null ? formatHours(wk.avg) : "–";
-    const debt = wk.debt > 0.01 ? "-" + formatHours(wk.debt) : "0h";
-    const row = document.createElement("div");
-    row.className = "sleep__weekstats";
-    row.innerHTML =
-      '<div class="sleep__stat"><span class="sleep__stat-v">' + avg + '</span><span class="sleep__stat-l">' + translate("sleepAvgLabel") + '</span></div>' +
-      '<div class="sleep__stat"><span class="sleep__stat-v">' + debt + '</span><span class="sleep__stat-l">' + translate("sleepDebtLabel") + '</span></div>';
-    const chart = document.createElement("div");
-    chart.className = "sleep__chart";
-    chart.innerHTML = sleepWeekSvg(wk.days, habit.config || {});
-    wrap.append(row, chart);
-    return wrap;
   }
 
   /* exercise-specific stats block for the habits view: today's per-exercise chips,
@@ -9754,18 +9567,20 @@
     return wrap;
   }
 
-  /* completed dates as a lookup object. For sleep, a day counts when the logged
-     hours land inside the target..max range. For exercise, when every configured
-     item reached its target that day. */
+  /* Completed dates as a lookup object. Sleep is complete once both estimates
+     were saved; exercise remains complete when every configured item is done. */
   function completedSet(habit) {
     const set = {};
     if (habit.type === "sleep") {
+      const dates = habit.completedDates || [];
+      for (let i = 0; i < dates.length; i++) set[dates[i]] = true;
       const log = habit.sleepLog || {};
-      const cfg = habit.config || {};
       const days = Object.keys(log);
       for (let i = 0; i < days.length; i++) {
-        const h = log[days[i]];
-        if (h >= (cfg.min || 0) && (cfg.max == null || h <= cfg.max)) set[days[i]] = true;
+        const entry = log[days[i]];
+        if (entry && typeof entry === "object" && entry.bedtime && entry.wakeTime) {
+          set[days[i]] = true;
+        }
       }
       return set;
     }
@@ -14284,6 +14099,304 @@
   document.getElementById("wellBtn").addEventListener("click", openWell);
   document.getElementById("wellBack").addEventListener("click", closeWell);
 
+  /* THE RITUALS — the room the mosaic was kept for. A ritual is a page you go
+     and read on purpose: what never to forget before leaving, why you signed up
+     at the gym, why you uninstalled that game. So the room is a wall of tabs,
+     each fired in the zellige's own glaze, and the search is how you pull one
+     out when you need it. */
+  const ritualsView = document.getElementById("ritualsView");
+  const ritualsWall = document.getElementById("ritualsWall");
+  const ritualsEmpty = document.getElementById("ritualsEmpty");
+  const ritualsSearch = document.getElementById("ritualsSearch");
+  const ritualPage = document.getElementById("ritualPage");
+  const ritualPageName = document.getElementById("ritualPageName");
+  const ritualPageBody = document.getElementById("ritualPageBody");
+  const ritualPageSaved = document.getElementById("ritualPageSaved");
+  let openRitualId = null;
+  let ritualSavedTimer = null;
+
+  function findRitual(id) {
+    for (let i = 0; i < state.rituals.length; i++) {
+      if (state.rituals[i].id === id) return state.rituals[i];
+    }
+    return null;
+  }
+
+  // accents and case are noise when you are hunting for a name
+  function ritualFold(value) {
+    return (value || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+  }
+
+  /* The name first, then what is written under it: you rarely remember how you
+     called a ritual, but you remember a line of it. */
+  function ritualsMatching(query) {
+    const needle = ritualFold(query).trim();
+    const found = [];
+    if (!needle) return state.rituals.slice();
+    for (let i = 0; i < state.rituals.length; i++) {
+      const ritual = state.rituals[i];
+      if (ritualFold(ritual.text).indexOf(needle) !== -1) found.push(ritual);
+    }
+    for (let i = 0; i < state.rituals.length; i++) {
+      const ritual = state.rituals[i];
+      if (found.indexOf(ritual) === -1
+          && ritualFold(ritual.body).indexOf(needle) !== -1) found.push(ritual);
+    }
+    return found;
+  }
+
+  /* A tab is cut from the wall behind it: the theme gives the hue, the zellige
+     gives how deep and how loud it is fired. Change theme and the tabs are
+     recoloured with the mosaic, which is the whole point of taking their
+     colours from there rather than picking eight of our own. */
+  function paintRitualGlaze(element, tint) {
+    const hues = zelligeHues();
+    const at = Math.max(0, Math.min(.9999, tint)) * (hues.length - 1);
+    const first = Math.floor(at);
+    const hue = hues[first] + (hues[first + 1] - hues[first]) * (at - first);
+    const page = readColour(getComputedStyle(document.documentElement)
+      .getPropertyValue("--c-bg"));
+    /* From here it is paintZellige's own recipe, line for line. A piece is one
+       flat ink — the wall's life comes from no two being fired quite alike, not
+       from shading inside each one — and darkening keeps the colour where
+       whitening eats it, so the two sides of the lift are not the same size. */
+    const lift = (Math.sin((tint + .17) * 31.7) * .5) * .3;
+    const base = mixRgb(hslRgb(hue, ZL_SAT, ZL_LIG), page, .04);
+    const ink = lift < 0
+      ? mixRgb(base, [0, 0, 0], -lift)
+      : mixRgb(base, [255, 255, 255], lift * .45);
+    const lum = (ink[0] * .2126 + ink[1] * .7152 + ink[2] * .0722) / 255;
+    element.style.setProperty("--tab", rgbText(ink));
+    // lit, a piece burns its own hue harder rather than climbing to white
+    element.style.setProperty("--tab-lit", rgbText(hslRgb(hue,
+      Math.min(1, ZL_SAT * 1.2),
+      Math.min(.76, ZL_LIG + .14 + Math.max(0, lift) * .35))));
+    element.style.setProperty("--tab-glaze-x", (28 + tint * 44).toFixed(1) + "%");
+    // a glaze at one strength is not equally dark on every hue: yellow needs ink
+    element.style.setProperty("--tab-ink", lum > .56 ? "#20180a" : "#fdf7ec");
+  }
+
+  /* Everything that happens at the rim of a fired piece, in the order the wall
+     itself lays it down: the glaze pooling dark against the edge in two steps,
+     then the cord in its three passes — dark seat, yellow metal, fine lit
+     ridge. Real strokes, because the outline is concave and a shadow could only
+     make a fuzzy halo of it; and the clip keeps the outer half, exactly like a
+     wall tile showing its half of a shared cord. */
+  const RITUAL_EDGE_PASSES = 5;
+  function ritualEdge() {
+    const ns = "http://www.w3.org/2000/svg";
+    const svg = document.createElementNS(ns, "svg");
+    svg.classList.add("rtab__edge");
+    svg.setAttribute("viewBox", "0 0 100 100");
+    svg.setAttribute("preserveAspectRatio", "none");
+    svg.setAttribute("aria-hidden", "true");
+    const d = "M100 50L88.2129 87.5L53.929 87.5L50 100L46.071 87.5" +
+      "L11.7871 87.5L0 50L11.7871 12.5L46.071 12.5L50 0" +
+      "L53.929 12.5L88.2129 12.5Z";
+    for (let i = 0; i < RITUAL_EDGE_PASSES; i++) {
+      const path = document.createElementNS(ns, "path");
+      path.setAttribute("d", d);
+      path.classList.add("rtab__edge-line", "rtab__edge-line--" + (i + 1));
+      svg.appendChild(path);
+    }
+    return svg;
+  }
+
+  function createRitualTab(ritual) {
+    const tab = document.createElement("button");
+    tab.type = "button";
+    tab.className = "rtab";
+    tab.dataset.id = ritual.id;
+    paintRitualGlaze(tab, ritual.tint);
+
+    const name = document.createElement("span");
+    name.className = "rtab__name";
+    name.textContent = ritual.text || translate("ritualUntitled");
+    tab.append(ritualEdge(), name);
+    tab.addEventListener("click", function () { openRitual(ritual.id); });
+    return tab;
+  }
+
+  /* The last tab is always a blank one. When the search found nothing it wears
+     what was typed, so a name that is not there yet is one click from being. */
+  function createRitualAdd(query) {
+    const tab = document.createElement("button");
+    tab.type = "button";
+    tab.className = "rtab rtab--add";
+    const name = document.createElement("span");
+    name.className = "rtab__name";
+    name.textContent = query
+      ? translate("ritualCreate").replace("{name}", query)
+      : translate("ritualNew");
+    tab.append(ritualEdge(), name);
+    tab.addEventListener("click", function () { addRitual(query); });
+    return tab;
+  }
+
+  function renderRituals() {
+    const query = ritualsSearch.value.trim();
+    const found = ritualsMatching(query);
+    ritualsWall.innerHTML = "";
+    /* These are the very colours and the very width renderZelligeBase() just
+       used for its three grout passes, exposed once for every tab including the
+       blank one. Same band as the wall, so a piece reads as being off it and
+       not as a small picture of one. */
+    ritualsWall.style.setProperty("--ritual-metal-seat", zelligeMetal[0]);
+    ritualsWall.style.setProperty("--ritual-metal", zelligeMetal[1]);
+    ritualsWall.style.setProperty("--ritual-metal-lit", zelligeMetal[2]);
+    ritualsWall.style.setProperty("--ritual-band", (zelligeBand || 4).toFixed(2) + "px");
+    for (let i = 0; i < found.length; i++) {
+      ritualsWall.appendChild(createRitualTab(found[i]));
+    }
+    ritualsWall.appendChild(createRitualAdd(query));
+    if (query && !found.length) {
+      ritualsEmpty.textContent = translate("ritualsNothing");
+      ritualsEmpty.hidden = false;
+    } else if (!query && !state.rituals.length) {
+      ritualsEmpty.textContent = translate("ritualsEmpty");
+      ritualsEmpty.hidden = false;
+    } else {
+      ritualsEmpty.hidden = true;
+    }
+  }
+
+  /* Successive tabs are placed a golden angle apart on the hue ramp, so two
+     rituals written the same evening never come out the same colour. */
+  function addRitual(name) {
+    const ritual = {
+      id: "ritual" + Date.now().toString(36),
+      text: name || "",
+      body: "",
+      tint: (state.rituals.length * .618034) % 1,
+      createdAt: Date.now()
+    };
+    state.rituals.push(ritual);
+    saveState();
+    ritualsSearch.value = "";
+    renderRituals();
+    openRitual(ritual.id);
+  }
+
+  function openRitual(id) {
+    const ritual = findRitual(id);
+    if (!ritual) return;
+    openRitualId = id;
+    ritualPageName.value = ritual.text;
+    ritualPageBody.value = ritual.body;
+    paintRitualGlaze(ritualPage, ritual.tint);   // the page keeps its tab's colour
+    ritualPageSaved.classList.remove("is-on");
+    ritualPage.hidden = false;
+    requestAnimationFrame(function () {
+      ritualPage.classList.add("is-open");
+      if (ritual.text) ritualPageBody.focus();
+      else ritualPageName.focus();
+    });
+  }
+
+  function closeRitual() {
+    const ritual = findRitual(openRitualId);
+    // a tab opened and left blank was never a ritual; it does not stay on the wall
+    if (ritual && !ritual.text.trim() && !ritual.body.trim()) {
+      state.rituals.splice(state.rituals.indexOf(ritual), 1);
+      saveState();
+    }
+    openRitualId = null;
+    ritualPage.classList.remove("is-open");
+    setTimeout(function () { ritualPage.hidden = true; }, 260);
+    renderRituals();
+  }
+
+  function writeRitual() {
+    const ritual = findRitual(openRitualId);
+    if (!ritual) return;
+    ritual.text = ritualPageName.value;
+    ritual.body = ritualPageBody.value;
+    ritual.updatedAt = Date.now();
+    saveState();
+    ritualPageSaved.classList.add("is-on");
+    clearTimeout(ritualSavedTimer);
+    ritualSavedTimer = setTimeout(function () {
+      ritualPageSaved.classList.remove("is-on");
+    }, 1400);
+  }
+
+  /* The mosaic was painted for the threshold and then parked. It comes back as
+     the ground of this room: inside the view's own stacking context, and
+     without the hole it used to keep clear for the greeting. */
+  function mountZelligeInRituals() {
+    zelligeCanvas.classList.add("is-wall");
+    ritualsView.insertBefore(zelligeCanvas, ritualsView.firstChild);
+    setZelligeOn(true);
+  }
+
+  function releaseZellige() {
+    clearTimeout(zelligeHideTimer);
+    zelligeCanvas.hidden = true;   // the room it lit is gone, there is no fade to play
+    zelligeCanvas.classList.remove("is-wall");
+    document.body.insertBefore(zelligeCanvas, document.getElementById("decor"));
+  }
+
+  function openRituals() {
+    coverField(true);
+    ritualsView.hidden = false;
+    mountZelligeInRituals();
+    ritualsSearch.value = "";
+    renderRituals();
+    requestAnimationFrame(function () {
+      ritualsView.classList.add("is-open");
+      // the search is where the room starts, but not at the price of throwing
+      // a keyboard over the wall on a phone
+      if (window.matchMedia("(hover: hover)").matches) ritualsSearch.focus();
+    });
+  }
+
+  function closeRituals() {
+    if (openRitualId) closeRitual();
+    ritualsView.classList.remove("is-open");
+    setZelligeOn(false);
+    setTimeout(function () {
+      ritualsView.hidden = true;
+      releaseZellige();
+      coverField(false);
+    }, 300);
+  }
+
+  document.getElementById("ritualsBtn").addEventListener("click", openRituals);
+  document.getElementById("ritualsBack").addEventListener("click", closeRituals);
+  document.getElementById("ritualPageBack").addEventListener("click", closeRitual);
+  document.getElementById("ritualPageDelete").addEventListener("click", function () {
+    const id = openRitualId;
+    if (!id) return;
+    openRitualId = null;
+    ritualPage.classList.remove("is-open");
+    setTimeout(function () { ritualPage.hidden = true; }, 260);
+    removeWithUndo("rituals", id, renderRituals);
+  });
+  /* On the wall the pointer carries a halo and the tiles under it burn their
+     own hue. A piece off that wall answers the same way: the light sits where
+     the hand is, instead of a fixed shine that gives the trick away. */
+  ritualsWall.addEventListener("pointermove", function (event) {
+    const tab = event.target.closest(".rtab");
+    if (!tab) return;
+    const box = tab.getBoundingClientRect();
+    tab.style.setProperty("--tab-halo-x",
+      ((event.clientX - box.left) / box.width * 100).toFixed(1) + "%");
+    tab.style.setProperty("--tab-halo-y",
+      ((event.clientY - box.top) / box.height * 100).toFixed(1) + "%");
+  }, { passive: true });
+
+  ritualsSearch.addEventListener("input", renderRituals);
+  ritualsSearch.addEventListener("keydown", function (event) {
+    if (event.key !== "Enter") return;
+    event.preventDefault();
+    // Enter takes you where the search points: the one match, or a new tab
+    const found = ritualsMatching(ritualsSearch.value.trim());
+    if (found.length === 1) openRitual(found[0].id);
+    else if (!found.length) addRitual(ritualsSearch.value.trim());
+  });
+  ritualPageName.addEventListener("input", writeRitual);
+  ritualPageBody.addEventListener("input", writeRitual);
+
   document.getElementById("skyBack").addEventListener("click", function () {
     // on the card there is nothing to close but the objective that opened it
     if (skyOnCard) closeOpenInlineProject();
@@ -14292,6 +14405,8 @@
   document.getElementById("skyBtn").addEventListener("click", openSky);
   document.addEventListener("keydown", function (event) {
     if (event.key !== "Escape") return;
+    else if (!ritualPage.hidden) closeRitual();
+    else if (!ritualsView.hidden) closeRituals();
     else if (!projectView.hidden) closeProjectView();
     else if (!skyView.hidden) closeSky();
   });
@@ -23525,6 +23640,8 @@
     if (!calendarModal.hidden) { calendarModal.hidden = true; return true; }
     if (!settingsModal.hidden) { settingsModal.hidden = true; return true; }
     if (!projectView.hidden) { closeProjectView(); return true; }
+    if (!ritualPage.hidden) { closeRitual(); return true; }
+    if (!ritualsView.hidden) { closeRituals(); return true; }
     if (!wellView.hidden) { closeWell(); return true; }
     if (!skyView.hidden) { closeSky(); return true; }
     if (openHost || openInlineProject) { closeAllInlineRows(); return true; }
@@ -23548,8 +23665,7 @@
   renderUndated();
   buildIconPicker();
   checkReminders();
-  checkSleepReminder();
-  setInterval(function () { checkReminders(); checkSleepReminder(); }, 30000);
+  setInterval(checkReminders, 30000);
   renderGreeting();
   renderWelcomeHabits();
   initSky();

@@ -1,11 +1,11 @@
-const CACHE = "todo-app-v646";
+const CACHE = "todo-app-v645";
 
 /* app shell precached so everything works offline */
 const ASSETS = [
   "./",
   "./index.html",
-  "./style.css?v=646",
-  "./app.js?v=646",
+  "./style.css?v=645",
+  "./app.js?v=645",
   "./manifest.webmanifest",
   "./icons/icon-192.png",
   "./icons/icon-512.png",
