@@ -12,7 +12,7 @@
   <title>Mes tâches</title>
   <!-- the version travels in the query: without it a browser may keep
        serving the stylesheet it already has, and the app looks unchanged -->
-  <link rel="stylesheet" href="./style.css?v=617">
+  <link rel="stylesheet" href="./style.css?v=641">
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="apple-touch-icon" href="./icons/icon-192.png">
   <!-- svg tab icon, png fallback for browsers that ignore it -->
@@ -26,11 +26,13 @@
       if (t === "rose") t = "sakura";   // renamed; loadState migrates the rest
       if (t === "auto") {
         var h = new Date().getHours();
-        t = h >= 5 && h < 8 ? "dawn" : h >= 8 && h < 18 ? "day" : h >= 18 && h < 21 ? "dusk" : "night";
+        var band = h >= 5 && h < 8 ? "dawn" : h >= 8 && h < 18 ? "day" : h >= 18 && h < 21 ? "dusk" : "night";
+        var bands = saved && saved.settings && saved.settings.autoBands;
+        t = (bands && bands[band]) || band;   // each moment wears what it was given
         var s = saved && saved.sun, now = new Date();
         var todayK = now.getFullYear() + "-" + String(now.getMonth() + 1).padStart(2, "0")
           + "-" + String(now.getDate()).padStart(2, "0");
-        if (t !== "night" && s && s.date === todayK && s.code != null) {
+        if (band !== "night" && s && s.date === todayK && s.code != null) {
           var c = s.code;
           if ((c >= 51 && c <= 67) || (c >= 80 && c <= 82) || c >= 95) t = "rain";
         }
@@ -40,17 +42,34 @@
       var edits = saved && saved.settings && saved.settings.paletteEdits;
       if (p === "custom" || (p === "aurora" && !(edits && edits.aurora))) p = "theme";
       document.documentElement.setAttribute("data-palette", p);
+      if (saved && saved.settings && saved.settings.fieldMode) {
+        document.documentElement.classList.add("is-field-mode");
+      }
     } catch (err) {}
   </script>
 </head>
 <body>
+<!-- THE RAMP AS A PAINT — an objective at the top of the scale wears the whole of
+     it rather than one step of it, the way the head of a course does. A stroke
+     cannot hold a CSS gradient, so the ramp is declared once here as a real SVG
+     gradient and referred to by name; its stops are coloured from the theme. -->
+<svg width="0" height="0" aria-hidden="true" focusable="false"
+     style="position:absolute;overflow:hidden">
+  <defs>
+    <linearGradient id="impRamp" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0"/>
+      <stop offset=".5"/>
+      <stop offset="1"/>
+    </linearGradient>
+  </defs>
+</svg>
 
   <!-- installed app: the strip the window can be dragged by, under the topbar icons -->
   <div id="titlebar" aria-hidden="true"></div>
 
   <!-- time-of-day background gradient / stars -->
   <div id="sky"></div>
-  <!-- the reactive block field, drawn only while the "field" decoration is on -->
+  <!-- the permanent reactive block field; the Champ option changes surfaces, not this canvas -->
   <canvas id="field" aria-hidden="true" hidden></canvas>
   <!-- the zellige: the threshold's ground, with a simple pointer glow -->
   <canvas id="zellige" aria-hidden="true" hidden></canvas>
@@ -66,6 +85,25 @@
       <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
         <path d="M3 10.6 12 3.2l9 7.4"/><path d="M5.4 9.4V20a1 1 0 0 0 1 1h11.2a1 1 0 0 0 1-1V9.4"/><path d="M9.9 21v-5.6h4.2V21"/>
       </svg>
+    </button>
+    <button id="projectModeToggle" class="topbar__mode" type="button" role="switch"
+            data-mode="work" aria-checked="false" data-i18n-aria="projectModeToLeisure"
+            aria-label="Afficher les projets de loisir">
+      <span class="topbar__mode-icon topbar__mode-icon--work" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path class="mode-work__handle" d="M9 7V5.8A1.8 1.8 0 0 1 10.8 4h2.4A1.8 1.8 0 0 1 15 5.8V7"/>
+          <path class="mode-work__body" d="M4.5 7.5h15A1.5 1.5 0 0 1 21 9v8.5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V9a1.5 1.5 0 0 1 1.5-1.5Z"/>
+          <path class="mode-work__lid" d="M3.2 11.2c5.7 2.5 12 2.5 17.6 0M10.4 13.1h3.2"/>
+        </svg>
+      </span>
+      <span class="topbar__mode-track" aria-hidden="true"><span class="topbar__mode-thumb"></span></span>
+      <span class="topbar__mode-icon topbar__mode-icon--leisure" aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+          <path class="mode-music__stem" d="M9 17V6.5l9-2V15"/>
+          <path class="mode-music__note mode-music__note--left" d="M9 17c0 1.7-1.6 3-3.5 3S2 19 2 17.5 3.6 15 5.5 15H9"/>
+          <path class="mode-music__note mode-music__note--right" d="M18 15c0 1.7-1.6 3-3.5 3S11 17 11 15.5s1.6-2.5 3.5-2.5H18"/>
+        </svg>
+      </span>
     </button>
   </div>
 
@@ -150,23 +188,43 @@
                 </button>
               </span>
             </div>
-            <!-- the group on show is the head: the grid names a day, pressing
-                 this names the rest. The way to a new task sits beside it. -->
-            <div class="zone__head">
-              <button type="button" class="band-switch" id="calGroupSwitch">
-                <span class="band-switch__name" id="calGroupName"></span>
-                <span class="band-switch__count" id="calGroupCount"></span>
-              </button>
-              <!-- every task at once, sorted by what can be done with it -->
-              <button class="zone__action" id="calKanbanBtn" type="button"
-                      data-i18n-aria="kanbanTitle" aria-label="Kanban"></button>
-              <!-- the canvas of the task on show, or the one they all hang from -->
-              <button class="zone__action" id="calTaskCanvasBtn" type="button"
-                      data-i18n-aria="sheetCanvas" aria-label="Toile"></button>
+            <div id="calWorkBand">
+              <!-- the group on show is the head: the grid names a day, pressing
+                   this names the rest. The way to a new task sits beside it. -->
+              <div class="zone__head">
+                <button type="button" class="band-switch" id="calGroupSwitch">
+                  <span class="band-switch__name" id="calGroupName"></span>
+                  <span class="band-switch__count" id="calGroupCount"></span>
+                </button>
+                <!-- every task at once, sorted by what can be done with it -->
+                <button class="zone__action" id="calKanbanBtn" type="button"
+                        data-i18n-aria="kanbanTitle" aria-label="Kanban"></button>
+                <!-- the canvas of the task on show, or the one they all hang from -->
+                <button class="zone__action" id="calTaskCanvasBtn" type="button"
+                        data-i18n-aria="sheetCanvas" aria-label="Toile"></button>
+              </div>
+              <!-- where the line to write a task stands, under the head -->
+              <div id="calAddSlot"></div>
+              <div class="tasks" id="calTasksList"></div>
             </div>
-            <!-- where the line to write a task stands, under the head -->
-            <div id="calAddSlot"></div>
-            <div class="tasks" id="calTasksList"></div>
+            <!-- Leisure keeps no task flow. This is a loose pocket: thoughts go
+                 in without a date, a category or any obligation to become work. -->
+            <section class="idea-box" id="calIdeasBand" hidden>
+              <div class="zone__head idea-box__head">
+                <h2 class="zone__title" data-i18n="ideasTitle">Boîte à idées</h2>
+                <span class="zone__count" id="ideasCount"></span>
+              </div>
+              <form class="idea-box__form" id="ideaForm" data-field-panel>
+                <input class="idea-box__input" id="ideaInput" type="text" maxlength="240"
+                       autocomplete="off" data-i18n-placeholder="ideaPlaceholder"
+                       data-i18n-aria="ideaAddAria" placeholder="Déposer une idée…"
+                       aria-label="Ajouter une idée">
+                <button class="idea-box__add" type="submit" data-i18n-aria="ideaAddAria"
+                        aria-label="Ajouter une idée">+</button>
+              </form>
+              <p class="idea-box__empty" id="ideasEmpty" data-i18n="ideasEmpty">Laissez venir une première idée…</p>
+              <div class="idea-box__list" id="ideasList"></div>
+            </section>
           </aside>
           <aside class="ecal-band ecal-band--right" id="calBandRight" hidden>
             <div class="zone__head">
@@ -310,7 +368,7 @@
          whole height, and it is what the day is spent on. -->
     <div class="app__col app__col--tasks">
 
-      <!-- Habits return to the task column, as a compact prelude to today's work. -->
+      <!-- One real habit prelude: above tasks in Work, moved above projects in Leisure. -->
       <section class="habits-band" aria-labelledby="habitsBandTitle">
         <div class="habits-band__inner">
           <div class="habits-band__head">
@@ -449,6 +507,32 @@
                this folds them down to a ribbon and gives the page the width -->
           <button type="button" class="rail-fold" id="detailRail" hidden></button>
         </div>
+        <!-- REPLAN, SET ASIDE, DELETE — they used to come over the row on hover,
+             half-covering what they act on. They live at the foot of the open
+             task instead, the way an objective's three do at the foot of its
+             editor: nothing on the row, and one plain line down here. -->
+        <div class="task-edit__actions" id="taskEditActions" hidden>
+          <button class="task-edit__action" id="taskEditWhen" type="button">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+                 stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/>
+              <line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
+            </svg>
+            <span id="taskEditWhenLabel" data-i18n="rescheduleLabel">Replanifier</span>
+          </button>
+          <button class="task-edit__action" id="taskEditAside" type="button">
+            <span class="task-edit__action-icon" id="taskEditAsideIcon"></span>
+            <span id="taskEditAsideLabel">Mettre de côté</span>
+          </button>
+          <button class="task-edit__action task-edit__action--danger" id="taskEditDelete" type="button">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+                 stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <polyline points="3 6 5 6 21 6"/>
+              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+            </svg>
+            <span data-i18n="deleteAria">Supprimer</span>
+          </button>
+        </div>
       </div>
     </div>
   </div>
@@ -500,25 +584,6 @@
       </div>
 
       <div class="tab-panel" data-tabpanel="custom" hidden>
-        <div class="field">
-          <span class="field__label" data-i18n="themeLabel">Thème</span>
-          <div class="themes" id="themes">
-            <button class="theme" data-theme="auto" data-i18n="themeAuto" type="button">Adaptatif</button>
-            <button class="theme" data-theme="light" data-i18n="themeLight" type="button">Clair</button>
-            <button class="theme" data-theme="dark" data-i18n="themeDark" type="button">Sombre</button>
-            <button class="theme" data-theme="sakura" data-i18n="themeSakura" type="button">Sakura</button>
-            <button class="theme" data-theme="ronce" data-i18n="themeRonce" type="button">Ronce</button>
-            <button class="theme" data-theme="aqua" data-i18n="themeAqua" type="button">Aquatique</button>
-            <button class="theme" data-theme="forest" data-i18n="themeForest" type="button">Forêt</button>
-            <button class="theme" data-theme="boreal" data-i18n="themeBoreal" type="button">Boréal</button>
-            <button class="theme" data-theme="dawn" data-i18n="themeDawn" type="button">Aube</button>
-            <button class="theme" data-theme="day" data-i18n="themeDay" type="button">Jour</button>
-            <button class="theme" data-theme="rain" data-i18n="themeRain" type="button">Pluie</button>
-            <button class="theme" data-theme="dusk" data-i18n="themeDusk" type="button">Crépuscule</button>
-            <button class="theme" data-theme="night" data-i18n="themeNight" type="button">Nuit</button>
-          </div>
-        </div>
-
         <div class="field">
           <span class="field__label" data-i18n="paintLabel">Couleurs</span>
           <button id="paintBtn" class="data-btn data-btn--wide" type="button"
@@ -630,7 +695,7 @@
 
       <div id="paintSlots"></div>
 
-      <div class="field">
+      <div class="field" id="paintPaletteField">
         <div class="paint__row">
           <span class="field__label" data-i18n="paletteLabel">Palette</span>
           <button type="button" class="paint__undo" id="paintPaletteReset" data-i18n="paintResetOne">Réinitialiser</button>
@@ -649,6 +714,38 @@
     <!-- no head: what the panel is for is what it shows, and pressing anywhere
          outside it is already how one leaves -->
     <div class="modal__card icons">
+      <div class="modal__head project-edit__head" id="projectEditHead" hidden>
+        <h2 class="modal__title" data-i18n="editProjectTitle">Modifier le projet</h2>
+        <button id="projectTypeToggle" class="topbar__mode project-edit__mode" type="button"
+                role="switch" data-mode="work" aria-checked="false"
+                data-i18n-aria="projectTypeToLeisure" aria-label="Passer ce projet en loisir">
+          <span class="topbar__mode-icon topbar__mode-icon--work" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <path class="mode-work__handle" d="M9 7V5.8A1.8 1.8 0 0 1 10.8 4h2.4A1.8 1.8 0 0 1 15 5.8V7"/>
+              <path class="mode-work__body" d="M4.5 7.5h15A1.5 1.5 0 0 1 21 9v8.5a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V9a1.5 1.5 0 0 1 1.5-1.5Z"/>
+              <path class="mode-work__lid" d="M3.2 11.2c5.7 2.5 12 2.5 17.6 0M10.4 13.1h3.2"/>
+            </svg>
+          </span>
+          <span class="topbar__mode-track" aria-hidden="true"><span class="topbar__mode-thumb"></span></span>
+          <span class="topbar__mode-icon topbar__mode-icon--leisure" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">
+              <path class="mode-music__stem" d="M9 17V6.5l9-2V15"/>
+              <path class="mode-music__note mode-music__note--left" d="M9 17c0 1.7-1.6 3-3.5 3S2 19 2 17.5 3.6 15 5.5 15H9"/>
+              <path class="mode-music__note mode-music__note--right" d="M18 15c0 1.7-1.6 3-3.5 3S11 17 11 15.5s1.6-2.5 3.5-2.5H18"/>
+            </svg>
+          </span>
+        </button>
+        <div class="project-edit__importance" id="projectEditImportance" role="group"
+             data-i18n-aria="importanceAria" aria-label="Importance">
+          <button type="button" data-importance="1"></button>
+          <button type="button" data-importance="2"></button>
+          <button type="button" data-importance="3"></button>
+          <button type="button" data-importance="4"></button>
+          <button type="button" data-importance="5"></button>
+        </div>
+        <button class="modal__close" type="button" data-close
+                data-i18n-aria="closeAria" aria-label="Fermer">×</button>
+      </div>
       <label class="field" id="habitNameField">
         <span class="field__label" data-i18n="habitNameLabel">Nom de l'habitude</span>
         <input id="habitNameInput" class="field__input" type="text" data-i18n-placeholder="habitNamePlaceholder"
@@ -665,15 +762,11 @@
           <span data-i18n="exerciseTitle">Exercices rapides</span>
         </button>
       </div>
-      <!-- the heading an objective is kept on: why it is being done, and what it
-           looks like once it is. The same two lines its own view carries. -->
+      <!-- the heading an objective is kept on: why it is being done -->
       <div class="field" id="iconCap" hidden>
         <span class="field__label" data-i18n="capLabel">Le cap</span>
         <textarea id="iconWhy" class="field__input field__input--line" rows="1"
                   data-i18n-placeholder="whyPlaceholder" placeholder="Pourquoi ce projet ?"></textarea>
-        <textarea id="iconOutcome" class="field__input field__input--line" rows="1"
-                  data-i18n-placeholder="outcomePlaceholder"
-                  placeholder="À quoi ça ressemble, une fois fini ?"></textarea>
       </div>
       <!-- the catalogue: everything at once, read as a plate rather than walked
            through one screenful at a time -->
@@ -682,6 +775,28 @@
       <div class="field" id="iconMore" hidden>
         <span class="field__label" data-i18n="spaceLabel">Le ciel</span>
         <div class="icon-grid" id="iconGridMore"></div>
+      </div>
+      <div class="project-edit__actions" id="projectEditActions" hidden>
+        <button class="project-edit__action" id="iconProjectDone" type="button">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+               stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <polyline points="4 12.5 9.5 18 20 6"/>
+          </svg>
+          <span id="iconProjectDoneLabel">Compléter</span>
+        </button>
+        <button class="project-edit__action" id="iconProjectAside" type="button">
+          <span class="project-edit__action-icon" id="iconProjectAsideIcon"></span>
+          <span id="iconProjectAsideLabel">Masquer le projet</span>
+        </button>
+        <button class="project-edit__action project-edit__action--danger"
+                id="iconProjectDelete" type="button">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+               stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <polyline points="3 6 5 6 21 6"/>
+            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+          </svg>
+          <span data-i18n="deleteAria">Supprimer</span>
+        </button>
       </div>
     </div>
   </div>
@@ -799,6 +914,7 @@
             <button class="thinking-tool thinking-tool--answer" type="button" data-block-type="answer"><span class="thinking-tool__mark" aria-hidden="true"></span><span data-i18n="blockAnswer">Réponse</span></button>
             <button class="thinking-tool thinking-tool--text" type="button" data-block-type="text"><span class="thinking-tool__mark" aria-hidden="true"></span><span data-i18n="blockText">Texte</span></button>
             <button class="thinking-tool thinking-tool--note" type="button" data-block-type="note"><span class="thinking-tool__mark" aria-hidden="true"></span><span data-i18n="blockNote">Note</span></button>
+            <button class="thinking-tool thinking-tool--bloc" type="button" data-block-type="bloc"><span class="thinking-tool__mark" aria-hidden="true"></span><span data-i18n="blockBloc">Bloc</span></button>
             <button class="thinking-tool thinking-tool--step" type="button" data-block-type="step"><span class="thinking-tool__mark" aria-hidden="true"></span><span data-i18n="blockStep">Étape</span></button>
           </div>
           <div id="thinkingToolPanelPlanning" class="thinking-tools__panel" role="group" aria-labelledby="thinkingToolSectionSwitch" data-thinking-tool-panel="planning" hidden>
@@ -902,7 +1018,8 @@
       <button id="pviewBack" class="detail__back" type="button" data-i18n-aria="backAria" aria-label="Retour">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6"/></svg>
       </button>
-      <button id="pviewIcon" class="detail__icon" type="button" data-i18n-aria="editIconLabel" aria-label="Icône"></button>
+      <button id="pviewIcon" class="detail__icon" type="button" data-field-panel
+              data-i18n-aria="editProjectTitle" aria-label="Modifier le projet"></button>
       <input id="pviewName" class="pview__name" type="text" maxlength="120">
       <button id="pviewDone" class="pview__act" type="button">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="4 12.5 9.5 18 20 6"/></svg>
@@ -919,7 +1036,6 @@
         <span class="detail__label" data-i18n="capLabel">Le cap</span>
         <div class="pview__caplines">
           <textarea id="pviewWhy" class="pview__line" rows="1" data-i18n-placeholder="whyPlaceholder" placeholder="Pourquoi ce projet ?"></textarea>
-          <textarea id="pviewOutcome" class="pview__line" rows="1" data-i18n-placeholder="outcomePlaceholder" placeholder="À quoi ça ressemble, une fois fini ?"></textarea>
         </div>
       </section>
 
@@ -997,6 +1113,6 @@
     <button id="toastAction" class="toast__action" type="button" hidden></button>
   </div>
 
-  <script src="./app.js?v=617"></script>
+  <script src="./app.js?v=641"></script>
 </body>
 </html>

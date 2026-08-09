@@ -12,6 +12,7 @@
      for them. Everything else that left a catalog still lives in another one, so
      it keeps drawing. Up here because loadState runs before the catalogs do. */
   const RETIRED_ICONS = { walk: "run", game: "star" };
+  const PROJECT_IMPORTANCE = 5;
   /* What a task or an objective can carry beside itself — see THE SHEETS. */
   const SHEET_KINDS = ["note", "journal", "canvas"];
   /* read by saveState and by listsLocked, both of which can run before the parts
@@ -26,17 +27,16 @@
 
   /* Load saved data. Falls back to an empty state if nothing is stored
      or the JSON is corrupt, so a bad value can never break startup. */
-  /* The block field used to be one decoration among others; it is part of the
-     app now. Anyone who already had a saved state gets it turned on once, and
-     from then on their own choice is kept. */
-  function withField(list, alreadyOffered) {
-    const retiredMosaic = list.indexOf("mosaic");
-    if (retiredMosaic !== -1) {
-      list.splice(retiredMosaic, 1);
-      if (list.indexOf("field") === -1) list.push("field");
+  /* The reactive field is infrastructure now, not a decoration. The old
+     `field` and `mosaic` entries are removed from that list; the button named
+     Champ is reused for a separate, opt-in virtual-surface mode. Absence of the
+     new boolean deliberately migrates every existing installation to normal. */
+  function decorationList(saved) {
+    const list = Array.isArray(saved) ? saved.slice() : [];
+    for (let i = list.length - 1; i >= 0; i--) {
+      if (list[i] === "field" || list[i] === "mosaic") list.splice(i, 1);
     }
-    if (alreadyOffered || list.indexOf("field") !== -1) return list;
-    return list.concat("field");
+    return list;
   }
 
   /* The cell is cut from the zellige now; the earlier cuts, and the amethyst
@@ -71,6 +71,16 @@
     return saved;
   }
 
+  /* the four moments and the theme each wears, defaulting to its own name */
+  function autoBandMap(saved) {
+    const out = { dawn: "dawn", day: "day", dusk: "dusk", night: "night" };
+    const keys = Object.keys(out);
+    for (let i = 0; i < keys.length; i++) {
+      if (saved && saved[keys[i]]) out[keys[i]] = migrateThemeName(saved[keys[i]]);
+    }
+    return out;
+  }
+
   function loadState() {
     try {
       const saved = JSON.parse(localStorage.getItem(STORAGE_KEY)) || {};
@@ -101,13 +111,16 @@
       for (let i = 0; i < projects.length; i++) {
         const project = projects[i];
         if (RETIRED_ICONS[project.icon]) project.icon = RETIRED_ICONS[project.icon];
-        delete project.pinned;         // pinning went, and weight is set aside
+        if (project.pinned && !project.importance) project.importance = PROJECT_IMPORTANCE;
+        delete project.pinned;
+        project.importance = Math.max(0, Math.min(PROJECT_IMPORTANCE,
+          Number(project.importance) || 0));
         delete project.subtasks;       // projects moved from subtasks to steps
         if (!project.icon) project.icon = "folder";
         if (!project.sky) project.sky = freeSkySpot(i);   // its place in the sky
         if (!project.journal) project.journal = [];
         if (project.why == null) project.why = "";
-        if (project.outcome == null) project.outcome = "";
+        project.type = project.type === "leisure" ? "leisure" : "work";
         delete project.targetDate;   // a project no longer has a date of its own
         delete project.stepsView;    // a course is a list; the roadmap is gone
         // milestones and next steps were two names for the same thing: one list now
@@ -182,6 +195,14 @@
         if (!events[i].time) events[i].time = null;   // a day without an hour is allowed
         if (events[i].projectId === undefined) events[i].projectId = null;
       }
+      const ideas = saved.ideas || [];
+      for (let i = ideas.length - 1; i >= 0; i--) {
+        if (typeof ideas[i] === "string") {
+          ideas[i] = { id: "idea-" + i + "-" + Date.now(), text: ideas[i] };
+        }
+        if (!ideas[i] || typeof ideas[i].text !== "string") ideas.splice(i, 1);
+        else if (!ideas[i].id) ideas[i].id = "idea-" + i + "-" + Date.now();
+      }
       // an element carries the project it serves, the same way a task always has
       for (let i = 0; i < habits.length; i++) {
         if (habits[i].projectId === undefined) habits[i].projectId = null;
@@ -208,8 +229,8 @@
         for (let j = 0; j < canvas.blocks.length; j++) {
           const block = canvas.blocks[j];
           if (["problem", "solution", "example", "idea", "question", "answer", "canvas",
-            "folder", "document", "planner", "logbook", "text", "note", "task", "event",
-            "habit", "step", "journal", "loop", "condition"]
+            "folder", "document", "planner", "logbook", "text", "note", "bloc", "task",
+            "event", "habit", "step", "journal", "loop", "condition"]
             .indexOf(block.type) === -1) block.type = "note";
           delete block.icon;
           delete block.color;
@@ -381,6 +402,7 @@
         habits: habits,
         canvases: canvases,
         events: events,
+        ideas: ideas,
         sun: saved.sun || null,
         settings: {
           name: (saved.settings && saved.settings.name) || "",
@@ -389,9 +411,10 @@
           palette: paletteName(saved.settings && saved.settings.palette,
                                saved.settings && saved.settings.paletteEdits),
           glass: glassCut(saved.settings && saved.settings.glass),
-          decorations: withField((saved.settings && saved.settings.decorations) || [],
-                                 saved.settings && saved.settings.fieldOn),
-          fieldOn: true,   // once seen, the choice is the user's
+          decorations: decorationList(saved.settings && saved.settings.decorations),
+          fieldMode: !!(saved.settings && saved.settings.fieldMode),
+          projectMode: saved.settings && saved.settings.projectMode === "leisure"
+            ? "leisure" : "work",
           timeScrub: saved.settings && saved.settings.timeScrub != null
             ? !!saved.settings.timeScrub : true,
           treeFull: !!(saved.settings && saved.settings.treeFull),
@@ -400,6 +423,7 @@
           treeBranches: !(saved.settings && saved.settings.treeBranches === false),
           treeBlooms: (saved.settings && saved.settings.treeBlooms) || ["corolla"],
           treeSap: !(saved.settings && saved.settings.treeSap === false),
+          autoBands: autoBandMap(saved.settings && saved.settings.autoBands),
           themeDecorLent: (saved.settings && saved.settings.themeDecorLent) || [],
           themeEdits: renameThemeKeys(saved.settings && saved.settings.themeEdits),
           paletteEdits: (saved.settings && saved.settings.paletteEdits) || {},
@@ -407,7 +431,7 @@
         }
       };
     } catch (err) {
-      return { tasks: [], projects: [], habits: [], canvases: [], events: [], sun: null, settings: { name: "", theme: "auto", language: "fr", palette: "theme", glass: "motif", decorations: ["field"], fieldOn: true, timeScrub: true, treeFull: false, treeWisps: true, treeTrunk: true, treeBranches: true, treeBlooms: ["corolla"], treeSap: true, themeDecorLent: [], themeEdits: {}, paletteEdits: {}, themePalettes: {} } };
+      return { tasks: [], projects: [], habits: [], canvases: [], events: [], ideas: [], sun: null, settings: { name: "", theme: "auto", language: "fr", palette: "theme", glass: "motif", decorations: [], fieldMode: false, projectMode: "work", timeScrub: true, treeFull: false, treeWisps: true, treeTrunk: true, treeBranches: true, treeBlooms: ["corolla"], treeSap: true, autoBands: { dawn: "dawn", day: "day", dusk: "dusk", night: "night" }, themeDecorLent: [], themeEdits: {}, paletteEdits: {}, themePalettes: {} } };
     }
   }
 
@@ -708,12 +732,18 @@
       enterAria: "Entrer dans l'application",
       settingsAria: "Paramètres",
       homeAria: "Retour à l'accueil",
+      projectModeToWork: "Passer en mode travail",
+      projectModeToLeisure: "Passer en mode loisir",
       settingsTitle: "Paramètres",
       tabSystem: "Système",
       tabCustom: "Personnalisation",
       brushAria: "Changer de thème",
       brushedTo: "Thème :",
       tasksTitle: "Vos tâches",
+      ideasTitle: "Boîte à idées",
+      ideaPlaceholder: "Déposer une idée…",
+      ideaAddAria: "Ajouter une idée",
+      ideasEmpty: "Laissez venir une première idée…",
       backToToday: "Revenir à aujourd'hui",
       newEventName: "Nouvel événement",
       undatedLabel: "Sans date",
@@ -765,6 +795,7 @@
       themeDark: "Sombre",
       themeSakura: "Sakura",
       themeRonce: "Ronce",
+      themeEspace: "Espace",
       spaceLabel: "Le ciel",
       themeAqua: "Aquatique",
       themeForest: "Forêt",
@@ -894,6 +925,7 @@
       editTitle: "Modifier",
       editNameLabel: "Nom",
       editIconLabel: "Icône",
+      editProjectTitle: "Modifier le projet",
       editDateNone: "Aucune date",
       notesLabel: "Notes",
       subtasksLabel: "Sous-tâches",
@@ -910,10 +942,13 @@
       railUnfold: "Déplier les sous-tâches",
       stepsLabel: "Étapes",
       importantLabel: "Important",
+      importanceAria: "Importance",
       backAria: "Retour",
       notesPlaceholder: "Ajouter des notes…",
       sheetCanvas: "Toile",
       asideLabel: "Mettre de côté",
+      hideProjectLabel: "Masquer le projet",
+      showProjectLabel: "Afficher le projet",
       pushTomorrow: "Reporter à demain",
       pullToday: "Remettre à aujourd\u2019hui",
       asideBack: "Remettre en jeu",
@@ -934,7 +969,12 @@
       skyOpenAria: "Ouvrir le projet",
       capLabel: "Le cap",
       whyPlaceholder: "Pourquoi ce projet ?",
-      outcomePlaceholder: "À quoi ça ressemble, une fois fini ?",
+      projectTypeLabel: "Type",
+      projectTypeAria: "Type du projet",
+      projectTypeWork: "Travail",
+      projectTypeLeisure: "Loisir",
+      projectTypeToWork: "Passer ce projet en travail",
+      projectTypeToLeisure: "Passer ce projet en loisir",
       stepsEmptyAdd: "Aucune étape pour l'instant — ajoutez-en une…",
       branchAdd: "Ajouter une constellation",
       branchRemove: "Retirer cette constellation",
@@ -994,6 +1034,9 @@
       blockPlanner: "Planificateur",
       blockText: "Texte",
       blockNote: "Note",
+      blockBloc: "Bloc",
+      blockPlaceholderBloc: "Nommer…",
+      thinkingBlocTint: "Changer la couleur du bloc",
       blockTask: "Tâche",
       blockEvent: "Événement",
       blockProject: "Projet",
@@ -1087,12 +1130,18 @@
       enterAria: "Enter the app",
       settingsAria: "Settings",
       homeAria: "Back to the welcome screen",
+      projectModeToWork: "Switch to work mode",
+      projectModeToLeisure: "Switch to leisure mode",
       settingsTitle: "Settings",
       tabSystem: "System",
       tabCustom: "Customization",
       brushAria: "Change the theme",
       brushedTo: "Theme:",
       tasksTitle: "Your tasks",
+      ideasTitle: "Idea box",
+      ideaPlaceholder: "Drop in an idea…",
+      ideaAddAria: "Add an idea",
+      ideasEmpty: "Let a first idea arrive…",
       backToToday: "Back to today",
       newEventName: "New event",
       undatedLabel: "No date",
@@ -1144,6 +1193,7 @@
       themeDark: "Dark",
       themeSakura: "Sakura",
       themeRonce: "Briar",
+      themeEspace: "Space",
       spaceLabel: "The sky",
       themeAqua: "Aquatic",
       themeForest: "Forest",
@@ -1273,6 +1323,7 @@
       editTitle: "Edit",
       editNameLabel: "Name",
       editIconLabel: "Icon",
+      editProjectTitle: "Edit project",
       editDateNone: "No date",
       notesLabel: "Notes",
       subtasksLabel: "Subtasks",
@@ -1289,10 +1340,13 @@
       railUnfold: "Unfold the subtasks",
       stepsLabel: "Steps",
       importantLabel: "Important",
+      importanceAria: "Importance",
       backAria: "Back",
       notesPlaceholder: "Add notes…",
       sheetCanvas: "Canvas",
       asideLabel: "Set aside",
+      hideProjectLabel: "Hide project",
+      showProjectLabel: "Show project",
       pushTomorrow: "Push to tomorrow",
       pullToday: "Bring back to today",
       asideBack: "Put back in play",
@@ -1313,7 +1367,12 @@
       skyOpenAria: "Open the project",
       capLabel: "The heading",
       whyPlaceholder: "Why this project?",
-      outcomePlaceholder: "What does it look like once done?",
+      projectTypeLabel: "Type",
+      projectTypeAria: "Project type",
+      projectTypeWork: "Work",
+      projectTypeLeisure: "Leisure",
+      projectTypeToWork: "Switch this project to work",
+      projectTypeToLeisure: "Switch this project to leisure",
       stepsEmptyAdd: "No step yet — add one…",
       branchAdd: "Add a constellation",
       branchRemove: "Remove this constellation",
@@ -1373,6 +1432,9 @@
       blockPlanner: "Planner",
       blockText: "Text",
       blockNote: "Note",
+      blockBloc: "Block",
+      blockPlaceholderBloc: "Name it…",
+      thinkingBlocTint: "Change the block colour",
       blockTask: "Task",
       blockEvent: "Event",
       blockProject: "Project",
@@ -1492,10 +1554,56 @@
     }
   }
 
+  /* NATIVE TOOLTIPS — browsers paint `title` in their own opaque window and do
+     not expose that surface to CSS. Keep it out of the app altogether, including
+     titles attached by later renders. When an icon-only control relied on that
+     title as its sole accessible name, carry the wording over to aria-label. */
+  function suppressNativeTitle(element) {
+    if (!element || element.nodeType !== 1 || !element.hasAttribute("title")) return;
+    const label = element.getAttribute("title") || "";
+    const control = element.matches("button, a, input, select, textarea, [role='button'], [tabindex]");
+    const onlyGraphic = !element.textContent.trim();
+    const carried = element.dataset.nativeTitleAria === "true";
+    if (label && control && (carried || (!element.hasAttribute("aria-label") && onlyGraphic))) {
+      element.setAttribute("aria-label", label);
+      element.dataset.nativeTitleAria = "true";
+    } else if (!label && carried) {
+      element.removeAttribute("aria-label");
+      delete element.dataset.nativeTitleAria;
+    }
+    element.removeAttribute("title");
+  }
+
+  function suppressNativeTitlesIn(root) {
+    if (!root || root.nodeType !== 1) return;
+    suppressNativeTitle(root);
+    const titled = root.querySelectorAll("[title]");
+    for (let i = 0; i < titled.length; i++) suppressNativeTitle(titled[i]);
+  }
+
+  suppressNativeTitlesIn(document.documentElement);
+  const nativeTitleObserver = new MutationObserver(function (records) {
+    for (let i = 0; i < records.length; i++) {
+      if (records[i].type === "attributes") {
+        suppressNativeTitle(records[i].target);
+        continue;
+      }
+      for (let n = 0; n < records[i].addedNodes.length; n++) {
+        suppressNativeTitlesIn(records[i].addedNodes[n]);
+      }
+    }
+  });
+  nativeTitleObserver.observe(document.documentElement, {
+    subtree: true,
+    childList: true,
+    attributes: true,
+    attributeFilter: ["title"]
+  });
+
   const themeBarColors = {
     light: "#f6ecf7", dark: "#1e1c26", sakura: "#fdeef2", ronce: "#140b16",
     dawn: "#ffc9d8", day: "#d0e6ff", dusk: "#e97ba0", night: "#0c0f1a", rain: "#39414c",
-    aqua: "#0d3145", forest: "#131c14", boreal: "#0b1c2c"
+    aqua: "#0d3145", forest: "#131c14", boreal: "#0b1c2c", espace: "#070b1a"
   };
 
   /* A theme can bring decorations with it — sakura its petals, aquatic its
@@ -1537,6 +1645,11 @@
 
   /* adaptive theme: dawn / day / dusk / night by the hour, but the grey rain
      theme takes over when it rains (except at night, already dark enough) */
+  /* which theme a moment of the adaptive day wears; itself, unless changed */
+  function autoBand(band) {
+    return (state.settings.autoBands && state.settings.autoBands[band]) || band;
+  }
+
   function timeTheme() {
     const h = new Date(refTime()).getHours();
     let base;
@@ -1545,7 +1658,7 @@
     else if (h >= 18 && h < 21) base = "dusk";
     else base = "night";
     if (base !== "night" && isRainyNow()) return "rain";
-    return base;
+    return autoBand(base);
   }
 
   /* Apply a theme. "auto" resolves to the current time-of-day theme. */
@@ -1768,8 +1881,7 @@
       }
     },
 
-    dawn: function () { skyScene(); flock(); },
-    dusk: function () { skyScene(); },
+    dawn: function () { flock(); },
 
     day: function () {
       for (let i = 0; i < 4; i++) {
@@ -1784,39 +1896,6 @@
       flock();
     }
   };
-
-  /* DUSK AND DAWN — here the sky is the whole subject, so the scenery is light
-     and not things. The rule of time is the horizon, and the sun it already
-     carries is the only sun there is. All the scenery adds is cloud, which is
-     what makes a sky read as a sunset rather than as a gradient. */
-  function skyScene() {
-    for (let i = 0; i < 8; i++) {
-      const band = sceneEl("sc-band");
-      band.style.width = rand(16, 52) + "%";
-      band.style.height = rand(6, 18) + "px";
-      band.style.left = rand(-10, 82) + "%";
-      // bands sit above the horizon far more often than below it
-      band.style.setProperty("--above", rand(-4, 30) + "vh");
-      band.style.opacity = rand(0.18, 0.6).toFixed(2);
-      band.style.animationDuration = rand(120, 260) + "s";
-      band.style.animationDelay = -rand(0, 200) + "s";
-    }
-    syncSceneHorizon();
-  }
-
-  /* THE RULE IS THE HORIZON — the cloud bands hang above and below it, so they
-     need to know where it actually sits. Read off the strip, which is the scale
-     the rule draws everything against, and re-run on every redraw, since the
-     weather answers long after the threshold is built. */
-  function syncSceneHorizon() {
-    if (!scene) return;
-    const box = scene.getBoundingClientRect();
-    const strip = welcomeSlot.querySelector(".dtl__strip");
-    if (!box.height || !strip) return;
-    const rule = strip.getBoundingClientRect();
-    if (!rule.width) return;
-    scene.style.setProperty("--horizon", (rule.top + rule.height / 2 - box.top) + "px");
-  }
 
   /* a handful of birds crossing, in silhouette, flapping out of step */
   function flock() {
@@ -1927,6 +2006,83 @@
 
   document.getElementById("homeBtn").addEventListener("click", leaveApp);
 
+  /* WORK / LEISURE — work carries tasks; leisure sets them down and exchanges
+     the calendar's task band for a loose pocket of ideas. */
+  const projectModeToggle = document.getElementById("projectModeToggle");
+
+  function projectMode() {
+    return state.settings.projectMode === "leisure" ? "leisure" : "work";
+  }
+
+  function projectsInMode() {
+    const mode = projectMode();
+    const projects = [];
+    for (let i = 0; i < state.projects.length; i++) {
+      const type = state.projects[i].type === "leisure" ? "leisure" : "work";
+      if (type === mode) projects.push(state.projects[i]);
+    }
+    /* Importance is now the reading order everywhere a collection of objectives
+       is shown: the columns, the calendar band and the sky roll. Modern sort is
+       stable, so equal levels retain the user's stored order. */
+    projects.sort(function (a, b) {
+      return goalImportance(b) - goalImportance(a);
+    });
+    return projects;
+  }
+
+  function animateModeToggle(toggle) {
+    toggle.classList.remove("is-switching");
+    toggle.offsetWidth;
+    toggle.classList.add("is-switching");
+    setTimeout(function () { toggle.classList.remove("is-switching"); }, 700);
+  }
+
+  function paintProjectMode() {
+    const leisure = projectMode() === "leisure";
+    const labelKey = leisure ? "projectModeToWork" : "projectModeToLeisure";
+    projectModeToggle.dataset.mode = leisure ? "leisure" : "work";
+    projectModeToggle.dataset.i18nAria = labelKey;
+    projectModeToggle.setAttribute("aria-checked", leisure ? "true" : "false");
+    projectModeToggle.setAttribute("aria-label", translate(labelKey));
+    document.documentElement.classList.toggle("is-leisure-mode", leisure);
+    /* The habit strip is one real object, moved rather than copied: leisure
+       reads it as the prelude to projects; work returns it above today's tasks. */
+    const habitBand = document.querySelector(".habits-band");
+    const taskColumn = document.querySelector(".app__col--tasks");
+    const planColumn = document.querySelector(".app__col--plan");
+    if (habitBand && taskColumn && planColumn) {
+      const destination = leisure ? planColumn : taskColumn;
+      const firstZone = destination.querySelector(":scope > .zone");
+      if (habitBand.parentNode !== destination || habitBand.nextElementSibling !== firstZone) {
+        destination.insertBefore(habitBand, firstZone);
+      }
+    }
+    const workBand = document.getElementById("calWorkBand");
+    const ideasBand = document.getElementById("calIdeasBand");
+    if (workBand) workBand.hidden = leisure;
+    if (ideasBand) ideasBand.hidden = !leisure;
+    if (leisure) renderIdeas();
+  }
+
+  projectModeToggle.addEventListener("click", function () {
+    state.settings.projectMode = projectMode() === "work" ? "leisure" : "work";
+    closeAllInlineRows();
+    if (openProject) closeProjectView();
+    saveState();
+    paintProjectMode();
+    animateModeToggle(projectModeToggle);
+    if (projectMode() === "leisure") showCalendarFront();
+    renderList("tasks");
+    renderList("projects");
+    renderEventCal();
+    renderDailyTimeline();
+    if (!skyView.hidden) renderSky();
+    if (state.settings.fieldMode) fieldWake();
+    setPane(1);
+  });
+
+  paintProjectMode();
+
   // no target to aim at: the whole threshold is the door
   welcomeScreen.addEventListener("click", enterApp);
 
@@ -1967,7 +2123,7 @@
      "auto" is left out of the bag — it is an hour, not a colour, and the point
      of the brush is to see somewhere else. */
   const BRUSH_THEMES = ["light", "dark", "sakura", "ronce", "aqua", "forest",
-                        "boreal", "dawn", "day", "dusk", "night", "rain"];
+                        "boreal", "espace", "dawn", "day", "dusk", "night", "rain"];
   let brushBag = [];
 
   function brushNextTheme() {
@@ -2018,6 +2174,7 @@
       applyLanguage(state.settings.language);
       renderList("tasks");     // refresh empty text and delete labels
       renderList("projects");
+      renderIdeas();
       renderHabits();
       renderEventCal();
       renderDailyTimeline();
@@ -2031,8 +2188,10 @@
      everything else in the stylesheet is derived from them. Editing one writes
      the same custom property inline on <html>, so the whole interface follows
      without a single recalculation here. */
-  const PAINT_THEMES = ["light", "dark", "sakura", "aqua", "forest", "boreal",
-                        "dawn", "day", "dusk", "night", "rain"];
+  const PAINT_THEMES = ["auto", "light", "dark", "sakura", "ronce", "aqua", "forest",
+                        "boreal", "espace", "dawn", "day", "dusk", "night", "rain"];
+  /* the adaptive theme has no colours of its own; what it has is four moments */
+  const AUTO_BANDS = ["dawn", "day", "dusk", "night"];
   const PAINT_GROUPS = [
     { label: "paintBase", slots: [["--c-bg", "slotBg"], ["--c-surface", "slotSurface"], ["--c-line", "slotLine"]] },
     { label: "paintInk", slots: [["--c-text", "slotText"], ["--c-muted", "slotMuted"]] },
@@ -2094,8 +2253,10 @@
     const root = document.documentElement.style;
     for (let i = 0; i < ALL_SLOTS.length; i++) root.removeProperty(ALL_SLOTS[i]);
     const edits = state.settings.themeEdits[themeName];
-    if (!edits) return;
-    for (const slot in edits) root.setProperty(slot, edits[slot]);
+    if (edits) {
+      for (const slot in edits) root.setProperty(slot, edits[slot]);
+    }
+    syncSkySurface();
   }
 
   /* Where the five stops in force are stored. The three presets are shared, so
@@ -2152,7 +2313,7 @@
       const button = document.createElement("button");
       button.type = "button";
       button.className = name === paintTheme ? "theme is-active" : "theme";
-      button.textContent = translate("theme" + name.charAt(0).toUpperCase() + name.slice(1));
+      button.textContent = translate(themeLabelKey(name));
       button.addEventListener("click", function () {
         paintTheme = name;
         state.settings.theme = name;   // edit what you can see
@@ -2167,6 +2328,15 @@
 
     const box = document.getElementById("paintSlots");
     box.innerHTML = "";
+    // the adaptive theme edits differently: not colours, but which theme each
+    // moment of the day wears. Its own palette is whatever it resolves to.
+    const paletteField = document.getElementById("paintPaletteField");
+    if (paintTheme === "auto") {
+      paletteField.hidden = true;
+      renderAutoBands(box);
+      return;
+    }
+    paletteField.hidden = false;
     for (let g = 0; g < PAINT_GROUPS.length; g++) {
       const group = PAINT_GROUPS[g];
       const section = document.createElement("div");
@@ -2223,6 +2393,41 @@
         editImp(slot, hex);
       }));
     }
+  }
+
+  function renderAutoBands(box) {
+    for (let i = 0; i < AUTO_BANDS.length; i++) {
+      const band = AUTO_BANDS[i];
+      const row = document.createElement("label");
+      row.className = "paint__band";
+      const label = document.createElement("span");
+      label.className = "paint__group-label";
+      label.textContent = translate(themeLabelKey(band));
+      const select = document.createElement("select");
+      select.className = "field__input";
+      for (let k = 0; k < PAINT_THEMES.length; k++) {
+        const name = PAINT_THEMES[k];
+        if (name === "auto") continue;   // it cannot resolve to itself
+        const option = document.createElement("option");
+        option.value = name;
+        option.textContent = translate(themeLabelKey(name));
+        option.selected = name === autoBand(band);
+        select.appendChild(option);
+      }
+      select.addEventListener("change", function () {
+        state.settings.autoBands[band] = select.value;
+        applyTheme("auto");   // the hour may be in the band just changed
+        applyThemeDecor(currentThemeName());
+        applyDecorations();
+        saveState();
+      });
+      row.append(label, select);
+      box.appendChild(row);
+    }
+  }
+
+  function themeLabelKey(name) {
+    return "theme" + name.charAt(0).toUpperCase() + name.slice(1);
   }
 
   /* the stop as it stands: the stored value if there is one, else the preset */
@@ -2589,21 +2794,54 @@
     + " .item--project:not(.is-inline-open) > .project-tab,"
     + " .habit, .hcard, .quick__field, .undated__chip, .dtl__event-icon,"
     + " .ecal__day, .zone__action, [data-field-panel], .modal__card";
-  /* Rows in the calendar's work bands deliberately have no painted card. They
-     still own their existing rectangle, though, so the field can give that
-     rectangle the weight of a normal task without inserting a box in layout. */
-  const VIRTUAL_PANEL_SELECTOR = ".ecal-band .item--task,"
-    + " .ecal-band .item--project.is-inline-open,"
-    + " .ecal-band .item--project:not(.is-inline-open) > .project-tab,"
-    + " #calKanbanBtn.is-on, #calCanvasBtn.is-on,"
-    + " #calTaskCanvasBtn.is-on, #calSkyBtn.is-on";
+  /* Field mode replaces one painted carrier with several physical zones. A
+     closed object is only its title; when open, the identity and each visible
+     working column get independent depths. The canvas sheet is left out: it is
+     the field itself, not another object resting on it. */
+  const VIRTUAL_PANEL_SELECTOR = ".item--task:not(.is-open),"
+    + " .item--task.is-open > .item__slot,"
+    + " .item--task.is-open .task-inline__main,"
+    + " .item--task.is-open .task-inline__note-section:not([hidden]):not([data-sheet='canvas']),"
+    + " .item--project:not(.is-inline-open) > .project-tab,"
+    + " .item--project.is-inline-open > .project-tab,"
+    + " .item--project.is-inline-open .goal-inline__workspace > .psteps,"
+    + " .item--project.is-inline-open .goal-inline__sheet-section:not([hidden]):not([data-sheet='canvas']),"
+    + " .sheets__tab, .row-act,"
+    + " .thinking__bar--board, .thinking-tools, .thinking-tool, .thinking-tool__mark,"
+    + " .thinking-mode-toggle, .thinking-selection-actions, .thinking-selection-actions__canvas,"
+    + " .sky-tool, .skylist__item,"
+    + " .thinking-block,"
+    + " .thinking-folder__list, .thinking-folder__row, .thinking-folder__add-open,"
+    + " .thinking-folder__add.is-open .thinking-folder__add-choice,"
+    + " .thinking-document-paper, .thinking-document-sheet, .thinking-document-toolbar,"
+    + " .thinking-document-body, .thinking-document-tool,"
+    + " .thinking-logbook, .thinking-logbook__add,"
+    + " .tgroup--late > .tgroup__head, .tgroup--late > .list,"
+    + " .tgroup--late .item__due.is-overdue,"
+    + " .kanban__head, .kanban__list, .kanban__card:not(.kanban__ghost), .kanban__lot,"
+    + " .ecal__day, .ecal__nav, .ecal__back:not([hidden]), .ecal__toggle,"
+    + " .quick__field, .zone__action, .add-card, .band-switch,"
+    + " #addProjectBtn,"
+    + " .ecal-band .zone__head > .zone__action,"
+    + " .ecal-band .zone__head > .add-card";
+  /* These carriers stay virtual independently of the optional Champ mode.
+     Closed objectives press through their title; open ones through the whole
+     row, exactly as their painted carrier used to do. */
+  const PERMANENT_VIRTUAL_PANEL_SELECTOR =
+    ".item--project:is(.done, .is-aside):not(.is-inline-open) > .project-tab,"
+    + " .item--project:is(.done, .is-aside).is-inline-open";
   const PANEL_DEPTH = .55;    // how much of a panel's own opacity is dug
+  const PANEL_SIGNATURE_ALPHA = .035; // only a trace of the signature remains in the hollow
+  const FIELD_ACCENT_ALPHA = .09; // today and active virtual objects need a clearer trace
   let panels = [];
   let panelsMoving = false;
   let panelsDirty = true;
 
-  const SUN_ALPHA = .15;
-  const SUN_RADIUS = 120;
+  // The sun lights the cells it stands over rather than flooding the page: at
+  // .15 over 120px the halo read as a lit patch of grid with an edge to it.
+  const SUN_ALPHA = .05;
+  const SUN_RADIUS = 92;
+  const SKY_STAR_ALPHA = .13;
   // a click sinks the one cell it lands on, and nothing around it
   const PRESS_DECAY = 220;    // ms the press takes to shrink by e
   const PRESS_LIFE = 760;     // ms before a press is spent
@@ -2612,6 +2850,8 @@
   let fieldW = 0, fieldH = 0, fieldCols = 0, fieldRows = 0;
   let latticePath = null;
   let fieldInk = "rgb(255,255,255)";
+  let fieldSignature = "rgb(255,255,255)";
+  let fieldAccent = "rgb(255,255,255)";
   let rowShade = [];
   let shadeLift = 1;
   let inkReadAt = 0;
@@ -2738,25 +2978,59 @@
   }
 
   function readPanels() {
-    const found = document.querySelectorAll(PANEL_SELECTOR);
+    const laboratory = document.getElementById("thinkingView");
+    const skyRoom = document.getElementById("skyView");
+    const virtualField = !!state.settings.fieldMode;
+    const found = document.querySelectorAll(PANEL_SELECTOR
+      + (virtualField ? "," + VIRTUAL_PANEL_SELECTOR : ""));
+    const fullCanvasHost = virtualField && laboratory && !laboratory.hidden
+      && laboratory.contains(fieldCanvas) ? laboratory
+      : (virtualField && skyRoom && !skyRoom.hidden && skyRoom.contains(fieldCanvas)
+        ? skyRoom : null);
+    const flippedCalendar = virtualField ? document.querySelector(".ecal.is-flipped") : null;
     panels = [];
     for (let i = 0; i < found.length; i++) {
+      /* A transparent canvas shows the field, not the interface lying below
+         it. In the laboratory only its own raised surfaces (and an eventual
+         modal) may press the field. On the calendar, the front face keeps its
+         dimensions during the turn but must stop leaving invisible hollows. */
+      if (fullCanvasHost && !fullCanvasHost.contains(found[i]) && !found[i].closest(".modal")) continue;
+      if (flippedCalendar && found[i].closest(".ecal__front")) continue;
+      /* The painted open carrier used to be one large hollow. Its title and
+         content zones replace it in field mode, so keeping both would add their
+         depths together and erase the hierarchy. */
+      if (virtualField && found[i].matches(".item--task.is-open, .item--project.is-inline-open")) {
+        continue;
+      }
       const style = getComputedStyle(found[i]);
       /* A translucent gradient has no computed backgroundColor. Such a pane
          declares its visual opacity explicitly; ordinary surfaces continue to
          be measured exactly as before. */
       const declared = (found[i].hasAttribute("data-field-panel")
-        || found[i].matches(VIRTUAL_PANEL_SELECTOR))
+        || found[i].matches(PERMANENT_VIRTUAL_PANEL_SELECTOR)
+        || (virtualField && found[i].matches(VIRTUAL_PANEL_SELECTOR)))
         ? parseFloat(style.getPropertyValue("--field-panel-opacity")) : NaN;
       const depth = Number.isFinite(declared)
         ? Math.max(0, Math.min(1, declared)) : alphaOf(style.backgroundColor);
-      if (depth > .02) panels.push({ el: found[i], depth: depth, top: NaN, left: NaN });
+      const signature = parseFloat(style.getPropertyValue("--field-panel-signature")) > .5;
+      const accent = parseFloat(style.getPropertyValue("--field-panel-accent")) > .5;
+      const signatureHover = parseFloat(style.getPropertyValue("--field-panel-signature-hover")) > .5;
+      const signatureFocus = parseFloat(style.getPropertyValue("--field-panel-signature-focus")) > .5;
+      if (depth > .02) panels.push({
+        el: found[i], depth: depth, signature: signature, accent: accent,
+        signatureHover: signatureHover, signatureFocus: signatureFocus,
+        top: NaN, left: NaN
+      });
     }
     panelsDirty = false;
   }
 
   function gatherEnergy(now) {
     const lit = new Map();
+    const signature = new Map();
+    const signaturePulse = new Map();
+    const accent = new Map();
+    const accentPulse = new Map();
     const add = function (col, row, amount) {
       if (col < 0 || row < 0 || col >= fieldCols || row >= fieldRows) return;
       const key = row * fieldCols + col;
@@ -2836,6 +3110,8 @@
       }
       if (!box.width || box.bottom < 0 || box.top > fieldH) continue;
       const depth = panels[i].depth * PANEL_DEPTH;
+      const pulses = (panels[i].signatureHover && panels[i].el.matches(":hover"))
+        || (panels[i].signatureFocus && panels[i].el.matches(":focus-within"));
       const c0 = Math.floor(box.left / FIELD_STEP);
       const c1 = Math.ceil(box.right / FIELD_STEP);
       const r0 = Math.floor(box.top / FIELD_STEP);
@@ -2848,7 +3124,21 @@
         for (let c = c0; c <= c1; c++) {
           const cx = (c + .5) * FIELD_STEP;
           const ix = Math.min(1, Math.max(0, Math.min(cx - box.left, box.right - cx) / FIELD_STEP + .5));
-          if (ix) add(c, r, depth * ix * iy);
+          if (ix) {
+            const amount = depth * ix * iy;
+            add(c, r, amount);
+            if (panels[i].signature || panels[i].accent) {
+              const key = r * fieldCols + c;
+              const tintMap = panels[i].accent ? accent : signature;
+              if (amount > (tintMap.get(key) || 0)) tintMap.set(key, amount);
+            }
+            if (pulses) {
+              const key = r * fieldCols + c;
+              const pulse = ix * iy;
+              const pulseMap = panels[i].accent ? accentPulse : signaturePulse;
+              if (pulse > (pulseMap.get(key) || 0)) pulseMap.set(key, pulse);
+            }
+          }
         }
       }
     }
@@ -2861,7 +3151,10 @@
       const down = Math.exp(-(now - press.born) / PRESS_DECAY);
       add(Math.floor(press.x / FIELD_STEP), Math.floor(press.y / FIELD_STEP), down);
     }
-    return lit;
+    return {
+      shade: lit, signature: signature, signaturePulse: signaturePulse,
+      accent: accent, accentPulse: accentPulse
+    };
   }
 
   /* the cells the sun reaches, gathered the same way the shade is */
@@ -2887,19 +3180,71 @@
     return glow;
   }
 
+  /* In the virtual sky a star is still a smooth celestial object, but the light
+     it casts belongs to the field. Project stars reach several cells; the small
+     steps only wake the cells immediately around them. Keeping the strongest
+     source per square prevents a dense constellation becoming a flat patch. */
+  function gatherSkyStars() {
+    const glow = new Map();
+    const room = document.getElementById("skyView");
+    if (!state.settings.fieldMode || !room || room.hidden) return glow;
+    const stars = room.querySelectorAll(".pstar, .bstar");
+    for (let i = 0; i < stars.length; i++) {
+      const star = stars[i];
+      const box = star.getBoundingClientRect();
+      if (!box.width || box.right < 0 || box.left > fieldW
+          || box.bottom < 0 || box.top > fieldH) continue;
+      const style = getComputedStyle(star);
+      const opacity = parseFloat(style.opacity);
+      if (!(opacity > .02)) continue;
+      const major = star.classList.contains("pstar");
+      const life = parseFloat(style.getPropertyValue(major ? "--star-glow" : "--mag"));
+      const phase = Number.isFinite(life) ? life : .7;
+      const radius = major ? 48 + phase * 32 : 18 + phase * 13;
+      let strength = (major ? .48 + phase * .52 : .22 + phase * .48) * opacity;
+      if (star.classList.contains("is-off")) strength *= .4;
+      if (star.matches(":hover, :focus-visible") || star.classList.contains("is-focused")) {
+        strength *= 1.22;
+      }
+      const x = box.left + box.width / 2;
+      const y = box.top + box.height / 2;
+      const reach = radius * 1.6;
+      const c0 = Math.floor((x - reach) / FIELD_STEP);
+      const c1 = Math.ceil((x + reach) / FIELD_STEP);
+      const r0 = Math.floor((y - reach) / FIELD_STEP);
+      const r1 = Math.ceil((y + reach) / FIELD_STEP);
+      for (let r = r0; r <= r1; r++) {
+        if (r < 0 || r >= fieldRows) continue;
+        for (let c = c0; c <= c1; c++) {
+          if (c < 0 || c >= fieldCols) continue;
+          const dx = (c + .5) * FIELD_STEP - x;
+          const dy = (r + .5) * FIELD_STEP - y;
+          const distance = (dx * dx + dy * dy) / (radius * radius);
+          if (distance > 4) continue;
+          const light = Math.exp(-distance) * strength;
+          const key = r * fieldCols + c;
+          if (light > (glow.get(key) || 0)) glow.set(key, light);
+        }
+      }
+    }
+    return glow;
+  }
+
   function fieldDraw(now) {
     const ctx = fieldCtx;
     ctx.clearRect(0, 0, fieldW, fieldH);
     if (panelsDirty) readPanels();
     if (now - inkReadAt > 800) {           // follows a theme or palette change
+      const rootStyle = getComputedStyle(document.documentElement);
       fieldInk = getComputedStyle(fieldCanvas).color;
+      fieldSignature = rootStyle.getPropertyValue("--c-sig").trim() || fieldInk;
+      fieldAccent = rootStyle.getPropertyValue("--c-accent").trim() || fieldSignature;
       buildRowShades();
       readPanels();          // lists get rebuilt, themes change their veil
       inkReadAt = now;
     }
-    /* The sun first, then what the pointer takes away, then the lattice over
-       both so the ruling stays legible. The pointer and a click only ever sink
-       a square — the sun is the one source allowed to lift one. */
+    /* The sun next, then what the pointer takes away. A click only ever sinks a
+       square — the sun is the only temporal source allowed to lift one. */
     readSun();
     const glow = gatherSun();
     glow.forEach(function (light, key) {
@@ -2911,13 +3256,58 @@
       ctx.fillRect(col * FIELD_STEP, row * FIELD_STEP, FIELD_STEP, FIELD_STEP);
     });
 
-    const lit = gatherEnergy(now);
-    lit.forEach(function (energy, key) {
+    const starGlow = gatherSkyStars();
+    starGlow.forEach(function (light, key) {
+      if (light < .02) return;
+      const col = key % fieldCols;
+      const row = (key - col) / fieldCols;
+      ctx.fillStyle = fieldSignature;
+      ctx.globalAlpha = SKY_STAR_ALPHA * light;
+      ctx.fillRect(col * FIELD_STEP, row * FIELD_STEP, FIELD_STEP, FIELD_STEP);
+    });
+
+    const energyMap = gatherEnergy(now);
+    energyMap.shade.forEach(function (energy, key) {
       if (energy < .02) return;
       const col = key % fieldCols;
       const row = (key - col) / fieldCols;
       ctx.fillStyle = rowShade[row] || "#000";
       ctx.globalAlpha = Math.min(.75, SHADE_ALPHA * shadeLift * (energy > 1 ? 1 : energy));
+      ctx.fillRect(col * FIELD_STEP, row * FIELD_STEP, FIELD_STEP, FIELD_STEP);
+    });
+
+    /* Persistent identities and active controls carry colour inside their
+       existing hollow. This is cell paint on the field, never a smooth card. */
+    energyMap.signature.forEach(function (energy, key) {
+      if (energy < .02) return;
+      const col = key % fieldCols;
+      const row = (key - col) / fieldCols;
+      ctx.fillStyle = fieldSignature;
+      ctx.globalAlpha = PANEL_SIGNATURE_ALPHA * Math.min(1, energy / PANEL_DEPTH);
+      ctx.fillRect(col * FIELD_STEP, row * FIELD_STEP, FIELD_STEP, FIELD_STEP);
+    });
+    energyMap.accent.forEach(function (energy, key) {
+      if (energy < .02) return;
+      const col = key % fieldCols;
+      const row = (key - col) / fieldCols;
+      ctx.fillStyle = fieldAccent;
+      ctx.globalAlpha = FIELD_ACCENT_ALPHA * Math.min(1, energy / PANEL_DEPTH);
+      ctx.fillRect(col * FIELD_STEP, row * FIELD_STEP, FIELD_STEP, FIELD_STEP);
+    });
+    energyMap.signaturePulse.forEach(function (energy, key) {
+      if (energy < .02) return;
+      const col = key % fieldCols;
+      const row = (key - col) / fieldCols;
+      ctx.fillStyle = fieldSignature;
+      ctx.globalAlpha = PANEL_SIGNATURE_ALPHA * Math.min(1, energy);
+      ctx.fillRect(col * FIELD_STEP, row * FIELD_STEP, FIELD_STEP, FIELD_STEP);
+    });
+    energyMap.accentPulse.forEach(function (energy, key) {
+      if (energy < .02) return;
+      const col = key % fieldCols;
+      const row = (key - col) / fieldCols;
+      ctx.fillStyle = fieldAccent;
+      ctx.globalAlpha = PANEL_SIGNATURE_ALPHA * Math.min(1, energy);
       ctx.fillRect(col * FIELD_STEP, row * FIELD_STEP, FIELD_STEP, FIELD_STEP);
     });
 
@@ -3023,6 +3413,7 @@
     fieldWake();
   }
   function onFieldLeave() { wellTarget = 0; fieldWake(); }
+  function onFieldFocus() { fieldWake(); }
   function onFieldResize() {
     if (fieldCanvas.hidden) return;
     fieldResize();
@@ -3637,9 +4028,8 @@
     zelligeResizeTimer = setTimeout(paintZellige, 180);   // a drag is one repaint
   }
 
-  /* The threshold has a ground of its own: the mosaic, not the block field.
-     The field belongs to the app, and comes back to whatever the user chose
-     for it the moment the door is through. */
+  /* The threshold may have a ground of its own, but the block field is now a
+     permanent part of the app rather than a decoration choice. */
   /* The zellige is parked, not removed: the whole painter is still here and
      comes back by flipping this to true. The threshold meanwhile stands on the
      app's own ground — the sky, with the block field over it. */
@@ -3647,13 +4037,11 @@
 
   function setFieldWelcome(on) {
     setZelligeOn(on && ZELLIGE_ON_THRESHOLD);
-    setFieldOn((!on || !ZELLIGE_ON_THRESHOLD)
-               && state.settings.decorations.indexOf("field") !== -1);
+    setFieldOn(true);
     fieldWake();
   }
 
   function setFieldOn(on) {
-    if (on && window.matchMedia("(prefers-reduced-motion: reduce)").matches) on = false;
     if (on === !fieldCanvas.hidden) return;
     fieldCanvas.hidden = !on;
     if (on) {
@@ -3662,6 +4050,8 @@
       window.addEventListener("pointermove", onFieldMove);
       window.addEventListener("pointerdown", onFieldDown);
       document.addEventListener("pointerleave", onFieldLeave);
+      document.addEventListener("focusin", onFieldFocus);
+      document.addEventListener("focusout", onFieldFocus);
       window.addEventListener("resize", onFieldResize);
       window.addEventListener("scroll", fieldWake, { passive: true });   // the sun rides with the page
       fieldWake();
@@ -3675,9 +4065,20 @@
       window.removeEventListener("pointermove", onFieldMove);
       window.removeEventListener("pointerdown", onFieldDown);
       document.removeEventListener("pointerleave", onFieldLeave);
+      document.removeEventListener("focusin", onFieldFocus);
+      document.removeEventListener("focusout", onFieldFocus);
       window.removeEventListener("resize", onFieldResize);
       window.removeEventListener("scroll", fieldWake);
     }
+  }
+
+  /* The field itself is permanent. This class controls only the divergent
+     visual language in which painted surfaces are replaced by virtual weight. */
+  function applyFieldMode() {
+    document.documentElement.classList.toggle("is-field-mode", !!state.settings.fieldMode);
+    syncSkySurface();
+    panelsDirty = true;
+    fieldWake();
   }
 
   /* rebuild the decor layer: manual decorations plus the adaptive weather one */
@@ -3699,7 +4100,8 @@
       else if (active[i] === "fog") spawnFog();
       else if (active[i] === "storm") { spawnStorm(); rainShown = true; }
     }
-    setFieldOn(active.indexOf("field") !== -1);   // its own canvas, outside the wipe
+    setFieldOn(true);   // infrastructure, outside the decoration wipe
+    applyFieldMode();
     // adaptive theme adds the weather effect, unless it's already on manually
     const weather = weatherDecoration();
     if (weather && active.indexOf(weather) === -1) {
@@ -3714,7 +4116,9 @@
 
     const buttons = document.querySelectorAll(".decor-opt");
     for (let i = 0; i < buttons.length; i++) {
-      buttons[i].classList.toggle("is-active", active.indexOf(buttons[i].dataset.decor) !== -1);
+      const name = buttons[i].dataset.decor;
+      const on = name === "field" ? !!state.settings.fieldMode : active.indexOf(name) !== -1;
+      buttons[i].classList.toggle("is-active", on);
     }
   }
 
@@ -3806,6 +4210,13 @@
   for (let i = 0; i < decorButtons.length; i++) {
     decorButtons[i].addEventListener("click", function () {
       const name = this.dataset.decor;
+      if (name === "field") {
+        state.settings.fieldMode = !state.settings.fieldMode;
+        saveState();
+        applyFieldMode();
+        this.classList.toggle("is-active", state.settings.fieldMode);
+        return;
+      }
       const active = state.settings.decorations;
       const at = active.indexOf(name);
       if (at === -1) active.push(name);
@@ -3862,7 +4273,8 @@
     if (listName === "tasks") { renderTasks(); return; }
     const listElement = listName === "projects" ? projectHost()
       : document.getElementById(listName + "List");
-    const items = state[listName];
+    const items = listName === "projects" ? projectsInMode() : state[listName];
+    const places = listName === "projects" ? projectRowPlaces() : null;
     document.getElementById(listName + "List").innerHTML = "";
     if (listName === "projects") document.getElementById("calProjectsList").innerHTML = "";
     listElement.innerHTML = "";
@@ -3875,9 +4287,13 @@
       return;
     }
 
-    for (let i = 0; i < items.length; i++) {
-      listElement.appendChild(createItemRow(listName, items[i]));
+    // Finished and hidden objectives gather at the foot of the list. Within each
+    // half, projects keep the importance order prepared by projectsInMode().
+    const run = listName === "projects" ? quietProjectsLast(items) : items;
+    for (let i = 0; i < run.length; i++) {
+      listElement.appendChild(createItemRow(listName, run[i]));
     }
+    if (places) slideProjectRows(places);
   }
 
   /* THE TASK FLOW — one run read in clock order: what is late on top, then every
@@ -3889,6 +4305,15 @@
      worked on, and its ring says what it is. Nothing about a group depends on
      `done`, so the row keeps exactly the place it had. */
   const collapsedGroups = {};
+
+  /* FOLDING A GROUP SHUTS WHAT IS OPEN IN IT — the head redraws the whole list,
+     which detaches the very node that was pressed; the guard that shuts an open
+     row on a click outside it then finds nothing on the page and lets it stand.
+     The row went out of sight with its group, while the second column it had
+     opened beside it stayed. It is shut here, before the list goes. */
+  function closeOpenTask() {
+    if (openHost) closeDetail();
+  }
 
   function taskGroup(task) {
     // set aside is not a date: whatever day it held, it waits in the tail
@@ -3911,6 +4336,20 @@
     return kept.concat(aside);
   }
 
+  /* A completed objective has left active work just as surely as one deliberately
+     hidden from it. Keep both quiet states together after every active project,
+     without rewriting the user's stored/manual order. */
+  function quietProjectsLast(projects) {
+    const active = [];
+    const quiet = [];
+    const list = projects || [];
+    for (let i = 0; i < list.length; i++) {
+      if (list[i].done || list[i].aside) quiet.push(list[i]);
+      else active.push(list[i]);
+    }
+    return active.concat(quiet);
+  }
+
   /* clock order inside a block; weight is shown, never a reason to jump the queue */
   function byDue(a, b) {
     return dueSortKey(a) - dueSortKey(b);
@@ -3921,6 +4360,10 @@
     const places = taskRowPlaces();   // where every row stood before the rebuild
     document.getElementById("tasksList").innerHTML = "";
     document.getElementById("calTasksList").innerHTML = "";
+    if (projectMode() === "leisure") {
+      document.getElementById("tasksCount").innerHTML = "";
+      return;
+    }
     renderTasksRing();
 
     const items = state.tasks;
@@ -4114,6 +4557,30 @@
   function taskRowPlaces() { return rowPlaces(TASK_ROWS, "id"); }
   function slideTaskRows(places) { slideRows(TASK_ROWS, "id", places); }
 
+  const PROJECT_ROWS = "#projectsList .item--project, #calProjectsList .item--project";
+  function projectRowPlaces() { return rowPlaces(PROJECT_ROWS, "id"); }
+  function slideProjectRows(places) { slideRows(PROJECT_ROWS, "id", places); }
+
+  /* WEIGHT MOVES A ROW, IT DOES NOT REDRAW THE LIST — the scale is set from
+     inside an objective that is open, and rebuilding the list under it would
+     take the panel being worked in. The rows already on screen are put back in
+     the order projectsInMode() gives now, and slide to it. */
+  function resortProjectRows() {
+    const hosts = [document.getElementById("projectsList"),
+      document.getElementById("calProjectsList")];
+    const order = quietProjectsLast(projectsInMode());
+    const places = projectRowPlaces();
+    for (let h = 0; h < hosts.length; h++) {
+      if (!hosts[h]) continue;
+      for (let i = 0; i < order.length; i++) {
+        const row = hosts[h].querySelector(
+          ':scope > .item--project[data-id="' + order[i].id + '"]');
+        if (row) hosts[h].appendChild(row);   // each in turn to the end: the new order
+      }
+    }
+    slideProjectRows(places);
+  }
+
   /* the same, for every step on screen: checklist rows and roadmap dots alike */
   const STEP_NODES = ".psteps [data-step-id]";
   function stepPlaces() { return rowPlaces(STEP_NODES, "stepId"); }
@@ -4144,6 +4611,7 @@
       chevron.innerHTML = iconSvg('<polyline points="6 9 12 15 18 9"/>');
       head.appendChild(chevron);
       head.addEventListener("click", function () {
+        closeOpenTask();
         collapsedGroups["day:" + key] = !dayCollapsed(key);
         renderTasks();
       });
@@ -4191,6 +4659,7 @@
 
     head.append(groupLabel(title), groupRule(), groupCount(tasks.length), chevron);
     head.addEventListener("click", function () {
+      closeOpenTask();
       collapsedGroups[key] = !collapsedGroups[key];
       renderTasks();
     });
@@ -4346,7 +4815,14 @@
     row.className = (item.done ? "item item--open done" : "item item--open") + kindClass
       + (item.aside ? " is-aside" : "");
     row.dataset.id = item.id;
+    /* Finished and set-aside tasks keep the virtual treatment in every mode.
+       Their existing row is the footprint: no wrapper or fake body is added,
+       so calendar bands keep exactly the same measurements. */
+    if (listName === "tasks" && (item.done || item.aside)) {
+      row.setAttribute("data-field-panel", "");
+    }
     if (listName === "tasks") paintTaskColor(row, item);
+    else row.dataset.imp = goalImportance(item);
     const rowHead = listName === "projects" ? document.createElement("div") : row;
     if (listName === "projects") {
       rowHead.className = "project-tab";
@@ -4414,30 +4890,10 @@
     const due = item.dueDate ? createDueBadge(item, dayKnown) : null;
     if (due) meta.appendChild(due);
     if (meta.firstChild) rowHead.appendChild(meta);
+    if (listName === "projects") rowHead.appendChild(createProjectImportanceMark(item));
 
-    // a task completes with its ring, so only a project needs the tick here
-    const actions = [];
-    if (listName === "projects") {
-      actions.push(rowAction("done", ICON_TICK, "completeLabel", function () {
-        toggleItem("projects", item.id);
-      }));
-    } else {
-      actions.push(rowAction("when", ICON_WHEN, "rescheduleLabel", function () {
-        openCalendar(item.id, "tasks");
-      }));
-      actions.push(rowAction("aside", item.aside ? ICON_ASIDE_OFF : ICON_ASIDE,
-        item.aside ? "asideBack" : "asideLabel", function () {
-          toggleAside(item, function () {
-            renderList("tasks");
-            renderDailyTimeline();
-          });
-        }));
-    }
-    actions.push(rowAction("del", ICON_TRASH, "deleteAria", function () {
-      removeItem(listName, item.id);
-    }));
-    rowHead.appendChild(createRowActions(actions));
-    armSwipe(row);
+    // Neither an objective nor a task reveals anything over its row now: what one
+    // does to either is written at the foot of the panel it opens into.
 
     row.appendChild(fold);
     if (listName === "projects") {
@@ -4461,15 +4917,6 @@
     return fold;
   }
 
-  /* ROW ACTIONS — the rarer moves wait on the right of the row and are uncovered
-     by a hover, or by a left swipe on touch. They are laid over the row rather
-     than in it, so showing them never reflows the line. */
-  const ICON_WHEN = '<rect x="3" y="4" width="18" height="18" rx="2"/>'
-    + '<line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/>'
-    + '<line x1="3" y1="10" x2="21" y2="10"/>';
-  const ICON_TRASH = '<polyline points="3 6 5 6 21 6"/>'
-    + '<path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>'
-    + '<line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/>';
   const ICON_TICK = '<polyline points="4 12.5 9.5 18 20 6"/>';
   /* SETTING ASIDE — an eye half shut. What is set aside is not gone and not done:
      it is out of the way. Both keep their place — a task at the end of the
@@ -4500,22 +4947,6 @@
     if (after) after();
   }
 
-  function rowAction(name, paths, labelKey, onRun) {
-    const button = document.createElement("button");
-    button.type = "button";
-    button.className = "row-act row-act--" + name;
-    button.setAttribute("aria-label", translate(labelKey));
-    button.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" '
-      + 'stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
-      + paths + '</svg>';
-    button.addEventListener("click", function (event) {
-      event.stopPropagation();
-      closeSwipe();
-      onRun();
-    });
-    return button;
-  }
-
   /* THE BAR AND THE LINE IT CROSSES — a row is one line when it is shut and a
      surface when it is open, so the bar is set on whichever line carries the
      name rather than on the middle of the whole thing. */
@@ -4527,13 +4958,6 @@
       || row.querySelector(":scope > .item__text");
     if (!name || !name.offsetHeight) return;
     strike.style.top = (name.offsetTop + name.offsetHeight / 2) + "px";
-  }
-
-  function createRowActions(buttons) {
-    const group = document.createElement("span");
-    group.className = "row-acts";
-    for (let i = 0; i < buttons.length; i++) group.appendChild(buttons[i]);
-    return group;
   }
 
   /* the tick is drawn, not typed: an SVG stroke that draws itself in */
@@ -4550,75 +4974,6 @@
     });
     return box;
   }
-
-  /* Touch has no hover, so a left swipe uncovers the same actions. The group
-     follows the finger instead of snapping, and a swipe that turns out to be
-     vertical is handed back to the scroll. */
-  const SWIPE_MIN = 10;    // under this it could still become a scroll
-  const SWIPE_FULL = 56;   // travel that uncovers the group completely
-  let swipedRow = null;
-
-  function closeSwipe() {
-    if (!swipedRow) return;
-    swipedRow.classList.remove("is-swiped");
-    swipedRow = null;
-  }
-
-  function armSwipe(row) {
-    let fromX = 0, fromY = 0, live = false, decided = false, shown = 0;
-
-    row.addEventListener("pointerdown", function (event) {
-      if (event.pointerType === "mouse") return;
-      if (row.classList.contains("is-open")) return;
-      if (event.target.closest(".row-acts, .unfold, .detail__titlerow")) return;
-      fromX = event.clientX;
-      fromY = event.clientY;
-      live = true;
-      decided = false;
-      shown = 0;
-    });
-
-    row.addEventListener("pointermove", function (event) {
-      if (!live) return;
-      if (row.classList.contains("is-dragging")) {
-        live = false;
-        row.classList.remove("is-swiping");
-        row.style.removeProperty("--swipe");
-        return;
-      }
-      const dx = event.clientX - fromX;
-      const dy = event.clientY - fromY;
-      if (!decided) {
-        if (Math.abs(dx) < SWIPE_MIN && Math.abs(dy) < SWIPE_MIN) return;
-        if (Math.abs(dx) <= Math.abs(dy)) { live = false; return; }   // a scroll
-        decided = true;
-        closeSwipe();
-        row.classList.add("is-swiping");
-      }
-      shown = Math.max(0, Math.min(1, -dx / SWIPE_FULL));
-      row.style.setProperty("--swipe", shown.toFixed(3));
-    });
-
-    const release = function () {
-      if (!live) return;
-      live = false;
-      if (!decided) return;
-      row.classList.remove("is-swiping");
-      row.style.removeProperty("--swipe");
-      dragEndedAt = Date.now() + 350;   // the swipe must not also open the row
-      if (shown > .5) {
-        row.classList.add("is-swiped");
-        swipedRow = row;
-      }
-    };
-    row.addEventListener("pointerup", release);
-    row.addEventListener("pointercancel", release);
-  }
-
-  // a touch anywhere else puts the uncovered row back
-  document.addEventListener("pointerdown", function (event) {
-    if (swipedRow && !event.target.closest(".is-swiped")) closeSwipe();
-  });
 
   /* Touch waits for a long press so vertical scrolling stays effortless. With a
      mouse, moving the row starts immediately: tasks can then be laid on the
@@ -4673,14 +5028,13 @@
   let rowDragScrollFrame = 0;
   function startRowDrag(event, row, listName) {
     if (rowDrag) return;
-    closeSwipe();
     const rect = row.getBoundingClientRect();
     const ghost = row.cloneNode(true);
     const fold = ghost.querySelector(".unfold");
     const actions = ghost.querySelector(".row-acts");
     if (fold) fold.remove();
     if (actions) actions.remove();
-    ghost.classList.remove("is-open", "is-swiped");
+    ghost.classList.remove("is-open");
     ghost.classList.add("task-drag-ghost");
     ghost.style.width = rect.width + "px";
     document.body.appendChild(ghost);
@@ -5245,6 +5599,9 @@
     const row = document.querySelector('.item[data-id="' + id + '"]');
     if (row) {
       row.classList.toggle("done", now);
+      if (listName === "tasks") {
+        row.toggleAttribute("data-field-panel", now || !!(flipped && flipped.aside));
+      }
       placeStrike(row);
     }
     if (openHost) {
@@ -5912,6 +6269,7 @@
       const choice = document.createElement("button");
       choice.type = "button";
       choice.className = key === activeKey ? "icon-choice is-on" : "icon-choice";
+      choice.dataset.icon = key;
       choice.setAttribute("aria-label", translate("pickIconTitle"));
       choice.innerHTML = catalogIconSvg(key, source);
       choice.addEventListener("click", function () { chooseIcon(key); });
@@ -5945,9 +6303,12 @@
       const project = findItem("projects", iconPickerMode.projectId);
       if (project) project.icon = iconKey;
       saveState();
-      iconPicker.hidden = true;
       if (project) refreshGoalMarks(project);
       if (project && !skyView.hidden) renderSky();
+      const choices = iconPicker.querySelectorAll(".icon-choice");
+      for (let i = 0; i < choices.length; i++) {
+        choices[i].classList.toggle("is-on", choices[i].dataset.icon === iconKey);
+      }
       return;
     }
     if (iconPickerMode.kind === "habit-new") {
@@ -6015,32 +6376,131 @@
   function openIconPickerForProject(projectOrEvent) {
     const project = projectOrEvent && projectOrEvent.id ? projectOrEvent : currentProject();
     if (!project) return;
+    projectTypeChanged = false;
     iconPickerMode = { kind: "project", projectId: project.id };
     buildIconPicker(PROJECT_ICONS, project.icon, SPACE_ICONS);
     document.getElementById("iconPresets").hidden = true;
     resetPickerPanel();
     fillPickerCap(project);
+    paintProjectEditActions(project);
     iconPicker.hidden = false;
   }
 
-  /* THE HEADING, WHERE THE MARK IS — why an objective is being done and what it
-     looks like once it is: the two lines its own view carries, written here as
-     well, into the same two fields of the same object. */
+  /* THE HEADING, WHERE THE MARK IS — why an objective is being done. */
   const pickerWhy = document.getElementById("iconWhy");
-  const pickerOutcome = document.getElementById("iconOutcome");
+  const projectTypeToggle = document.getElementById("projectTypeToggle");
+  let projectTypeChanged = false;
+
+  function paintProjectType(project) {
+    const leisure = project.type === "leisure";
+    const labelKey = leisure ? "projectTypeToWork" : "projectTypeToLeisure";
+    projectTypeToggle.dataset.mode = leisure ? "leisure" : "work";
+    projectTypeToggle.dataset.i18nAria = labelKey;
+    projectTypeToggle.setAttribute("aria-checked", leisure ? "true" : "false");
+    projectTypeToggle.setAttribute("aria-label", translate(labelKey));
+  }
 
   function fillPickerCap(project) {
     document.getElementById("iconCap").hidden = false;
     pickerWhy.value = project.why || "";
-    pickerOutcome.value = project.outcome || "";
     fitLine(pickerWhy);
-    fitLine(pickerOutcome);
+    paintProjectType(project);
   }
 
   function pickerProject() {
     return iconPickerMode.kind === "project"
       ? findItem("projects", iconPickerMode.projectId) : null;
   }
+
+  /* COMPLETE, HIDE, DELETE — row hover now keeps no project actions. They live
+     together at the foot of this editor, whose icon is their single doorway. */
+  const projectEditHead = document.getElementById("projectEditHead");
+  const projectEditActions = document.getElementById("projectEditActions");
+  const iconProjectDone = document.getElementById("iconProjectDone");
+  const iconProjectDoneLabel = document.getElementById("iconProjectDoneLabel");
+  const iconProjectAside = document.getElementById("iconProjectAside");
+  const iconProjectAsideIcon = document.getElementById("iconProjectAsideIcon");
+  const iconProjectAsideLabel = document.getElementById("iconProjectAsideLabel");
+  const projectEditImportance = document.getElementById("projectEditImportance");
+  const projectImportanceBars = projectEditImportance.querySelectorAll("button");
+
+  function paintProjectImportance(project) {
+    const level = Math.max(0, Math.min(PROJECT_IMPORTANCE,
+      Number(project.importance) || 0));
+    projectEditImportance.dataset.imp = level;
+    for (let i = 0; i < projectImportanceBars.length; i++) {
+      const barLevel = Number(projectImportanceBars[i].dataset.importance);
+      const on = barLevel <= level;
+      projectImportanceBars[i].classList.toggle("is-on", on);
+      projectImportanceBars[i].setAttribute("aria-pressed", on ? "true" : "false");
+      projectImportanceBars[i].setAttribute("aria-label",
+        translate("importanceAria") + " " + barLevel);
+    }
+  }
+
+  function paintProjectEditActions(project) {
+    projectEditHead.hidden = false;
+    projectEditActions.hidden = false;
+    paintProjectType(project);
+    paintProjectImportance(project);
+    const doneLabel = translate(project.done ? "reopenLabel" : "completeLabel");
+    iconProjectDone.classList.toggle("is-on", !!project.done);
+    iconProjectDone.setAttribute("aria-label", doneLabel);
+    iconProjectDoneLabel.textContent = doneLabel;
+    const asideLabel = translate(project.aside ? "showProjectLabel" : "hideProjectLabel");
+    iconProjectAside.classList.toggle("is-on", !!project.aside);
+    iconProjectAside.setAttribute("aria-label", asideLabel);
+    iconProjectAsideLabel.textContent = asideLabel;
+    iconProjectAsideIcon.innerHTML = iconSvg(project.aside ? ICON_ASIDE_OFF : ICON_ASIDE);
+  }
+
+  for (let i = 0; i < projectImportanceBars.length; i++) {
+    projectImportanceBars[i].addEventListener("click", function () {
+      const project = pickerProject();
+      if (!project) return;
+      const level = Number(this.dataset.importance);
+      project.importance = Number(project.importance) === level ? 0 : level;
+      saveState();
+      paintProjectImportance(project);
+      refreshGoalMarks(project);
+      resortProjectRows();   // weight is the reading order: the row moves at once
+      if (!skyView.hidden) renderSky();
+    });
+  }
+
+  iconProjectDone.addEventListener("click", function () {
+    const project = pickerProject();
+    if (!project) return;
+    project.done = !project.done;
+    project.doneDate = project.done ? todayKey() : null;
+    saveState();
+    renderList("projects");
+    if (!skyView.hidden) renderSky();
+    if (currentProject() && currentProject().id === project.id) fillProjectView(project);
+    paintProjectEditActions(project);
+  });
+
+  iconProjectAside.addEventListener("click", function () {
+    const project = pickerProject();
+    if (!project) return;
+    project.aside = !project.aside;
+    if (project.aside && openInlineProject === project.id) {
+      openProjectSheet = null;
+      setInlineProjectLayout(false);
+    }
+    saveState();
+    renderList("projects");
+    paintProjectEditActions(project);
+  });
+
+  document.getElementById("iconProjectDelete").addEventListener("click", function () {
+    const project = pickerProject();
+    if (!project) return;
+    const fullView = currentProject() && currentProject().id === project.id;
+    iconPicker.hidden = true;
+    removeItem("projects", project.id);
+    if (fullView) closeProjectView();
+  });
 
   pickerWhy.addEventListener("input", function () {
     const project = pickerProject();
@@ -6053,30 +6513,43 @@
     }
   });
 
-  pickerOutcome.addEventListener("input", function () {
+  projectTypeToggle.addEventListener("click", function () {
     const project = pickerProject();
     if (!project) return;
-    project.outcome = pickerOutcome.value;
-    fitLine(pickerOutcome);
+    project.type = project.type === "leisure" ? "work" : "leisure";
+    projectTypeChanged = true;
     saveState();
-    if (currentProject() && currentProject().id === project.id) {
-      document.getElementById("pviewOutcome").value = project.outcome;
-    }
+    paintProjectType(project);
+    animateModeToggle(projectTypeToggle);
   });
 
   /* the panel is shared: whatever the last opener hid, put back */
   function resetPickerPanel() {
     document.getElementById("habitNameField").hidden = true;
     document.getElementById("iconCap").hidden = true;
+    projectEditHead.hidden = true;
+    projectEditActions.hidden = true;
   }
 
   const pickerName = document.getElementById("habitNameInput");
 
   /* close the picker on the × or the backdrop */
+  function finishProjectTypeChange() {
+    const project = projectTypeChanged ? pickerProject() : null;
+    projectTypeChanged = false;
+    if (!project) return;
+    const visible = (project.type === "leisure" ? "leisure" : "work") === projectMode();
+    if (!visible && openInlineProject === project.id) closeOpenInlineProject();
+    if (!visible && openProject === project.id) closeProjectView();
+    renderList("projects");
+    if (!skyView.hidden) renderSky();
+  }
+
   const iconCloseButtons = iconPicker.querySelectorAll("[data-close]");
   for (let i = 0; i < iconCloseButtons.length; i++) {
     iconCloseButtons[i].addEventListener("click", function () {
       iconPicker.hidden = true;
+      finishProjectTypeChange();
     });
   }
 
@@ -6571,9 +7044,13 @@
     const icon = document.createElement("button");
     icon.type = "button";
     icon.className = "item__ico item__ico--editable";
+    // Project marks are permanently virtual: this keeps their exact hit box in
+    // the field contract even when the optional all-surface mode is disabled.
+    icon.setAttribute("data-field-panel", "");
     icon.dataset.goal = project.id;
-    icon.setAttribute("aria-label", translate("editIconLabel"));
-    icon.title = translate("editIconLabel");
+    icon.dataset.imp = goalImportance(project);
+    icon.setAttribute("aria-label", translate("editProjectTitle"));
+    icon.title = translate("editProjectTitle");
     icon.innerHTML = projectSvg(project.icon || "folder");
     icon.addEventListener("click", function (event) {
       event.preventDefault();
@@ -6583,12 +7060,55 @@
     return icon;
   }
 
+  /* One scale is shared by every luminous trace of an objective. Small course
+     stars borrow only its intensity and deliberately keep their white light. */
+  function goalImportance(project) {
+    return Math.max(0, Math.min(PROJECT_IMPORTANCE, Number(project.importance) || 0));
+  }
+
+  function goalImportanceLight(project) {
+    return [.36, .48, .60, .72, .86, 1][goalImportance(project)];
+  }
+
+  /* Five quiet strokes at the right of a closed objective repeat the scale from
+     its editor without becoming a second editing control. */
+  function createProjectImportanceMark(project) {
+    const mark = document.createElement("span");
+    mark.className = "project-importance";
+    mark.dataset.goal = project.id;
+    mark.setAttribute("role", "img");
+    for (let i = 1; i <= PROJECT_IMPORTANCE; i++) {
+      const bar = document.createElement("span");
+      bar.dataset.level = i;
+      mark.appendChild(bar);
+    }
+    paintProjectImportanceMark(mark, project);
+    return mark;
+  }
+
+  function paintProjectImportanceMark(mark, project) {
+    const level = goalImportance(project);
+    mark.dataset.imp = level;
+    mark.setAttribute("aria-label", translate("importanceAria") + " " + level);
+    const bars = mark.children;
+    for (let i = 0; i < bars.length; i++) {
+      bars[i].classList.toggle("is-on", i < level);
+    }
+  }
+
   /* every mark of that objective on screen */
   function refreshGoalMarks(project) {
-    const icons = document.querySelectorAll('.item__ico[data-goal="' + project.id + '"]');
+    const level = goalImportance(project);
+    const icons = document.querySelectorAll('.item__ico[data-goal="' + project.id + '"], '
+      + '.detail__icon[data-goal="' + project.id + '"]');
     for (let i = 0; i < icons.length; i++) {
       icons[i].innerHTML = projectSvg(project.icon || "folder");
+      icons[i].dataset.imp = level;
     }
+    const rows = document.querySelectorAll('.item--project[data-id="' + project.id + '"]');
+    for (let i = 0; i < rows.length; i++) rows[i].dataset.imp = level;
+    const marks = document.querySelectorAll('.project-importance[data-goal="' + project.id + '"]');
+    for (let i = 0; i < marks.length; i++) paintProjectImportanceMark(marks[i], project);
   }
 
   /* AGENDA — date/time picker, reused for a task's due date and an event's reschedule */
@@ -9303,6 +9823,7 @@
     gauge.setAttribute("role", "progressbar");
     gauge.setAttribute("aria-valuenow", pct);
     gauge.title = pct + "%";
+    if (state.settings.fieldMode) fieldWake();
   }
 
 
@@ -9353,9 +9874,10 @@
     // A day to move and an eye to set aside stand in the object's own tool line.
     // Not in a band: there a task is planned by being dragged onto the calendar,
     // which is right there, and the line is kept to its name.
-    const bandLine = kind === "tasks" && !!openHost && inWorkBand(openHost);
-    detailWhenDay.hidden = bandLine;
-    detailHide.hidden = bandLine;
+    // the day and the eye are at the foot now, for a task; an event keeps its own
+    // pins, having no foot of its own
+    detailWhenDay.hidden = kind === "tasks";
+    detailHide.hidden = kind === "tasks";
     if (kind === "events") setTomorrowMode(item);
     setHideMode(item);
     detailBell.hidden = kind !== "events";
@@ -9378,10 +9900,53 @@
     // unfolded surface remains focused on the object's content.
     // In a band a sheet takes the place of the subtasks instead of opening
     // beside them, so the row opens on the subtasks and nothing is hidden away.
-    setTaskSheet(openHost && inWorkBand(openHost) ? null : RESTING_SHEET);
+    /* A set-aside task opens quietly on its subtasks only. Its sheet strip is
+       still rendered, so note, journal or canvas can be opened deliberately. */
+    if (kind === "events") taskEditActions.hidden = true;
+    else paintTaskEditActions(item);
+    setTaskSheet((openHost && inWorkBand(openHost)) || item.aside ? null : RESTING_SHEET);
     detailBody.scrollTop = 0;
   }
 
+
+  /* REPLAN, SET ASIDE, DELETE — the three that used to come over the row on
+     hover, half-covering the very line they act on. They are written out at the
+     foot of the panel the task opens into, the way an objective's three are at
+     the foot of its editor. Only the middle one reads differently by state, so
+     it is the only one repainted. */
+  const taskEditActions = document.getElementById("taskEditActions");
+  const taskEditAsideIcon = document.getElementById("taskEditAsideIcon");
+  const taskEditAsideLabel = document.getElementById("taskEditAsideLabel");
+
+  function paintTaskEditActions(item) {
+    taskEditAsideIcon.innerHTML = iconSvg(item.aside ? ICON_ASIDE_OFF : ICON_ASIDE);
+    taskEditAsideLabel.textContent = translate(item.aside ? "asideBack" : "asideLabel");
+    taskEditActions.hidden = false;
+  }
+
+  document.getElementById("taskEditWhen").addEventListener("click", function () {
+    const item = currentDetailItem();
+    if (item) openCalendar(item.id, "tasks");
+  });
+  /* Both of these take the task out of the list it is open in, so the panel is
+     shut first. Held open it locks the lists — the redraw would be put off until
+     the panel closed, and setting a task aside would read as nothing at all
+     having happened. */
+  document.getElementById("taskEditAside").addEventListener("click", function () {
+    const item = currentDetailItem();
+    if (!item) return;
+    closeDetail();
+    toggleAside(item, function () {
+      renderList("tasks");
+      renderDailyTimeline();
+    });
+  });
+  document.getElementById("taskEditDelete").addEventListener("click", function () {
+    const item = currentDetailItem();
+    if (!item) return;
+    closeDetail();
+    removeItem("tasks", item.id);
+  });
 
   /* INLINE EDITING — one editor card, moved into whichever row is open rather
      than a window opening over the page. Clicking a task unfolds the task
@@ -9432,7 +9997,7 @@
     if (openTaskSheet !== "canvas") releaseCanvasSheet(detailSheet);
     paintDocRail(isEvent);
     if (!item) return;
-    renderSheetInto(detailSheet, item, openTaskSheet);
+    renderSheetInto(detailSheet, item, openTaskSheet, isEvent);
     if (!isEvent) {
       paintSheetStrip(detailSheets, item, openTaskSheet, pickTaskSheet, inWorkBand(row));
     }
@@ -9495,12 +10060,72 @@
      there would fight the flip and squash what is written on it. */
   function isCardBack(host) { return !!host.closest(".ecal__verso"); }
 
+  /* a step's field is fitted to its text a frame after it is built, which is a
+     frame after the fold is read: every step would count as one line */
+  function fitOwnLines(host) {
+    const fields = host.querySelectorAll("textarea.step__text");
+    for (let i = 0; i < fields.length; i++) fitLine(fields[i]);
+  }
+
+  /* Putting a part back means taking off the class that had just been put on it,
+     never writing its width back as a value: what is read back is in pixels, and
+     a track list in pixels does not interpolate into one in fr — the second panel
+     jumped open instead of sliding. Which class it was is found by taking each
+     one off in turn and seeing which brings the layout back where it was. */
+  function takeBackClass(part) {
+    for (let i = 0; i < part.names.length; i++) {
+      if (!part.el.classList.contains(part.names[i])) continue;
+      part.el.classList.remove(part.names[i]);
+      part.el.offsetWidth;
+      if (window.getComputedStyle(part.el).gridTemplateColumns === part.from) {
+        return part.names[i];
+      }
+      part.el.classList.add(part.names[i]);
+    }
+    return null;                            // nothing was moving here
+  }
+
+  /* MEASURED AT THE SIZE IT IS GOING TO HAVE — a fold opens in under half a second
+     and for that same half second everything around it is still moving: the page
+     track re-proportions its columns, the sheet beside the page opens from no
+     width at all, and the fields inside are fitted to their text a frame later.
+     Read in that instant the content has the wrong width, so it has the wrong
+     height — a note measured at a ribbon's width came out fourteen thousand pixels
+     tall, and a step measured before its field was fitted counted one line where
+     it needed three. Everything still moving is settled on the width it is heading
+     for, the fields are fitted there, the height is taken, and each part is put
+     back so its own opening plays out from where it was. */
+  function foldHeight(host) {
+    const parts = [];
+    const track = document.getElementById("pagesTrack");
+    const grid = host.querySelector(".task-inline__workspace, .goal-inline__workspace");
+    if (track) parts.push({ el: track, names: ["is-goal-open", "is-task-sheet-open"] });
+    if (grid) parts.push({ el: grid, names: ["is-sheet-open"] });
+    if (!parts.length) { fitOwnLines(host); return host.getBoundingClientRect().height; }
+
+    for (let i = 0; i < parts.length; i++) {
+      parts[i].from = window.getComputedStyle(parts[i].el).gridTemplateColumns;
+      parts[i].el.style.transition = "none";
+    }
+    parts[0].el.offsetWidth;                // settled on the widths they head for
+    fitOwnLines(host);                      // and the fields fitted at those widths
+    const height = host.getBoundingClientRect().height;
+
+    for (let i = 0; i < parts.length; i++) parts[i].taken = takeBackClass(parts[i]);
+    for (let i = 0; i < parts.length; i++) parts[i].el.style.transition = "";
+    parts[0].el.offsetWidth;                // committed with the transitions back on
+    for (let i = 0; i < parts.length; i++) {
+      if (parts[i].taken) parts[i].el.classList.add(parts[i].taken);
+    }
+    return height;
+  }
+
   function openFold(host) {
     if (isCardBack(host)) return;
     fieldWake();                 // everything below is about to move
     const fold = host.parentNode;
     clearTimeout(foldTimer);
-    fold.style.height = host.getBoundingClientRect().height + "px";
+    fold.style.height = foldHeight(host) + "px";
     foldTimer = setTimeout(function () { fold.style.height = "auto"; }, UNFOLD_MS);
   }
   function shutFold(host) {
@@ -9783,13 +10408,15 @@
     // after the other row has closed: closing one clears the open sheet, which
     // would take this one's resting note with it. In a band the sheet replaces
     // the course rather than opening beside it, so the course stays on show.
-    openProjectSheet = inWorkBand(row) ? null : RESTING_SHEET;
+    /* A hidden objective keeps its steps in the planning column. The sheet
+       icons remain in its title and can still open the optional column. */
+    openProjectSheet = inWorkBand(row) || project.aside ? null : RESTING_SHEET;
     row.classList.add("is-inline-open");   // its name is measured at its open size
     renderInlineProject(fold.firstChild, project);
     row.setAttribute("aria-expanded", "true");
     fold.style.height = "0px";
     fold.offsetWidth;
-    fold.style.height = fold.firstChild.scrollHeight + "px";
+    fold.style.height = foldHeight(fold.firstChild) + "px";
     setTimeout(function () {
       if (openInlineProject === project.id && fold.isConnected) fold.style.height = "auto";
     }, INLINE_PROJECT_MS);
@@ -9911,9 +10538,32 @@
   /* A step can become concrete by being carried onto the task flow or the
      clock. A mouse drag starts on movement; touch waits for the same long press
      as task rows so an ordinary tap remains a completion toggle. */
+  /* only one step shows its actions, and a press anywhere else shuts it */
+  function openStepActs(row) {
+    const open = document.querySelectorAll(".step.is-acting");
+    for (let i = 0; i < open.length; i++) {
+      if (open[i] === row) continue;
+      open[i].classList.remove("is-acting");
+      const pip = open[i].querySelector(".step__pip");
+      if (pip) pip.setAttribute("aria-expanded", "false");
+    }
+    if (!row) return;
+    row.classList.add("is-acting");
+    const pip = row.querySelector(".step__pip");
+    if (pip) pip.setAttribute("aria-expanded", "true");
+  }
+
+  document.addEventListener("click", function (event) {
+    if (event.target.closest && event.target.closest(".step__acts, .step__pip")) return;
+    openStepActs(null);
+  });
+
   function armInlineStepDrag(dot, node, project, step) {
     dot.addEventListener("pointerdown", function (event) {
       if (event.pointerType === "mouse" && event.button !== 0) return;
+      // the whole row is the handle: what is written in it stays selectable, and
+      // its buttons stay pressable
+      if (dot === node && event.target.closest("textarea, input, button")) return;
       const from = { x: event.clientX, y: event.clientY };
       let started = false;
       let timer = null;
@@ -10525,18 +11175,37 @@
     row.style.setProperty("--step-color", color);
     row.style.setProperty("--goal-color", color);
 
-    const drag = document.createElement("button");
-    drag.type = "button";
-    drag.className = "step__drag";
-    drag.setAttribute("aria-label", translate("stepDragAria"));
-    drag.title = translate("stepDragAria");
-    drag.innerHTML = iconSvg('<circle cx="8" cy="7" r="1"/><circle cx="16" cy="7" r="1"/>'
-      + '<circle cx="8" cy="12" r="1"/><circle cx="16" cy="12" r="1"/>'
-      + '<circle cx="8" cy="17" r="1"/><circle cx="16" cy="17" r="1"/>');
-    armInlineStepDrag(drag, row, project, step);
-    row.appendChild(drag);
+    // THE ROW IS THE HANDLE — six dots and a coloured rail took a third of the
+    // width of a step to say two things the row itself can say: that it can be
+    // taken, and how far along it is. Taken by the row now, anywhere that is not
+    // what is written in it or a button.
+    row.title = translate("stepDragAria");
+    armInlineStepDrag(row, row, project, step);
 
-    row.appendChild(createCheckbox(function () { toggleStep(project, step.id, row); }));
+    // ONE PIP, AND WHAT IT OPENS — a step used to wear a rail, a grip of six dots
+    // and a box before a single word of it could be read. It wears one round mark
+    // now: it says the step's colour, and filled, that the step is done. Pressed,
+    // it opens the three things one does to a step in a small pane that rests over
+    // the line rather than in it, so the writing keeps the whole width.
+    const pip = document.createElement("button");
+    pip.type = "button";
+    pip.className = "step__pip";
+    pip.setAttribute("aria-label", translate("stepsLabel"));
+    pip.setAttribute("aria-expanded", "false");
+    pip.addEventListener("click", function (event) {
+      event.stopPropagation();
+      openStepActs(row.classList.contains("is-acting") ? null : row);
+    });
+    row.appendChild(pip);
+
+    // Two presses tick it outright — the pane is for the two other things. What is
+    // written in the step is left out of it: a double press in a text is how a
+    // word is taken hold of, and that is not a step being finished.
+    row.addEventListener("dblclick", function (event) {
+      if (event.target.closest("textarea, .step__acts")) return;
+      openStepActs(null);
+      toggleStep(project, step.id, row);
+    });
 
     // a textarea rather than an input: a long step has to be readable whole, and
     // a single-line field can only ever show the end of what was typed
@@ -10567,7 +11236,6 @@
     aside.addEventListener("click", function () {
       toggleAside(step, function () { refreshAsideStep(project); });
     });
-    row.appendChild(aside);
 
     const del = document.createElement("button");
     del.type = "button";
@@ -10575,7 +11243,15 @@
     del.setAttribute("aria-label", translate("deleteAria"));
     del.textContent = "×";
     del.addEventListener("click", function () { removeStep(project, step.id); });
-    row.appendChild(del);
+
+    const acts = document.createElement("div");
+    acts.className = "step__acts";
+    acts.append(createCheckbox(function () {
+      openStepActs(null);
+      toggleStep(project, step.id, row);
+    }), aside, del);
+    acts.addEventListener("click", function () { openStepActs(null); });
+    row.appendChild(acts);
     return row;
   }
 
@@ -10986,7 +11662,6 @@
   const pviewName = document.getElementById("pviewName");
   const pviewIcon = document.getElementById("pviewIcon");
   const pviewWhy = document.getElementById("pviewWhy");
-  const pviewOutcome = document.getElementById("pviewOutcome");
   const pviewDone = document.getElementById("pviewDone");
   const pviewSteps = document.getElementById("pviewSteps");
   const pviewSheets = document.getElementById("pviewSheets");
@@ -11029,11 +11704,10 @@
   function fillProjectView(project) {
     pviewName.value = project.text || "";
     pviewIcon.dataset.goal = project.id;
+    pviewIcon.dataset.imp = goalImportance(project);
     pviewIcon.innerHTML = projectSvg(project.icon || "folder");
     pviewWhy.value = project.why || "";
-    pviewOutcome.value = project.outcome || "";
     fitLine(pviewWhy);
-    fitLine(pviewOutcome);
     pviewDone.classList.toggle("is-on", !!project.done);
     document.getElementById("pviewDoneLabel").textContent =
       translate(project.done ? "reopenLabel" : "completeLabel");
@@ -11058,6 +11732,35 @@
     const wanted = field.scrollHeight;
     if (!wanted) { field.style.height = ""; fitWhenShown(field); return; }
     field.style.height = wanted + "px";
+    fitWhileMoving(field);
+  }
+
+  /* THE WIDTH IT WILL HAVE, NOT THE ONE IT OPENS ON — the panel a step stands in
+     is a grid whose columns take half a second to settle, and a field fitted a
+     frame after it is built is fitted at a width it is about to lose. Opening
+     beside a sheet the column halves, so a step that needs two lines is left
+     showing one; opening on a canvas it collapses, so a short step is left with
+     a tail of empty lines. It is refitted while its width is still moving, and
+     let go once the opening is over — nothing is watched for the rest of the
+     session, the fields are rebuilt far too often for that. */
+  const FIT_WATCH_MS = 900;
+
+  function fitWhileMoving(field) {
+    if (!window.ResizeObserver || field.dataset.fitWatch) return;
+    field.dataset.fitWatch = "1";
+    let width = field.clientWidth;
+    const watcher = new ResizeObserver(function () {
+      if (field.clientWidth === width) return;   // its own height, not a reflow
+      width = field.clientWidth;
+      // resized from inside the callback, the observer complains of a loop it
+      // has not finished delivering; the next frame is soon enough
+      requestAnimationFrame(function () { fitLine(field); });
+    });
+    watcher.observe(field);
+    setTimeout(function () {
+      watcher.disconnect();
+      delete field.dataset.fitWatch;
+    }, FIT_WATCH_MS);
   }
 
   function fitWhenShown(field) {
@@ -11469,7 +12172,7 @@
 
   /* One sheet, drawn into whatever holds it: the same three bodies serve the
      unfolded task, the unfolded objective and the panel a star opens. */
-  function renderSheetInto(host, item, kind) {
+  function renderSheetInto(host, item, kind, plain) {
     host.innerHTML = "";
     host.dataset.sheet = kind || "";
     if (!kind) return;
@@ -11482,9 +12185,35 @@
       label.textContent = translate(SHEET_LABELS[kind]);
       host.appendChild(label);
     }
-    if (kind === "note") host.appendChild(createNoteSheet(item));
+    if (kind === "note") host.appendChild(plain ? createPlainNote(item) : createNoteSheet(item));
     else if (kind === "journal") host.appendChild(createJournalSheet(item));
     else host.appendChild(createCanvasSheet(item));
+  }
+
+  /* AN EVENT IS NOT A PAGE — a task and an objective carry a notepad, ruled and
+     with a bar of its own, because what is written on them grows with them. An
+     event is a moment in a day: what it carries is a line or two, and a plain
+     field is the honest shape for that. Whatever the notepad may have left in
+     there is read back as lines rather than as markup. */
+  function plainNoteText(item) {
+    const raw = item.notes || "";
+    if (raw.indexOf("<") === -1) return raw;
+    const box = document.createElement("div");
+    box.innerHTML = raw.replace(/<\/(p|div|li)>/gi, "\n").replace(/<br\s*\/?>/gi, "\n");
+    return (box.textContent || "").replace(/\n{3,}/g, "\n\n").trim();
+  }
+
+  function createPlainNote(item) {
+    const field = document.createElement("textarea");
+    field.className = "detail__notes";
+    field.rows = 3;
+    field.placeholder = translate("notesPlaceholder");
+    field.value = plainNoteText(item);
+    field.addEventListener("input", function () {
+      item.notes = field.value;
+      saveState();
+    });
+    return field;
   }
 
   /* A NOTE IS A NOTEPAD — the panel shows the very page the canvas shows: the
@@ -11820,8 +12549,10 @@
       id: (extra && extra.id) || Date.now().toString(),
       text: text || translate("addProjectAria"),
       icon: randomSpaceIcon(),
+      importance: 0,
       sky: freeSkySpot(state.projects.length),
-      why: "", outcome: "",
+      type: projectMode(),
+      why: "",
       journal: []
     };
     if (extra) {
@@ -11932,14 +12663,6 @@
     if (!project) return;
     project.why = pviewWhy.value;
     fitLine(pviewWhy);
-    saveState();
-  });
-
-  pviewOutcome.addEventListener("input", function () {
-    const project = currentProject();
-    if (!project) return;
-    project.outcome = pviewOutcome.value;
-    fitLine(pviewOutcome);
     saveState();
   });
 
@@ -12410,14 +13133,56 @@
      same objective it was reading. */
   let skyLentToCard = null;      // "" for the map with no objective, an id otherwise
 
+  /* Full-screen space always keeps the virtual field on a fixed night. The
+     calendar is different: it borrows the surrounding field only when that
+     field is genuinely dark; paper-like grounds retain the ordinary opaque
+     night so the map cannot wash out. Reading the resolved colour also honours
+     a hand-edited theme instead of trusting its name. */
+  function syncSkySurface() {
+    const room = document.getElementById("skyView");
+    if (!room) return;
+    const ground = readColour(getComputedStyle(document.documentElement)
+      .getPropertyValue("--c-bg"));
+    const luminance = (ground[0] * .2126 + ground[1] * .7152 + ground[2] * .0722) / 255;
+    const virtualCard = !!state.settings.fieldMode
+      && room.classList.contains("is-oncard") && luminance < .46;
+    room.classList.toggle("is-virtual-card", virtualCard);
+    if (state.settings.fieldMode && !room.hidden) {
+      requestAnimationFrame(function () { fieldWake(); });
+    }
+  }
+
+  /* In virtual mode the sky stands on the real field, just like the thinking
+     space. Full screen needs the canvas inside its stacking context so the app
+     below stays occluded; the calendar back already looks onto the global one. */
+  function mountFieldInSky() {
+    if (!state.settings.fieldMode) {
+      coverField(true);
+      return;
+    }
+    fieldCovered = false;
+    skyView.insertBefore(fieldCanvas, skyView.firstChild);
+    fieldResize();
+    panelsDirty = true;
+    fieldWake();
+  }
+
+  function releaseFieldFromSky() {
+    if (skyView.contains(fieldCanvas)) {
+      document.body.insertBefore(fieldCanvas, document.getElementById("decor"));
+    }
+    panelsDirty = true;
+    coverField(false);
+  }
+
   function openSky() {
     if (skyOnCard) {
       skyLentToCard = cardBackId || "";
       setCalFlipped(false);      // hands the sky back and shows the calendar again
     }
     returnSky();   // it may be lent to the calendar: take it back before raising it
-    coverField(true);
     skyView.hidden = false;
+    mountFieldInSky();
     buildStarfield();
     placeCamera();
     applyCamera();
@@ -12433,7 +13198,7 @@
     skyView.classList.remove("is-open");
     setTimeout(function () {
       skyView.hidden = true;
-      coverField(false);
+      releaseFieldFromSky();
       if (skyLentToCard === null) return;
       const back = skyLentToCard;
       skyLentToCard = null;
@@ -12444,16 +13209,21 @@
   function renderSky() {
     const stars = skyCamera.querySelectorAll(".pstar");
     for (let i = 0; i < stars.length; i++) stars[i].remove();
-    skyEmptyMsg.hidden = state.projects.length > 0;
+    const projects = projectsInMode();
+    skyEmptyMsg.hidden = projects.length > 0;
     const spots = {};
-    for (let i = 0; i < state.projects.length; i++) {
-      const project = state.projects[i];
+    for (let i = 0; i < projects.length; i++) {
+      const project = projects[i];
       const star = createStar(project, i);
       spots[project.id] = { x: parseFloat(star.style.left), y: parseFloat(star.style.top) };
       skyCamera.appendChild(star);
     }
     renderBranches(spots);
     renderSkyRoll();
+    if (state.settings.fieldMode) {
+      panelsDirty = true;
+      fieldWake();
+    }
     // a redraw must not lose the dive — and on the card the dive is not the panel
     // being open, it is the objective the band has open, so it is read from there
     if (skyFlat) return;
@@ -12467,8 +13237,9 @@
   function renderSkyRoll() {
     const host = document.getElementById("skyList");
     host.innerHTML = "";
-    for (let i = 0; i < state.projects.length; i++) {
-      const project = state.projects[i];
+    const projects = projectsInMode();
+    for (let i = 0; i < projects.length; i++) {
+      const project = projects[i];
       if (project.done) continue;
       host.appendChild(createRollRow(project));
     }
@@ -12644,6 +13415,7 @@
       for (let i = 0; i < part.chain.length; i++) nodes.push(part.chain[i].at);
       setRaySegments(skyChain.project.id, p, skyChain.centre, nodes);
     }
+    if (state.settings.fieldMode) fieldWake();
 
     if (awake || skyChain.held) {
       skyChain.frame = requestAnimationFrame(stepChain);
@@ -12834,12 +13606,20 @@
   }
 
   function createBranchStar(project, step, spot) {
+    const importanceLight = goalImportanceLight(project);
+    const magnitude = spot.magnitude || 0.8;
     const dot = document.createElement("button");
     dot.type = "button";
     dot.className = step.completedDate ? "bstar is-done" : "bstar";
     dot.style.left = spot.x + "%";
     dot.style.top = spot.y + "%";
-    dot.style.setProperty("--mag", (spot.magnitude || 0.8).toFixed(2));
+    dot.style.setProperty("--mag", magnitude.toFixed(2));
+    dot.style.setProperty("--branch-light",
+      (importanceLight * (.30 + magnitude * .28)).toFixed(2));
+    dot.style.setProperty("--branch-done-light",
+      (importanceLight * (.80 + magnitude * .20)).toFixed(2));
+    dot.style.setProperty("--branch-hover-light",
+      Math.min(1, importanceLight * 1.12).toFixed(2));
     dot.setAttribute("aria-label", step.text || translate("stepPlaceholder"));
     dot.addEventListener("click", function (event) {
       event.stopPropagation();
@@ -12929,6 +13709,7 @@
         el.style.top = at.y + "%";
         place(at.x - project.sky.x, at.y - project.sky.y);
         redrawRays(project);
+        if (appReady && state.settings.fieldMode) fieldWake();
       };
       const up = function () {
         el.removeEventListener("pointermove", move);
@@ -12983,8 +13764,12 @@
 
 
   function createStar(project, index) {
-    const progress = stepProgress(project);
     const momentum = projectMomentum(project);
+    const importance = goalImportance(project);
+    const importanceLight = goalImportanceLight(project);
+    /* Importance supplies the magnitude; recent activity still makes a star
+       breathe inside that ceiling instead of replacing what the project weighs. */
+    const glow = importanceLight * (.60 + momentum * .40);
     const silence = projectSilence(project);
     const dormant = silence >= DORMANT_DAYS && !project.done;
     const spot = project.sky;
@@ -12998,9 +13783,12 @@
     star.dataset.id = project.id;
     star.style.left = spot.x + "%";
     star.style.top = spot.y + "%";
-    // weight is set aside, so every star is the same size until it comes back
-    star.style.setProperty("--star-size", "18px");
-    star.style.setProperty("--star-glow", momentum.toFixed(2));
+    star.style.setProperty("--star-size",
+      (11 + importance * 3.4) + "px");
+    star.style.setProperty("--star-light", importanceLight.toFixed(2));
+    star.style.setProperty("--star-glow", glow.toFixed(2));
+    star.style.setProperty("--star-hover-glow", Math.min(1, glow * 1.24).toFixed(2));
+    star.style.setProperty("--star-dormant-glow", (glow * .34).toFixed(2));
     star.style.animationDuration = (7 - momentum * 4).toFixed(1) + "s";
 
     star.innerHTML = STAR_MARKUP;
@@ -13190,6 +13978,7 @@
       sheet.atY = stepY;
       sheet.el.style.backgroundPosition = stepX + "px " + stepY + "px";
     }
+    if (state.settings.fieldMode && !skyView.hidden) fieldWake();
   }
 
   function aimCamera(x, y, scale) {
@@ -13392,6 +14181,7 @@
         // that gap is the whole point of the string
         if (!skyChain) startChain(project, { x: start.sx, y: start.sy }, true);
         aimChain(project.sky);
+        if (state.settings.fieldMode) fieldWake();
       };
       const up = function () {
         star.removeEventListener("pointermove", move);
@@ -13741,11 +14531,9 @@
     num.textContent = String(dayNumber);
     cell.appendChild(num);
 
-    // UNFOLDED, THE GRID IS THE WORK ZONE — a day then says what is to be done on
-    // it, not what is happening on it: one dot per task still open, in the colour
-    // of what it comes from. Folded, it is the week of the day, and it says its
-    // events as it always has.
-    if (calExpanded) paintDayTasks(cell, key);
+    // Unfolded work names what must be done; leisure keeps reading what happens.
+    // The mode therefore changes the dots, not the calendar's geometry.
+    if (calExpanded && projectMode() === "work") paintDayTasks(cell, key);
     else paintDayEvents(cell, key);
     cell.addEventListener("click", function () {
       if (Date.now() < calendarDayDragUntil) return;
@@ -13814,6 +14602,78 @@
      folded again. One list, wherever it is being worked in. */
   const calBandLeft = document.getElementById("calBandLeft");
   const calBandRight = document.getElementById("calBandRight");
+
+  /* THE IDEA BOX — deliberately shallower than a task model: a line of text and
+     its place in the pocket are all an idea owns. New thoughts land on top. */
+  function renderIdeas() {
+    const host = document.getElementById("ideasList");
+    const empty = document.getElementById("ideasEmpty");
+    const count = document.getElementById("ideasCount");
+    if (!host || !empty || !count) return;
+    host.innerHTML = "";
+    count.textContent = state.ideas.length || "";
+    empty.hidden = state.ideas.length > 0;
+
+    for (let i = state.ideas.length - 1; i >= 0; i--) {
+      const idea = state.ideas[i];
+      const row = document.createElement("div");
+      row.className = "idea-box__item";
+      row.dataset.idea = idea.id;
+      row.setAttribute("data-field-panel", "");
+
+      const spark = document.createElement("span");
+      spark.className = "idea-box__spark";
+      spark.setAttribute("aria-hidden", "true");
+
+      const text = document.createElement("textarea");
+      text.className = "idea-box__text";
+      text.rows = 1;
+      text.maxLength = 240;
+      text.value = idea.text;
+      text.addEventListener("input", function () {
+        idea.text = text.value;
+        fitLine(text);
+        saveState();
+        if (state.settings.fieldMode) fieldWake();
+      });
+      text.addEventListener("keydown", function (event) {
+        if (event.key === "Enter" && !event.shiftKey) {
+          event.preventDefault();
+          text.blur();
+        }
+      });
+
+      const remove = document.createElement("button");
+      remove.type = "button";
+      remove.className = "idea-box__delete";
+      remove.setAttribute("aria-label", translate("deleteAria"));
+      remove.textContent = "×";
+      remove.addEventListener("click", function () {
+        state.ideas.splice(i, 1);
+        saveState();
+        renderIdeas();
+      });
+
+      row.append(spark, text, remove);
+      host.appendChild(row);
+      requestAnimationFrame(function () { fitLine(text); });
+    }
+    if (appReady && state.settings.fieldMode) fieldWake();
+  }
+
+  const ideaForm = document.getElementById("ideaForm");
+  const ideaInput = document.getElementById("ideaInput");
+  ideaForm.addEventListener("submit", function (event) {
+    event.preventDefault();
+    const text = ideaInput.value.trim();
+    if (!text) return;
+    state.ideas.push({ id: "idea-" + Date.now(), text: text });
+    ideaInput.value = "";
+    saveState();
+    renderIdeas();
+    try { ideaInput.focus({ preventScroll: true }); }
+    catch (err) { ideaInput.focus(); }
+  });
 
   /* The lists are drawings and are redrawn where they are wanted. The ways to add
      are not: the quick line holds what is being typed into it, its caret and its
@@ -14413,7 +15273,12 @@
     const toTop = cellTop(anchor);
     const slide = (fromTop != null && toTop != null) ? fromTop - toTop : 0;
 
-    ecalViewport.style.overflow = "hidden";
+    // Unfolding, the month is drawn in full from the first frame and the rows not
+    // yet grown into have to stay out of sight: a hard edge. Folding, there is
+    // only the week in the grid and nothing under it to hide, and a hard edge
+    // there cuts the pool of light today carries below itself — so the clip is
+    // let out by a few pixels, see THE DAY'S HALO.
+    ecalViewport.style.overflow = calExpanded ? "hidden" : "clip";
     ecalViewport.style.height = fromHeight + "px";
     ecalGrid.style.transition = "none";
     ecalGrid.style.transform = "translateY(" + slide.toFixed(1) + "px)";
@@ -14439,10 +15304,12 @@
     ecalToggle.setAttribute("aria-expanded", calExpanded ? "true" : "false");
 
     clearTimeout(calTimer);
+    // the extra tail is for the rows growing in one after another; folding has
+    // none, and holding the clip past the movement leaves the halo cut on screen
     calTimer = setTimeout(function () {
       ecalViewport.style.height = "";
       ecalViewport.style.overflow = "";
-    }, CAL_MS + 260);
+    }, CAL_MS + (calExpanded ? 260 : 0));
   }
   ecalToggle.addEventListener("click", toggleCalendar);
 
@@ -14617,7 +15484,9 @@
   function undatedChip(event) {
     const chip = document.createElement("button");
     chip.type = "button";
-    chip.className = event.important ? "undated__chip is-important" : "undated__chip";
+    chip.className = "undated__chip undated__chip--event"
+      + (event.important ? " is-important" : "");
+    chip.dataset.fieldPanel = "";
     chip.dataset.event = event.id;
     chip.title = event.text;
 
@@ -14863,6 +15732,19 @@
     return "linear-gradient(90deg in oklab, " + parts.join(", ") + ")";
   }
 
+  /* HALF A SUN ON A HORIZON — two words under an hour said which of the two it
+     was, in a place where there is barely room for the hour. The drawing says it
+     by standing where the sun stands: the disc rides out of the line at the rise
+     and sinks back into it at the set, the rays open and close with it, and it is
+     lit in its own colour, warm one end of the day and rose the other. */
+  const SUN_HALF_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"'
+    + ' stroke-width="1.7" stroke-linecap="round" aria-hidden="true">'
+    + '<path class="sunico__disc" d="M7.6 16.4a4.4 4.4 0 0 1 8.8 0Z"'
+    + ' fill="currentColor" stroke="none"/>'
+    + '<g class="sunico__rays"><path d="M12 4.7v2.3"/><path d="M5.9 7.6 7.5 9.2"/>'
+    + '<path d="M18.1 7.6 16.5 9.2"/><path d="M3.2 13.6h2.3"/><path d="M20.8 13.6h-2.3"/></g>'
+    + '<line class="sunico__line" x1="2.6" y1="16.4" x2="21.4" y2="16.4"/></svg>';
+
   /* a sunrise/sunset marker: a dot on the rule, a stem, the reading above it */
   function sunMarker(timeText, captionKey, pct) {
     const marker = document.createElement("div");
@@ -14875,8 +15757,10 @@
     time.className = "dtl__marker-time";
     time.textContent = timeText;
     const caption = document.createElement("span");
-    caption.className = "dtl__marker-caption";
-    caption.textContent = translate(captionKey);
+    caption.className = "dtl__marker-ico";
+    caption.title = translate(captionKey);
+    caption.setAttribute("aria-label", translate(captionKey));
+    caption.innerHTML = SUN_HALF_ICON;
     const stem = document.createElement("span");
     stem.className = "dtl__marker-stem";
     const dot = document.createElement("span");
@@ -14923,7 +15807,9 @@
   function renderTimeRule() {
     const sun = todaySun();
     const windowStart = windowStartMs();
-    document.getElementById("dtlStrip").style.background = stripGradient(sun, windowStart);
+    const strip = document.getElementById("dtlStrip");
+    const gradient = stripGradient(sun, windowStart);
+    strip.style.background = gradient;
     renderDtlTicks(windowStart);
 
     const markers = document.getElementById("dtlMarkers");
@@ -14959,7 +15845,6 @@
 
     renderTimelineItems(windowStart);
     fieldWake();   // the block field carries the sun's light, so it repaints too
-    syncSceneHorizon();   // and the threshold's cloud hangs off the rule
   }
 
   function renderDailyTimeline() {
@@ -15075,7 +15960,14 @@
     const sky = rampColor(offset);
     // a dark sky would give a halo nobody can see, so lift it to a steady glow
     const lum = (sky[0] * .2126 + sky[1] * .7152 + sky[2] * .0722) / 255;
-    const core = mixRgb(sky, [255, 251, 242], Math.max(0, .8 - lum));
+    let core = mixRgb(sky, [255, 251, 242], Math.max(0, .8 - lum));
+    /* On pale themes moonlight belongs to the palette instead of becoming a
+       white disc. Blend over the first 24 minutes below the horizon so sunset
+       still passes through its warm colours before settling on the signature. */
+    const moonCore = getComputedStyle(cursor).getPropertyValue("--dtl-moon-core").trim();
+    if (offset < 0 && moonCore) {
+      core = mixRgb(core, readColour(moonCore), Math.min(1, -offset / 24));
+    }
 
     // one colour for the whole halo: tinting the tail towards the sky made it
     // vanish at night, leaving a round disc where the day had a long smear
@@ -15707,6 +16599,41 @@
     return parseInt(parts[0], 10) * 60 + parseInt(parts[1], 10);
   }
 
+  /* A marker is a small physical thing above the time rule, so the sun can catch
+     the edge turned towards it. Use the boxes actually drawn on screen: cluster
+     shifts, lifted lanes, responsive widths and the moving present are then all
+     accounted for without maintaining a second coordinate system. */
+  function paintTimelineSunReflections(layer) {
+    const cursor = document.getElementById("dtlCursor");
+    if (!cursor || cursor.hidden) return;
+    const sunBox = cursor.getBoundingClientRect();
+    const sunX = sunBox.left + sunBox.width / 2;
+    const sunY = sunBox.top + sunBox.height / 2;
+    const sourceColor = getComputedStyle(cursor).getPropertyValue("--sun-core").trim()
+      || "#ffd67a";
+    const lineWidth = dtlEl.getBoundingClientRect().width;
+    const reach = Math.max(320, Math.min(620, lineWidth * .16));
+    const icons = layer.querySelectorAll(".dtl__event .dtl__event-icon");
+
+    for (let i = 0; i < icons.length; i++) {
+      const box = icons[i].getBoundingClientRect();
+      const dx = sunX - (box.left + box.width / 2);
+      const dy = sunY - (box.top + box.height / 2);
+      const distance = Math.hypot(dx, dy);
+      if (!distance || distance >= reach) continue;
+      const strength = .9 * Math.pow(1 - distance / reach, .75);
+      if (strength < .04) continue;
+      const edge = 42;
+      icons[i].classList.add("has-sun-reflection");
+      icons[i].style.setProperty("--sun-reflect-x",
+        (50 + dx / distance * edge).toFixed(1) + "%");
+      icons[i].style.setProperty("--sun-reflect-y",
+        (50 + dy / distance * edge).toFixed(1) + "%");
+      icons[i].style.setProperty("--sun-reflect-strength", strength.toFixed(3));
+      icons[i].style.setProperty("--sun-reflect-color", sourceColor);
+    }
+  }
+
   /* Events and dated tasks share one collision layout: each object gets its
      icon and the same filament down to its exact minute. */
   function renderTimelineItems(windowStart) {
@@ -15728,16 +16655,18 @@
           visible.push({ kind: "event", data: event, at: at, pct: pct });
         }
       }
-      const dayTasks = tasksOnDay(keys[d]);
-      for (let i = 0; i < dayTasks.length; i++) {
-        const task = dayTasks[i];
-        // dated but not timed: it belongs to its day, not to a minute of it, so
-        // it stays in the day's part of the list and never reaches the rule
-        if (!task.dueTime) continue;
-        const at = new Date(task.dueDate + "T" + task.dueTime).getTime();
-        const pct = timePct(at, windowStart);
-        if (pct >= 0 && pct <= 100) {
-          visible.push({ kind: "task", data: task, at: at, pct: pct });
+      if (projectMode() === "work") {
+        const dayTasks = tasksOnDay(keys[d]);
+        for (let i = 0; i < dayTasks.length; i++) {
+          const task = dayTasks[i];
+          // dated but not timed: it belongs to its day, not to a minute of it, so
+          // it stays in the day's part of the list and never reaches the rule
+          if (!task.dueTime) continue;
+          const at = new Date(task.dueDate + "T" + task.dueTime).getTime();
+          const pct = timePct(at, windowStart);
+          if (pct >= 0 && pct <= 100) {
+            visible.push({ kind: "task", data: task, at: at, pct: pct });
+          }
         }
       }
     }
@@ -15828,6 +16757,7 @@
       else armEventTimeDrag(marker, data, windowStart);
       layer.appendChild(marker);
     }
+    paintTimelineSunReflections(layer);
   }
 
   let sectionDay = null;   // null means today
@@ -15966,6 +16896,7 @@
     clearCardBack(host);
     host.classList.add("is-sky");
     skyView.classList.add("is-oncard");
+    syncSkySurface();
     skyView.hidden = false;
     host.appendChild(skyView);
     showCardBack();
@@ -15995,7 +16926,7 @@
     stopSkyLife();
     const stars = skyCamera.querySelectorAll(".pstar");
     for (let i = 0; i < stars.length; i++) stars[i].classList.remove("is-focused");
-    skyView.classList.remove("is-open", "is-oncard", "is-diving");
+    skyView.classList.remove("is-open", "is-oncard", "is-diving", "is-virtual-card");
     skyView.hidden = true;
     document.body.appendChild(skyView);
     paintSkyButton();
@@ -16375,6 +17306,8 @@
     calFlipAngle += 180;
     calCard.style.setProperty("--cal-flip", calFlipAngle + "deg");
     calCard.classList.toggle("is-flipped", !!on);
+    panelsDirty = true;
+    fieldWake();
     const host = document.getElementById("eventFold");
     host.setAttribute("aria-hidden", on ? "false" : "true");
     if (!on) {
@@ -17360,6 +18293,15 @@
     return !!target.closest("input, textarea, select, [contenteditable]:not([contenteditable='false'])");
   }
 
+  /* A click on the cloth leaves whatever was being written. The board swallows
+     the pointer's default action so it can pan, and that default is what would
+     normally have moved the focus away — so the field is let go by hand. */
+  function leaveThinkingWriting() {
+    const field = document.activeElement;
+    if (!field || !thinkingView.contains(field)) return;
+    if (thinkingShortcutIsEditing(field)) field.blur();
+  }
+
   function hoveredThinkingBlock(canvas) {
     const cards = thinkingBlocks.querySelectorAll(".thinking-block:hover");
     for (let i = cards.length - 1; i >= 0; i--) {
@@ -17900,6 +18842,7 @@
     if (type === "condition") return "condition";
     if (type === "note") return "note";
     if (type === "text") return "lines";
+    if (type === "bloc") return "bloc";
     return "spark";
   }
 
@@ -18013,6 +18956,10 @@
         + '<path vector-effect="non-scaling-stroke" d="M6 3h8l4 4v14H6Z"/>'
         + '<path vector-effect="non-scaling-stroke" d="M14 3v4h4"/>'
         + '<path vector-effect="non-scaling-stroke" d="M9.5 12h5M9.5 16h3"/></g>';
+    } else if (name === "bloc") {
+      // the thing itself: a square box and its colour chip
+      paths = '<path d="M4 6h16v12H4Z"/>'
+        + '<circle class="ti-bloc-chip" cx="16.6" cy="9.6" r="1.6" fill="currentColor" stroke="none"/>';
     } else if (name === "lines") {
       paths = '<path class="ti-line ti-line--1" vector-effect="non-scaling-stroke" d="M5 7h14"/>'
         + '<path class="ti-line ti-line--2" vector-effect="non-scaling-stroke" d="M5 12h10"/>'
@@ -18033,6 +18980,8 @@
     // the board stands on the app's own ground: the very same field canvas moves
     // in for as long as the view is up, rather than a second one being painted
     thinkingView.insertBefore(fieldCanvas, thinkingView.firstChild);
+    panelsDirty = true;
+    fieldWake();
     requestAnimationFrame(function () { thinkingView.classList.add("is-open"); });
     const recentCanvas = recentThinkingCanvas();
     if (recentCanvas) openThinkingCanvas(recentCanvas.id);
@@ -18051,6 +19000,8 @@
     setTimeout(function () {
       thinkingView.hidden = true;
       document.body.insertBefore(fieldCanvas, document.getElementById("decor"));
+      panelsDirty = true;
+      fieldWake();
     }, 280);
   }
 
@@ -20381,6 +21332,31 @@
     head.append(createThinkingRunButton(canvas, block), keyword, hour, del);
   }
 
+  /* THE BLOC — a square box holding one bold line, the piece an industrial
+     diagram is drawn out of. It carries no type mark and no name: what it says
+     is its outline and its colour, and the chip in its corner walks through the
+     five palette stops and back to none, so a schema can be read by colour
+     without anything being decided when the box is drawn.
+
+     The tint lives in block.tint. It cannot be block.color: loadState wipes
+     that field on every read, it is a leftover from the blocks that once chose
+     their own hue. */
+  const THINKING_BLOC_TINTS = 5;
+
+  function createThinkingBlocChip(canvas, block) {
+    const chip = document.createElement("button");
+    chip.type = "button";
+    chip.className = "thinking-bloc__chip";
+    chip.setAttribute("aria-label", translate("thinkingBlocTint"));
+    chip.addEventListener("click", function (event) {
+      event.stopPropagation();
+      block.tint = ((block.tint || 0) + 1) % (THINKING_BLOC_TINTS + 1);
+      touchCanvas(canvas);
+      renderThinkingCanvas(canvas);
+    });
+    return chip;
+  }
+
   function createThinkingBlock(canvas, block, nested, insideCanvas, ownerCanvas) {
     const linkedTask = block.type === "task" ? thinkingTaskItem(block) : null;
     const linkedAction = THINKING_ACTION_TYPES.indexOf(block.type) !== -1
@@ -20397,6 +21373,9 @@
     card.className = "thinking-block thinking-block--" + block.type;
     if (organization) card.classList.add("thinking-block--organization");
     if (flow) card.classList.add("thinking-block--flow");
+    if (block.type === "bloc" && block.tint) {
+      card.classList.add("is-tinted", "is-tint-" + block.tint);
+    }
     if (linkedTask && linkedTask.done) card.classList.add("is-task-done");
     if (block.type === "step"
         && (linkedAction ? linkedAction.completedDate : block.stepDone)) {
@@ -20511,12 +21490,13 @@
     if (flow) {
       createThinkingFlowHead(canvas, block, head, del);
     } else {
-      if (block.type !== "text") head.append(icon, type);
+      if (block.type !== "text" && block.type !== "bloc") head.append(icon, type);
       if (organization) {
         const rule = document.createElement("span");   // the fading filet, as in a task group
         rule.className = "thinking-block__rule";
         head.appendChild(rule);
       }
+      if (block.type === "bloc") head.appendChild(createThinkingBlocChip(canvas, block));
       head.appendChild(del);
     }
     if (stuckListLead) armThinkingStuckGroupDrag(head, card, block, canvas);
@@ -20599,7 +21579,8 @@
           if (entry) entry.text = block.text;
         }
         if (!block.blockHeight || contained) {
-          fitThinkingText(text, block.type === "text" ? 32 : nested ? 32 : 36);
+          fitThinkingText(text, block.type === "text" || block.type === "bloc" ? 24
+            : nested ? 32 : 36);
         }
         if (!nested || insideCanvas) {
           const naturalWidth = thinkingBlockNaturalWidth(block);
@@ -20780,11 +21761,13 @@
       if (taskBody || text) card.appendChild(taskBody || text);
       if (flow || children.childElementCount) card.appendChild(children);
     }
-    if (!organization && !flow && (linked || actions.childElementCount)) card.appendChild(foot);
+    if (!organization && !flow && block.type !== "bloc"
+        && (linked || actions.childElementCount)) card.appendChild(foot);
     if (blockResize) card.appendChild(blockResize);
     if (stickAdd) card.appendChild(stickAdd);
     if (text && (!block.blockHeight || contained)) requestAnimationFrame(function () {
-      fitThinkingText(text, block.type === "text" ? 32 : nested ? 32 : 36);
+      fitThinkingText(text, block.type === "text" || block.type === "bloc" ? 24
+        : nested ? 32 : 36);
       layoutVisibleThinkingStuckBlocks(canvas);
       requestThinkingLinks(canvas);
     });
@@ -22120,6 +23103,7 @@
   document.getElementById("thinkingRecenter").addEventListener("click", recenterThinkingView);
 
   thinkingViewport.addEventListener("scroll", function () {
+    fieldWake();
     const canvas = currentCanvas();
     const canvasNode = currentThinkingCanvasNode();
     if (!canvas || !canvasNode) return;
@@ -22136,6 +23120,7 @@
     if (control) return;
     const viewedOrganization = currentThinkingCanvasNode();
     if (viewedOrganization && viewedOrganization.type === "folder") return;
+    leaveThinkingWriting();
     if (thinkingSelectionMode) {
       const canvas = currentCanvas();
       const canvasNode = currentThinkingCanvasNode();
@@ -22233,7 +23218,10 @@
   const paneDots = document.getElementById("paneDots");
   let paneAt = 1;   // the day is the middle one, and where the app opens
 
-  function railed() { return window.matchMedia("(max-width: 999px)").matches; }
+  function railed() {
+    return projectMode() !== "leisure"
+      && window.matchMedia("(max-width: 999px)").matches;
+  }
 
   /* The rail is as tall as the pane on show, but only while it is a rail: as a
      grid it has to be left to its own height or the columns get cropped. */
@@ -22314,7 +23302,11 @@
     if (!exerciseView.hidden) { exerciseView.hidden = true; return true; }
     if (!sleepView.hidden) { sleepView.hidden = true; return true; }
     if (!weatherModal.hidden) { weatherModal.hidden = true; return true; }
-    if (!iconPicker.hidden) { iconPicker.hidden = true; return true; }
+    if (!iconPicker.hidden) {
+      iconPicker.hidden = true;
+      finishProjectTypeChange();
+      return true;
+    }
     if (!calendarModal.hidden) { calendarModal.hidden = true; return true; }
     if (!settingsModal.hidden) { settingsModal.hidden = true; return true; }
     if (!projectView.hidden) { closeProjectView(); return true; }

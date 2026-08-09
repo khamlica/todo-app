@@ -27,6 +27,7 @@
   --c-sig: #c3b0f5;
   --note-highlight-strength: 22%;
   --c-shade: 0.10;
+  --c-star: #ff9a5c;
   --c-veil: 0.74;
   --c-sky-1: #fdf7f0;
   --c-sky-2: #f1eef6;
@@ -45,6 +46,7 @@
   --c-sig: #c4b1fb;
   --note-highlight-strength: 42%;
   --c-shade: 0.45;
+  --c-star: #eaf1ff;
   --c-veil: 0.70;
   --c-sky-1: #221d2e;
   --c-sky-2: #17151f;
@@ -65,6 +67,7 @@
   --c-sig: #f5b3c6;
   --note-highlight-strength: 22%;
   --c-shade: 0.10;
+  --c-star: #ff9a5c;
   --c-veil: 0.74;
   --c-sky-1: #fff4f0;
   --c-sky-2: #fbe7ef;
@@ -85,6 +88,7 @@
   --c-sig: #8fdcd8;
   --note-highlight-strength: 40%;
   --c-shade: 0.46;
+  --c-star: #eaf1ff;
   --c-veil: 0.66;
   --c-sky-1: #06161f;
   --c-sky-2: #0d3145;
@@ -104,6 +108,7 @@
   --c-sig: #a8cf94;
   --note-highlight-strength: 24%;
   --c-shade: 0.12;
+  --c-star: #ff9a5c;
   --c-veil: 0.72;
   --c-sky-1: #c6d9b0;
   --c-sky-2: #dcebc9;
@@ -116,6 +121,36 @@
    one, or it lands on top of dark and night: wine and magenta, which neither of
    those two touch. The sky goes near-black at the top and warms to plum at the
    foot, so the page is lit from below the way a briar under a lamp is. */
+/* ESPACE — the sky view brought down onto the page. Its background is not an
+   approximation of that view's: it is literally the same three layers, which is
+   why --sky-raw is overridden whole rather than built from the three stops. */
+[data-theme="espace"] {
+  --c-bg: #070b1a;
+  --c-surface: #101731;
+  --c-line: #212c4d;
+  --c-text: #eef3ff;
+  --c-muted: #8c9cc6;
+  --c-accent: #7fa6ff;
+  --c-danger: #f0808f;
+  --c-sig: #a8c4ff;
+  --note-highlight-strength: 40%;
+  --c-shade: 0.52;
+  --c-star: #eaf1ff;
+  --c-veil: 0.70;
+  --c-sky-1: #070b1a;
+  --c-sky-2: #0a1024;
+  --c-sky-3: #060a18;
+  --c-sky-mid: 55%;
+}
+/* the theme blocks sit above :root, which is where --sky-raw is built, so this
+   one needs the extra element to outrank it rather than relying on order */
+html[data-theme="espace"] {
+  --sky-raw:
+    radial-gradient(120% 90% at 62% 8%, #1b2447 0%, rgba(27, 36, 71, 0) 62%),
+    radial-gradient(90% 70% at 15% 88%, #14213d 0%, rgba(20, 33, 61, 0) 60%),
+    linear-gradient(to bottom, #060a18 0%, #0a1024 45%, #070b1a 100%);
+}
+
 [data-theme="ronce"] {
   --c-bg: #140b16;
   --c-surface: #1f1224;
@@ -127,6 +162,7 @@
   --c-sig: #e46aa0;
   --note-highlight-strength: 38%;
   --c-shade: 0.46;
+  --c-star: #eaf1ff;
   --c-veil: 0.68;
   --c-sky-1: #3d1034;
   --c-sky-2: #1b0a20;
@@ -145,6 +181,7 @@
   --c-sig: #a9e7d5;
   --note-highlight-strength: 42%;
   --c-shade: 0.50;
+  --c-star: #eaf1ff;
   --c-veil: 0.70;
   --c-sky-1: #0b1c2c;
   --c-sky-2: #0c2233;
@@ -164,6 +201,7 @@
   --c-sig: #f6b490;
   --note-highlight-strength: 23%;
   --c-shade: 0.10;
+  --c-star: #ff9a5c;
   --c-veil: 0.70;
   --c-sky-1: #ffd9bd;
   --c-sky-2: #f6c3d5;
@@ -181,6 +219,7 @@
   --c-sig: #a8cdf5;
   --note-highlight-strength: 22%;
   --c-shade: 0.10;
+  --c-star: #ff9a5c;
   --c-veil: 0.72;
   --c-sky-1: #eaf5ff;
   --c-sky-2: #cfe4fa;
@@ -198,6 +237,7 @@
   --c-sig: #f3a0b8;
   --note-highlight-strength: 38%;
   --c-shade: 0.45;
+  --c-star: #eaf1ff;
   --c-veil: 0.68;
   --c-sky-1: #ff8f66;
   --c-sky-2: #d96f96;
@@ -215,6 +255,7 @@
   --c-sig: #c2cbef;
   --note-highlight-strength: 42%;
   --c-shade: 0.50;
+  --c-star: #eaf1ff;
   --c-veil: 0.72;
   --c-sky-1: #131a33;
   --c-sky-2: #0d1120;
@@ -233,6 +274,7 @@
   --c-sig: #b6cadb;
   --note-highlight-strength: 30%;
   --c-shade: 0.42;
+  --c-star: #eaf1ff;
   --c-veil: 0.70;
   --c-sky-1: #3d4552;
   --c-sky-2: #333a45;
@@ -263,6 +305,14 @@
 }
 /* bud, bloom, open petal, fading petal, the gold of the stamen */
 /* the briar's own ramp: deep wine climbing to the light at the petal edge */
+/* the star map's own ramp: cold starlight warming towards the near stars */
+[data-palette="theme"][data-theme="espace"] {
+  --c-imp-1: #5d7fd6;
+  --c-imp-2: #7a9ae8;
+  --c-imp-3: #9db4f2;
+  --c-imp-4: #c3b6ef;
+  --c-imp-5: #e8c07d;
+}
 [data-palette="theme"][data-theme="ronce"] {
   --c-imp-1: #8c2f6b;
   --c-imp-2: #b23c7c;
@@ -500,7 +550,25 @@
   --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
 }
 
-* { box-sizing: border-box; margin: 0; padding: 0; }
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+  scrollbar-width: thin;
+  scrollbar-color: color-mix(in srgb, var(--c-muted) 40%, transparent) transparent;
+}
+*::-webkit-scrollbar { width: 10px; height: 10px; }
+*::-webkit-scrollbar-track { background: transparent; }
+*::-webkit-scrollbar-thumb {
+  border: 3px solid transparent;
+  border-radius: 6px;
+  background: color-mix(in srgb, var(--c-muted) 38%, transparent);
+  background-clip: padding-box;
+}
+*::-webkit-scrollbar-thumb:hover {
+  background: color-mix(in srgb, var(--c-muted) 64%, transparent);
+  background-clip: padding-box;
+}
 
 /* No horizontal scroll: keep the app centered on the viewport (mobile especially).
    The stable gutter is what stops the whole page jolting sideways when unfolding
@@ -553,7 +621,8 @@ body {
   opacity: 0;
 }
 [data-theme="night"] .star,
-[data-theme="boreal"] .star { opacity: .85; animation: twinkle 3s ease-in-out infinite; }
+[data-theme="boreal"] .star,
+[data-theme="espace"] .star { opacity: .85; animation: twinkle 3s ease-in-out infinite; }
 @keyframes twinkle {
   0%, 100% { opacity: .22; }
   50%      { opacity: .9; }
@@ -765,6 +834,7 @@ body {
   --c-muted: #8a90b0;
   --c-sig: #c2cbef;
   --c-shade: 0.50;
+  --c-star: #eaf1ff;
   --c-well: #080b14;
   --c-sky-1: #131a33;                 /* the sky is painted behind everything */
   --c-sky-2: #0d1120;
@@ -1272,6 +1342,15 @@ body {
 /* COLOUR WORKSHOP */
 
 .modal__card.paint { max-width: 460px; max-height: 86vh; overflow-y: auto; }
+/* the adaptive theme's four moments, each with the theme it wears */
+.paint__band {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 14px;
+  margin-bottom: 10px;
+}
+.paint__band select { width: auto; min-width: 148px; cursor: pointer; }
 .paint__group { margin-bottom: 18px; }
 .paint__group-label {
   display: block;
@@ -1448,6 +1527,68 @@ body {
 /* the way home: the roof lifts a little, the way a door does when you reach it */
 #homeBtn svg { transition: translate .28s cubic-bezier(.3, 1.4, .5, 1); }
 #homeBtn:hover svg { translate: 0 -1.5px; }
+
+/* WORK / LEISURE — a compact two-ended switch beside the way home. The suitcase
+   and note remain the labels, while the small light crosses between them. */
+.topbar__mode {
+  width: 82px;
+  height: 26px;
+  padding: 0 7px;
+  border: 0;
+  background: none;
+  color: var(--muted);
+  cursor: pointer;
+  display: grid;
+  grid-template-columns: 20px 22px 20px;
+  align-items: center;
+  justify-content: center;
+  gap: 3px;
+}
+.topbar__mode-icon { display: grid; place-items: center; transition: color .22s ease, opacity .22s ease; opacity: .4; }
+.topbar__mode-icon svg { width: 17px; height: 17px; overflow: visible; }
+.topbar__mode[data-mode="work"] .topbar__mode-icon--work,
+.topbar__mode[data-mode="leisure"] .topbar__mode-icon--leisure { color: var(--accent); opacity: 1; }
+.topbar__mode-track {
+  position: relative;
+  width: 22px;
+  height: 8px;
+  border-radius: 99px;
+  background: color-mix(in srgb, var(--c-line) 28%, transparent);
+}
+.topbar__mode-thumb {
+  position: absolute;
+  top: 1px;
+  left: 1px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 7px color-mix(in srgb, var(--accent) 55%, transparent);
+  transition: translate .32s cubic-bezier(.25, 1.45, .45, 1);
+}
+.topbar__mode[data-mode="leisure"] .topbar__mode-thumb { translate: 14px 0; }
+.mode-work__handle,
+.mode-work__lid { transform-box: view-box; transform-origin: 12px 12px; }
+.topbar__mode:hover .mode-work__handle,
+.topbar__mode.is-switching[data-mode="work"] .mode-work__handle {
+  animation: mode-case-handle .55s cubic-bezier(.25, 1.5, .45, 1);
+}
+.topbar__mode:hover .mode-work__lid,
+.topbar__mode.is-switching[data-mode="work"] .mode-work__lid {
+  animation: mode-case-lid .55s cubic-bezier(.25, 1.35, .45, 1);
+}
+.mode-music__note { transform-box: fill-box; transform-origin: center; }
+.topbar__mode:hover .mode-music__note--left,
+.topbar__mode.is-switching[data-mode="leisure"] .mode-music__note--left {
+  animation: mode-note-bounce .6s ease-in-out;
+}
+.topbar__mode:hover .mode-music__note--right,
+.topbar__mode.is-switching[data-mode="leisure"] .mode-music__note--right {
+  animation: mode-note-bounce .6s .09s ease-in-out;
+}
+@keyframes mode-case-handle { 45% { translate: 0 -1.5px; } }
+@keyframes mode-case-lid { 45% { rotate: -3deg; translate: 0 -1px; } }
+@keyframes mode-note-bounce { 45% { translate: 0 -2px; } }
 
 /* well-being: the tree grows its branches out from the trunk */
 #wellBtn svg path { transition: opacity .3s ease, translate .3s cubic-bezier(.3, 1.3, .5, 1); }
@@ -1716,29 +1857,6 @@ body {
   to   { rotate: .35deg; }
 }
 
-/* SUNRISE AND SUNSET — the sun is the one the rule already draws, and --horizon
-   is written by syncSceneHorizon() from that rule's real position, so the cloud
-   sits at the right height however the threshold is laid out. */
-/* A sunset is not a gradient — it is cloud lit from underneath. Each band is a
-   long lens, dark on top and burning along its lower edge, feathered to nothing
-   at both ends so none of them ever shows a border. */
-.sc-band {
-  position: absolute;
-  top: calc(var(--horizon, 50%) - var(--above, 0px));
-  border-radius: 50%;
-  background: linear-gradient(to bottom,
-    color-mix(in srgb, var(--c-sky-3) 46%, transparent) 0%,
-    color-mix(in srgb, #fff 56%, var(--c-sky-1)) 100%);
-  -webkit-mask-image: linear-gradient(to right, transparent, #000 22%, #000 78%, transparent);
-  mask-image: linear-gradient(to right, transparent, #000 22%, #000 78%, transparent);
-  filter: blur(4px);
-  animation: sc-band-drift ease-in-out infinite alternate;
-}
-@keyframes sc-band-drift {
-  from { translate: -3% 0; }
-  to   { translate: 3% 0; }
-}
-
 /* DAY — clouds with somewhere to go, and birds that get there first */
 .sc-cloud {
   position: absolute;
@@ -1793,8 +1911,7 @@ body {
 }
 /* the rule spends the threshold on that same bright band, so its readings and
    its rings follow the same ink; in the app they go back to the quiet one */
-.welcome__slot .dtl__tick-label,
-.welcome__slot .dtl__marker-caption { color: color-mix(in oklab, var(--threshold-ink) 72%, transparent); }
+.welcome__slot .dtl__tick-label { color: color-mix(in oklab, var(--threshold-ink) 72%, transparent); }
 /* the reading sits right in the sun's bloom, which is the brightest place on
    the whole threshold — it needs the full ink, not the softened one */
 .welcome__slot .dtl__marker-time { color: var(--threshold-ink); }
@@ -1857,11 +1974,13 @@ body:has(.welcome:not(.is-leaving)) :is(#lookBtn, #settingsBtn):hover {
   z-index: 1;
   /* top gap clears the fixed buttons; env() adds the notch/home-indicator safe areas */
   /* the top gap clears the fixed top bar, plus room for the sunrise readings */
-  /* Keep a permanent landing area below the content. A tall fold can then grow
-     into existing page space instead of moving the document's lower boundary
-     under the user's viewport, which is what caused the last small jolts. */
+  /* Keep a permanent landing area below the content — a screenful of it. A fold
+     opening on the last row of the page has as much room under it as one opening
+     at the top: it grows into page that already exists instead of pushing the
+     document's lower boundary down under the viewport, which is what left the
+     opening short of room and jolting. */
   padding: calc(80px + env(safe-area-inset-top)) 0
-    calc(clamp(190px, 24vh, 320px) + env(safe-area-inset-bottom));
+    calc(clamp(320px, 96vh, 1100px) + env(safe-area-inset-bottom));
   animation: fadeUp .6s ease both;
   transition: padding-top .45s cubic-bezier(.2, .8, .25, 1);
 }
@@ -2124,35 +2243,44 @@ button.tgroup__head:hover { color: var(--text); }
   border-radius: 2px;
   background: color-mix(in srgb, var(--danger) 55%, transparent);
 }
+/* LATE, WITHOUT RULERS — Champ mode lets the group identify itself through two
+   nested hollows instead of one horizontal rule and one rigid vertical rail.
+   Its red words remain the warning; the field supplies the structure. */
+html.is-field-mode .tgroup--late > .tgroup__head {
+  --field-panel-opacity: .42;
+  --field-panel-signature: 0;
+  --field-panel-accent: 0;
+  --field-panel-signature-hover: 1;
+  --field-panel-signature-focus: 1;
+}
+html.is-field-mode .tgroup--late > .list {
+  --field-panel-opacity: .18;
+  --field-panel-signature: 0;
+  --field-panel-accent: 0;
+}
+html.is-field-mode .tgroup--late .tgroup__rule { background: none; }
+html.is-field-mode .tgroup--late > .list::before { content: none; }
+/* The overdue date keeps its warning ink and its exact click target, but gives
+   up the smooth capsule for a small local hollow in the lattice. */
+html.is-field-mode .tgroup--late .item__due.is-overdue,
+html.is-field-mode .tgroup--late .item__due.is-overdue:hover {
+  --field-panel-opacity: .46;
+  --field-panel-signature: 0;
+  --field-panel-accent: 0;
+  --field-panel-signature-hover: 1;
+  --field-panel-signature-focus: 1;
+  background: transparent;
+  box-shadow: none;
+}
 
 /* A DAY — lighter than a block head: sentence case, today's in the theme's own
    signature. It is also the anchor: it holds at the top of the screen while its
    rows scroll under it, and the whole band is the fold control, which is why it
    is padded well past its text. */
-.tgroup--day { gap: 16px; }   /* the first row has to clear the band above it */
-.tgroup--day .tgroup__head {
-  position: sticky;
-  top: 0;
-  z-index: 2;
-  font-size: .74rem;
-  font-weight: 600;
-  letter-spacing: .02em;
-  text-transform: none;
-  /* the padding is cancelled by the margin, so the band grows around the label
-     without moving anything: it has to overlap the rows sliding under it. Width
-     goes back to auto or the negative margins would push it off to one side. */
-  width: auto;
-  padding: 8px;
-  margin: -8px;
-  border-radius: 10px;
-  /* a veil rather than a fill: the sky and the decorations stay readable under it */
-  background: color-mix(in srgb, var(--c-bg) 70%, transparent);
-  backdrop-filter: blur(10px);
-}
-/* a folded day is a bar and nothing else: it may be pressed anywhere along it */
-button.tgroup__head--day:hover {
-  background: color-mix(in srgb, var(--c-bg) 70%, var(--accent-soft));
-}
+/* A DAY IS A HEAD LIKE ANY OTHER — it used to stick to the top of the scroll
+   under a blurred veil, which is a band of ground drawn over the sky for the
+   sake of two words. The days now read exactly as the dateless tail does: a
+   small label, its rule, its count, and nothing behind them. */
 /* today is the day being lived: it never folds, so it takes no pointer either */
 .tgroup--day.is-today .tgroup__head { cursor: default; }
 .tgroup--day.is-today .tgroup__label,
@@ -2368,87 +2496,6 @@ button.tgroup__head--day:hover {
    completing a project, which has no ring. They are laid over the row so that
    uncovering them never reflows the line; what sits at the right end fades
    under them for as long as they show. */
-.row-acts {
-  position: absolute;
-  right: 8px;   /* the cards are padded 14-16px: sit just inside that */
-  top: 50%;
-  display: flex;
-  align-items: center;
-  gap: 2px;
-  opacity: 0;
-  transform: translate(6px, -50%);
-  pointer-events: none;
-  transition: opacity .16s ease, transform .16s ease;
-}
-.item:hover > .row-acts,
-.item:focus-within > .row-acts,
-.item.is-swiped > .row-acts,
-.project-tab:hover > .row-acts,
-.project-tab:focus-within > .row-acts,
-.item.is-swiped > .project-tab > .row-acts {
-  opacity: 1;
-  transform: translate(0, -50%);
-  pointer-events: auto;
-}
-/* unfolded, the editor carries its own buttons */
-.item.is-open > .row-acts { display: none; }
-
-/* while a finger is on the row the group follows it instead of snapping */
-.is-swiping > .row-acts {
-  transition: none;
-  opacity: var(--swipe, 0);
-  transform: translate(calc(6px - var(--swipe, 0) * 6px), -50%);
-  pointer-events: none;
-}
-.is-swiping > .project-tab > .row-acts {
-  transition: none;
-  opacity: var(--swipe, 0);
-  transform: translate(calc(6px - var(--swipe, 0) * 6px), -50%);
-  pointer-events: none;
-}
-
-.row-act {
-  width: 27px; height: 27px;
-  padding: 0;
-  border: none;
-  border-radius: 8px;
-  background: none;
-  color: var(--muted);
-  cursor: pointer;
-  display: grid;
-  place-items: center;
-  transition: background .16s ease, color .16s ease;
-}
-.row-act svg { width: 15px; height: 15px; display: block; }
-.row-act:hover { background: var(--accent-soft); color: var(--accent); }
-.row-act--del:hover {
-  background: color-mix(in srgb, var(--danger) 15%, transparent);
-  color: var(--danger);
-}
-
-/* THE ROW'S MARKS — notes, subtasks, star, pin, date: they travel as one cluster
-   at the right end, and step aside as one when the actions come over them. Held
-   together they also keep a constant gap, whichever marks a row happens to have. */
-.item__meta {
-  flex: 0 0 auto;
-  display: inline-flex;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
-  transition: opacity .16s ease;
-}
-.item:hover > .item__meta,
-.item:focus-within > .item__meta,
-.item.is-swiped > .item__meta,
-.project-tab:hover > .item__meta,
-.project-tab:focus-within > .item__meta,
-.item.is-swiped > .project-tab > .item__meta { opacity: 0; }
-.is-swiping > .item__meta { transition: none; opacity: calc(1 - var(--swipe, 0)); }
-.is-swiping > .project-tab > .item__meta {
-  transition: none;
-  opacity: calc(1 - var(--swipe, 0));
-}
-
 .item__text {
   flex: 1;
   cursor: pointer;
@@ -2478,6 +2525,74 @@ button.tgroup__head--day:hover {
   display: grid; place-items: center;
 }
 .item__ico svg { width: 20px; height: 20px; }
+
+/* HOW MUCH IT MATTERS, ON ITS MARK — one step of the ramp per level. Level 0 is
+   left on the ordinary accent: it means unranked, not lowest. At the top of the
+   scale the mark stops taking one colour and wears the whole ramp, the way the
+   head of a course does — a real SVG gradient, since a stroke cannot hold a CSS
+   one, and the same glow under it. */
+#impRamp stop:nth-child(1) { stop-color: var(--imp-1); }
+#impRamp stop:nth-child(2) { stop-color: var(--imp-3); }
+#impRamp stop:nth-child(3) { stop-color: var(--imp-5); }
+/* The level names both an ink and an amount of light. The icon has enough range
+   to feel the weight immediately; the bars start a little higher so their five
+   available positions remain readable on pale themes. */
+[data-imp="0"] {
+  --importance-icon-light: .36;
+  --importance-bars-light: .48;
+  --importance-gauge-light: .36;
+  --importance-gauge-glow: 10%;
+  --importance-glow: 12%;
+  --importance-glow-wide: 5%;
+}
+[data-imp="1"] {
+  --imp-ink: var(--imp-1);
+  --importance-icon-light: .48;
+  --importance-bars-light: .58;
+  --importance-gauge-light: .48;
+  --importance-gauge-glow: 14%;
+  --importance-glow: 20%;
+  --importance-glow-wide: 8%;
+}
+[data-imp="2"] {
+  --imp-ink: var(--imp-2);
+  --importance-icon-light: .60;
+  --importance-bars-light: .68;
+  --importance-gauge-light: .60;
+  --importance-gauge-glow: 18%;
+  --importance-glow: 27%;
+  --importance-glow-wide: 11%;
+}
+[data-imp="3"] {
+  --imp-ink: var(--imp-3);
+  --importance-icon-light: .72;
+  --importance-bars-light: .78;
+  --importance-gauge-light: .72;
+  --importance-gauge-glow: 22%;
+  --importance-glow: 34%;
+  --importance-glow-wide: 14%;
+}
+[data-imp="4"] {
+  --imp-ink: var(--imp-4);
+  --importance-icon-light: .86;
+  --importance-bars-light: .89;
+  --importance-gauge-light: .86;
+  --importance-gauge-glow: 27%;
+  --importance-glow: 42%;
+  --importance-glow-wide: 18%;
+}
+[data-imp="5"] {
+  --imp-ink: var(--imp-5);
+  --importance-icon-light: 1;
+  --importance-bars-light: 1;
+  --importance-gauge-light: 1;
+  --importance-gauge-glow: 34%;
+  --importance-glow: 52%;
+  --importance-glow-wide: 23%;
+}
+[data-imp="5"] > svg,
+.item__ico[data-imp="5"] svg,
+#pviewIcon[data-imp="5"] svg { stroke: url(#impRamp); }
 .item__ico--editable {
   padding: 0;
   font: inherit;
@@ -2518,8 +2633,12 @@ button.tgroup__head--day:hover {
   padding: 14px var(--task-pad);
   border: 1px solid var(--item-border);
   border-radius: var(--r-md);
-  background: var(--surface);
-  transition: border-color .2s ease, background .2s ease;
+  /* the glass of an open task is a sheen over a colour; shut, the row carries the
+     same two layers with nothing in the sheen, so opening interpolates it instead
+     of swapping one background for another halfway through */
+  background: linear-gradient(145deg, transparent, transparent 34%), var(--surface);
+  transition: border-color .2s ease, background .2s ease,
+    box-shadow .28s ease, backdrop-filter .28s ease;
 }
 .item--task:hover { border-color: var(--accent); }
 .item--task.done { background: none; }
@@ -2585,10 +2704,12 @@ button.tgroup__head--day:hover {
   padding: 15px 18px;
   border: 1px solid color-mix(in srgb, var(--c-line) 52%, transparent);
   border-radius: calc(var(--radius) + 2px);
+  /* The light entering from the left belongs to the theme, not to importance:
+     it remains the same steady identity wash whether the objective is open. */
   background:
-    linear-gradient(145deg,
-      color-mix(in srgb, var(--accent) 5%, transparent),
-      transparent 42%),
+    linear-gradient(90deg,
+      color-mix(in srgb, var(--accent) 9%, transparent),
+      transparent 48%),
     color-mix(in srgb, var(--c-surface) 38%, transparent);
   box-shadow:
     inset 0 1px 0 color-mix(in srgb, var(--c-surface) 30%, transparent),
@@ -2605,15 +2726,48 @@ button.tgroup__head--day:hover {
   transform: translateY(-1px);
 }
 .item--project .item__ico {
-  width: 38px; height: 38px;
+  width: 44px; height: 44px;
   border-radius: 11px;
   border: 1px solid color-mix(in srgb, var(--accent) 20%, transparent);
   background: color-mix(in srgb, var(--accent) 12%, transparent);
-  color: var(--accent);
+  color: var(--imp-ink, var(--accent));
   box-shadow: inset 0 1px 0 color-mix(in srgb, var(--c-surface) 22%, transparent);
 }
-.item--project .item__ico svg { width: 21px; height: 21px; }
+.item--project .item__ico svg { width: 26px; height: 26px; }
 .item--project .item__text { font-size: 1.02rem; font-weight: 600; }
+.project-importance {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  flex: 0 0 auto;
+  height: 18px;
+  margin-left: 8px;
+  pointer-events: none;
+  opacity: var(--importance-bars-light, .48);
+  transition: opacity .2s ease;
+}
+.project-importance > span {
+  width: 6px;
+  height: 15px;
+  border-radius: 2px;
+  background: color-mix(in srgb, var(--c-text) 25%, transparent);
+}
+.project-importance > span:nth-child(1) { --importance-color: var(--imp-1); }
+.project-importance > span:nth-child(2) { --importance-color: var(--imp-2); }
+.project-importance > span:nth-child(3) { --importance-color: var(--imp-3); }
+.project-importance > span:nth-child(4) { --importance-color: var(--imp-4); }
+.project-importance > span:nth-child(5) { --importance-color: var(--imp-5); }
+.project-importance > span.is-on {
+  background: var(--importance-color);
+  box-shadow: 0 0 6px color-mix(in srgb, var(--importance-color) 34%, transparent);
+}
+/* Replié, le projet ne montre que son importance. La progression appartient à
+   la vue ouverte, où elle reprend toute la ligne sous le titre. */
+.item--project:not(.is-inline-open) > .project-tab > .item__meta {
+  display: none;
+}
+/* Open, the full editor already carries the scale in its title. */
+.item--project.is-inline-open .project-importance { display: none; }
 .item--project.is-inline-open {
   position: relative;
   border: 1px solid color-mix(in srgb, var(--c-line) 52%, transparent);
@@ -2634,8 +2788,9 @@ button.tgroup__head--day:hover {
   border: 0;
   border-bottom: 1px solid color-mix(in srgb, var(--c-line) 38%, transparent);
   border-radius: calc(var(--radius) + 3px) calc(var(--radius) + 3px) 0 0;
+  /* Open or closed, the title keeps the same fixed wash from the theme. */
   background: linear-gradient(90deg,
-    color-mix(in srgb, var(--accent) 7%, transparent),
+    color-mix(in srgb, var(--accent) 9%, transparent),
     transparent 48%);
   box-shadow: none;
   backdrop-filter: none;
@@ -2649,12 +2804,13 @@ button.tgroup__head--day:hover {
   background: color-mix(in srgb, var(--accent) 13%, transparent);
   box-shadow: inset 0 1px 0 color-mix(in srgb, var(--c-surface) 24%, transparent);
 }
-.item--project.is-inline-open > .project-tab > .row-acts { display: none; }
 /* THE GAUGE IS THE RULE UNDER THE HEAD — open, how far the course has gone is
    read across the whole width between the name and the two panels below it: a
    length shown by a length, and the line that separates them at the same time. */
 .item--project.is-inline-open > .project-tab { flex-wrap: wrap; }
 .item--project.is-inline-open > .project-tab > .item__meta {
+  display: flex;
+  align-items: center;
   order: 9;
   flex: 1 1 100%;
   margin: 10px 0 0;
@@ -2669,6 +2825,112 @@ button.tgroup__head--day:hover {
    importance bars away exactly as the pointer reached them. */
 .item--project.is-inline-open > .project-tab:hover > .item__meta,
 .item--project.is-inline-open > .project-tab:focus-within > .item__meta { opacity: 1; }
+/* The icon now owns the project editor, so hovering a closed project no longer
+   clears its gauge to make room for actions that are not there. */
+.item--project:not(.is-inline-open) > .project-tab:hover > .item__meta,
+.item--project:not(.is-inline-open) > .project-tab:focus-within > .item__meta { opacity: 1; }
+
+/* VIRTUAL OBJECTS — only the optional Champ mode removes the painted cards.
+   Borders stay geometrically present but transparent, so switching the mode
+   cannot move a row or alter the width-sensitive calendar bands. The field
+   receives the same rectangles below, with the identity deliberately heavier
+   than the working areas it opens. */
+html.is-field-mode .item--task,
+html.is-field-mode .item--task:last-child,
+html.is-field-mode .item--task.is-open,
+html.is-field-mode .item--task.item--milestone-linked,
+html.is-field-mode .item--task.item--milestone-linked.done {
+  border-color: transparent;
+  background: none;
+  box-shadow: none;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+html.is-field-mode .item--task:hover,
+html.is-field-mode .item--task.item--milestone-linked:hover { border-color: transparent; }
+html.is-field-mode .item--task.is-open > .unfold { box-shadow: none; }
+
+html.is-field-mode .project-tab,
+html.is-field-mode .item--project.is-inline-open,
+html.is-field-mode .item--project.is-inline-open > .project-tab {
+  border-color: transparent;
+  background: none;
+  box-shadow: none;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  transform: none;
+}
+html.is-field-mode .item--project:not(.is-inline-open):hover > .project-tab,
+html.is-field-mode .item--project.is-inline-open:hover > .project-tab {
+  border-color: transparent;
+  box-shadow: none;
+  transform: none;
+}
+
+/* An objective's mark is permanently light, not a painted button. The icon's
+   unchanged hit box presses the permanent field in every visual mode; pointing
+   at the glyph only raises its light. */
+.item--project .item__ico,
+.item--project.is-inline-open > .project-tab > .item__ico,
+#pviewIcon {
+  --field-panel-opacity: .34;
+  --field-panel-signature: 0;
+  --field-panel-signature-hover: 1;
+  --field-panel-signature-focus: 1;
+  position: relative;
+  border-color: transparent;
+  background: transparent;
+  box-shadow: none;
+  filter: drop-shadow(0 0 5px color-mix(in srgb,
+    var(--imp-ink, var(--accent)) var(--importance-glow, 12%), transparent));
+  transition: filter .2s ease, color .2s ease;
+}
+.item--project .item__ico svg,
+#pviewIcon svg {
+  opacity: var(--importance-icon-light, .36);
+  transition: opacity .2s ease;
+}
+.item--project .item__ico::before,
+#pviewIcon::before {
+  content: none;
+}
+.item--project .item__ico:hover,
+.item--project .item__ico:focus-visible,
+#pviewIcon:hover,
+#pviewIcon:focus-visible {
+  filter:
+    drop-shadow(0 0 5px color-mix(in srgb,
+      var(--imp-ink, var(--accent)) var(--importance-glow, 12%), transparent))
+    drop-shadow(0 0 10px color-mix(in srgb,
+      var(--imp-ink, var(--accent)) var(--importance-glow-wide, 5%), transparent));
+}
+
+/* Identity presses deepest; content remains legible as a quieter second level.
+   These values are physical weights consumed by the field, never paint. */
+html.is-field-mode .item--task:not(.is-open),
+html.is-field-mode .item--task.is-open > .item__slot,
+html.is-field-mode .item--project:not(.is-inline-open) > .project-tab,
+html.is-field-mode .item--project.is-inline-open > .project-tab {
+  --field-panel-opacity: .90;
+  --field-panel-signature: 1;
+}
+html.is-field-mode .item--task.is-open .task-inline__main,
+html.is-field-mode .item--task.is-open .task-inline__note-section:not([hidden]):not([data-sheet="canvas"]),
+html.is-field-mode .item--project.is-inline-open .goal-inline__workspace > .psteps,
+html.is-field-mode .item--project.is-inline-open .goal-inline__sheet-section:not([hidden]):not([data-sheet="canvas"]) {
+  --field-panel-opacity: .34;
+  --field-panel-signature: 0;
+}
+
+html.is-field-mode .goal-inline__sheet-section,
+html.is-field-mode .task-inline__workspace:not(.is-event) > .task-inline__note-section {
+  border-color: transparent;
+  background: transparent;
+  box-shadow: none;
+}
+html.is-field-mode .ecal-band .item--task::after,
+html.is-field-mode .ecal-band .project-tab::after { content: none; }
+
 
 /* INLINE OBJECTIVE — a compact working surface inside the dashboard row. */
 .goal-inline {
@@ -3577,6 +3839,13 @@ button.tgroup__head--day:hover {
   background: color-mix(in srgb, var(--danger) 10%, var(--input-bg));
 }
 .undated__chip.is-important .undated__chip-ico { color: var(--danger); }
+/* Events float directly on the band. Their small declared depth keeps a quiet
+   imprint in the field even though the painted pill itself is transparent. */
+.undated__chip--event,
+.undated__chip--event.is-important {
+  --field-panel-opacity: .20;
+  background: transparent;
+}
 /* out of the flow entirely while it travels: the strip behind it opens its two
    halves, and a chip still in that flow would be shoved aside by the reflow */
 .undated__chip.is-dragging {
@@ -3631,12 +3900,14 @@ button.tgroup__head--day:hover {
   position: absolute;
   inset: 0;
   overflow: auto;
+  scrollbar-width: none;
   backface-visibility: hidden;
   transform: rotateY(180deg);
 }
 /* Out of reach rather than out of sight: what faces away is already invisible by
    its own backface, and hiding it outright would leave the card blank for the
    instant a whole turn passes through the front. */
+.ecal__verso::-webkit-scrollbar { display: none; }
 .ecal.is-flipped .ecal__front { pointer-events: none; }
 .ecal:not(.is-flipped) .ecal__verso { pointer-events: none; }
 .ecal__verso .unfold__inner { padding: 2px 2px 4px; }
@@ -3976,7 +4247,126 @@ body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: non
 /* one scroller, not three nested: the card is already the thing that scrolls
    when the plates do not fit, which on a wide screen they now always do */
 .modal__card.icons .icon-grid { max-height: none; overflow: visible; }
-
+.project-edit__head {
+  justify-content: flex-start;
+  gap: 12px;
+  margin-bottom: 16px;
+}
+/* The catalogue is shared by habits, events and projects. Its flex/grid display
+   rules must never override the project-only parts' hidden state. */
+.project-edit__head[hidden],
+.project-edit__actions[hidden] { display: none; }
+.project-edit__head .modal__close { margin-left: 0; }
+.project-edit__mode {
+  flex: 0 0 auto;
+  width: 74px;
+  padding-inline: 3px;
+  grid-template-columns: 19px 20px 19px;
+  gap: 2px;
+  margin-left: auto;
+}
+.project-edit__head .modal__title { min-width: 0; }
+.project-edit__importance {
+  display: inline-flex;
+  align-items: center;
+  gap: 1px;
+  height: 24px;
+  margin-left: 0;
+  opacity: var(--importance-bars-light, .48);
+  transition: opacity .2s ease;
+}
+.project-edit__importance button {
+  position: relative;
+  width: 17px;
+  height: 24px;
+  padding: 4px;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+}
+.project-edit__importance button::after {
+  content: "";
+  display: block;
+  width: 9px;
+  height: 16px;
+  border-radius: 2px;
+  background: var(--border);
+  transition: background .15s ease, transform .15s ease;
+}
+.project-edit__importance button:nth-child(1) { --importance-color: var(--imp-1); }
+.project-edit__importance button:nth-child(2) { --importance-color: var(--imp-2); }
+.project-edit__importance button:nth-child(3) { --importance-color: var(--imp-3); }
+.project-edit__importance button:nth-child(4) { --importance-color: var(--imp-4); }
+.project-edit__importance button:nth-child(5) { --importance-color: var(--imp-5); }
+.project-edit__importance button.is-on::after { background: var(--importance-color); }
+.project-edit__importance button:hover::after { transform: scaleY(1.14); }
+/* On pale surfaces the regular border token is nearly absorbed by the panel.
+   Empty bars still need to show the five available levels, so they borrow a
+   restrained amount of the theme's ink without competing with filled colours. */
+:is([data-theme="light"], [data-theme="sakura"], [data-theme="forest"],
+    [data-theme="dawn"], [data-theme="day"])
+  .project-edit__importance button:not(.is-on)::after {
+  background: color-mix(in srgb, var(--c-text) 28%, transparent);
+}
+.project-edit__actions,
+.task-edit__actions {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 8px;
+  margin: 20px 0 0;
+}
+/* under everything the task carries, separated from it by a rule rather than by
+   distance: the panel has little enough room as it is */
+.task-edit__actions {
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid color-mix(in srgb, var(--c-line) 30%, transparent);
+}
+.project-edit__actions[hidden],
+.task-edit__actions[hidden] { display: none; }
+.project-edit__action,
+.task-edit__action {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 7px;
+  min-width: 0;
+  padding: 9px 10px;
+  border: 1px solid var(--border);
+  border-radius: 11px;
+  background: transparent;
+  color: var(--muted);
+  font: inherit;
+  font-size: .78rem;
+  cursor: pointer;
+  transition: color .18s ease, border-color .18s ease, background .18s ease;
+}
+.project-edit__action svg,
+.project-edit__action-icon,
+.project-edit__action-icon svg,
+.task-edit__action svg,
+.task-edit__action-icon,
+.task-edit__action-icon svg { flex: 0 0 auto; width: 16px; height: 16px; }
+.project-edit__action > span:last-child,
+.task-edit__action > span:last-child {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.project-edit__action:hover,
+.project-edit__action.is-on,
+.task-edit__action:hover {
+  border-color: color-mix(in srgb, var(--accent) 58%, transparent);
+  background: color-mix(in srgb, var(--accent) 9%, transparent);
+  color: var(--accent);
+}
+.project-edit__action--danger:hover,
+.task-edit__action--danger:hover {
+  border-color: color-mix(in srgb, var(--danger) 58%, transparent);
+  background: color-mix(in srgb, var(--danger) 9%, transparent);
+  color: var(--danger);
+}
 .modal__card.sleep { max-width: 460px; }
 .sleep__today { text-align: center; margin-bottom: 24px; }
 .sleep__today .field__label { display: block; margin-bottom: 8px; }
@@ -4687,6 +5077,14 @@ body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: non
   transition: border-color .2s ease;
 }
 .detail__notes:focus { border-color: var(--accent); }
+/* An event's field is a block of text, not a page: it holds a few lines and
+   scrolls inside itself rather than growing the card it stands on. It uses the
+   app-wide ink scrollbar and loses the redundant corner grip. */
+.task-inline__workspace.is-event .detail__notes {
+  min-height: 96px;
+  overflow: auto;
+  resize: none;
+}
 
 /* INLINE TASK — subtasks are the working column; the note is a quiet optional
    sheet beside it, following the same expandable rhythm as an objective journal. */
@@ -4863,7 +5261,15 @@ body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: non
   background: linear-gradient(90deg, var(--imp-1), var(--imp-3) 52%, var(--imp-5));
   transition: width .42s cubic-bezier(.3, .82, .3, 1);
 }
-
+/* A project's completion is one continuous measure, so it uses the theme's
+   signature. The multicolour ramp remains exclusive to the five importance bars. */
+.item--project .item__gauge::after {
+  background: var(--accent);
+  box-shadow: 0 0 7px color-mix(in srgb,
+    var(--accent) var(--importance-gauge-glow, 10%), transparent);
+  opacity: var(--importance-gauge-light, .36);
+  transition: width .42s cubic-bezier(.3, .82, .3, 1), opacity .2s ease;
+}
 .item__sub {
   flex: 0 0 auto;
   font-size: .7rem;
@@ -5147,6 +5553,22 @@ body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: non
   opacity: .5;
   z-index: -1;
 }
+/* In Champ mode the hard two-pixel rule remains only as invisible geometry for
+   scrubbing and placement. A four-pixel signature bloom marks its full span. */
+html.is-field-mode .dtl__strip { background: transparent !important; }
+html.is-field-mode .dtl__strip::after {
+  content: "";
+  inset: auto 0;
+  top: 50%;
+  height: 4px;
+  transform: translateY(-50%);
+  border-radius: 2px;
+  background: var(--sig-line);
+  filter: blur(1.5px);
+  opacity: .58;
+  z-index: 0;
+}
+
 .dtl__markers { position: absolute; inset: 0; z-index: 1; pointer-events: none; }
 /* sunrise / sunset: a dot on the rule, a hairline stem, the reading above it */
 .dtl__marker {
@@ -5158,14 +5580,35 @@ body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: non
   align-items: center;
 }
 .dtl__marker-time { font-size: .72rem; font-weight: 600; color: var(--text); }
-.dtl__marker-caption {
-  font-size: .56rem;
-  font-weight: 600;
-  letter-spacing: .07em;
-  text-transform: uppercase;
-  color: var(--muted);
-  margin-bottom: 6px;
-  white-space: nowrap;
+/* HALF A SUN, LIT AND BREATHING — where the two words used to run. It carries
+   the marker's own colour, so the rise is warm and the set is rose, and the
+   glow breathes with the movement rather than sitting on it. */
+.dtl__marker-ico {
+  display: block;
+  width: 16px;
+  height: 16px;
+  margin-bottom: 4px;
+  color: var(--dtl-transition-glow, var(--dtl-arc));
+  filter: drop-shadow(0 0 3px color-mix(in srgb, currentColor 55%, transparent));
+  animation: sun-half-lit 3.6s ease-in-out infinite;
+}
+.dtl__marker-ico svg { display: block; width: 100%; height: 100%; overflow: visible; }
+.sunico__line { opacity: .5; }
+.sunico__disc {
+  transform-box: fill-box;
+  transform-origin: bottom center;   /* it grows out of the line, never through it */
+}
+.dtl__marker[data-sun="rise"] .sunico__disc { animation: sun-half-out 3.6s ease-in-out infinite; }
+.dtl__marker[data-sun="set"] .sunico__disc { animation: sun-half-in 3.6s ease-in-out infinite; }
+.dtl__marker[data-sun="rise"] .sunico__rays { animation: sun-rays-open 3.6s ease-in-out infinite; }
+.dtl__marker[data-sun="set"] .sunico__rays { animation: sun-rays-close 3.6s ease-in-out infinite; }
+@keyframes sun-half-out { 0%, 100% { transform: scaleY(.74); } 50% { transform: scaleY(1); } }
+@keyframes sun-half-in  { 0%, 100% { transform: scaleY(1); } 50% { transform: scaleY(.7); } }
+@keyframes sun-rays-open  { 0%, 100% { opacity: .42; } 50% { opacity: 1; } }
+@keyframes sun-rays-close { 0%, 100% { opacity: 1; } 50% { opacity: .38; } }
+@keyframes sun-half-lit {
+  0%, 100% { filter: drop-shadow(0 0 2px color-mix(in srgb, currentColor 40%, transparent)); }
+  50%      { filter: drop-shadow(0 0 6px color-mix(in srgb, currentColor 65%, transparent)); }
 }
 .dtl__marker-stem {
   width: 1px;
@@ -5179,6 +5622,37 @@ body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: non
   border-radius: 50%;
   background: var(--dtl-arc);
   box-shadow: 0 0 6px color-mix(in srgb, var(--dtl-arc) 70%, transparent);
+}
+
+/* With the virtual rule extinguished, sunrise and sunset alone retain a small
+   continuous atmospheric bloom. These are point auras, never a connecting
+   strip: sunrise leans gold, sunset leans towards the rose end of the ramp. */
+.dtl__marker[data-sun="rise"] { --dtl-transition-glow: rgb(255 186 116); }
+.dtl__marker[data-sun="set"] { --dtl-transition-glow: rgb(225 121 106); }
+html.is-field-mode .dtl__marker-dot {
+  position: relative;
+  isolation: isolate;
+}
+html.is-field-mode .dtl__marker-dot::after {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  left: 50%;
+  top: 50%;
+  width: 74px;
+  height: 8px;
+  transform: translate(-50%, -50%);
+  border-radius: 50%;
+  pointer-events: none;
+  background: radial-gradient(ellipse at center,
+    color-mix(in srgb, var(--dtl-transition-glow) 38%, transparent) 0%,
+    color-mix(in srgb, var(--dtl-transition-glow) 28%, transparent) 15%,
+    color-mix(in srgb, var(--dtl-transition-glow) 18%, transparent) 30%,
+    color-mix(in srgb, var(--dtl-transition-glow) 10%, transparent) 46%,
+    color-mix(in srgb, var(--dtl-transition-glow) 5%, transparent) 64%,
+    color-mix(in srgb, var(--dtl-transition-glow) 2%, transparent) 80%,
+    transparent 100%);
+  filter: blur(1.5px) saturate(1.1);
 }
 
 /* THE ONE LIGHT SOURCE — the present moment. Everything else on the rule is
@@ -5353,7 +5827,31 @@ body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: non
   box-shadow: 0 6px 18px -12px var(--sig-glow);
   transition: transform .18s ease, border-color .18s ease, background .18s ease;
 }
-.dtl__event-icon svg { width: 18px; height: 18px; }
+.dtl__event-icon svg { position: relative; z-index: 1; width: 18px; height: 18px; }
+/* SUNLIGHT ON A MARKER — one unbroken wash crosses both the rounded-square edge
+   and its surface. Its centre is supplied from the real direction of the moving
+   sun: events above the rule catch it from below, tasks below catch it from
+   above, and both reflections turn as their horizontal positions cross. */
+.dtl__event-icon.has-sun-reflection {
+  isolation: isolate;
+}
+.dtl__event-icon.has-sun-reflection::before {
+  content: "";
+  position: absolute;
+  z-index: 0;
+  inset: -1px;
+  border-radius: inherit;
+  pointer-events: none;
+  background: radial-gradient(ellipse 48px 40px at var(--sun-reflect-x, 50%) var(--sun-reflect-y, 90%),
+    color-mix(in srgb, #fff 42%, var(--sun-reflect-color, #ffd67a)) 0%,
+    color-mix(in srgb, var(--sun-reflect-color, #ffd67a) 38%, transparent) 24%,
+    color-mix(in srgb, var(--sun-reflect-color, #ffd67a) 16%, transparent) 52%,
+    transparent 82%);
+  opacity: calc(var(--sun-reflect-strength, 0) * .82);
+}
+.dtl__event-icon.has-sun-reflection::after { content: none; }
+.dtl__event:is(.is-dragging, .is-floating) .dtl__event-icon::before,
+.dtl__event:is(.is-dragging, .is-floating) .dtl__event-icon::after { opacity: 0; }
 .dtl__task { color: var(--accent); }
 
 /* UNDER THE RULE — events stand over it, tasks hang beneath, so the two kinds
@@ -6423,6 +6921,41 @@ body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: non
   white-space: nowrap;
 }
 
+/* In Champ mode the scale keeps its standard place below the gauge, while its
+   readings retain the luminous instrument ink introduced by the virtual view. */
+html.is-field-mode .dtl__tick { display: none; }
+html.is-field-mode .dtl__tick-label {
+  top: 0;
+  color: color-mix(in srgb, var(--sig-line) 72%, #fff);
+  font-size: .66rem;
+  font-weight: 650;
+  letter-spacing: .055em;
+  opacity: .92;
+  text-shadow:
+    0 0 2px currentColor,
+    0 0 7px color-mix(in srgb, currentColor 72%, transparent),
+    0 0 14px color-mix(in srgb, currentColor 38%, transparent);
+}
+html.is-field-mode .dtl__tick-label.is-day-break {
+  color: color-mix(in srgb, var(--accent) 74%, #fff);
+}
+
+/* Pale skies need dark instrument ink. The glow stays thematic around it, and
+   the same family exposes its signature as the nocturnal cursor's moonlight. */
+:is([data-theme="light"], [data-theme="sakura"], [data-theme="forest"],
+    [data-theme="dawn"], [data-theme="day"]) {
+  --dtl-moon-core: var(--c-sig);
+}
+html.is-field-mode:is([data-theme="light"], [data-theme="sakura"], [data-theme="forest"],
+    [data-theme="dawn"], [data-theme="day"]) .dtl__tick-label:not(.is-day-break) {
+  color: var(--c-text);
+  opacity: .9;
+  text-shadow:
+    0 0 1px color-mix(in srgb, var(--c-text) 48%, transparent),
+    0 0 5px var(--sig-glow),
+    0 0 10px color-mix(in srgb, var(--c-sig) 25%, transparent);
+}
+
 /* numbers read as instrument values, words stay in the reading face */
 .dtl__marker-time,
 .dtl__tick-label,
@@ -6467,9 +7000,10 @@ body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: non
   --ecal-pad-x: 14px;
   --ecal-pad-top: 14px;
   --ecal-pad-bottom: 6px;
+  --ecal-radius: var(--radius);
   padding: var(--ecal-pad-top) var(--ecal-pad-x) var(--ecal-pad-bottom);
   border: none;
-  border-radius: var(--radius);
+  border-radius: var(--ecal-radius);
   background:
     radial-gradient(120% 88% at 14% -12%,
       color-mix(in srgb, var(--c-sig) 13%, transparent), transparent 62%),
@@ -6562,7 +7096,14 @@ body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: non
   transition: background .2s ease, color .2s ease;
 }
 .ecal__nav:hover { background: var(--accent-soft); color: var(--accent); }
-.ecal__viewport { transition: height .45s cubic-bezier(.2, .8, .25, 1); }
+/* THE DAY'S HALO — today rests on a pool of light that falls outside its cell,
+   and the cell sits on the last row: any clip on the viewport cuts it. Read only
+   while the viewport is set to `clip`, which the fold does and the unfold does
+   not — see toggleCalendar. */
+.ecal__viewport {
+  transition: height .45s cubic-bezier(.2, .8, .25, 1);
+  overflow-clip-margin: 24px;
+}
 .ecal__viewport.is-week-sliding { position: relative; }
 .ecal__grid {
   display: grid;
@@ -6718,8 +7259,12 @@ body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: non
    direction while keeping the app's translucent stone and signature light. */
 @media (min-width: 1000px) {
   .ecal {
-    padding: 10px 8px 4px;
-    border-radius: 30px;
+    --ecal-pad-top: 10px;
+    --ecal-pad-x: 8px;
+    --ecal-pad-bottom: 4px;
+    --ecal-radius: 30px;
+    padding: var(--ecal-pad-top) var(--ecal-pad-x) var(--ecal-pad-bottom);
+    border-radius: var(--ecal-radius);
   }
   .ecal:not(.is-expanded) {
     --field-panel-opacity: 0;
@@ -6850,6 +7395,37 @@ body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: non
   }
 }
 
+/* VIRTUAL CALENDAR — in Champ mode neither the calendar sheet nor its days are
+   painted cards. Their dimensions, perspective and hit areas stay untouched;
+   the field receives the same rectangles and supplies their physical depth. */
+html.is-field-mode .ecal {
+  background: none;
+  box-shadow: none;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+html.is-field-mode .ecal::before,
+html.is-field-mode .ecal::after { opacity: 0; }
+
+html.is-field-mode .ecal .ecal__day,
+html.is-field-mode .ecal .ecal__day:hover,
+html.is-field-mode .ecal .ecal__day.is-focus,
+html.is-field-mode .ecal .ecal__day.is-today,
+html.is-field-mode .ecal .ecal__day.is-today:hover {
+  --field-panel-opacity: .26;
+  --field-panel-signature: 0;
+  --field-panel-accent: 0;
+  --field-panel-signature-hover: 1;
+  --field-panel-signature-focus: 1;
+  background: transparent;
+  box-shadow: none;
+}
+/* Today remains identifiable through the field itself, not through a smooth
+   fill. It keeps the accent of its former base colour inside the carved cells. */
+html.is-field-mode .ecal .ecal__day.is-today {
+  --field-panel-accent: 1;
+}
+
 
 /* HABITS VIEW */
 .detail__viewtitle {
@@ -6972,10 +7548,8 @@ body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: non
   inset: 0;
   z-index: 82;
   display: block;
-  /* The same ground as the app: the veiled sky, with the signature pooling in
-     from the top left exactly as it does on the calendar card. The reactive
-     field canvas is moved in here while the view is up (see openThinking), so
-     the board sits on the app's own background rather than a flat panel. */
+  /* The normal canvas keeps its own quiet ground. Virtual-field mode removes
+     that material below, while retaining the app sky as an occluding base. */
   background:
     radial-gradient(120% 80% at 14% -8%,
       color-mix(in srgb, var(--c-sig) 13%, transparent), transparent 62%),
@@ -6983,6 +7557,7 @@ body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: non
   opacity: 0;
   transition: opacity .28s ease;
 }
+html.is-field-mode .thinking { background: var(--sky); }
 /* under the board's own content, over the sky behind it */
 .thinking > #field { z-index: -1; }
 .thinking[hidden] { display: none; }
@@ -7317,6 +7892,8 @@ body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: non
   color: var(--block-color);
 }
 .thinking-tool__mark svg { width: 14px; height: 14px; }
+/* the bloc's mark is square, like the thing it drops */
+.thinking-tool--bloc .thinking-tool__mark { border-radius: 4px; }
 /* a container's disc is solid, with the icon knocked out of it — the block's
    "settled" state, borrowed to say "this one holds other things" */
 .thinking-tool:is(.thinking-tool--canvas, .thinking-tool--folder, .thinking-tool--document, .thinking-tool--planner, .thinking-tool--logbook) .thinking-tool__mark {
@@ -7355,6 +7932,13 @@ body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: non
 .thinking-tool--condition, .thinking-block--condition, .thinking-link--condition { --block-color: var(--c-imp-3); }
 .thinking-tool--idea, .thinking-block--idea, .thinking-link--idea { --block-color: var(--c-imp-5); }
 .thinking-tool--text, .thinking-block--text, .thinking-link--text { --block-color: var(--muted); }
+.thinking-tool--bloc, .thinking-block--bloc, .thinking-link--bloc { --block-color: var(--muted); }
+/* the five stops the chip walks through, the palette's own */
+.thinking-block--bloc.is-tint-1, .thinking-link--bloc.is-tint-1 { --block-color: var(--c-imp-1); }
+.thinking-block--bloc.is-tint-2, .thinking-link--bloc.is-tint-2 { --block-color: var(--c-imp-2); }
+.thinking-block--bloc.is-tint-3, .thinking-link--bloc.is-tint-3 { --block-color: var(--c-imp-3); }
+.thinking-block--bloc.is-tint-4, .thinking-link--bloc.is-tint-4 { --block-color: var(--c-imp-4); }
+.thinking-block--bloc.is-tint-5, .thinking-link--bloc.is-tint-5 { --block-color: var(--c-imp-5); }
 .thinking-tool--note, .thinking-block--note, .thinking-link--note { --block-color: var(--muted); }
 .thinking-tool--text {
   border-color: color-mix(in srgb, var(--muted) 24%, transparent);
@@ -7471,13 +8055,12 @@ body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: non
   min-height: 0;
   overflow: auto;
   overscroll-behavior: contain;
-  /* what lies past the cloth: bare ground, no weave, one shade down — so the
-     edge of the canvas is a thing you can see rather than guess at */
   background: color-mix(in oklab, var(--c-bg) calc(100% - var(--c-shade) * 26%), #000);
   cursor: grab;
   scrollbar-width: none;
   touch-action: none;
 }
+html.is-field-mode .thinking-viewport { background: transparent; }
 .thinking-viewport::-webkit-scrollbar { display: none; }
 /* THE OVERVIEW — a quarter scale, so one window covers sixteen screens and the
    nine-screen cloth sits inside it with ground to spare. zoom rather than a
@@ -7504,20 +8087,13 @@ body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: non
   cursor: copy;
   box-shadow: inset 0 0 0 3px color-mix(in srgb, var(--accent) 70%, transparent);
 }
-/* THE CLOTH — a toile is a woven thing, and the lattice was already sitting on
-   the crossings of a weave: the dots are the knots, so they get their threads.
-   Same 24px step as before, so nothing new can beat against the scroll. */
-/* THE SELVEDGE — a toile is a woven piece and a woven piece has an edge. It is
-   bounded now (nine screens), so it says so: the cloth carries its own colour,
-   a hairline hem, and a shadow that lifts it off the ground beyond. */
+/* The normal cloth keeps its historical weave and edge. Field mode removes
+   only this material; dimensions and camera coordinates never change. */
 .thinking-plane {
   position: relative;
   width: 5400px;
   height: 3000px;
   background-color: color-mix(in srgb, var(--c-bg) 90%, var(--c-surface));
-  /* The hem is drawn inward, not on the outline: you cannot scroll past the
-     cloth, so an edge sitting flush with the screen would never be seen. This
-     way the last stretch shades off and tells you the end is coming. */
   box-shadow:
     inset 0 0 0 3px color-mix(in srgb, var(--c-line) 95%, transparent),
     inset 0 0 0 14px color-mix(in srgb, var(--c-line) 26%, transparent),
@@ -7531,6 +8107,7 @@ body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: non
       color-mix(in srgb, var(--c-line) 11%, transparent) 0 1px, transparent 1px 24px);
   background-size: 24px 24px, 24px 24px, 24px 24px;
 }
+html.is-field-mode .thinking-plane { background: transparent; box-shadow: none; }
 .thinking-links, .thinking-blocks { position: absolute; inset: 0; }
 .thinking-links { z-index: 1; overflow: visible; }
 /* the head takes the line's own colour, so one rule recolours both */
@@ -9105,6 +9682,62 @@ body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: non
 .thinking-block--text:hover .thinking-block__foot,
 .thinking-block--text:focus-within .thinking-block__foot,
 .thinking-block--text.is-link-source .thinking-block__foot { opacity: 1; }
+
+/* THE BLOC — every other block on the cloth is a rounded card with a pastille
+   saying what it is. This one says nothing: square corners, one bold line held
+   in the middle, and a chip in the corner for its colour. That is the whole
+   vocabulary of a diagram — a box, a word, a colour, a line to the next box —
+   so the block offers exactly that and nothing else, no type name, no footer,
+   no count. Uncoloured it is a hollow chip on a grey outline; coloured, the
+   outline and the ground take the stop the chip landed on. */
+.thinking-block--bloc {
+  --thinking-corner-tl: 0;
+  --thinking-corner-tr: 0;
+  --thinking-corner-br: 0;
+  --thinking-corner-bl: 0;
+  min-height: 58px;
+  justify-content: center;
+  border-color: color-mix(in srgb, var(--block-color) 42%, var(--border));
+  background: color-mix(in srgb, var(--block-color) 7%, var(--surface-solid));
+}
+.thinking-block--bloc.is-tinted {
+  border-color: color-mix(in srgb, var(--block-color) 62%, transparent);
+  background: color-mix(in srgb, var(--block-color) 13%, var(--surface-solid));
+}
+.thinking-block--bloc > .thinking-block__head {
+  min-height: 17px;
+  padding: 3px 3px 0;
+  border-bottom: 0;
+  background: none;
+}
+.thinking-block--bloc .thinking-block__text {
+  min-height: 24px;
+  padding: 0 11px 11px;
+  color: var(--text);
+  font-size: .92rem;
+  font-weight: 700;
+  line-height: 1.35;
+  text-align: center;
+}
+/* a speck in the top left corner, not a button: at 7px a dashed ring falls
+   apart, so empty is a plain hollow one and colour simply fills it */
+.thinking-bloc__chip {
+  width: 7px;
+  height: 7px;
+  flex: none;
+  padding: 0;
+  border: 1px solid color-mix(in srgb, var(--muted) 55%, transparent);
+  border-radius: 50%;
+  background: none;
+  cursor: pointer;
+  transition: transform .16s ease, background .16s ease, border-color .16s ease;
+}
+.thinking-bloc__chip:hover { transform: scale(1.5); }
+.thinking-block--bloc.is-tinted .thinking-bloc__chip {
+  border-color: var(--block-color);
+  background: var(--block-color);
+}
+.thinking-block--bloc > .thinking-block__head > .thinking-block__delete { margin-left: auto; }
 .thinking-blank {
   position: absolute;
   z-index: 0;
@@ -9138,6 +9771,258 @@ body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: non
   color: var(--muted);
   font-size: .68rem;
   pointer-events: none;
+}
+
+/* VIRTUAL CANVAS CHROME — the two bars keep their exact height and layout, but
+   cease to be sheets laid over the field. The title presses more firmly and
+   carries the same faint theme signature as the other identity strips; tools
+   form a shallower working band so their controls remain the visual focus. */
+html.is-field-mode .thinking__bar--board {
+  --field-panel-opacity: .78;
+  --field-panel-signature: 1;
+  --field-panel-accent: 0;
+  border-color: transparent;
+  background: transparent;
+  box-shadow: none;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+html.is-field-mode .thinking-tools {
+  --field-panel-opacity: .38;
+  --field-panel-signature: 0;
+  --field-panel-accent: 0;
+  border-color: transparent;
+  background: transparent;
+  box-shadow: none;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+/* The block palette keeps its coloured marks, but its pills are no longer
+   painted chips. Each unchanged hit box makes a local hollow inside the tools
+   band, and the theme signature passes through that hollow under the pointer. */
+html.is-field-mode .thinking-tool,
+html.is-field-mode .thinking-tool:hover {
+  --field-panel-opacity: .52;
+  --field-panel-signature: 0;
+  --field-panel-accent: 0;
+  --field-panel-signature-hover: 1;
+  --field-panel-signature-focus: 1;
+  border-color: transparent;
+  background: transparent;
+  box-shadow: none;
+}
+/* Their inner marks follow the project-icon language too: no coloured disc,
+   only the block glyph and its small light on the lattice. Container glyphs
+   return to their own ink now that there is no solid disc to knock them out of. */
+html.is-field-mode .thinking-tool__mark,
+html.is-field-mode .thinking-tool:is(.thinking-tool--canvas, .thinking-tool--folder,
+  .thinking-tool--document, .thinking-tool--planner, .thinking-tool--logbook) .thinking-tool__mark {
+  --field-panel-opacity: .34;
+  --field-panel-signature: 0;
+  --field-panel-accent: 0;
+  --field-panel-signature-hover: 1;
+  --field-panel-signature-focus: 1;
+  background: transparent;
+  color: var(--block-color);
+  box-shadow: none;
+  filter: drop-shadow(0 0 4px color-mix(in srgb, var(--block-color) 28%, transparent));
+  transition: filter .2s ease, color .2s ease;
+}
+html.is-field-mode .thinking-tool:hover .thinking-tool__mark,
+html.is-field-mode .thinking-tool:focus-visible .thinking-tool__mark {
+  filter:
+    drop-shadow(0 0 5px color-mix(in srgb, var(--block-color) 55%, transparent))
+    drop-shadow(0 0 10px color-mix(in srgb, var(--block-color) 22%, transparent));
+}
+
+/* The canvas utility dock follows the same rule as its palette: selection,
+   linking, overview and recentering are small field controls, not painted
+   discs. A pressed mode colours the hollow itself through the accent channel. */
+html.is-field-mode .thinking-mode-toggle,
+html.is-field-mode .thinking-mode-toggle:hover,
+html.is-field-mode .thinking-mode-toggle:focus-visible,
+html.is-field-mode .thinking-mode-toggle[aria-pressed="true"] {
+  --field-panel-opacity: .40;
+  --field-panel-signature: 0;
+  --field-panel-accent: 0;
+  --field-panel-signature-hover: 1;
+  --field-panel-signature-focus: 1;
+  border-color: transparent;
+  background: transparent;
+  box-shadow: none;
+}
+html.is-field-mode .thinking-mode-toggle[aria-pressed="true"] {
+  --field-panel-accent: 1;
+}
+html.is-field-mode .thinking-selection-actions {
+  --field-panel-opacity: .38;
+  --field-panel-signature: 0;
+  --field-panel-accent: 1;
+  border-color: transparent;
+  background: transparent;
+  box-shadow: none;
+}
+html.is-field-mode .thinking-selection-actions__canvas,
+html.is-field-mode .thinking-selection-actions__canvas:hover {
+  --field-panel-opacity: .28;
+  --field-panel-signature: 0;
+  --field-panel-accent: 0;
+  --field-panel-signature-hover: 1;
+  --field-panel-signature-focus: 1;
+  background: transparent;
+  box-shadow: none;
+}
+
+/* VIRTUAL BLOCKS — Champ mode keeps every canvas object's exact rectangle but
+   takes away its card material. Small blocks press at one common weight; a
+   large open container is quieter so its nested blocks can still be read. */
+html.is-field-mode .thinking-block {
+  --field-panel-opacity: .58;
+  --field-panel-signature: 0;
+  --field-panel-accent: 0;
+  --field-panel-signature-hover: 1;
+  --field-panel-signature-focus: 1;
+  border-color: transparent;
+  background: transparent;
+  box-shadow: none;
+}
+html.is-field-mode .thinking-block--organization:not(.is-collapsed) {
+  --field-panel-opacity: .34;
+}
+html.is-field-mode .thinking-block:hover,
+html.is-field-mode .thinking-block--organization.is-collapsed:hover,
+html.is-field-mode .thinking-block--text:hover,
+html.is-field-mode .thinking-block--text:focus-within,
+html.is-field-mode .thinking-logbook__entry > .thinking-block:hover {
+  border-color: transparent;
+  background: transparent;
+  box-shadow: none;
+}
+html.is-field-mode .thinking-block > .thinking-block__head,
+html.is-field-mode .thinking-block--flow > .thinking-flow__head {
+  border-color: transparent;
+  background: transparent;
+}
+html.is-field-mode .thinking-block--organization:not(.is-collapsed)::before,
+html.is-field-mode .thinking-block--flow::before,
+html.is-field-mode .thinking-block--flow::after,
+html.is-field-mode .thinking-canvas__stage::after { content: none; }
+html.is-field-mode .thinking-canvas__stage { background-color: transparent; }
+/* VIRTUAL ORGANIZATION SURFACES — folders, notepads and logbooks used to keep
+   their own paper inside an already virtual block. Their exact rectangles stay
+   in place, but the field now supplies both the outer sheet and the quieter
+   working area within it. */
+html.is-field-mode .thinking-folder__list,
+html.is-field-mode .thinking-document-paper,
+html.is-field-mode .thinking-document-sheet,
+html.is-field-mode .thinking-document-toolbar,
+html.is-field-mode .thinking-document-body,
+html.is-field-mode .thinking-logbook {
+  border-color: transparent;
+  background: transparent;
+  box-shadow: none;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+html.is-field-mode .thinking-folder__list--preview { --field-panel-opacity: .22; }
+html.is-field-mode .thinking-folder__list--fullscreen { --field-panel-opacity: .42; }
+html.is-field-mode .thinking-document-paper { --field-panel-opacity: .36; }
+html.is-field-mode .thinking-document-sheet { --field-panel-opacity: .34; }
+html.is-field-mode .thinking-document-toolbar {
+  --field-panel-opacity: .48;
+  --field-panel-signature: 1;
+  --field-panel-accent: 0;
+}
+html.is-field-mode .thinking-document-body { --field-panel-opacity: .18; }
+html.is-field-mode .thinking-logbook--preview { --field-panel-opacity: .20; }
+html.is-field-mode .thinking-logbook--fullscreen { --field-panel-opacity: .38; }
+html.is-field-mode .thinking-document-paper::before,
+html.is-field-mode .thinking-document-sheet::before { content: none; }
+
+/* Folder rows are distinct places inside the folder rather than painted hover
+   strips. The invitation and its three choices follow the same rule. */
+html.is-field-mode .thinking-folder__row,
+html.is-field-mode .thinking-folder__row:hover {
+  --field-panel-opacity: .26;
+  --field-panel-signature: 0;
+  --field-panel-accent: 0;
+  --field-panel-signature-hover: 1;
+  --field-panel-signature-focus: 1;
+  background: transparent;
+  box-shadow: none;
+}
+html.is-field-mode .thinking-folder__add,
+html.is-field-mode .thinking-folder__add.is-open { background: transparent; }
+html.is-field-mode .thinking-folder__add-open,
+html.is-field-mode .thinking-folder__add-open:hover {
+  --field-panel-opacity: .32;
+  --field-panel-signature: 0;
+  --field-panel-accent: 0;
+  --field-panel-signature-hover: 1;
+  --field-panel-signature-focus: 1;
+  border-color: transparent;
+  background: transparent;
+  box-shadow: none;
+}
+html.is-field-mode .thinking-folder__add-choice,
+html.is-field-mode .thinking-folder__add-choice:hover {
+  --field-panel-opacity: .30;
+  --field-panel-signature: 0;
+  --field-panel-accent: 0;
+  --field-panel-signature-hover: 1;
+  --field-panel-signature-focus: 1;
+  background: transparent;
+  color: var(--block-color);
+  box-shadow: none;
+}
+html.is-field-mode .thinking-folder__list.is-drop-target {
+  --field-panel-accent: 1;
+  border-color: transparent;
+  box-shadow: none;
+}
+
+/* The notepad toolbar and its buttons are field controls now. Active formats
+   retain their colour in the glyph and keep a signature tint in their hollow. */
+html.is-field-mode .thinking-document-tool,
+html.is-field-mode .thinking-document-tool:hover,
+html.is-field-mode .thinking-document-tool:focus-visible,
+html.is-field-mode .thinking-document-tool.is-active,
+html.is-field-mode .thinking-document-tool--hilite.is-active {
+  --field-panel-opacity: .30;
+  --field-panel-signature: 0;
+  --field-panel-accent: 0;
+  --field-panel-signature-hover: 1;
+  --field-panel-signature-focus: 1;
+  border-color: transparent;
+  background: transparent;
+  box-shadow: none;
+}
+html.is-field-mode .thinking-document-tool.is-active { --field-panel-signature: 1; }
+html.is-field-mode .thinking-document-toolbar__separator { background: transparent; }
+
+/* A journal keeps its dates and spacing, not printed ruling. Its add control is
+   a local hollow instead of a capsule laid over the page. */
+html.is-field-mode .thinking-logbook__add,
+html.is-field-mode .thinking-logbook__add:hover {
+  --field-panel-opacity: .34;
+  --field-panel-signature: 0;
+  --field-panel-accent: 0;
+  --field-panel-signature-hover: 1;
+  --field-panel-signature-focus: 1;
+  background: transparent;
+  box-shadow: none;
+}
+/* Selection, linking and drop targets remain explicit, but through the field
+   instead of an outline or a smooth glow around the block. */
+html.is-field-mode .thinking-block:is(.is-selected, .is-dragging, .is-link-source,
+  .is-group-dragging, .is-resizing, .is-link-drop-target, .is-drop-target,
+  .is-drop-option, .is-stick-option) {
+  --field-panel-accent: 1;
+  border-color: transparent;
+  box-shadow: none;
+}
+html.is-field-mode .thinking-block.is-drop-target > .thinking-canvas__stage {
+  box-shadow: none;
 }
 
 @media (max-width: 700px) {
@@ -9187,6 +10072,21 @@ body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: non
 }
 .sky-view[hidden] { display: none; }
 .sky-view.is-open { opacity: 1; }
+
+/* VIRTUAL SKY — full screen always keeps the field, but against the fixed night
+   already declared on `.sky-view`. On the calendar only a genuinely dark app
+   ground is allowed through; the script marks that resolved case explicitly. */
+html.is-field-mode .sky-view {
+  --starlight: color-mix(in oklab, #eaf1ff 90%, var(--c-sig));
+  --text: #eef3ff;
+  --muted: color-mix(in srgb, #eef3ff 62%, transparent);
+  --border: color-mix(in srgb, #eef3ff 16%, transparent);
+  --input-bg: transparent;
+  color: var(--starlight);
+}
+html.is-field-mode .sky-view.is-oncard.is-virtual-card { background: transparent; }
+html.is-field-mode .sky-view > #field { z-index: 0; }
+html.is-field-mode .sky-view__field { z-index: 1; }
 
 /* THE TOOLS — a bar would cut a strip of sky off the top for two buttons. They
    float over it instead, out of the way of the panel that opens on the right. */
@@ -9279,6 +10179,30 @@ body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: non
 .skylist__add .skylist__ico { opacity: 1; }
 .skylist__add .skylist__ico svg { width: 15px; height: 15px; }
 
+/* Navigation and the readable project roll are objects resting in space, not
+   panes of glass over it. Their existing rectangles now make field hollows. */
+html.is-field-mode .sky-view:not(.is-oncard) :is(.sky-tool, .sky-tool:hover,
+    .skylist__item, .skylist__item:hover, .skylist__item.is-on,
+    .skylist__add, .skylist__add:hover),
+html.is-field-mode .sky-view.is-virtual-card :is(.sky-tool, .sky-tool:hover,
+    .skylist__item, .skylist__item:hover, .skylist__item.is-on,
+    .skylist__add, .skylist__add:hover) {
+  --field-panel-opacity: .42;
+  --field-panel-signature: 0;
+  --field-panel-accent: 0;
+  --field-panel-signature-hover: 1;
+  --field-panel-signature-focus: 1;
+  border-color: transparent;
+  background: transparent;
+  box-shadow: none;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+html.is-field-mode .sky-view:not(.is-oncard) .skylist__item.is-on,
+html.is-field-mode .sky-view.is-virtual-card .skylist__item.is-on {
+  --field-panel-accent: 1;
+}
+
 /* the panel opens over this corner, so the roll steps aside while diving */
 .sky-view.is-diving .skyroll { opacity: 0; pointer-events: none; }
 .skyroll { transition: opacity .3s ease; }
@@ -9310,7 +10234,7 @@ body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: non
    not being the one looked at is not an objective gone. */
 .sky-view.is-diving .pstar { opacity: .55; }
 .sky-view.is-diving .pstar.is-focused { opacity: 1; }
-.pstar.is-focused .pstar__glow { opacity: 1; }
+.pstar.is-focused .pstar__glow { opacity: var(--star-hover-glow, .48); }
 .pstar.is-focused { cursor: default; }
 
 .sky-view__empty[hidden] { display: none; }
@@ -9325,9 +10249,9 @@ body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: non
   text-align: center;
 }
 
-/* A STAR — the core carries the ambition (its size) and the progress (its colour),
-   the ring the trajectory, the halo the momentum. A quiet project keeps a faint
-   ember; a live one breathes. */
+/* A STAR — importance supplies its size and ceiling of white light; recent
+   momentum moves the halo inside that ceiling. A quiet project keeps a faint
+   ember, while a live and important one can burn at full strength. */
 .pstar {
   position: absolute;
   transform: translate(-50%, -50%);
@@ -9355,6 +10279,7 @@ body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: non
     #fff 28%,
     color-mix(in srgb, #fff 55%, var(--starlight)) 52%,
     transparent 100%);
+  opacity: var(--star-light, .36);
 }
 /* the four spikes a bright star throws in a lens; they are what says "star" */
 .pstar__core::before,
@@ -9388,7 +10313,7 @@ body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: non
   background: radial-gradient(circle,
     color-mix(in srgb, var(--starlight) 60%, transparent) 0%,
     transparent 68%);
-  opacity: calc(.18 + var(--star-glow, 0) * .82);
+  opacity: var(--star-glow, .22);
 }
 .pstar__name {
   position: absolute;
@@ -9420,7 +10345,7 @@ body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: non
    labels flip above the core, which is the only room left down there. */
 .pstar.is-dormant { animation: none; opacity: .5; cursor: default; }
 .pstar.is-dormant .pstar__since { top: calc(50% + 15px); }
-.pstar.is-dormant .pstar__glow { opacity: .12; }
+.pstar.is-dormant .pstar__glow { opacity: var(--star-dormant-glow, .12); }
 .pstar.is-done .pstar__core { box-shadow: 0 0 0 2px color-mix(in srgb, var(--starlight) 40%, transparent); }
 .pstar:hover { z-index: 2; }
 .pstar:hover .pstar__name,
@@ -9428,7 +10353,7 @@ body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: non
 .pstar:focus-visible .pstar__name,
 .pstar.is-focused .pstar__name { opacity: 1; }
 .pstar.is-dragging .pstar__name { opacity: 1; }
-.pstar:hover .pstar__glow { opacity: 1; }
+.pstar:hover .pstar__glow { opacity: var(--star-hover-glow, .48); }
 
 @keyframes star-breathe {
   0%, 100% { transform: translate(-50%, -50%) scale(1); }
@@ -9527,12 +10452,9 @@ body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: non
 }
 /* wide enough now to read two columns side by side instead of one long scroll */
 .pview__sec--cap { margin-bottom: 14px; }
-/* the two lines share the width rather than running the whole way across: a
-   question 800px long is read twice before it is understood */
-.pview__caplines { display: grid; grid-template-columns: 1fr; gap: 2px; }
-@media (min-width: 1180px) {
-  .pview__caplines { grid-template-columns: 1fr 1fr; gap: 0 26px; }
-}
+/* There is one heading line now: it spans the section instead of retaining the
+   half-width track that belonged to the removed second question. */
+.pview__caplines { display: block; width: 100%; }
 .pview__cols { display: grid; grid-template-columns: 1fr; gap: 28px; }
 @media (min-width: 1180px) {
   .pview__cols { grid-template-columns: 1fr 1fr; gap: 26px 34px; }
@@ -9540,7 +10462,7 @@ body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: non
 .pview__col { display: flex; flex-direction: column; gap: 30px; min-width: 0; }
 .pview__sec { min-width: 0; }
 
-/* the heading: two plain lines and a date. Nothing else, on purpose */
+/* the heading: one plain line. Nothing else, on purpose */
 .pview__line {
   width: 100%;
   resize: none;
@@ -9606,51 +10528,115 @@ body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: non
   position: relative;
   display: flex;
   align-items: flex-start;   /* a step may run to several lines now */
-  gap: 9px;
-  padding: 5px 0 5px 13px;
+  gap: 10px;
+  padding: 5px 0;
   border-bottom: 1px solid color-mix(in srgb, var(--c-line) 35%, transparent);
+  cursor: grab;              /* the row is the handle; there is no separate one */
+  /* the star's own light, and where its middle falls: both are read by the star
+     and by the thread that strings one to the next */
+  --pip-size: 13px;
+  --star-ink: color-mix(in oklab, var(--c-star) 90%, var(--c-sig));
+  --star-y: calc(8px + .675 * .92rem);
 }
-.step::before {
+.step.is-dragging { opacity: .34; cursor: grabbing; }
+.step:last-child { border-bottom: 0; }
+
+/* THE THREAD BETWEEN TWO STARS — a course is read as a constellation, so its
+   steps are strung on one. Each row carries its own half of the thread, above
+   its star and below it, and the two ends are left open. A stretch lights only
+   when both stars it joins have been reached: the same reading as the rays in
+   the sky, where what has been walked burns and what is ahead is barely there. */
+.step::before,
+.step::after {
   content: "";
   position: absolute;
-  left: 0;
-  top: 0;
-  bottom: 0;
-  width: 3px;
-  background: var(--step-color, transparent);
-  box-shadow: 0 0 9px 1px color-mix(in srgb, var(--step-color, transparent) 45%, transparent);
-  opacity: .34;
-  transition: opacity .28s ease, box-shadow .28s ease;
+  left: calc(var(--pip-size) / 2 - .5px);
+  width: 1px;
+  background: color-mix(in srgb, var(--star-ink) 20%, transparent);
+  transition: background .3s ease, box-shadow .3s ease;
 }
-/* The course lights up as it is walked: what is still ahead is held low, what
-   has been reached burns at full. The ramp is then also a gauge. */
-.step.is-done::before {
-  opacity: 1;
-  box-shadow: 0 0 13px 2px color-mix(in srgb, var(--step-color, transparent) 55%, transparent);
+.step::before { top: 0; height: var(--star-y); }
+.step::after { top: var(--star-y); bottom: 0; }
+.step:first-child::before,
+.step:last-child::after { content: none; }
+/* the half under a reached step, when the step under it is reached too, and the
+   half over a reached step, when the one over it is */
+.step.is-done:has(+ .step.is-done)::after,
+.step.is-done + .step.is-done::before {
+  background: color-mix(in srgb, var(--star-ink) 80%, transparent);
+  box-shadow: 0 0 5px color-mix(in srgb, var(--star-ink) 34%, transparent);
 }
-.step:last-child { border-bottom: 0; }
-.step__drag {
+
+/* THE STEP IS A STAR — the same object the sky draws, brought back to the line
+   it belongs to: a white core with the theme's own glow around it, faint while
+   the step is still ahead and full once it has been reached. It is the whole of
+   what a step wears, and it is what opens the three things one does to one. */
+.step__pip {
   flex: 0 0 auto;
-  display: grid;
-  place-items: center;
-  width: 22px;
-  height: 26px;
-  margin-left: -4px;
+  position: relative;                /* over the thread it is strung on */
+  z-index: 1;
+  width: var(--pip-size);
+  height: var(--pip-size);
+  /* Sat on a guessed margin it rode above the line it belongs to. It is placed on
+     the middle of the first line instead: the field's own top padding, plus half
+     of its line, less half of itself. The size can change without moving it. */
+  font-size: .92rem;                 /* the size of the line it stands beside */
+  margin-top: calc(3px + .675em - var(--pip-size) / 2);
   padding: 0;
   border: 0;
-  background: none;
-  color: var(--muted);
-  cursor: grab;
-  touch-action: none;
-  opacity: .38;
-  transition: color .16s ease, opacity .16s ease;
+  border-radius: 50%;
+  background: radial-gradient(circle,
+    color-mix(in srgb, #fff 88%, var(--star-ink)) 0%,
+    var(--star-ink) 28%,
+    color-mix(in srgb, var(--star-ink) 38%, transparent) 48%,
+    transparent 74%);
+  filter: drop-shadow(0 0 3px color-mix(in srgb, var(--star-ink) 55%, transparent));
+  opacity: .44;
+  cursor: pointer;
+  transition: transform .18s ease, opacity .25s ease, filter .25s ease;
 }
-.step__drag svg { width: 16px; height: 16px; fill: currentColor; stroke: none; }
-.step:hover .step__drag,
-.step__drag:focus-visible { color: var(--step-color, var(--accent)); opacity: .9; }
-.step__drag:focus-visible { outline: 1px solid currentColor; outline-offset: 1px; border-radius: 6px; }
-.step.is-dragging { opacity: .34; }
-.step.is-dragging .step__drag { cursor: grabbing; }
+.step__pip:hover { transform: scale(1.38); opacity: 1; }
+/* reached: the star has lit, exactly as it does in the sky */
+.step.is-done .step__pip {
+  opacity: 1;
+  filter: drop-shadow(0 0 7px color-mix(in srgb, var(--star-ink) 65%, transparent));
+}
+.step.is-acting .step__pip { opacity: 1; transform: scale(1.24); }
+.step.is-aside .step__pip { opacity: .22; }
+
+/* WHAT THE STAR OPENS — a small pane resting over the beginning of the line,
+   never in it: nothing is reserved, nothing is pushed, and the writing keeps the
+   whole width whether the pane is open or not. It grows out of the star. */
+.step__acts {
+  position: absolute;
+  left: -4px;
+  font-size: .92rem;
+  top: calc(5px + 3px + .675em);     /* on the star's own middle, see the pip */
+  z-index: 4;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 4px 7px;
+  border-radius: 16px;
+  /* It stands over what is written, so it is solid: built from the two opaque
+     tokens rather than from --surface, which carries the theme's veil and let the
+     text through it. */
+  background: color-mix(in srgb, var(--c-surface) 26%, var(--c-bg));
+  border: 1px solid color-mix(in srgb, var(--c-line) 42%, transparent);
+  box-shadow: 0 8px 20px -10px color-mix(in srgb, var(--c-sky-3) 80%, transparent),
+    inset 0 1px 0 color-mix(in srgb, var(--c-surface) 30%, transparent);
+  opacity: 0;
+  pointer-events: none;
+  transform: translate(0, -50%) scale(.7);
+  transform-origin: 12px center;     /* it grows out of the star */
+  transition: opacity .18s ease, transform .24s cubic-bezier(.2, .9, .3, 1.25);
+}
+.step.is-acting .step__acts {
+  opacity: 1;
+  pointer-events: auto;
+  transform: translate(0, -50%) scale(1);
+}
+
 .step__text {
   flex: 1 1 auto;
   min-width: 0;
@@ -9659,6 +10645,7 @@ body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: non
   color: var(--text);
   font: inherit;
   font-size: .92rem;
+  cursor: text;
   padding: 3px 0;
   /* it grows down instead of scrolling sideways, so a long step is read whole */
   resize: none;
@@ -9668,17 +10655,24 @@ body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: non
 .step__text:focus { outline: none; }
 .step.is-done .step__text { color: var(--muted); text-decoration: line-through; }
 .step__del {
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
   border: 0;
   background: none;
   color: var(--muted);
-  font-size: 1.1rem;
+  font-size: 1.15rem;
   line-height: 1;
-  padding: 2px 5px;
+  padding: 0;
   cursor: pointer;
-  opacity: 0;
 }
-.step:hover .step__del { opacity: .7; }
-.step__del:hover { color: var(--danger); opacity: 1; }
+.step__del:hover { color: var(--danger); }
+.step__acts .step__aside,
+.step__acts .step__del { width: 26px; height: 26px; }
+.step__acts .step__aside svg { width: 17px; height: 17px; }
+.step__acts .step__del { font-size: 1.3rem; }
 
 /* JOURNAL — dated lines, the newest on top */
 .jrn { display: flex; flex-direction: column; gap: 10px; }
@@ -9768,6 +10762,26 @@ body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: non
   background: var(--accent-soft);
   color: var(--accent);
 }
+
+/* Journal, note and canvas marks in an unfolded object's title are virtual
+   controls too. Empty, hovered and selected states never restore a painted
+   chip; selection is recorded as colour inside the field hollow. */
+html.is-field-mode .sheets__tab,
+html.is-field-mode .sheets__tab:hover,
+html.is-field-mode .sheets__tab:focus-visible,
+html.is-field-mode .sheets__tab.is-on,
+html.is-field-mode .sheets__tab--empty:hover,
+html.is-field-mode .sheets__tab--empty:focus-visible {
+  --field-panel-opacity: .38;
+  --field-panel-signature: 0;
+  --field-panel-accent: 0;
+  --field-panel-signature-hover: 1;
+  --field-panel-signature-focus: 1;
+  border-color: transparent;
+  background: transparent;
+  box-shadow: none;
+}
+html.is-field-mode .sheets__tab.is-on { --field-panel-accent: 1; }
 .sheet-journal { display: flex; flex-direction: column; }
 
 /* SET ASIDE — a task left in the tail. It is not done and not gone, so it is not
@@ -9787,26 +10801,84 @@ body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: non
   font-size: .92em;
 }
 .step.is-aside .step__text { color: var(--muted); }
-.step.is-aside::before { opacity: .16; }
+
 .item--task.is-aside .item__text { font-size: .88rem; }
 .item--task.is-aside:hover { opacity: .82; }
+
+/* FINISHED AND SET ASIDE STAY VIRTUAL — these two quiet states are no longer
+   painted cards, even when the optional all-surface Champ mode is off. Their
+   unchanged rectangles press the permanent field at the same identity depth
+   as a virtual task; completion and the eye still distinguish them above it. */
+.item--task.done,
+.item--task.done:last-child,
+.item--task.is-aside,
+.item--task.is-aside:last-child,
+.item--task.item--milestone-linked.done {
+  --field-panel-opacity: .90;
+  --field-panel-signature: 1;
+  --field-panel-accent: 0;
+  --field-panel-signature-hover: 1;
+  --field-panel-signature-focus: 1;
+  border-color: transparent;
+  background: none;
+  box-shadow: none;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+.item--task.done:hover,
+.item--task.is-aside:hover,
+.item--task.item--milestone-linked.done:hover { border-color: transparent; }
+
+/* Bands already have no cards; these states therefore keep only their field
+   footprint there too, never the old smooth hover plate. */
+.ecal-band .item--task.done::after,
+.ecal-band .item--task.is-aside::after { content: none; }
+
+/* Completed and hidden objectives both lose their painted card permanently and
+   retain its field footprint. Hidden ones additionally use the task's stronger
+   attenuation; completion is already expressed by the muted title. */
+.item--project:is(.done, .is-aside) {
+  --field-panel-opacity: .90;
+  --field-panel-signature: 1;
+  --field-panel-accent: 0;
+  --field-panel-signature-hover: 1;
+  --field-panel-signature-focus: 1;
+}
+.item--project.is-aside {
+  opacity: .48;
+}
+.item--project.is-aside:hover { opacity: .82; }
+.item--project.is-aside .item__text { font-size: .88rem; }
+.item--project:is(.done, .is-aside),
+.item--project:is(.done, .is-aside) > .project-tab,
+.item--project:is(.done, .is-aside).is-inline-open > .project-tab {
+  border-color: transparent;
+  background: none;
+  box-shadow: none;
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+  transform: none;
+}
+.item--project:is(.done, .is-aside):not(.is-inline-open):hover > .project-tab {
+  border-color: transparent;
+  box-shadow: none;
+  transform: none;
+}
+.ecal-band .item--project:is(.done, .is-aside) > .project-tab::after { content: none; }
 .step__aside {
   flex: 0 0 auto;
   display: grid;
   place-items: center;
   width: 22px;
-  height: 24px;
+  height: 22px;
   border: 0;
   background: none;
   color: var(--muted);
   cursor: pointer;
-  opacity: 0;
-  transition: opacity .2s ease, color .2s ease;
+  transition: color .2s ease;
 }
 .step__aside svg { width: 15px; height: 15px; }
-.step:hover .step__aside,
-.step:focus-within .step__aside { opacity: .55; }
-.step__aside:hover { opacity: 1; color: var(--accent); }
+.step__aside:hover { color: var(--accent); }
 
 /* THE CANVAS SHEET — the laboratory's board, borrowed into the fold. It is given
    a height of its own: a canvas is a space to arrange things in, and a box that
@@ -9826,6 +10898,7 @@ body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: non
   overflow: hidden;
   background: color-mix(in srgb, var(--c-bg) 90%, var(--c-surface));
 }
+html.is-field-mode .sheet-canvas__slot { background: transparent; }
 /* laid over the board's own bottom corner rather than given a line of its own:
    the top corner is where the board keeps its tools, the bottom one is empty */
 .sheet-canvas__full {
@@ -9934,16 +11007,8 @@ body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: non
 .thinking-board.is-weaving > .thinking-viewport {
   animation: weave-cloth .4s cubic-bezier(.25, .9, .3, 1) .06s both;
 }
-/* The cloth is clipped, and a clipped element takes its own ground with it: what
-   showed through the part not yet opened was the laboratory's floor — the sky and
-   the signature pooling from the corner. The board holds that ground itself while
-   the weaving lasts, in the very colour the viewport lays over it afterwards, so
-   nothing changes when it is handed back. */
+/* While the normal cloth is being woven, its own ground prevents a flash. */
 .thinking-board.is-weaving {
-  /* Only under the cloth. Covering the whole board put this ground behind the
-     bars as well, and they are translucent — their colour is whatever is behind
-     them, so they changed for the length of the weaving. It starts where the
-     threads start, at the height the bars actually take. */
   background-image:
     linear-gradient(color-mix(in srgb, var(--c-bg) 90%, var(--c-surface)),
       color-mix(in srgb, var(--c-bg) 90%, var(--c-surface)));
@@ -9951,6 +11016,7 @@ body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: non
   background-position: 0 var(--weave-top, 0px);
   background-size: 100% 100%;
 }
+html.is-field-mode .thinking-board.is-weaving { background: transparent; }
 /* the loom is a flourish; anyone who has asked for stillness gets the cloth
    already made */
 @media (prefers-reduced-motion: reduce) {
@@ -10040,8 +11106,25 @@ body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: non
 .task-inline__workspace.is-canvas-open {
   grid-template-columns: minmax(0, 0fr) minmax(0, 1fr);
 }
+/* A grid item's automatic minimum is its min-content width, so a track told to
+   collapse to nothing still held a column the width of the widest thing in it —
+   and the course kept its stars showing beside the board. Nought means nought. */
+/* A collapsed track leaves a nought-wide content box, but `overflow` clips at
+   the padding box — and the course kept its own padding, so a strip of it stayed
+   on screen with the stars of its steps standing in it, beside the board. The
+   padding goes with the width it belonged to. */
 .goal-inline__workspace.is-canvas-open > .psteps,
-.task-inline__workspace.is-canvas-open > .task-inline__main { overflow: hidden; }
+.task-inline__workspace.is-canvas-open > .task-inline__main {
+  overflow: hidden;
+  min-width: 0;
+}
+/* the open sheet gives this column a gutter on its right; collapsed, that gutter
+   is the strip the stars were standing in. Named with both classes so it beats
+   the one it corrects wherever that one sits. */
+.goal-inline__workspace.is-sheet-open.is-canvas-open > .psteps,
+.task-inline__workspace.is-sheet-open.is-canvas-open > .task-inline__main {
+  padding-inline: 0;
+}
 /* Placed by hand rather than by flow: a collapsed track still holds its child,
    and nothing may drift into it as the widths change. */
 .goal-inline__workspace > .psteps,
@@ -10147,12 +11230,38 @@ body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: non
 }
 .psteps__head .detail__label { margin-bottom: 0; }
 .step.is-done .step__text { color: var(--muted); text-decoration: line-through; }
-/* the palette walks the course, so a row carries the colour of its position */
-.psteps__body .step .item__check { border-color: var(--step-color, var(--border)); }
-.psteps__body .step.is-done .item__check {
-  background: var(--step-color, var(--accent));
-  border-color: var(--step-color, var(--accent));
+/* A step uses the same bare tick as a task. Its place on the course still sets
+   the ink, but no ring or filled disc encloses it. */
+.psteps__body .step .item__check {
+  width: 21px;
+  height: 21px;
+  border: 0;
+  border-radius: 7px;
+  background: none;
 }
+.psteps__body .step .item__check polyline {
+  stroke: color-mix(in srgb, var(--step-color, var(--muted)) 68%, var(--muted));
+  stroke-width: 2.4;
+  stroke-dasharray: none;
+  stroke-dashoffset: 0;
+  transition: stroke .18s ease;
+}
+.psteps__body .step .item__check:hover {
+  background: color-mix(in srgb, var(--step-color, var(--accent)) 10%, transparent);
+}
+.psteps__body .step .item__check:hover polyline {
+  stroke: var(--step-color, var(--accent));
+}
+.psteps__body .step.is-done .item__check {
+  border: 0;
+  background: none;
+}
+.psteps__body .step.is-done .item__check polyline {
+  stroke: var(--step-color, var(--accent));
+}
+/* in the pane the tick is one of three buttons, sized like the other two */
+.step .step__acts .item__check { width: 26px; height: 26px; border-radius: 9px; }
+.step .step__acts .item__check svg { width: 17px; height: 17px; }
 
 /* a journal block wears its date ahead of the line, the way the journal does */
 .thinking-journal__body { display: flex; align-items: flex-start; gap: 8px; }
@@ -10397,13 +11506,16 @@ body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: non
     var(--starlight) 26%,
     color-mix(in srgb, var(--starlight) 38%, transparent) 46%,
     transparent 72%);
-  opacity: calc(.3 + var(--mag, .8) * .28);
+  opacity: var(--branch-light, calc(.3 + var(--mag, .8) * .28));
   cursor: pointer;
   transition: transform .18s ease, opacity .25s ease;
 }
-.bstar:hover { transform: translate(-50%, -50%) scale(1.4); opacity: 1; }
+.bstar:hover {
+  transform: translate(-50%, -50%) scale(1.4);
+  opacity: var(--branch-hover-light, 1);
+}
 /* a step reached is a star that has lit: it is what the eye lands on first */
-.bstar.is-done { opacity: calc(.8 + var(--mag, .8) * .2); }
+.bstar.is-done { opacity: var(--branch-done-light, calc(.8 + var(--mag, .8) * .2)); }
 
 /* A habit closes the diamond; it cannot be ticked, but it can be placed. It burns
    a shade warmer than the steps around it — the way a cooler star reads amber next
@@ -10463,6 +11575,24 @@ body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: non
 .skydeep__dust--far { opacity: .8; }
 .skydeep__dust--mid { opacity: .9; animation: twinkle-slow 7s ease-in-out infinite; }
 .skydeep__dust--near { animation: twinkle-slow 4.5s ease-in-out infinite reverse; }
+/* In virtual mode these sheets are atmosphere rather than a replacement ground:
+   the theme-coloured gas remains, while enough of the lattice shows through to
+   make it clear that the sky and the rest of the application share one field. */
+html.is-field-mode :is(.sky-view:not(.is-oncard), .sky-view.is-virtual-card) .skydeep__neb {
+  opacity: .58;
+}
+html.is-field-mode :is(.sky-view:not(.is-oncard), .sky-view.is-virtual-card) .skydeep__gal {
+  opacity: .5;
+}
+html.is-field-mode :is(.sky-view:not(.is-oncard), .sky-view.is-virtual-card) .skydeep__dust--far {
+  opacity: .28;
+}
+html.is-field-mode :is(.sky-view:not(.is-oncard), .sky-view.is-virtual-card) .skydeep__dust--mid {
+  opacity: .38;
+}
+html.is-field-mode :is(.sky-view:not(.is-oncard), .sky-view.is-virtual-card) .skydeep__dust--near {
+  opacity: .48;
+}
 @keyframes twinkle-slow {
   0%, 100% { opacity: .95; }
   50% { opacity: .7; }
@@ -10647,6 +11777,140 @@ html.is-work-zone body { overflow: hidden; }
 .ecal-band--right { left: 100%; margin-left: 26px; }
 .ecal-band .zone__head { margin-bottom: 12px; }
 .ecal-band .zone__title { font-size: .82rem; letter-spacing: .07em; text-transform: uppercase; }
+#calWorkBand[hidden],
+#calIdeasBand[hidden] { display: none; }
+
+/* LEISURE IS ONE CURRENT — the habit prelude is moved above projects by the
+   script, while the complete work column leaves the rail. One outer column
+   remains; an objective may still use its own optional journal inside it. */
+html.is-leisure-mode .app__col--tasks { display: none; }
+html.is-leisure-mode .app__col--plan { gap: 22px; }
+html.is-leisure-mode .pages__track { max-width: 820px; }
+html.is-leisure-mode .pane-dots { display: none; }
+
+@media (min-width: 1000px) {
+  html.is-leisure-mode .pages__track,
+  html.is-leisure-mode .pages__track.is-goal-open,
+  html.is-leisure-mode .pages__track.is-task-sheet-open,
+  html.is-leisure-mode .pages__track.is-goal-open.is-task-sheet-open {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  html.is-leisure-mode .pages__track.is-goal-open { max-width: 1160px; }
+}
+
+@media (max-width: 999px) {
+  html.is-leisure-mode .pages__track {
+    width: 100%;
+    max-width: none;
+    transform: none !important;
+  }
+  html.is-leisure-mode .app__col--plan {
+    flex: 0 0 100%;
+    max-width: 100%;
+  }
+}
+
+/* THE IDEA BOX — no cards, dates or categories. A small spark and a paper-like
+   baseline are enough to hold a thought without turning it into work. */
+.idea-box__head { min-height: 32px; }
+.idea-box__head .zone__count { margin-left: auto; }
+.idea-box__form {
+  --field-panel-opacity: .24;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 2px 0 18px;
+  padding: 4px 0 8px;
+  border-bottom: 1px solid color-mix(in srgb, var(--c-line) 34%, transparent);
+}
+.idea-box__input,
+.idea-box__text {
+  min-width: 0;
+  border: 0;
+  outline: 0;
+  background: none;
+  color: var(--text);
+  font: inherit;
+}
+.idea-box__input {
+  flex: 1 1 auto;
+  padding: 5px 2px;
+  font-size: .9rem;
+}
+.idea-box__input::placeholder,
+.idea-box__text::placeholder { color: var(--muted); opacity: .72; }
+.idea-box__add {
+  display: grid;
+  place-items: center;
+  flex: 0 0 auto;
+  width: 27px;
+  height: 27px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--muted);
+  font: inherit;
+  font-size: 1.15rem;
+  cursor: pointer;
+  transition: color .18s ease, text-shadow .18s ease;
+}
+.idea-box__add:hover {
+  color: var(--accent);
+  text-shadow: 0 0 9px color-mix(in srgb, var(--accent) 50%, transparent);
+}
+.idea-box__empty {
+  margin: 14px 2px;
+  color: var(--muted);
+  font-size: .82rem;
+  font-style: italic;
+  opacity: .72;
+}
+.idea-box__empty[hidden] { display: none; }
+.idea-box__list { display: flex; flex-direction: column; }
+.idea-box__item {
+  --field-panel-opacity: .18;
+  display: grid;
+  grid-template-columns: 15px minmax(0, 1fr) 24px;
+  align-items: start;
+  gap: 8px;
+  padding: 10px 0;
+  border-bottom: 1px solid color-mix(in srgb, var(--c-line) 20%, transparent);
+}
+.idea-box__spark {
+  width: 5px;
+  height: 5px;
+  margin: 8px auto 0;
+  border-radius: 50%;
+  background: var(--accent);
+  box-shadow: 0 0 8px color-mix(in srgb, var(--accent) 62%, transparent);
+  opacity: .7;
+}
+.idea-box__text {
+  width: 100%;
+  resize: none;
+  overflow: hidden;
+  padding: 1px 0;
+  line-height: 1.45;
+  font-size: .9rem;
+}
+.idea-box__delete {
+  width: 24px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  background: none;
+  color: var(--muted);
+  font: inherit;
+  font-size: 1rem;
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity .18s ease, color .18s ease;
+}
+.idea-box__item:hover .idea-box__delete,
+.idea-box__item:focus-within .idea-box__delete { opacity: .55; }
+.idea-box__delete:hover { color: var(--danger); opacity: 1; }
+html.is-field-mode :is(.idea-box__form, .idea-box__item) { background: none; }
+@media (hover: none) { .idea-box__delete { opacity: .45; } }
 
 /* BOTH WAYS TO ADD SIT IN THE HEAD — the dashed zone that stood at the band's
    foot becomes the same small + an objective has: same box, same corner, same
@@ -10741,62 +12005,15 @@ html.is-work-zone body { overflow: hidden; }
 .ecal-band .sheets__tab { width: 26px; height: 24px; }
 .ecal-band .sheets__tab svg { width: 13px; height: 13px; }
 .ecal-band .item__meta { flex-wrap: wrap; gap: 6px; }
-/* the row's actions are laid over its right end, which a wrapped line no longer
-   has room for: they sit in the flow here, after the marks */
-.ecal-band .row-acts {
-  position: static;
-  opacity: 1;
-  pointer-events: auto;
-  margin-left: auto;
-}
-/* The group is laid over the row everywhere else, so it is pulled back up by
-   half its own height. Standing in the flow here, that half-height is a jump —
-   and every hover, focus and swipe state carries the same translate, so the
-   transform has to be undone where they are, not only at rest. */
-.ecal-band .item > .row-acts,
-.ecal-band .project-tab > .row-acts { transform: none; }
-.ecal-band .item:hover > .item__meta,
-.ecal-band .project-tab:hover > .item__meta { opacity: 1; }
 /* the jump to the sky is a move of the column, not of a band */
 .ecal-band .goal-inline__sky { display: none; }
-/* No row in a band carries actions but one: the cross that deletes it, waiting
-   for the pointer at the end of the name. A task is planned by being dragged
-   onto the calendar, which is right there; the rest costs more width than a
-   title can spare. All four remain exactly where they were in the column. */
-.ecal-band .row-act--done,
-.ecal-band .row-act--del,
-.ecal-band .row-act--when,
-.ecal-band .row-act--aside { display: none; }
-.ecal-band .item--task:not(.is-open) > .row-acts {
-  display: flex;
-  order: 2;
-  margin-left: 0;
-}
-.ecal-band .item--task:not(.is-open) > .row-acts > .row-act--del {
-  display: grid;
-  width: 22px;
-  height: 22px;
-  border-radius: 6px;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity .18s ease, color .18s ease, background .18s ease;
-}
-.ecal-band .item--task > .row-acts > .row-act--del svg { display: none; }
-.ecal-band .item--task > .row-acts > .row-act--del::after {
-  content: "\00d7";
-  font-size: 1.1rem;
-  line-height: 1;
-}
-.ecal-band .item--task:not(.is-open):hover > .row-acts > .row-act--del,
-.ecal-band .item--task:not(.is-open):focus-within > .row-acts > .row-act--del {
-  opacity: .7;
-  pointer-events: auto;
-}
-.ecal-band .item--task > .row-acts > .row-act--del:hover {
-  opacity: 1;
-  color: var(--danger);
-  background: color-mix(in srgb, var(--danger) 14%, transparent);
-}
+/* A band is a scroll box, so it clips at its own edge — and the course above
+   gives its steps no left padding at all, which puts a star's edge exactly on
+   that line, its light spilling past it into nothing. Five pixels of indent is
+   all the star was missing. Written after the rule it corrects, and at its
+   weight, or the shorthand there would win. */
+.ecal-band .goal-inline__workspace > .psteps { padding-left: 5px; }
+
 
 @media (max-width: 1500px) {
   .ecal-band { display: none; }
@@ -10827,6 +12044,14 @@ html.is-work-zone body { overflow: hidden; }
 .ecal-band .item--project:not(.is-inline-open) > .project-tab {
   --field-panel-opacity: var(--c-veil);
 }
+/* Every virtual part of a row inherits this invitation. Closed rows answer as
+   one hollow; an open row lets the title and each visible work zone answer in
+   place, without restoring any painted hover surface. */
+html.is-field-mode .ecal-band .item--task,
+html.is-field-mode .ecal-band .item--project {
+  --field-panel-signature-hover: 1;
+  --field-panel-signature-focus: 1;
+}
 .ecal-band .item--task { padding: 0; --task-pad: 0px; }
 /* One separator, not two: the title bar's own wash is what tells one row from
    the next, so the rule between them goes and a gap takes its place. */
@@ -10834,8 +12059,6 @@ html.is-work-zone body { overflow: hidden; }
 .ecal-band .tgroup > .list { display: flex; flex-direction: column; gap: 8px; }
 .ecal-band .tasks { gap: 14px; }
 /* the row's second line, under the bar rather than against it */
-.ecal-band .item--task > .item__meta,
-.ecal-band .item--task > .row-acts { margin-top: 4px; }
 /* The trace of a milestone was painted on the card; it moves onto the bar, and
    onto the end of it: the left edge is where everything in the band is written
    from, and a mark there would push the title off it. */
@@ -10848,7 +12071,10 @@ html.is-work-zone body { overflow: hidden; }
   box-shadow: none;
   transform: none;
 }
-.ecal-band .item--project .item__ico { width: 32px; height: 32px; border-radius: 9px; }
+/* the band's mark grows to stand against a title that wraps: a line there is
+   18px, so 38 is just under the two of them */
+.ecal-band .item--project .item__ico { width: 38px; height: 38px; border-radius: 11px; }
+.ecal-band .item--project .item__ico svg { width: 23px; height: 23px; }
 .ecal-band .item--project .item__text { font-size: .98rem; }
 
 /* THE HEAD, WHICHEVER OBJECT — an objective's tab and a task's title line are
@@ -10947,14 +12173,11 @@ html.is-work-zone body { overflow: hidden; }
   width: 38px;
   height: 38px;
 }
-/* The percentage reached goes with the tools, at the end of their line: it is
-   read beside what acts on it rather than pressed against the name — and it is
-   read there alone. A shut objective is a name, nothing else. */
+/* Open, the course keeps its progress rule. */
 .ecal-band .item--project.is-inline-open > .project-tab > .item__meta {
   margin-left: auto;
   opacity: 1;
 }
-.ecal-band .item--project:not(.is-inline-open) .item__gauge { display: none; }
 /* open, the gauge is the whole line under the name: nothing else stands there,
    and a length is best read across the width it is given */
 .ecal-band .item--project.is-inline-open > .project-tab > .item__meta {
@@ -10985,51 +12208,28 @@ html.is-work-zone body { overflow: hidden; }
   height: 0;
 }
 
-/* THE SAME HEAD, SHUT OR OPEN — mark, then name, then the break: what a row
-   carries at its end (a count, a percentage, its actions) drops under the title
-   instead of squeezing it.
-   A shut objective carries none of the three in a band, so it keeps no line for
-   them: the break is what was holding that empty row open. A thin rule between
-   two of them is all the separation they need. */
-.ecal-band .item--project:not(.is-inline-open) > .project-tab::before { display: none; }
-.ecal-band .item--project:not(.is-inline-open) > .project-tab > .item__meta { display: none; }
+/* In the calendar only, a closed objective keeps the completion rule on its own
+   line below the title. Importance remains the five strokes on the first line. */
+.ecal-band .item--project:not(.is-inline-open) > .project-tab::before { display: block; }
+.ecal-band .item--project:not(.is-inline-open) > .project-tab > .item__meta {
+  display: flex;
+  order: 4;
+  flex: 1 1 100%;
+  margin: 1px 0 0;
+  opacity: 1;
+}
+.ecal-band .item--project:not(.is-inline-open) > .project-tab > .item__meta > .item__gauge {
+  display: block;
+  width: 100%;
+  max-width: none;
+  flex: 1 1 auto;
+}
 /* A SMALL × AT THE END OF THE NAME — the one thing an objective's row still does
    by itself. It is the same delete as everywhere else, undo and cascade
    included; only its glyph is cut down to a cross, since a bin at this size
    reads as a smudge. It stands on the title's line, right after the name. */
-.ecal-band .item--project:not(.is-inline-open) > .project-tab > .row-acts {
-  display: flex;
-  order: 2;
-  margin-left: 0;
-}
-.ecal-band .item--project > .project-tab > .row-acts > .row-act { display: none; }
-.ecal-band .item--project:not(.is-inline-open) > .project-tab > .row-acts > .row-act--del {
-  display: grid;
-  width: 22px;
-  height: 22px;
-  border-radius: 6px;
-  opacity: 0;
-  pointer-events: none;
-  transition: opacity .18s ease, color .18s ease, background .18s ease;
-}
-.ecal-band .item--project > .project-tab > .row-acts > .row-act--del svg { display: none; }
-.ecal-band .item--project > .project-tab > .row-acts > .row-act--del::after {
-  content: "\00d7";
-  font-size: 1.1rem;
-  line-height: 1;
-}
 /* it waits for the pointer to be on the row, and is not there at all once the
    objective is open: an unfolded head has enough to say already */
-.ecal-band .item--project:not(.is-inline-open):hover > .project-tab > .row-acts > .row-act--del,
-.ecal-band .item--project:not(.is-inline-open) > .project-tab:focus-within > .row-acts > .row-act--del {
-  opacity: .7;
-  pointer-events: auto;
-}
-.ecal-band .item--project > .project-tab > .row-acts > .row-act--del:hover {
-  opacity: 1;
-  color: var(--danger);
-  background: color-mix(in srgb, var(--danger) 14%, transparent);
-}
 .ecal-band .list--cards > .item--project + .item--project {
   border-top: 1px solid color-mix(in srgb, var(--c-line) 22%, transparent);
   padding-top: 9px;
@@ -11041,6 +12241,10 @@ html.is-work-zone body { overflow: hidden; }
   order: 2;
   flex: 1 1 0%;
   min-width: 0;
+}
+.ecal-band .project-tab > .project-importance {
+  order: 2;
+  margin-left: 2px;
 }
 .ecal-band .project-tab::before {
   content: "";
@@ -11165,6 +12369,72 @@ html.is-work-zone body { overflow: hidden; }
 /* the line a task is written on stands under the head, not at the band's foot */
 #calAddSlot:empty { display: none; }
 #calAddSlot { margin-bottom: 12px; }
+
+/* VIRTUAL CONTROLS — the objective + and the six controls present while the
+   calendar is unfolded are glyphs laid directly on the field, not little tabs.
+   Their boxes remain exactly the same size for pointing and alignment. */
+html.is-field-mode #addProjectBtn,
+html.is-field-mode #addProjectBtn:hover,
+html.is-field-mode .ecal-band .zone__head > .zone__action,
+html.is-field-mode .ecal-band .zone__head > .zone__action:hover,
+html.is-field-mode .ecal-band .zone__head > .add-card,
+html.is-field-mode .ecal-band .zone__head > .add-card:hover,
+html.is-field-mode #calKanbanBtn.is-on,
+html.is-field-mode #calCanvasBtn.is-on,
+html.is-field-mode #calTaskCanvasBtn.is-on,
+html.is-field-mode #calSkyBtn.is-on {
+  --field-panel-opacity: var(--c-veil);
+  --field-panel-signature: 0;
+  --field-panel-signature-hover: 1;
+  --field-panel-signature-focus: 1;
+  border-color: transparent;
+  background: none;
+  box-shadow: none;
+}
+
+/* INTERACTION BELONGS TO THE FIELD — controls retain their real hit boxes and
+   physical hollows, but no hover paints a smooth tile over the lattice. */
+html.is-field-mode .zone__action,
+html.is-field-mode .zone__action:hover,
+html.is-field-mode .add-card:hover,
+html.is-field-mode .band-switch:hover,
+html.is-field-mode .ecal__nav,
+html.is-field-mode .ecal__nav:hover,
+html.is-field-mode .ecal__back,
+html.is-field-mode .ecal__back:hover,
+html.is-field-mode .ecal__toggle,
+html.is-field-mode .ecal__toggle:hover,
+html.is-field-mode .quick__field,
+html.is-field-mode .quick--chip .quick__field {
+  background: none;
+  box-shadow: none;
+}
+html.is-field-mode .zone__action,
+html.is-field-mode .add-card,
+html.is-field-mode .band-switch,
+html.is-field-mode .ecal__nav,
+html.is-field-mode .ecal__back,
+html.is-field-mode .ecal__toggle,
+html.is-field-mode .quick__field {
+  --field-panel-opacity: var(--c-veil);
+  --field-panel-signature: 0;
+  --field-panel-signature-hover: 1;
+  --field-panel-signature-focus: 1;
+}
+html.is-field-mode .quick__field,
+html.is-field-mode .quick--chip .quick__field { border-color: transparent; }
+html.is-field-mode .add-card,
+html.is-field-mode .add-card:hover { border-color: transparent; }
+
+/* Toggle buttons keep the same field tint after the pointer leaves. */
+html.is-field-mode #calKanbanBtn.is-on,
+html.is-field-mode #calCanvasBtn.is-on,
+html.is-field-mode #calTaskCanvasBtn.is-on,
+html.is-field-mode #calSkyBtn.is-on,
+html.is-field-mode .ecal__toggle.is-open {
+  --field-panel-signature: 1;
+  background: none;
+}
 .ecal-band .tgroup__head { display: none; }
 .ecal-band .tgroup { gap: 0; }
 /* THE GROUP IS THE HEAD — the band is named by what it is showing, not by the
@@ -11337,6 +12607,50 @@ html.is-work-zone body { overflow: hidden; }
   box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 34%, transparent);
 }
 
+/* VIRTUAL KANBAN — its four heads make one title band: each part presses at the
+   identity depth and carries the theme signature. Below it, columns are shallow
+   working areas and cards make their own stronger hollows. The carried ghost is
+   deliberately excluded so a task remains readable while it follows the hand. */
+html.is-field-mode .ecal__verso.is-kanban { background: transparent; box-shadow: none; }
+html.is-field-mode .kanban__head {
+  --field-panel-opacity: .78;
+  --field-panel-signature: 1;
+  --field-panel-accent: 0;
+  border-color: transparent;
+  background: transparent;
+  box-shadow: none;
+}
+html.is-field-mode .kanban__list {
+  --field-panel-opacity: .18;
+  --field-panel-signature: 0;
+  --field-panel-accent: 0;
+  background: transparent;
+  box-shadow: none;
+}
+html.is-field-mode .kanban__card:not(.kanban__ghost),
+html.is-field-mode .kanban__card:not(.kanban__ghost):hover {
+  --field-panel-opacity: .52;
+  --field-panel-signature: 0;
+  --field-panel-accent: 0;
+  --field-panel-signature-hover: 1;
+  --field-panel-signature-focus: 1;
+  background: transparent;
+  box-shadow: none;
+}
+html.is-field-mode .kanban__lot {
+  --field-panel-opacity: .20;
+  --field-panel-signature: 0;
+  --field-panel-accent: 0;
+}
+html.is-field-mode .kanban__lot::before { content: none; }
+/* A destination is coloured inside the field instead of receiving a smooth
+   rectangle and outline over it. */
+html.is-field-mode .kanban__col.is-drop-target .kanban__list {
+  --field-panel-accent: 1;
+  background: transparent;
+  box-shadow: none;
+}
+
 /* THE CARD AS A PAGE — a task opened on the back is read as a document: its
    sheet takes the whole card, and the subtasks stand in a rail along the left
    edge. Nothing scrolls but the two of them, so the card never grows and the
@@ -11471,7 +12785,7 @@ html.is-work-zone body { overflow: hidden; }
   bottom: calc(1px - var(--ecal-pad-bottom));
   height: auto;
   border: 0;
-  border-radius: calc(var(--radius) - 1px);
+  border-radius: calc(var(--ecal-radius) - 1px);
   overflow: hidden;
 }
 /* THE SKY ON THE CARD — the same reaching-out as the board: a map has no use for
@@ -11487,12 +12801,16 @@ html.is-work-zone body { overflow: hidden; }
   left: calc(1px - var(--ecal-pad-x));
   right: calc(1px - var(--ecal-pad-x));
   bottom: calc(1px - var(--ecal-pad-bottom));
-  border-radius: calc(var(--radius) - 1px);
+  border-radius: calc(var(--ecal-radius) - 1px);
   overflow: hidden;
 }
+/* The 100vw the full screen wears is there to cover the scrollbar's strip; kept
+   on the card it made a map twice as wide as the frame showing it, hanging out
+   to the left of it — and every camera move is measured off that frame. */
 .ecal__verso > .sky-view.is-oncard {
   position: absolute;
   inset: 0;
+  width: auto;
   z-index: 1;
 }
 .sky-view.is-oncard .sky-tools { top: 8px; left: 8px; }

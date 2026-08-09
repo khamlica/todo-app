@@ -1,0 +1,1089 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#f6ecf7">
+  <!-- full-screen standalone when installed to the home screen -->
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Mes tâches">
+  <title>Mes tâches</title>
+  <!-- the version travels in the query: without it a browser may keep
+       serving the stylesheet it already has, and the app looks unchanged -->
+  <link rel="stylesheet" href="./style.css?v=636">
+  <link rel="manifest" href="./manifest.webmanifest">
+  <link rel="apple-touch-icon" href="./icons/icon-192.png">
+  <!-- svg tab icon, png fallback for browsers that ignore it -->
+  <link rel="icon" href="./icons/favicon.svg" type="image/svg+xml">
+  <link rel="icon" href="./icons/icon-192.png" sizes="192x192" type="image/png">
+  <!-- apply saved theme before paint to avoid a color flash -->
+  <script>
+    try {
+      var saved = JSON.parse(localStorage.getItem("todoAppData"));
+      var t = (saved && saved.settings && saved.settings.theme) || "auto";   // adaptive by default
+      if (t === "rose") t = "sakura";   // renamed; loadState migrates the rest
+      if (t === "auto") {
+        var h = new Date().getHours();
+        var band = h >= 5 && h < 8 ? "dawn" : h >= 8 && h < 18 ? "day" : h >= 18 && h < 21 ? "dusk" : "night";
+        var bands = saved && saved.settings && saved.settings.autoBands;
+        t = (bands && bands[band]) || band;   // each moment wears what it was given
+        var s = saved && saved.sun, now = new Date();
+        var todayK = now.getFullYear() + "-" + String(now.getMonth() + 1).padStart(2, "0")
+          + "-" + String(now.getDate()).padStart(2, "0");
+        if (band !== "night" && s && s.date === todayK && s.code != null) {
+          var c = s.code;
+          if ((c >= 51 && c <= 67) || (c >= 80 && c <= 82) || c >= 95) t = "rain";
+        }
+      }
+      document.documentElement.setAttribute("data-theme", t);
+      var p = (saved && saved.settings && saved.settings.palette) || "theme";
+      var edits = saved && saved.settings && saved.settings.paletteEdits;
+      if (p === "custom" || (p === "aurora" && !(edits && edits.aurora))) p = "theme";
+      document.documentElement.setAttribute("data-palette", p);
+      if (saved && saved.settings && saved.settings.fieldMode) {
+        document.documentElement.classList.add("is-field-mode");
+      }
+    } catch (err) {}
+  </script>
+</head>
+<body>
+<!-- THE RAMP AS A PAINT — an objective at the top of the scale wears the whole of
+     it rather than one step of it, the way the head of a course does. A stroke
+     cannot hold a CSS gradient, so the ramp is declared once here as a real SVG
+     gradient and referred to by name; its stops are coloured from the theme. -->
+<svg width="0" height="0" aria-hidden="true" focusable="false"
+     style="position:absolute;overflow:hidden">
+  <defs>
+    <linearGradient id="impRamp" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0"/>
+      <stop offset=".5"/>
+      <stop offset="1"/>
+    </linearGradient>
+  </defs>
+</svg>
+
+  <!-- installed app: the strip the window can be dragged by, under the topbar icons -->
+  <div id="titlebar" aria-hidden="true"></div>
+
+  <!-- time-of-day background gradient / stars -->
+  <div id="sky"></div>
+  <!-- the permanent reactive block field; the Champ option changes surfaces, not this canvas -->
+  <canvas id="field" aria-hidden="true" hidden></canvas>
+  <!-- the zellige: the threshold's ground, with a simple pointer glow -->
+  <canvas id="zellige" aria-hidden="true" hidden></canvas>
+  <!-- activatable decorations (particles / petals / cats / …) -->
+  <div id="decor"></div>
+  <!-- a whisper of grain over the flat colour fields -->
+  <div id="grain"></div>
+
+
+  <!-- the way back to the threshold; hidden while the threshold is up -->
+  <div class="topbar topbar--left">
+    <button id="homeBtn" class="topbar__btn" type="button" data-i18n-aria="homeAria" aria-label="Retour à l'accueil">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M3 10.6 12 3.2l9 7.4"/><path d="M5.4 9.4V20a1 1 0 0 0 1 1h11.2a1 1 0 0 0 1-1V9.4"/><path d="M9.9 21v-5.6h4.2V21"/>
+      </svg>
+    </button>
+  </div>
+
+  <!-- top bar tools -->
+  <div class="topbar">
+    <button id="dtlWeather" class="topbar__weather" type="button" hidden
+            data-i18n-aria="weatherTitle" aria-label="Météo du jour"></button>
+    <button id="skyBtn" class="topbar__btn" type="button" data-i18n-aria="skyAria" aria-label="Le ciel des projets">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <g class="ico-star"><path d="M12 3 13.6 8.2 18.5 9.4 14.7 12.6 15.5 17.6 12 15.1 8.5 17.6 9.3 12.6 5.5 9.4 10.4 8.2 Z"/></g>
+        <g class="ico-orbit"><circle cx="19" cy="5" r="1"/><circle cx="4.5" cy="17.5" r="1"/><circle cx="20" cy="18" r="1"/></g>
+      </svg>
+    </button>
+    <button id="wellBtn" class="topbar__btn" type="button" data-i18n-aria="wellAria" aria-label="Bien-être">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21V10"/><path d="M12 13 7.5 8.5"/><path d="m12 15 4.5-4.5"/><path d="M12 10c0-3.5 2.2-5.6 2.2-5.6"/><path d="M12 10c0-3-2-4.6-2-4.6"/></svg>
+    </button>
+    <!-- three thoughts and the ties between them: the canvas says itself with
+         the same mark it wears on a sheet's tab. The four cells it used to show
+         went to the kanban, which is literally made of them. -->
+    <button id="thinkingBtn" class="topbar__btn" type="button" data-i18n-aria="thinkingAria" aria-label="Espace de réflexion">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path class="ti-web-link ti-web-link--1" pathLength="1" d="M8.5 6.7 15.8 6.2"/>
+        <path class="ti-web-link ti-web-link--2" pathLength="1" d="M8.4 8.6 14 15.3"/>
+        <circle class="ti-web-node ti-web-node--1" cx="6" cy="7" r="2.6"/>
+        <circle class="ti-web-node ti-web-node--2" cx="18" cy="6" r="2.2"/>
+        <circle class="ti-web-node ti-web-node--3" cx="16" cy="17" r="2.6"/>
+      </svg>
+    </button>
+    <button id="lookBtn" class="topbar__btn" type="button" data-i18n-aria="brushAria" aria-label="Changer de thème">
+      <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path class="ico-stroke" pathLength="1" d="M2.6 21.4c4-.5 7.6-2.4 10.6-5.4"/>
+        <g class="ico-brush"><path d="M18.4 2.6a2 2 0 0 1 3 3L11 16l-4 1 1-4z"/><path d="M6 14c-2 1-3 3-3 6 3 0 5-1 6-3"/></g>
+      </svg>
+    </button>
+    <button id="settingsBtn" class="topbar__btn topbar__btn--gear" type="button" data-i18n-aria="settingsAria" aria-label="Paramètres"><span class="ico-gear">⚙</span></button>
+  </div>
+
+  <!-- welcome screen -->
+  <!-- The threshold: the day rule itself, big, over the sky. The rule is not a
+       copy — it is the app's own, which flies back into place on entering. -->
+  <section id="welcome" class="welcome">
+    <!-- the threshold's scenery, built per theme; it exists nowhere else -->
+    <div id="scene" class="scene" aria-hidden="true"></div>
+    <div class="welcome__inner">
+      <h1 class="welcome__title">
+        <span id="welcomeGreeting"></span>
+        <span id="welcomeQuestion" class="welcome__q" data-i18n="welcomeQuestion"></span>
+      </h1>
+    </div>
+    <div class="welcome__slot" id="welcomeSlot"></div>
+    <div class="welcome__habits" id="welcomeHabits"></div>
+    <p class="welcome__hint" id="welcomeHint" data-i18n="enterHint">Touchez pour entrer</p>
+  </section>
+
+  <!-- app -->
+  <main id="app" class="app" hidden>
+
+    <!-- THE DAY — the calendar sits alone and centred above the rule of time. -->
+    <div class="day-column">
+      <div class="day-row">
+
+        <!-- the week in view; the chevron unfolds the whole month in place -->
+        <section class="zone day-row__cal">
+          <!-- THE WORK ZONE — unfolded, the calendar covers the page, and the two
+               bands it leaves on either side are the room this needs. They are
+               laid over the row, never in it: the calendar keeps its own track
+               and cannot be moved by what hangs beside it. -->
+          <aside class="ecal-band ecal-band--left" id="calBandLeft" hidden>
+            <!-- the day, the hour and a timer, on the calendar's own glass:
+                 pressing it turns the card back up onto the calendar -->
+            <div class="mini-cal" id="miniCal" role="button" tabindex="0"
+                 data-i18n-aria="showCalendar" aria-label="Afficher le calendrier">
+              <span class="mini-cal__now">
+                <span class="mini-cal__date" id="miniCalDate"></span>
+                <span class="mini-cal__clock" id="miniCalClock"></span>
+              </span>
+              <span class="mini-cal__timer">
+                <button type="button" class="mini-cal__count" id="miniTimer"></button>
+                <button type="button" class="mini-cal__reset" id="miniTimerReset"
+                        data-i18n-aria="timerReset" aria-label="Réinitialiser le minuteur">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="1 4 1 10 7 10"/><path d="M3.5 15a9 9 0 1 0 2.1-9.4L1 10"/></svg>
+                </button>
+              </span>
+            </div>
+            <!-- the group on show is the head: the grid names a day, pressing
+                 this names the rest. The way to a new task sits beside it. -->
+            <div class="zone__head">
+              <button type="button" class="band-switch" id="calGroupSwitch">
+                <span class="band-switch__name" id="calGroupName"></span>
+                <span class="band-switch__count" id="calGroupCount"></span>
+              </button>
+              <!-- every task at once, sorted by what can be done with it -->
+              <button class="zone__action" id="calKanbanBtn" type="button"
+                      data-i18n-aria="kanbanTitle" aria-label="Kanban"></button>
+              <!-- the canvas of the task on show, or the one they all hang from -->
+              <button class="zone__action" id="calTaskCanvasBtn" type="button"
+                      data-i18n-aria="sheetCanvas" aria-label="Toile"></button>
+            </div>
+            <!-- where the line to write a task stands, under the head -->
+            <div id="calAddSlot"></div>
+            <div class="tasks" id="calTasksList"></div>
+          </aside>
+          <aside class="ecal-band ecal-band--right" id="calBandRight" hidden>
+            <div class="zone__head">
+              <h2 class="zone__title" data-i18n="projectsTitle">Vos objectifs</h2>
+              <!-- back to the map: an objective opens onto it by itself, this is
+                   how one returns to it once something else has taken the card -->
+              <button class="zone__action" id="calSkyBtn" type="button"
+                      data-i18n-aria="skyAria" aria-label="Le ciel des projets">
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                  <g class="ico-star"><path d="M12 3 13.6 8.2 18.5 9.4 14.7 12.6 15.5 17.6 12 15.1 8.5 17.6 9.3 12.6 5.5 9.4 10.4 8.2 Z"/></g>
+                  <g class="ico-orbit"><circle cx="19" cy="5" r="1"/><circle cx="4.5" cy="17.5" r="1"/><circle cx="20" cy="18" r="1"/></g>
+                </svg>
+              </button>
+              <!-- the canvas of whatever is open, or the mother canvas: one way
+                   in for the whole band, beside the way to a new objective -->
+              <button class="zone__action" id="calCanvasBtn" type="button"
+                      data-i18n-aria="sheetCanvas" aria-label="Toile"></button>
+            </div>
+            <ul class="list list--cards" id="calProjectsList"></ul>
+          </aside>
+          <div class="ecal" data-field-panel>
+           <div class="ecal__flip">
+            <div class="ecal__front">
+            <div class="ecal__head">
+              <button type="button" class="ecal__nav" id="ecalPrev" data-i18n-aria="prevMonthAria" aria-label="Mois précédent">‹</button>
+              <span class="ecal__title">
+                <span class="ecal__month" id="ecalMonth"></span>
+                <!-- only way back once another day is picked: it belongs with the month -->
+                <button class="ecal__back" id="dayToday" type="button" hidden
+                        data-i18n-aria="backToToday" aria-label="Revenir à aujourd'hui">
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="1 4 1 10 7 10"/><path d="M3.5 15a9 9 0 1 0 2.1-9.4L1 10"/></svg>
+                </button>
+              </span>
+              <button type="button" class="ecal__nav" id="ecalNext" data-i18n-aria="nextMonthAria" aria-label="Mois suivant">›</button>
+            </div>
+            <div class="ecal__viewport" id="ecalViewport">
+              <div class="ecal__grid" id="ecalGrid"></div>
+            </div>
+            <button type="button" class="ecal__toggle" id="ecalToggle" aria-expanded="false"
+                    data-i18n-aria="expandCalAria" aria-label="Déplier le calendrier">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+            </button>
+            </div>
+            <!-- the card's back: what is opened from the rule of time is written
+                 here, in the calendar's own box, so nothing below it can move -->
+            <div class="ecal__verso" id="eventFold" aria-hidden="true"></div>
+           </div>
+          </div>
+
+        </section>
+      </div>
+
+    </div>
+
+    <!-- events live here: icon above, filament down to the exact minute -->
+    <!-- Events written without a day wait here, over the rule of time. Dropping
+         one onto the rule is what gives it its date and its hour. -->
+    <div class="undated" id="undated">
+      <!-- two halves, each its own drop target: without a box of its own the
+           loose half could never be aimed at once the day's half was on show -->
+      <span class="undated__group undated__group--loose" id="loose">
+        <span class="undated__label" id="undatedLabel" data-i18n="undatedLabel">Sans date</span>
+        <!-- Folded by default: what is set aside is not what one is doing, and a
+             dozen chips would push the day off the line. The count opens them. -->
+        <button class="undated__count undated__count--open" id="undatedCount" type="button" hidden></button>
+        <span class="undated__items undated__items--aside" id="undatedItems" hidden></span>
+        <!-- the line stays on the page when empty, so it says what it is empty of -->
+        <span class="undated__count" id="undatedEmpty" data-i18n="undatedEmpty" hidden>Aucun événement de côté</span>
+      </span>
+      <!-- same line, second group: the shown day's events that carry no hour -->
+      <span class="undated__rule" aria-hidden="true"></span>
+      <span class="undated__group undated__group--day" id="timeless">
+        <span class="undated__label" id="timelessLabel"></span>
+        <span class="undated__items" id="timelessItems"></span>
+        <!-- Adding an event is written on the day's side of the line: nothing
+             typed means the day on show, which is where it lands. -->
+        <button class="undated__count undated__add" id="addEventBtn" type="button"
+                data-i18n="addEventTitle">Ajouter un événement</button>
+        <form class="quick quick--event quick--chip" id="quickEvent" hidden>
+          <div class="quick__field">
+            <div class="quick__mirror" id="quickEventMirror" aria-hidden="true"></div>
+            <input id="quickEventInput" class="quick__input" type="text" autocomplete="off"
+                   data-i18n-placeholder="quickEventPlaceholder" data-i18n-aria="addEventTitle"
+                   placeholder="Réunion équipe vendredi 14h !" aria-label="Ajouter un événement">
+          </div>
+          <p class="quick__hint" id="quickEventHint" hidden></p>
+        </form>
+      </span>
+    </div>
+
+    <section class="day-line">
+      <div class="day-line__stage" id="dayLineStage">
+        <div class="day-line__rail" id="dayLineRail">
+          <div class="dtl" id="dtl">
+        <div class="dtl__markers" id="dtlMarkers"></div>
+        <div class="dtl__strip" id="dtlStrip"></div>
+        <div class="dtl__events" id="dtlEticks"></div>
+        <div class="dtl__event dtl__task dtl__drop-preview" id="taskDropPreview" hidden>
+          <svg class="dtl__event-filament" viewBox="0 0 80 74" aria-hidden="true">
+            <path class="dtl__event-path" d="M40 30 C40 48 40 44 40 72"></path>
+            <circle class="dtl__event-foot" cx="40" cy="72" r="3.5"></circle>
+          </svg>
+          <span class="dtl__event-icon" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+                 stroke-linecap="round" stroke-linejoin="round">
+              <circle cx="12" cy="12" r="9"></circle>
+              <polyline points="8 12 11 15 16 9"></polyline>
+            </svg>
+          </span>
+          <span class="dtl__event-tip" id="taskDropTip"></span>
+        </div>
+        <div class="dtl__trash" id="dtlTrash" hidden aria-hidden="true">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+               stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"></path>
+            <g class="ico-lid">
+              <polyline points="3 6 5 6 21 6"></polyline>
+              <path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+            </g>
+            <line x1="10" y1="11" x2="10" y2="17"></line>
+            <line x1="14" y1="11" x2="14" y2="17"></line>
+          </svg>
+          <span data-i18n="timelineDelete">Déposer pour supprimer</span>
+        </div>
+        <div class="dtl__cursor" id="dtlCursor" hidden>
+          <span class="dtl__cursor-halo"></span>
+          <span class="dtl__cursor-core"></span>
+          <span class="dtl__cursor-ico"></span>
+        </div>
+          </div>
+          <div class="dtl__ticks" id="dtlTicks"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- the two columns under the rule of time; narrow, they slide under it -->
+    <div class="pages" id="pages">
+      <div class="pages__track" id="pagesTrack">
+
+    <!-- TASKS — the leftmost column, on its own: the flow is long and wants the
+         whole height, and it is what the day is spent on. -->
+    <div class="app__col app__col--tasks">
+
+      <!-- Habits return to the task column, as a compact prelude to today's work. -->
+      <section class="habits-band" aria-labelledby="habitsBandTitle">
+        <div class="habits-band__inner">
+          <div class="habits-band__head">
+            <h2 class="habits-band__title" id="habitsBandTitle" data-i18n="habitsTitle">Vos habitudes</h2>
+            <button class="zone__action" id="addHabitBtn" type="button"
+                    data-i18n-aria="addHabitAria" aria-label="Ajouter une habitude">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            </button>
+          </div>
+          <div class="habit-grid" id="habitCells"></div>
+        </div>
+      </section>
+
+      <section class="zone tasks-zone">
+        <div class="zone__head">
+          <h2 class="zone__title" data-i18n="tasksTitle">Vos tâches</h2>
+          <span class="zone__count" id="tasksCount"></span>
+        </div>
+        <div class="tasks" id="tasksList"></div>
+        <button class="add-card" id="addTaskBtn" type="button">
+          <span class="add-card__plus">+</span>
+          <span class="add-card__label" data-i18n="addTaskTitle">Ajouter une tâche</span>
+        </button>
+        <!-- quick add: one line, the date/time/pin are read out of it -->
+        <form class="quick" id="quickAdd" hidden>
+          <div class="quick__field">
+            <div class="quick__mirror" id="quickMirror" aria-hidden="true"></div>
+            <input id="quickInput" class="quick__input" type="text" autocomplete="off"
+                   data-i18n-placeholder="quickPlaceholder" data-i18n-aria="addTaskTitle"
+                   placeholder="Relire le rapport demain 18h !" aria-label="Ajouter une tâche">
+          </div>
+          <p class="quick__hint" id="quickHint" hidden></p>
+        </form>
+      </section>
+
+    </div>
+
+    <!-- THE PLANNING COLUMN — projects run across many days. -->
+    <div class="app__col app__col--plan">
+
+      <section class="zone">
+        <div class="zone__head">
+          <h2 class="zone__title" data-i18n="projectsTitle">Vos projets</h2>
+          <button class="zone__action" id="addProjectBtn" type="button" data-i18n-aria="addProjectAria" aria-label="Nouveau projet">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+          </button>
+        </div>
+        <ul class="list list--cards" id="projectsList"></ul>
+      </section>
+
+    </div>
+
+      </div>
+    </div>
+
+  </main>
+
+  <!-- which of the two panes is on show; touch only, filled from JS -->
+  <div class="pane-dots" id="paneDots" role="tablist"
+       data-i18n-aria="panesAria" aria-label="Changer de colonne"></div>
+
+  <!-- WELL-BEING — its own space again, reached by the tree in the top bar. The
+       tree is drawn by adding light, so the room around it goes dark. -->
+  <div id="wellView" class="well-view" hidden>
+    <div class="well-view__bar">
+      <button id="wellBack" class="detail__back" type="button" data-i18n-aria="backAria" aria-label="Retour">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6"/></svg>
+      </button>
+      <h2 class="well-view__title" data-i18n="wellTitle">Bien-être</h2>
+    </div>
+    <!-- the tree is the view: one branch per habit, its circles are the habits
+         themselves. The rule underneath keeps the precise read. -->
+    <div class="tree" id="tree">
+      <canvas id="treeCanvas" aria-hidden="true"></canvas>
+      <!-- the sap runs on its own canvas: a frame costs a few strokes, not the tree -->
+      <canvas id="treeSap" class="tree__sap" aria-hidden="true"></canvas>
+      <div class="tree__nodes" id="treeNodes"></div>
+    </div>
+    <div class="hrule" id="habitsRule"></div>
+  </div>
+
+
+  <!-- the editor card lives here when no object is unfolded -->
+  <div id="detail" class="detail-park" hidden>
+    <div class="detail__card">
+      <!-- the object's identity line: it takes over the row header when open,
+           so nothing is written twice and the top space becomes editable -->
+      <div class="detail__titlerow" id="detailHead">
+        <button id="detailIcon" class="detail__icon" type="button" data-i18n-aria="editIconLabel" aria-label="Icône" hidden></button>
+        <!-- a textarea, like an objective's name: a long title wraps instead of
+             scrolling sideways, and the two read the same when unfolded -->
+        <textarea id="detailName" class="detail__name" rows="1" maxlength="120"></textarea>
+        <!-- the sheets this task carries: a note, a journal, a canvas -->
+        <div id="detailSheets" class="sheets" hidden></div>
+        <button id="detailBell" class="detail__pin detail__bell" type="button" hidden aria-pressed="false"
+                data-i18n-aria="importantAria" aria-label="Marquer comme important">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+        </button>
+        <!-- one day on, without opening the picker for it: the commonest move -->
+        <button id="detailTomorrow" class="detail__pin detail__tomorrow" type="button" hidden
+                data-i18n-aria="pushTomorrow" aria-label="Reporter à demain">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><g class="ti-reply"><path d="M10 8V4L3 11l7 7v-4c4.5 0 7.6 1.5 10 5-1-5.5-4-10-10-11Z"/></g></svg>
+        </button>
+        <button id="detailWhenDay" class="detail__pin" type="button" hidden
+                data-i18n-aria="rescheduleLabel" aria-label="Replanifier">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+        </button>
+        <!-- out of the day and back onto the strip, where nothing has one -->
+        <button id="detailHide" class="detail__pin" type="button" hidden
+                data-i18n-aria="asideLabel" aria-label="Mettre de côté">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2.5 12S6 5.5 12 5.5 21.5 12 21.5 12 18 18.5 12 18.5 2.5 12 2.5 12Z"/><circle cx="12" cy="12" r="3"/></svg>
+        </button>
+        <button id="detailTrash" class="detail__pin detail__trash" type="button" hidden
+                data-i18n-aria="deleteAria" aria-label="Supprimer">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/><g class="ico-lid"><polyline points="3 6 5 6 21 6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></g></svg>
+        </button>
+      </div>
+      <div class="detail__body">
+        <div class="task-inline__workspace" id="detailWorkspace">
+          <div class="task-inline__main" id="detailMain">
+            <div class="detail__section" id="subtaskSection">
+              <span class="detail__label" data-i18n="subtasksLabel">Sous-tâches</span>
+              <form id="subtaskForm" class="sub-add">
+                <input id="subtaskInput" class="add__input" type="text" data-i18n-placeholder="addSubtaskPlaceholder" placeholder="Ajouter une sous-tâche…" required>
+                <button class="add__btn" type="submit" data-i18n-aria="addAria" aria-label="Ajouter">+</button>
+              </form>
+              <ul id="subtaskList" class="list psteps__body task-inline__subtasks"></ul>
+            </div>
+
+          </div>
+
+          <!-- whichever sheet is on show, drawn here -->
+          <div class="detail__section task-inline__note-section" id="detailSheet"></div>
+
+          <!-- on the card's back the subtasks are a rail beside the sheet;
+               this folds them down to a ribbon and gives the page the width -->
+          <button type="button" class="rail-fold" id="detailRail" hidden></button>
+        </div>
+        <!-- REPLAN, SET ASIDE, DELETE — they used to come over the row on hover,
+             half-covering what they act on. They live at the foot of the open
+             task instead, the way an objective's three do at the foot of its
+             editor: nothing on the row, and one plain line down here. -->
+        <div class="task-edit__actions" id="taskEditActions" hidden>
+          <button class="task-edit__action" id="taskEditWhen" type="button">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+                 stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/>
+              <line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
+            </svg>
+            <span id="taskEditWhenLabel" data-i18n="rescheduleLabel">Replanifier</span>
+          </button>
+          <button class="task-edit__action" id="taskEditAside" type="button">
+            <span class="task-edit__action-icon" id="taskEditAsideIcon"></span>
+            <span id="taskEditAsideLabel">Mettre de côté</span>
+          </button>
+          <button class="task-edit__action task-edit__action--danger" id="taskEditDelete" type="button">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+                 stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <polyline points="3 6 5 6 21 6"/>
+              <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+            </svg>
+            <span data-i18n="deleteAria">Supprimer</span>
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- settings dialog -->
+  <div id="settings" class="modal" hidden>
+    <div class="modal__backdrop" data-close></div>
+    <div class="modal__card">
+      <div class="modal__head">
+        <h2 class="modal__title" data-i18n="settingsTitle">Paramètres</h2>
+        <button class="modal__close" data-close data-i18n-aria="closeAria" aria-label="Fermer">×</button>
+      </div>
+
+      <div class="tabs" id="settingsTabs" role="tablist">
+        <button class="tab is-active" data-tab="system" type="button" role="tab" data-i18n="tabSystem">Système</button>
+        <button class="tab" data-tab="custom" type="button" role="tab" data-i18n="tabCustom">Personnalisation</button>
+      </div>
+
+      <div class="tab-panel is-active" data-tabpanel="system">
+        <label class="field">
+          <span class="field__label" data-i18n="nameLabel">Votre prénom</span>
+          <input id="nameInput" class="field__input" type="text" data-i18n-placeholder="namePlaceholder"
+                 placeholder="Ex. Aymane" maxlength="30">
+        </label>
+
+        <div class="field">
+          <span class="field__label" data-i18n="locationLabel">Localisation</span>
+          <input id="citySearch" class="field__input" type="text" data-i18n-placeholder="cityPlaceholder"
+                 placeholder="Rechercher une ville…" autocomplete="off">
+          <div id="cityResults" class="city-results"></div>
+        </div>
+
+        <div class="field">
+          <span class="field__label" data-i18n="languageLabel">Langue</span>
+          <div class="langs" id="langs">
+            <button class="lang" data-lang="fr" data-i18n="langFr" type="button">Français</button>
+            <button class="lang" data-lang="en" data-i18n="langEn" type="button">English</button>
+          </div>
+        </div>
+
+        <div class="field">
+          <span class="field__label" data-i18n="dataLabel">Sauvegarde</span>
+          <div class="data-actions">
+            <button id="exportBtn" class="data-btn" type="button" data-i18n="exportBtn">Exporter</button>
+            <button id="importBtn" class="data-btn" type="button" data-i18n="importBtn">Importer</button>
+            <input id="importFile" type="file" accept="application/json,.json" hidden>
+          </div>
+        </div>
+      </div>
+
+      <div class="tab-panel" data-tabpanel="custom" hidden>
+        <div class="field">
+          <span class="field__label" data-i18n="paintLabel">Couleurs</span>
+          <button id="paintBtn" class="data-btn data-btn--wide" type="button"
+                  data-i18n-aria="paintAria" aria-label="Couleurs">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18.4 2.6a2 2 0 0 1 3 3L11 16l-4 1 1-4z"/><path d="M6 14c-2 1-3 3-3 6 3 0 5-1 6-3"/></svg>
+            <span data-i18n="paintOpen">Ouvrir l'atelier</span>
+          </button>
+        </div>
+
+        <div class="field field--row">
+          <span class="field__label" data-i18n="scrubLabel">Faire défiler le temps</span>
+          <span id="scrubToggleSlot"></span>
+        </div>
+        <p class="field__hint" data-i18n="scrubHint">Tirez la barre du temps pour voyager dans la journée</p>
+
+        <div class="field">
+          <span class="field__label" data-i18n="treeShopLabel">Arbre</span>
+          <button id="treeBtn" class="data-btn data-btn--wide" type="button"
+                  data-i18n-aria="treeShopAria" aria-label="Modifier l'arbre">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 21V9"/><path d="M12 12 7 7"/><path d="m12 14 5-5"/><path d="M12 9c0-3 2-5 2-5"/></svg>
+            <span data-i18n="treeShopOpen">Modifier l'arbre</span>
+          </button>
+        </div>
+
+        <div class="field">
+          <span class="field__label" data-i18n="decorLabel">Décorations</span>
+          <div class="decors" id="decors">
+            <button class="decor-opt" data-decor="particles" data-i18n="decorParticles" type="button">Particules</button>
+            <button class="decor-opt" data-decor="petals" data-i18n="decorPetals" type="button">Pétales</button>
+            <button class="decor-opt" data-decor="thorns" data-i18n="decorThorns" type="button">Ronces</button>
+            <button class="decor-opt" data-decor="bubbles" data-i18n="decorBubbles" type="button">Bulles</button>
+            <button class="decor-opt" data-decor="seabed" data-i18n="decorSeabed" type="button">Fond marin</button>
+            <button class="decor-opt" data-decor="aurora" data-i18n="decorAurora" type="button">Aurores</button>
+            <button class="decor-opt" data-decor="pollen" data-i18n="decorPollen" type="button">Pollen</button>
+            <button class="decor-opt" data-decor="fireflies" data-i18n="decorFireflies" type="button">Lucioles</button>
+            <button class="decor-opt" data-decor="rain" data-i18n="decorRain" type="button">Pluie</button>
+            <button class="decor-opt" data-decor="fog" data-i18n="decorFog" type="button">Brouillard</button>
+            <button class="decor-opt" data-decor="snow" data-i18n="decorSnow" type="button">Neige</button>
+            <button class="decor-opt" data-decor="storm" data-i18n="decorStorm" type="button">Orage</button>
+            <button class="decor-opt" data-decor="field" data-i18n="decorField" type="button">Champ</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- tree workshop: what the tree shows, and how it flowers -->
+  <div id="treeShop" class="modal" hidden>
+    <div class="modal__backdrop" data-close></div>
+    <div class="modal__card">
+      <div class="modal__head">
+        <h2 class="modal__title" data-i18n="treeShopTitle">Modifier l'arbre</h2>
+        <button class="modal__close" data-close data-i18n-aria="closeAria" aria-label="Fermer">×</button>
+      </div>
+
+      <div class="field">
+        <span class="field__label" data-i18n="bloomLabel">Floraison</span>
+        <div class="decors" id="blooms">
+          <button class="bloom-opt" data-bloom="corolla" data-i18n="bloomCorolla" type="button">Corolles</button>
+          <button class="bloom-opt" data-bloom="burst" data-i18n="bloomBurst" type="button">Éclosions</button>
+          <button class="bloom-opt" data-bloom="bud" data-i18n="bloomBud" type="button">Boutons</button>
+        </div>
+      </div>
+      <p class="field__hint" data-i18n="bloomHint">Une branche ne fleurit qu'une fois son habitude tenue longtemps</p>
+
+      <div class="field field--row">
+        <span class="field__label" data-i18n="treeSapLabel">Mouvement</span>
+        <span id="treeSapSlot"></span>
+      </div>
+      <p class="field__hint" data-i18n="treeSapHint">La sève, l'air en suspension et le souffle du tronc</p>
+
+      <div class="field field--row">
+        <span class="field__label" data-i18n="treeTrunkLabel">Afficher le tronc</span>
+        <span id="treeTrunkSlot"></span>
+      </div>
+      <div class="field field--row">
+        <span class="field__label" data-i18n="treeBranchesLabel">Afficher les branches</span>
+        <span id="treeBranchesSlot"></span>
+      </div>
+      <p class="field__hint" data-i18n="treePartsHint">Pour regarder une famille de flux à la fois</p>
+
+      <div class="field field--row">
+        <span class="field__label" data-i18n="treeWispsLabel">Fils fins de l'arbre</span>
+        <span id="treeWispsSlot"></span>
+      </div>
+      <p class="field__hint" data-i18n="treeWispsHint">Le duvet autour des veines. Coupez-le pour ne voir que la structure</p>
+
+      <div class="field field--row">
+        <span class="field__label" data-i18n="treeFullLabel">Arbre au maximum</span>
+        <span id="treeFullSlot"></span>
+      </div>
+      <p class="field__hint" data-i18n="treeFullHint">Aperçu : l'arbre tel qu'il serait au mieux, toutes habitudes tenues</p>
+    </div>
+  </div>
+
+  <!-- colour workshop: pick a theme, then edit its source colours -->
+  <div id="paint" class="modal" hidden>
+    <div class="modal__backdrop" data-close></div>
+    <div class="modal__card paint">
+      <div class="modal__head">
+        <h2 class="modal__title" data-i18n="paintTitle">Couleurs</h2>
+        <button class="modal__close" data-close data-i18n-aria="closeAria" aria-label="Fermer">×</button>
+      </div>
+
+      <div class="field">
+        <span class="field__label" data-i18n="paintThemeLabel">Thème à modifier</span>
+        <div class="themes" id="paintThemes"></div>
+      </div>
+
+      <div id="paintSlots"></div>
+
+      <div class="field" id="paintPaletteField">
+        <div class="paint__row">
+          <span class="field__label" data-i18n="paletteLabel">Palette</span>
+          <button type="button" class="paint__undo" id="paintPaletteReset" data-i18n="paintResetOne">Réinitialiser</button>
+        </div>
+        <div class="palettes" id="paintPalettes"></div>
+        <div class="swatches" id="paintImp"></div>
+      </div>
+
+      <button type="button" class="data-btn paint__reset" id="paintReset" data-i18n="paintReset">Réinitialiser ce thème</button>
+    </div>
+  </div>
+
+  <!-- habit icon picker -->
+  <div id="iconPicker" class="modal" hidden>
+    <div class="modal__backdrop" data-close></div>
+    <!-- no head: what the panel is for is what it shows, and pressing anywhere
+         outside it is already how one leaves -->
+    <div class="modal__card icons">
+      <div class="modal__head project-edit__head" id="projectEditHead" hidden>
+        <h2 class="modal__title" data-i18n="editProjectTitle">Modifier le projet</h2>
+        <div class="project-edit__importance" id="projectEditImportance" role="group"
+             data-i18n-aria="importanceAria" aria-label="Importance">
+          <button type="button" data-importance="1"></button>
+          <button type="button" data-importance="2"></button>
+          <button type="button" data-importance="3"></button>
+          <button type="button" data-importance="4"></button>
+          <button type="button" data-importance="5"></button>
+        </div>
+        <button class="modal__close" type="button" data-close
+                data-i18n-aria="closeAria" aria-label="Fermer">×</button>
+      </div>
+      <label class="field" id="habitNameField">
+        <span class="field__label" data-i18n="habitNameLabel">Nom de l'habitude</span>
+        <input id="habitNameInput" class="field__input" type="text" data-i18n-placeholder="habitNamePlaceholder"
+               placeholder="Ex. Boire de l'eau" maxlength="40">
+      </label>
+      <div class="field" id="iconPresets" hidden>
+        <span class="field__label" data-i18n="presetsLabel">Préconfigurées</span>
+        <button id="presetSleep" class="icon-preset" type="button">
+          <span class="icon-preset__ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg></span>
+          <span data-i18n="sleepTitle">Sommeil</span>
+        </button>
+        <button id="presetExercise" class="icon-preset" type="button">
+          <span class="icon-preset__ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="2.5" y1="9" x2="2.5" y2="15"/><line x1="5.5" y1="7" x2="5.5" y2="17"/><line x1="18.5" y1="7" x2="18.5" y2="17"/><line x1="21.5" y1="9" x2="21.5" y2="15"/><line x1="5.5" y1="12" x2="18.5" y2="12"/></svg></span>
+          <span data-i18n="exerciseTitle">Exercices rapides</span>
+        </button>
+      </div>
+      <!-- the heading an objective is kept on: why it is being done, and what it
+           looks like once it is. The same two lines its own view carries. -->
+      <div class="field" id="iconCap" hidden>
+        <span class="field__label" data-i18n="capLabel">Le cap</span>
+        <textarea id="iconWhy" class="field__input field__input--line" rows="1"
+                  data-i18n-placeholder="whyPlaceholder" placeholder="Pourquoi ce projet ?"></textarea>
+        <textarea id="iconOutcome" class="field__input field__input--line" rows="1"
+                  data-i18n-placeholder="outcomePlaceholder"
+                  placeholder="À quoi ça ressemble, une fois fini ?"></textarea>
+      </div>
+      <!-- the catalogue: everything at once, read as a plate rather than walked
+           through one screenful at a time -->
+      <div class="icon-grid" id="iconGrid"></div>
+      <!-- a second plate, for the objectives only: the sky one steers by -->
+      <div class="field" id="iconMore" hidden>
+        <span class="field__label" data-i18n="spaceLabel">Le ciel</span>
+        <div class="icon-grid" id="iconGridMore"></div>
+      </div>
+      <div class="project-edit__actions" id="projectEditActions" hidden>
+        <button class="project-edit__action" id="iconProjectDone" type="button">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+               stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <polyline points="4 12.5 9.5 18 20 6"/>
+          </svg>
+          <span id="iconProjectDoneLabel">Compléter</span>
+        </button>
+        <button class="project-edit__action" id="iconProjectAside" type="button">
+          <span class="project-edit__action-icon" id="iconProjectAsideIcon"></span>
+          <span id="iconProjectAsideLabel">Masquer le projet</span>
+        </button>
+        <button class="project-edit__action project-edit__action--danger"
+                id="iconProjectDelete" type="button">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+               stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <polyline points="3 6 5 6 21 6"/>
+            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>
+          </svg>
+          <span data-i18n="deleteAria">Supprimer</span>
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- sleep habit: log last night on a slider, configure targets & recommendation -->
+  <div id="sleepView" class="modal" hidden>
+    <div class="modal__backdrop" data-close></div>
+    <div class="modal__card sleep">
+      <div class="modal__head">
+        <h2 class="modal__title" data-i18n="sleepTitle">Sommeil</h2>
+        <button class="modal__close" data-close data-i18n-aria="closeAria" aria-label="Fermer">×</button>
+      </div>
+
+      <div class="sleep__today">
+        <span class="field__label" data-i18n="sleepTonight">Cette nuit</span>
+        <div class="sleep__value"><span id="sleepVal">8h</span></div>
+        <div class="sleep__status" id="sleepStatus"></div>
+        <div class="sleep__track" id="sleepTrack">
+          <div class="sleep__bar"></div>
+          <div class="sleep__zone" id="sleepZone" hidden></div>
+          <div class="sleep__ticks" id="sleepTicks"></div>
+          <input id="sleepSlider" class="sleep__slider" type="range" min="0" max="14" step="0.5" aria-label="Heures de sommeil">
+          <div class="sleep__bubble" id="sleepBubble">8h</div>
+        </div>
+        <div class="sleep__scale"><span>0h</span><span>7h</span><span>14h</span></div>
+      </div>
+
+      <div class="sleep__config">
+        <span class="field__label" data-i18n="sleepConfig">Configuration</span>
+        <div class="sleep__grid">
+          <label class="sleep__field"><span data-i18n="sleepAgeLabel">Âge</span><input id="sleepAge" type="number" min="0" max="120" inputmode="numeric"></label>
+          <label class="sleep__field"><span data-i18n="sleepWakeLabel">Réveil visé</span><input id="sleepWake" type="time"></label>
+          <label class="sleep__field sleep__field--wide"><span data-i18n="sleepTargetLabel">Objectif (h)</span><input id="sleepTarget" type="number" min="0" max="16" step="0.5" inputmode="decimal"></label>
+        </div>
+        <div class="sleep__reco" id="sleepReco" hidden>
+          <span class="sleep__reco-txt" id="sleepRecoTxt"></span>
+        </div>
+        <div class="sleep__bedtime" id="sleepBedtime" hidden></div>
+      </div>
+
+      <div class="sleep__week">
+        <div class="sleep__weekstats">
+          <div class="sleep__stat"><span class="sleep__stat-v" id="sleepAvg">–</span><span class="sleep__stat-l" data-i18n="sleepAvgLabel">Moyenne 7 j</span></div>
+          <div class="sleep__stat"><span class="sleep__stat-v" id="sleepDebt">–</span><span class="sleep__stat-l" data-i18n="sleepDebtLabel">Dette</span></div>
+        </div>
+        <div id="sleepChart" class="sleep__chart"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- quick-exercises habit: pick exercises from a catalog, log reps with -/+1/+10 -->
+  <div id="exerciseView" class="modal" hidden>
+    <div class="modal__backdrop" data-close></div>
+    <div class="modal__card exercise">
+      <div class="modal__head">
+        <h2 class="modal__title" data-i18n="exerciseTitle">Exercices rapides</h2>
+        <button class="modal__close" data-close data-i18n-aria="closeAria" aria-label="Fermer">×</button>
+      </div>
+
+      <div id="exerciseItems" class="ex-items"></div>
+
+      <div class="ex-search">
+        <input id="exerciseSearch" class="field__input" type="text" data-i18n-placeholder="exerciseSearchPlaceholder"
+               placeholder="Rechercher un exercice…" autocomplete="off">
+        <div id="exerciseCatalog" class="ex-catalog"></div>
+      </div>
+
+      <div class="sleep__week">
+        <div class="sleep__weekstats">
+          <div class="sleep__stat"><span class="sleep__stat-v" id="exerciseAvg">–</span><span class="sleep__stat-l" data-i18n="exerciseAvgLabel">Réussite 7 j</span></div>
+        </div>
+        <div id="exerciseChart" class="sleep__chart"></div>
+      </div>
+    </div>
+  </div>
+
+  <!-- reflection opens directly on its working canvas -->
+  <div id="thinkingView" class="thinking" hidden>
+    <section id="thinkingBoard" class="thinking-board">
+      <header class="thinking__bar thinking__bar--board">
+        <button id="thinkingBoardBack" class="detail__back" type="button" data-i18n-aria="thinkingCloseCanvas" aria-label="Replier dans la toile mère">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6"/></svg>
+        </button>
+        <!-- a canvas that belongs to a constellation: its mark steps to the next one -->
+        <button id="thinkingBranch" class="pbranch__icon is-switch thinking-board__branch" type="button" hidden
+                data-i18n-aria="branchSwitchAria" aria-label="Afficher la constellation suivante"></button>
+        <input id="thinkingName" class="thinking-board__name" type="text" maxlength="120" data-i18n-placeholder="thinkingUntitled" placeholder="Toile sans titre">
+        <button id="thinkingAddBranch" class="thinking-board__addbranch" type="button" hidden
+                data-i18n="branchAdd">Ajouter une constellation</button>
+        <span id="thinkingSaved" class="thinking-board__saved" data-i18n="thinkingSaved">Enregistré</span>
+        <button id="thinkingExit" class="thinking-board__exit" type="button" data-i18n-aria="thinkingExit" aria-label="Quitter le laboratoire">×</button>
+      </header>
+
+      <nav class="thinking-tools" data-i18n-aria="thinkingTools" aria-label="Outils de la toile">
+        <div class="thinking-tools__additions">
+          <button id="thinkingToolSectionSwitch" class="thinking-tools__section-switch" type="button" data-thinking-tool-section="blocks" data-i18n-aria="thinkingSwitchTools" aria-label="Changer de catégorie d’outils">
+            <span class="thinking-tools__section-label" data-i18n="thinkingBlocksLabel">Blocs</span>
+            <span class="thinking-tools__section-size" data-i18n="thinkingBlocksLabel" aria-hidden="true">Blocs</span>
+            <span class="thinking-tools__section-size" data-i18n="thinkingOrganization" aria-hidden="true">Organisation</span>
+            <span class="thinking-tools__section-size" data-i18n="thinkingPlanningLabel" aria-hidden="true">Planification</span>
+          </button>
+          <div id="thinkingToolPanelOrganization" class="thinking-tools__panel" role="group" aria-labelledby="thinkingToolSectionSwitch" data-thinking-tool-panel="organization" hidden>
+            <button class="thinking-tool thinking-tool--canvas" type="button" data-block-type="canvas"><span class="thinking-tool__mark" aria-hidden="true"></span><span data-i18n="blockCanvas">Toile</span></button>
+            <button class="thinking-tool thinking-tool--folder" type="button" data-block-type="folder"><span class="thinking-tool__mark" aria-hidden="true"></span><span data-i18n="blockFolder">Dossier</span></button>
+            <button class="thinking-tool thinking-tool--document" type="button" data-block-type="document"><span class="thinking-tool__mark" aria-hidden="true"></span><span data-i18n="blockDocument">Bloc-note</span></button>
+            <button class="thinking-tool thinking-tool--planner" type="button" data-block-type="planner"><span class="thinking-tool__mark" aria-hidden="true"></span><span data-i18n="blockPlanner">Planificateur</span></button>
+            <button class="thinking-tool thinking-tool--logbook" type="button" data-block-type="logbook"><span class="thinking-tool__mark" aria-hidden="true"></span><span data-i18n="blockLogbook">Journal</span></button>
+          </div>
+          <div id="thinkingToolPanelBlocks" class="thinking-tools__panel" role="group" aria-labelledby="thinkingToolSectionSwitch" data-thinking-tool-panel="blocks">
+            <button class="thinking-tool thinking-tool--problem" type="button" data-block-type="problem"><span class="thinking-tool__mark" aria-hidden="true"></span><span data-i18n="blockProblem">Problème</span></button>
+            <button class="thinking-tool thinking-tool--solution" type="button" data-block-type="solution"><span class="thinking-tool__mark" aria-hidden="true"></span><span data-i18n="blockSolution">Solution</span></button>
+            <button class="thinking-tool thinking-tool--example" type="button" data-block-type="example"><span class="thinking-tool__mark" aria-hidden="true"></span><span data-i18n="blockExample">Exemple</span></button>
+            <button class="thinking-tool thinking-tool--idea" type="button" data-block-type="idea"><span class="thinking-tool__mark" aria-hidden="true"></span><span data-i18n="blockIdea">Idée</span></button>
+            <button class="thinking-tool thinking-tool--question" type="button" data-block-type="question"><span class="thinking-tool__mark" aria-hidden="true"></span><span data-i18n="blockQuestion">Question</span></button>
+            <button class="thinking-tool thinking-tool--answer" type="button" data-block-type="answer"><span class="thinking-tool__mark" aria-hidden="true"></span><span data-i18n="blockAnswer">Réponse</span></button>
+            <button class="thinking-tool thinking-tool--text" type="button" data-block-type="text"><span class="thinking-tool__mark" aria-hidden="true"></span><span data-i18n="blockText">Texte</span></button>
+            <button class="thinking-tool thinking-tool--note" type="button" data-block-type="note"><span class="thinking-tool__mark" aria-hidden="true"></span><span data-i18n="blockNote">Note</span></button>
+            <button class="thinking-tool thinking-tool--step" type="button" data-block-type="step"><span class="thinking-tool__mark" aria-hidden="true"></span><span data-i18n="blockStep">Étape</span></button>
+          </div>
+          <div id="thinkingToolPanelPlanning" class="thinking-tools__panel" role="group" aria-labelledby="thinkingToolSectionSwitch" data-thinking-tool-panel="planning" hidden>
+            <button class="thinking-tool thinking-tool--task" type="button" data-block-type="task"><span class="thinking-tool__mark" aria-hidden="true"></span><span data-i18n="blockTask">Tâche</span></button>
+            <button class="thinking-tool thinking-tool--event" type="button" data-block-type="event"><span class="thinking-tool__mark" aria-hidden="true"></span><span data-i18n="blockEvent">Événement</span></button>
+            <button class="thinking-tool thinking-tool--habit" type="button" data-block-type="habit"><span class="thinking-tool__mark" aria-hidden="true"></span><span data-i18n="blockHabit">Habitude</span></button>
+            <button class="thinking-tool thinking-tool--loop" type="button" data-block-type="loop"><span class="thinking-tool__mark" aria-hidden="true"></span><span data-i18n="blockLoop">Boucle for</span></button>
+            <button class="thinking-tool thinking-tool--condition" type="button" data-block-type="condition"><span class="thinking-tool__mark" aria-hidden="true"></span><span data-i18n="blockCondition">Condition if</span></button>
+          </div>
+        </div>
+        <div class="thinking-selection-dock">
+          <div id="thinkingSelectionActions" class="thinking-selection-actions" hidden>
+            <span id="thinkingSelectionCount" class="thinking-selection-actions__count"></span>
+            <button id="thinkingSelectionCanvas" class="thinking-selection-actions__canvas" type="button" data-i18n="thinkingPutInCanvas">Mettre dans une nouvelle toile</button>
+          </div>
+          <button id="thinkingZoomOut" class="thinking-mode-toggle" type="button" aria-pressed="false" data-i18n-aria="thinkingOverview" aria-label="Voir toute la toile">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6"/><path d="M8 10.5h5M20 20l-5.2-5.2"/></svg>
+          </button>
+          <button id="thinkingRecenter" class="thinking-mode-toggle" type="button" data-i18n-aria="thinkingRecenter" aria-label="Recentrer la toile">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="6.4"/><circle cx="12" cy="12" r="1.6" fill="currentColor" stroke="none"/><path d="M12 2v3M12 19v3M2 12h3M19 12h3"/></svg>
+          </button>
+          <button id="thinkingLinkTool" class="thinking-mode-toggle" type="button" aria-pressed="false" data-i18n-aria="thinkingLinkTool" aria-label="Liaison">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9.5 14.5 14.5 9.5"/><path d="m7.4 17.6-1 .9a3.5 3.5 0 0 1-5-5l3.1-3.1a3.5 3.5 0 0 1 5 0"/><path d="m16.6 6.4 1-.9a3.5 3.5 0 0 1 5 5l-3.1 3.1a3.5 3.5 0 0 1-5 0"/></svg>
+          </button>
+          <button id="thinkingSelect" class="thinking-mode-toggle" type="button" aria-pressed="false" data-i18n-aria="thinkingSelect" aria-label="Sélection">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 3H5a2 2 0 0 0-2 2v3M16 3h3a2 2 0 0 1 2 2v3M8 21H5a2 2 0 0 1-2-2v-3M16 21h3a2 2 0 0 0 2-2v-3"/><path d="m9 8 7 4-3 1-1 3Z"/></svg>
+          </button>
+        </div>
+      </nav>
+
+      <div id="thinkingLinkHint" class="thinking-link-hint" hidden>
+        <span data-i18n="thinkingLinkHint">Choisissez un autre bloc à relier.</span>
+        <button id="thinkingLinkCancel" type="button" data-i18n="thinkingCancel">Annuler</button>
+      </div>
+
+      <div id="thinkingViewport" class="thinking-viewport">
+        <div id="thinkingPlane" class="thinking-plane">
+          <svg id="thinkingLinks" class="thinking-links" width="5400" height="3000" viewBox="0 0 5400 3000" aria-hidden="true">
+            <defs>
+              <marker id="thinkingArrow" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="6" markerHeight="6" orient="auto-start-reverse">
+                <path d="M 0 0 L 10 5 L 0 10 z"/>
+              </marker>
+            </defs>
+          </svg>
+          <div id="thinkingBlocks" class="thinking-blocks"></div>
+          <div id="thinkingBlank" class="thinking-blank">
+            <span class="thinking-blank__spark" aria-hidden="true">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"><path d="m12 2 1.6 6.4L20 10l-6.4 1.6L12 18l-1.6-6.4L4 10l6.4-1.6Z"/><path d="m19 16 .6 2.4L22 19l-2.4.6L19 22l-.6-2.4L16 19l2.4-.6Z"/></svg>
+            </span>
+            <strong data-i18n="thinkingBlankTitle">Commencez par ce qui vous occupe</strong>
+            <span data-i18n="thinkingBlankCopy">Ajoutez un problème, une question ou une première idée.</span>
+          </div>
+        </div>
+      </div>
+      <div id="thinkingTrash" class="thinking-trash" hidden aria-hidden="true">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><line x1="10" y1="11" x2="10" y2="17"/><line x1="14" y1="11" x2="14" y2="17"/><g class="ico-lid"><polyline points="3 6 5 6 21 6"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></g></svg>
+        <span data-i18n="thinkingTrash">Déposer pour supprimer</span>
+      </div>
+      <p class="thinking-board__tip" data-i18n="thinkingDeleteLink">Glissez le fond pour déplacer la caméra · cliquez sur une liaison pour la supprimer.</p>
+    </section>
+  </div>
+
+  <!-- the sky: one star per project, on its own -->
+  <div id="skyView" class="sky-view" hidden>
+    <div class="sky-view__field" id="skyField">
+      <!-- the deep sky, in layers that slide at their own distance -->
+      <div class="skydeep" id="skyDeep" aria-hidden="true">
+        <div class="skydeep__neb" data-far="0.12"></div>
+        <div class="skydeep__gal" data-far="0.22"></div>
+        <div class="skydeep__dust skydeep__dust--far" data-far="0.30"></div>
+        <div class="skydeep__dust skydeep__dust--mid" data-far="0.52"></div>
+        <div class="skydeep__dust skydeep__dust--near" data-far="0.78"></div>
+      </div>
+      <div class="skyshoot" id="skyShoot" aria-hidden="true"></div>
+      <!-- what the camera moves: the constellations and their stars -->
+      <div class="sky-view__camera" id="skyCamera">
+        <!-- the rays a star sends out, one per constellation -->
+        <svg class="sky-branches" id="skyBranches" viewBox="0 0 100 100" preserveAspectRatio="none" aria-hidden="true"></svg>
+      </div>
+      <p class="sky-view__empty" id="skyEmpty" data-i18n="skyEmpty" hidden>Le ciel est vide. Allumez une première étoile.</p>
+    </div>
+    <!-- nothing frames the sky: the tools float over it -->
+    <div class="sky-tools">
+      <button id="skyBack" class="sky-tool" type="button" data-i18n-aria="backAria" aria-label="Retour">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6"/></svg>
+      </button>
+    </div>
+    <!-- the projects by name, for when the map is faster read than scanned -->
+    <div class="skyroll">
+      <div class="skylist" id="skyList" hidden></div>
+      <button id="skyAdd" class="skylist__item skylist__add" type="button" data-i18n-aria="addProjectAria" aria-label="Nouveau projet">
+        <span class="skylist__ico"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg></span>
+        <span class="skylist__name" data-i18n="addProjectAria">Nouveau projet</span>
+      </button>
+    </div>
+  </div>
+
+  <!-- the project workspace: what the star opens into -->
+  <div id="projectView" class="pview" hidden>
+    <div class="pview__bar">
+      <button id="pviewBack" class="detail__back" type="button" data-i18n-aria="backAria" aria-label="Retour">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6"/></svg>
+      </button>
+      <button id="pviewIcon" class="detail__icon" type="button" data-field-panel
+              data-i18n-aria="editProjectTitle" aria-label="Modifier le projet"></button>
+      <input id="pviewName" class="pview__name" type="text" maxlength="120">
+      <button id="pviewDone" class="pview__act" type="button">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="4 12.5 9.5 18 20 6"/></svg>
+        <span id="pviewDoneLabel" data-i18n="completeLabel">Compléter</span>
+      </button>
+      <button id="pviewDelete" class="pview__act pview__act--del" type="button" data-i18n-aria="deleteAria" aria-label="Supprimer">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+      </button>
+    </div>
+
+    <div class="pview__body">
+      <!-- the cap is the project in one breath: it reads across the whole panel -->
+      <section class="pview__sec pview__sec--cap">
+        <span class="detail__label" data-i18n="capLabel">Le cap</span>
+        <div class="pview__caplines">
+          <textarea id="pviewWhy" class="pview__line" rows="1" data-i18n-placeholder="whyPlaceholder" placeholder="Pourquoi ce projet ?"></textarea>
+          <textarea id="pviewOutcome" class="pview__line" rows="1" data-i18n-placeholder="outcomePlaceholder" placeholder="À quoi ça ressemble, une fois fini ?"></textarea>
+        </div>
+      </section>
+
+      <div class="pview__cols">
+        <div class="pview__col">
+          <!-- one list of steps, drawn as a roadmap or as a checklist -->
+          <section class="pview__sec psteps" id="pviewSteps"></section>
+        </div>
+
+        <div class="pview__col">
+          <!-- the same strip as an unfolded objective: one sheet at a time -->
+          <div id="pviewSheets" class="sheets"></div>
+          <section class="pview__sec" id="pviewSheet"></section>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- deadline calendar -->
+  <div id="calendar" class="modal" hidden>
+    <div class="modal__backdrop" data-close></div>
+    <div class="modal__card">
+      <div class="modal__head">
+        <h2 class="modal__title" data-i18n="calendarTitle">Échéance</h2>
+        <button class="modal__close" data-close data-i18n-aria="closeAria" aria-label="Fermer">×</button>
+      </div>
+
+      <div class="cal">
+        <div class="cal__head">
+          <button type="button" class="cal__nav" id="calPrev" data-i18n-aria="prevMonthAria" aria-label="Mois précédent">‹</button>
+          <span class="cal__month" id="calMonth"></span>
+          <button type="button" class="cal__nav" id="calNext" data-i18n-aria="nextMonthAria" aria-label="Mois suivant">›</button>
+        </div>
+        <div class="cal__grid" id="calGrid"></div>
+      </div>
+
+      <div class="field field--row" id="calTimeRow">
+        <span class="field__label" data-i18n="calTimeLabel">Heure</span>
+        <span id="timeToggleSlot"></span>
+      </div>
+      <div id="timePicker" class="time-picker" hidden>
+        <div class="time-picker__value"><span id="timeValue">09:00</span></div>
+        <div class="time-picker__row">
+          <span class="time-picker__tag">H</span>
+          <input id="timeHour" class="time-picker__slider" type="range" min="0" max="23" step="1" aria-label="Heure">
+        </div>
+        <div class="time-picker__row">
+          <span class="time-picker__tag">Min</span>
+          <input id="timeMinute" class="time-picker__slider" type="range" min="0" max="55" step="5" aria-label="Minutes">
+        </div>
+      </div>
+
+      <div class="cal__actions">
+        <button type="button" class="cal__clear" id="calClear" data-i18n="calClear">Effacer</button>
+        <button type="button" class="cal__confirm" id="calConfirm" data-i18n="calConfirm">Valider</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- today's hourly forecast graph (from the once-a-day Open-Meteo call) -->
+  <div id="weatherModal" class="modal" hidden>
+    <div class="modal__backdrop" data-close></div>
+    <div class="modal__card">
+      <div class="modal__head">
+        <h2 class="modal__title"><span data-i18n="weatherTitle">Météo du jour</span> <span id="weatherPlace" class="weather__place"></span></h2>
+        <button class="modal__close" data-close data-i18n-aria="closeAria" aria-label="Fermer">×</button>
+      </div>
+      <div id="weatherChart" class="weather-chart"></div>
+    </div>
+  </div>
+
+  <!-- transient message (deletion undo, backup feedback) -->
+  <div id="toast" class="toast" hidden>
+    <span id="toastMsg" class="toast__msg"></span>
+    <button id="toastAction" class="toast__action" type="button" hidden></button>
+  </div>
+
+  <script src="./app.js?v=636"></script>
+<div id="probe" style="position:fixed;left:0;top:0;z-index:99999;background:#fff;color:#000;font:14px monospace;padding:8px;white-space:pre"></div>
+<script>
+var out = [];
+function say(s){ out.push(s); document.getElementById("probe").textContent = out.join("\n"); }
+try {
+  localStorage.removeItem("todoAppData");
+  document.getElementById("thinkingBtn").click();
+  document.querySelector('.thinking-tool[data-block-type="note"]').click();
+  var field = document.querySelector(".thinking-block__text");
+  say("field found: " + !!field);
+  field.focus();
+  say("focused before: " + (document.activeElement === field));
+  var vp = document.querySelector(".thinking-viewport") || document.getElementById("thinkingViewport");
+  say("viewport: " + (vp && vp.id));
+  var ev = new PointerEvent("pointerdown", {bubbles:true, cancelable:true, button:0, pointerId:1, clientX:20, clientY:400});
+  vp.dispatchEvent(ev);
+  say("focused after cloth click: " + (document.activeElement === field));
+  say(document.activeElement === field ? "FAIL still writing" : "PASS left writing");
+  // clicking inside the field must keep it
+  field.focus();
+  field.dispatchEvent(new PointerEvent("pointerdown", {bubbles:true, cancelable:true, button:0, pointerId:2, clientX:0, clientY:0}));
+  say(document.activeElement === field ? "PASS kept when clicking the field" : "FAIL blurred on its own field");
+} catch (e) { say("ERROR " + e); }
+</script>
+
+</body>
+</html>
