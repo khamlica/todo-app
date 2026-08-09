@@ -380,6 +380,19 @@
           </div>
           <div class="habit-grid" id="habitCells"></div>
         </div>
+        <div class="habits-band__history" id="habitBandHistory" aria-hidden="true">
+          <div class="habits-band__history-clip">
+            <div class="hrule" id="habitBandRule"></div>
+          </div>
+        </div>
+        <button class="habits-band__toggle" id="habitHistoryToggle" type="button"
+                aria-expanded="false" aria-controls="habitBandHistory"
+                aria-label="Afficher l’historique des habitudes">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+               stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <polyline points="6 9 12 15 18 9"></polyline>
+          </svg>
+        </button>
       </section>
 
       <section class="zone tasks-zone">

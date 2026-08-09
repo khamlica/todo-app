@@ -245,6 +245,9 @@
             if (block.type === "folder") {
               if (block.collapsed == null) block.collapsed = false;
             } else block.collapsed = true;
+            // containers are no longer stickable; any row one was left in is undone
+            delete block.stuckToId;
+            delete block.stuckSide;
           }
           // a page whose corner was frozen outside the cloth was placed against
           // a window that never existed; dropping it lets it be found again
@@ -341,6 +344,8 @@
           const key = block.stuckToId + ":" + block.stuckSide;
           if (!target || target.id === block.id || target.parentId !== block.parentId
               || !parent || parent.type === "folder"
+              || ["canvas", "folder", "document", "planner", "logbook"]
+                .indexOf(target.type) !== -1
               || stuckSides.indexOf(block.stuckSide) === -1 || occupiedStuckSides[key]) {
             delete block.stuckToId;
             delete block.stuckSide;
@@ -899,6 +904,8 @@
       calConfirm: "Valider",
       wellTitle: "Bien-être",
       habitsTitle: "Vos habitudes",
+      habitHistoryOpen: "Afficher l’historique des habitudes",
+      habitHistoryClose: "Replier l’historique des habitudes",
       wellAria: "Bien-être",
       panesAria: "Changer de colonne",
       paneTasks: "Tâches",
@@ -1297,6 +1304,8 @@
       calConfirm: "Confirm",
       wellTitle: "Well-being",
       habitsTitle: "Your habits",
+      habitHistoryOpen: "Show habit history",
+      habitHistoryClose: "Collapse habit history",
       wellAria: "Well-being",
       panesAria: "Switch column",
       paneTasks: "Tasks",
@@ -9521,9 +9530,44 @@
      heatmaps could never give. */
   const RULE_DAYS = 70;
   const habitsRule = document.getElementById("habitsRule");
+  const habitBandHistory = document.getElementById("habitBandHistory");
+  const habitBandRule = document.getElementById("habitBandRule");
+  const habitHistoryToggle = document.getElementById("habitHistoryToggle");
+
+  function setHabitHistory(open) {
+    const shown = !!open && state.habits.length > 0;
+    habitBandHistory.classList.toggle("is-open", shown);
+    habitBandHistory.setAttribute("aria-hidden", shown ? "false" : "true");
+    habitHistoryToggle.classList.toggle("is-open", shown);
+    habitHistoryToggle.setAttribute("aria-expanded", shown ? "true" : "false");
+    habitHistoryToggle.setAttribute("aria-label",
+      translate(shown ? "habitHistoryClose" : "habitHistoryOpen"));
+    if (!shown) { habitBandRule.innerHTML = ""; return; }
+    renderHabitRuleAt(habitBandRule);
+    requestAnimationFrame(function () {
+      habitBandRule.scrollLeft = habitBandRule.scrollWidth;
+    });
+  }
+
+  habitHistoryToggle.addEventListener("click", function () {
+    setHabitHistory(!habitBandHistory.classList.contains("is-open"));
+  });
 
   function renderHabitsRule() {
-    habitsRule.innerHTML = "";
+    const hasHabits = state.habits.length > 0;
+    habitHistoryToggle.hidden = !hasHabits;
+    if (!hasHabits) setHabitHistory(false);
+    renderHabitRuleAt(habitsRule);
+    if (hasHabits && habitBandHistory.classList.contains("is-open")) {
+      renderHabitRuleAt(habitBandRule);
+    }
+    habitHistoryToggle.setAttribute("aria-label", translate(
+      habitBandHistory.classList.contains("is-open")
+        ? "habitHistoryClose" : "habitHistoryOpen"));
+  }
+
+  function renderHabitRuleAt(host) {
+    host.innerHTML = "";
     if (!state.habits.length) return;
 
     const today = new Date();
@@ -9539,8 +9583,8 @@
     for (let h = 0; h < state.habits.length; h++) {
       lanes.appendChild(habitLane(state.habits[h], days));
     }
-    habitsRule.append(lanes, ruleAxis(days));
-    habitsRule.scrollLeft = habitsRule.scrollWidth;   // today, at the right edge
+    host.append(lanes, ruleAxis(days));
+    host.scrollLeft = host.scrollWidth;   // today, at the right edge
   }
 
   function habitLane(habit, days) {
@@ -20605,15 +20649,18 @@
     } else {
       block.blockHeight = height;
       if (card) {
-        card.style.height = height + "px";
+        // a floor, never a lid: see the note on the drawn size in createThinkingBlock
+        card.style.minHeight = height + "px";
+        card.style.height = "";
         card.classList.add("is-manually-sized");
       }
     }
   }
 
-  function resizeThinkingStuckSide(canvas, source, axis, value) {
-    const vertical = axis === "width";
-    const acceptedSides = vertical ? ["top", "bottom"] : ["left", "right"];
+  /* The blocks a size is shared with along one axis: a width runs down a column
+     — everything stuck above and below — and a height along a row. */
+  function thinkingStuckAxisGroup(canvas, source, axis) {
+    const acceptedSides = axis === "width" ? ["top", "bottom"] : ["left", "right"];
     const queued = {};
     const queue = [source];
     queued[source.id] = true;
@@ -20635,9 +20682,41 @@
         }
       }
     }
-    for (let i = 0; i < queue.length; i++) {
-      const card = thinkingBlocks.querySelector('[data-block-id="' + queue[i].id + '"]');
-      setThinkingBlockAxisSize(queue[i], card, axis, value);
+    return queue;
+  }
+
+  function resizeThinkingStuckSide(canvas, source, axis, value) {
+    const group = thinkingStuckAxisGroup(canvas, source, axis);
+    for (let i = 0; i < group.length; i++) {
+      const card = thinkingBlocks.querySelector('[data-block-id="' + group[i].id + '"]');
+      setThinkingBlockAxisSize(group[i], card, axis, value);
+    }
+  }
+
+  /* A row agrees on its tallest member and a column on its widest, rather than
+     on whichever block the placement walk happened to reach first. Squaring
+     everyone off against that one is what used to squash a block holding more
+     than its neighbour; here nobody is asked to be smaller than it is. */
+  function evenThinkingStuckSizes(tree, blocks, cards) {
+    const axes = ["width", "height"];
+    for (let a = 0; a < axes.length; a++) {
+      const axis = axes[a];
+      const settled = {};
+      for (let i = 0; i < blocks.length; i++) {
+        if (settled[blocks[i].id]) continue;
+        const group = thinkingStuckAxisGroup(tree, blocks[i], axis);
+        let largest = 0;
+        for (let j = 0; j < group.length; j++) {
+          settled[group[j].id] = true;
+          const card = cards[group[j].id];
+          if (!card) continue;
+          largest = Math.max(largest, axis === "width" ? card.offsetWidth : card.offsetHeight);
+        }
+        if (group.length < 2 || !largest) continue;
+        for (let j = 0; j < group.length; j++) {
+          setThinkingBlockAxisSize(group[j], cards[group[j].id], axis, largest);
+        }
+      }
     }
   }
 
@@ -20678,6 +20757,7 @@
       if (block.stuckToId) hasStuckBlocks = true;
     }
     if (!hasStuckBlocks) return;
+    evenThinkingStuckSizes(tree, directBlocks, cards);
 
     const placed = {};
     const placeBranch = function (target) {
@@ -21421,8 +21501,13 @@
     } else if (!nested || insideCanvas) {
       card.style.width = thinkingBlockNaturalWidth(block) + "px";
     }
+    /* A DRAWN SIZE IS A FLOOR — it used to be the card's height outright, and
+       the body was clipped to it: a block resized small, or squared off against
+       the one it was stuck to, swallowed its own text and its nested blocks with
+       no sign that anything was there. A block is never smaller than what it
+       holds, so the size someone drew is the least it may be, not the most. */
     if (!organization && block.blockHeight && !contained) {
-      card.style.height = block.blockHeight + "px";
+      card.style.minHeight = block.blockHeight + "px";
       card.classList.add("is-manually-sized");
     }
     if (!nested || insideCanvas) {
@@ -21560,11 +21645,6 @@
       text.value = block.text || "";
       text.placeholder = translate(thinkingPlaceholderKey(block.type));
       armThinkingLists(text);
-      text.addEventListener("scroll", function () {
-        if (!block.blockHeight || contained) return;
-        text.scrollTop = 0;
-        text.scrollLeft = 0;
-      });
       text.addEventListener("input", function () {
         applyThinkingListSyntax(text);
         block.text = text.value;
@@ -21578,10 +21658,8 @@
           const entry = findJournalEntry(journalOwner, block.journalEntryId);
           if (entry) entry.text = block.text;
         }
-        if (!block.blockHeight || contained) {
-          fitThinkingText(text, block.type === "text" || block.type === "bloc" ? 24
-            : nested ? 32 : 36);
-        }
+        fitThinkingText(text, block.type === "text" || block.type === "bloc" ? 24
+          : nested ? 32 : 36);
         if (!nested || insideCanvas) {
           const naturalWidth = thinkingBlockNaturalWidth(block);
           card.style.width = naturalWidth + "px";
@@ -21765,7 +21843,7 @@
         && (linked || actions.childElementCount)) card.appendChild(foot);
     if (blockResize) card.appendChild(blockResize);
     if (stickAdd) card.appendChild(stickAdd);
-    if (text && (!block.blockHeight || contained)) requestAnimationFrame(function () {
+    if (text) requestAnimationFrame(function () {
       fitThinkingText(text, block.type === "text" || block.type === "bloc" ? 24
         : nested ? 32 : 36);
       layoutVisibleThinkingStuckBlocks(canvas);
@@ -21985,6 +22063,9 @@
 
   function canStickThinkingBlocks(canvas, block, target) {
     if (!block || !target || target.id === block.id) return false;
+    // a container is opened, not lined up: sticking it to anything only ever
+    // made a row whose sizes could not agree
+    if (isThinkingOrganization(block) || isThinkingOrganization(target)) return false;
     const targetParent = findThinkingParent(canvas, target.parentId);
     if (!targetParent) return false;
     if (isThinkingOrganization(targetParent)) {
@@ -22271,6 +22352,95 @@
     growThinkingCanvasForBlock(canvas, block, start.width, start.height);
   }
 
+  /* Every card that could take a whole row: a container it may be integrated
+     into, or an ordinary block it may be nested in. Only containers used to be
+     offered, so a row could never be put inside a block the way a single block
+     can. */
+  function markThinkingGroupDropOptions(canvas, members, on, sourceParentId) {
+    const memberIds = {};
+    for (let i = 0; i < members.length; i++) memberIds[members[i].id] = true;
+    const cards = thinkingBlocks.querySelectorAll(".thinking-block");
+    for (let i = 0; i < cards.length; i++) {
+      const candidate = findThinkingParent(canvas, cards[i].dataset.blockId);
+      let takes = !!candidate && !memberIds[cards[i].dataset.blockId];
+      if (takes && isThinkingOrganization(candidate)) {
+        takes = canIntegrateThinkingSelection(canvas, members, candidate, sourceParentId);
+      } else if (takes) {
+        for (let j = 0; j < members.length; j++) {
+          if (canCombineThinkingBlocks(canvas, members[j], candidate)) continue;
+          takes = false;
+          break;
+        }
+      }
+      cards[i].classList.toggle("is-drop-option", on && takes);
+    }
+  }
+
+  function thinkingGroupDropParent(clientX, clientY, members, canvas) {
+    const memberIds = {};
+    for (let i = 0; i < members.length; i++) memberIds[members[i].id] = true;
+    const underPointer = document.elementsFromPoint(clientX, clientY);
+    for (let i = 0; i < underPointer.length; i++) {
+      const card = underPointer[i].closest
+        ? underPointer[i].closest(".thinking-block") : null;
+      if (!card || memberIds[card.dataset.blockId]) continue;
+      const parent = findThinkingParent(canvas, card.dataset.blockId);
+      if (!parent || isThinkingOrganization(parent)) continue;
+      let takesAll = true;
+      for (let j = 0; j < members.length; j++) {
+        if (canCombineThinkingBlocks(canvas, members[j], parent)) continue;
+        takesAll = false;
+        break;
+      }
+      if (takesAll) return card;
+    }
+    return null;
+  }
+
+  /* A row moves into a block whole. The members keep the way they are stuck to
+     one another, so the block draws them back as the row they were. */
+  function nestThinkingGroupInBlock(canvas, starts, targetCard) {
+    const parent = findThinkingParent(canvas, targetCard.dataset.blockId);
+    if (!parent) return false;
+    for (let i = 0; i < starts.length; i++) {
+      const block = starts[i].block;
+      syncThinkingBlockTaskPlacement(canvas, block, parent);
+      block.parentId = parent.id;
+      delete block.blockWidth;
+      delete block.blockHeight;
+      delete block.folderOrder;
+    }
+    return true;
+  }
+
+  /* Let go clear of everything while the row was nested: it comes out onto the
+     cloth where it is standing. Without this a row could be put into a block
+     but never taken back out — only its members one at a time. Landing back
+     inside its own container is not leaving it. */
+  function releaseThinkingGroupOnCloth(canvas, starts, sourceParentId, point) {
+    const viewedCanvas = currentThinkingCanvasNode();
+    if (!viewedCanvas || viewedCanvas.type === "folder"
+        || sourceParentId === viewedCanvas.id) return false;
+    const sourceCard = thinkingBlocks.querySelector('[data-block-id="' + sourceParentId + '"]');
+    const sourceStage = sourceCard ? sourceCard.querySelector(".thinking-canvas__stage") : null;
+    if (sourceStage) {
+      const rect = sourceStage.getBoundingClientRect();
+      if (point.x >= rect.left && point.x <= rect.right
+          && point.y >= rect.top && point.y <= rect.bottom) return false;
+    }
+    const planeRect = thinkingPlane.getBoundingClientRect();
+    for (let i = 0; i < starts.length; i++) {
+      const block = starts[i].block;
+      const rect = starts[i].card.getBoundingClientRect();
+      syncThinkingBlockTaskPlacement(canvas, block, viewedCanvas);
+      block.parentId = viewedCanvas.id;
+      delete block.folderOrder;
+      block.x = Math.max(18, Math.min(THINKING_WORLD_WIDTH - 300, rect.left - planeRect.left));
+      block.y = Math.max(18, Math.min(THINKING_WORLD_HEIGHT - 220, rect.top - planeRect.top));
+    }
+    return true;
+  }
+
   function armThinkingStuckGroupDrag(handle, leadCard, leadBlock, canvas) {
     handle.addEventListener("pointerdown", function (event) {
       if (thinkingSelectionMode || event.button !== 0
@@ -22278,14 +22448,19 @@
       const members = thinkingStuckComponent(canvas, leadBlock);
       if (members.length < 2) return;
       handle.setPointerCapture(event.pointerId);
+      // held in the flow of another block, a row cannot be moved by its own left
+      // and top: it is lifted onto the page, exactly as a single block is
+      const nested = leadCard.classList.contains("thinking-block--nested");
       const starts = [];
       for (let i = 0; i < members.length; i++) {
         const card = thinkingBlocks.querySelector('[data-block-id="' + members[i].id + '"]');
         if (!card) continue;
+        const rect = card.getBoundingClientRect();
         starts.push({
           block: members[i], card: card,
           x: members[i].x, y: members[i].y,
           left: card.offsetLeft, top: card.offsetTop,
+          clientX: rect.left, clientY: rect.top,
           width: card.offsetWidth, height: card.offsetHeight
         });
       }
@@ -22305,14 +22480,16 @@
         bottomEdge = Math.max(bottomEdge, starts[i].y + starts[i].height);
       }
       let moved = false;
+      let portaled = false;
       let dropCanvas = null;
+      let dropBlock = null;
       const move = function (moveEvent) {
         if (moveEvent.pointerId !== pointerId) return;
         const rawDx = moveEvent.clientX - startX;
         const rawDy = moveEvent.clientY - startY;
-        const dx = Math.max(18 - leftEdge,
+        const dx = nested ? rawDx : Math.max(18 - leftEdge,
           Math.min(THINKING_WORLD_WIDTH - 18 - rightEdge, rawDx));
-        const dy = Math.max(18 - topEdge,
+        const dy = nested ? rawDy : Math.max(18 - topEdge,
           Math.min(THINKING_WORLD_HEIGHT - 18 - bottomEdge, rawDy));
         if (!moved && Math.hypot(dx, dy) < 4) return;
         moveEvent.preventDefault();
@@ -22320,19 +22497,30 @@
           leadCard.dataset.dragged = "true";
           showThinkingTrash();
           thinkingBoard.classList.add("is-combining");
-          markThinkingSelectionCanvasOptions(canvas, members, true, sourceParentId);
+          markThinkingGroupDropOptions(canvas, members, true, sourceParentId);
+          if (nested) {
+            for (let i = 0; i < starts.length; i++) {
+              document.body.appendChild(starts[i].card);
+              starts[i].card.classList.add("is-detaching");
+              starts[i].card.style.setProperty("width", starts[i].width + "px", "important");
+            }
+            portaled = true;
+          }
         }
         moved = true;
         for (let i = 0; i < starts.length; i++) {
           starts[i].block.x = starts[i].x + dx;
           starts[i].block.y = starts[i].y + dy;
-          starts[i].card.style.left = starts[i].left + dx + "px";
-          starts[i].card.style.top = starts[i].top + dy + "px";
+          starts[i].card.style.left = (portaled ? starts[i].clientX : starts[i].left) + dx + "px";
+          starts[i].card.style.top = (portaled ? starts[i].clientY : starts[i].top) + dy + "px";
           starts[i].card.classList.add("is-group-dragging");
         }
         clearThinkingDropTargets();
-        dropCanvas = thinkingSelectionCanvasDropParent(moveEvent.clientX,
+        dropBlock = thinkingGroupDropParent(moveEvent.clientX, moveEvent.clientY,
+          members, canvas);
+        dropCanvas = dropBlock ? null : thinkingSelectionCanvasDropParent(moveEvent.clientX,
           moveEvent.clientY, members, canvas, sourceParentId);
+        if (dropBlock) dropBlock.classList.add("is-drop-target");
         if (dropCanvas) dropCanvas.classList.add("is-drop-target");
         thinkingTrash.classList.toggle("is-active",
           pointInsideThinkingTrash(moveEvent.clientX, moveEvent.clientY));
@@ -22340,15 +22528,15 @@
       };
       const up = function (upEvent) {
         if (upEvent.pointerId !== pointerId) return;
-        handle.removeEventListener("pointermove", move);
-        handle.removeEventListener("pointerup", up);
-        handle.removeEventListener("pointercancel", up);
+        document.removeEventListener("pointermove", move);
+        document.removeEventListener("pointerup", up);
+        document.removeEventListener("pointercancel", up);
         const cancelled = upEvent.type === "pointercancel";
         const deleted = moved && !cancelled
           && pointInsideThinkingTrash(upEvent.clientX, upEvent.clientY);
         hideThinkingTrash();
         thinkingBoard.classList.remove("is-combining");
-        markThinkingSelectionCanvasOptions(canvas, members, false, sourceParentId);
+        markThinkingGroupDropOptions(canvas, members, false, sourceParentId);
         clearThinkingDropTargets();
         for (let i = 0; i < starts.length; i++) {
           starts[i].card.classList.remove("is-group-dragging");
@@ -22358,17 +22546,29 @@
           }
         }
         if (!moved) return;
+        const dropCards = function () {
+          if (!portaled) return;
+          for (let i = 0; i < starts.length; i++) starts[i].card.remove();
+        };
         if (deleted) {
+          dropCards();
           const ids = [];
           for (let i = 0; i < members.length; i++) ids.push(members[i].id);
           removeThinkingBlocks(canvas, ids);
           return;
         }
         if (!cancelled) {
-          dropCanvas = thinkingSelectionCanvasDropParent(upEvent.clientX,
+          // the cards are still standing where they were let go: the drop is read
+          // off them before they are taken down
+          dropBlock = thinkingGroupDropParent(upEvent.clientX, upEvent.clientY,
+            members, canvas);
+          dropCanvas = dropBlock ? null : thinkingSelectionCanvasDropParent(upEvent.clientX,
             upEvent.clientY, members, canvas, sourceParentId);
-          if (!integrateThinkingSelectionInCanvas(canvas, starts, dropCanvas,
-            sourceParentId, false)) {
+          if (dropBlock) {
+            nestThinkingGroupInBlock(canvas, starts, dropBlock);
+          } else if (!integrateThinkingSelectionInCanvas(canvas, starts, dropCanvas,
+            sourceParentId, false)
+              && !releaseThinkingGroupOnCloth(canvas, starts, sourceParentId, upEvent)) {
             for (let i = 0; i < starts.length; i++) {
               growThinkingCanvasForBlock(canvas, starts[i].block,
                 starts[i].width, starts[i].height);
@@ -22376,11 +22576,15 @@
           }
           touchCanvas(canvas);
         }
+        dropCards();
         renderThinkingCanvas(canvas);
       };
-      handle.addEventListener("pointermove", move, { passive: false });
-      handle.addEventListener("pointerup", up);
-      handle.addEventListener("pointercancel", up);
+      /* On the page, not on the head: lifting the row out makes its cards
+         pointer-transparent, so a handle listening for itself never hears the
+         release — the row stayed frozen mid-air and nothing was ever dropped. */
+      document.addEventListener("pointermove", move, { passive: false });
+      document.addEventListener("pointerup", up);
+      document.addEventListener("pointercancel", up);
     });
   }
 
@@ -23101,6 +23305,17 @@
   });
 
   document.getElementById("thinkingRecenter").addEventListener("click", recenterThinkingView);
+
+  /* Clicking away from a block leaves its writing. The caret used to stay in a
+     field long after the pointer had gone elsewhere, so a keystroke meant for
+     the board went on writing into a block nobody was looking at. */
+  document.addEventListener("pointerdown", function (event) {
+    const writing = document.activeElement;
+    if (!writing || (writing.tagName !== "TEXTAREA" && writing.tagName !== "INPUT")) return;
+    const block = writing.closest(".thinking-block");
+    if (!block || block.contains(event.target)) return;
+    writing.blur();
+  }, true);
 
   thinkingViewport.addEventListener("scroll", function () {
     fieldWake();
