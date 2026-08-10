@@ -234,8 +234,8 @@
         for (let j = 0; j < canvas.blocks.length; j++) {
           const block = canvas.blocks[j];
           if (["problem", "solution", "example", "idea", "question", "answer", "canvas",
-            "folder", "document", "planner", "logbook", "text", "note", "bloc", "task",
-            "event", "habit", "step", "journal", "loop", "condition"]
+            "folder", "document", "planner", "logbook", "text", "note", "bloc", "table",
+            "task", "event", "habit", "step", "journal", "loop", "condition"]
             .indexOf(block.type) === -1) block.type = "note";
           delete block.icon;
           delete block.color;
@@ -884,6 +884,19 @@
       sleepSaved: "Sommeil enregistré",
       sleepWakePlaced: "Lever placé à {time}",
       sleepLost: "{duration} de sommeil perdu",
+      sleepCycleLabel: "Cycle de sommeil",
+      sleepBedAvgLabel: "Coucher moyen",
+      sleepWakeAvgLabel: "Lever moyen",
+      sleepDurationAvgLabel: "Durée moyenne",
+      chronotypeNeedMore: "Notez une nuit pour révéler votre profil de sommeil.",
+      chronoLion: "Lion",
+      chronoLionDesc: "Debout avec le jour, l'énergie est là dès le matin.",
+      chronoBear: "Ours",
+      chronoBearDesc: "Un rythme calé sur la lumière du jour.",
+      chronoOwl: "Hibou",
+      chronoOwlDesc: "L'énergie monte quand la nuit tombe.",
+      chronoDolphin: "Dauphin",
+      chronoDolphinDesc: "Un sommeil léger, des horaires qui varient.",
       exerciseTitle: "Exercices rapides",
       exerciseSearchPlaceholder: "Rechercher un exercice…",
       exerciseCatalogEmpty: "Aucun résultat.",
@@ -906,6 +919,8 @@
       habitsTitle: "Vos habitudes",
       habitHistoryOpen: "Afficher l’historique des habitudes",
       habitHistoryClose: "Replier l’historique des habitudes",
+      habitDetailAria: "Voir le détail de l'habitude",
+      habitDetailHistoryLabel: "Historique",
       wellAria: "Bien-être",
       panesAria: "Changer de colonne",
       paneTasks: "Tâches",
@@ -1016,11 +1031,10 @@
       streakLabel: "Série",
       ritualsAria: "Les rituels",
       ritualsTitle: "Les rituels",
+      ritualsBareAria: "Afficher seulement la mosaïque",
+      ritualsInviteTitle: "Chercher un rituel.",
       ritualsSearchPlaceholder: "Rechercher un rituel…",
-      ritualsEmpty: "Aucun rituel encore. Le premier vous attend.",
-      ritualsNothing: "Aucun rituel de ce nom.",
       ritualNew: "Nouveau rituel",
-      ritualCreate: "Créer « {name} »",
       ritualUntitled: "Rituel sans nom",
       ritualBodyPlaceholder: "Écrivez ici ce que vous voudrez relire…",
       ritualSaved: "Enregistré",
@@ -1056,6 +1070,16 @@
       blockBloc: "Bloc",
       blockPlaceholderBloc: "Nommer…",
       thinkingBlocTint: "Changer la couleur du bloc",
+      blockTable: "Tableau",
+      blockPlaceholderTable: "Cellule…",
+      thinkingAddTableColumn: "Ajouter une colonne",
+      thinkingAddTableRow: "Ajouter une ligne",
+      thinkingRemoveTableColumn: "Supprimer la colonne",
+      thinkingRemoveTableRow: "Supprimer la ligne",
+      thinkingRemoveTable: "Supprimer le tableau",
+      thinkingTableHeaderTint: "Changer la couleur du titre",
+      blockPlaceholderColumnHeader: "Colonne…",
+      blockPlaceholderRowHeader: "Ligne…",
       blockTask: "Tâche",
       blockEvent: "Événement",
       blockProject: "Projet",
@@ -1292,6 +1316,19 @@
       sleepSaved: "Sleep saved",
       sleepWakePlaced: "Wake-up placed at {time}",
       sleepLost: "{duration} of sleep lost",
+      sleepCycleLabel: "Sleep cycle",
+      sleepBedAvgLabel: "Average bedtime",
+      sleepWakeAvgLabel: "Average wake-up",
+      sleepDurationAvgLabel: "Average duration",
+      chronotypeNeedMore: "Log a night to reveal your sleep profile.",
+      chronoLion: "Lion",
+      chronoLionDesc: "Up with the sun, full of energy from the morning.",
+      chronoBear: "Bear",
+      chronoBearDesc: "A rhythm set by daylight.",
+      chronoOwl: "Owl",
+      chronoOwlDesc: "Energy rises once night falls.",
+      chronoDolphin: "Dolphin",
+      chronoDolphinDesc: "A light sleeper, with hours that shift around.",
       exerciseTitle: "Quick exercises",
       exerciseSearchPlaceholder: "Search an exercise…",
       exerciseCatalogEmpty: "No match.",
@@ -1314,6 +1351,8 @@
       habitsTitle: "Your habits",
       habitHistoryOpen: "Show habit history",
       habitHistoryClose: "Collapse habit history",
+      habitDetailAria: "View habit detail",
+      habitDetailHistoryLabel: "History",
       wellAria: "Well-being",
       panesAria: "Switch column",
       paneTasks: "Tasks",
@@ -1424,11 +1463,10 @@
       streakLabel: "Streak",
       ritualsAria: "The rituals",
       ritualsTitle: "The rituals",
+      ritualsBareAria: "Show only the mosaic",
+      ritualsInviteTitle: "Search a ritual.",
       ritualsSearchPlaceholder: "Search a ritual…",
-      ritualsEmpty: "No ritual yet. The first one is waiting.",
-      ritualsNothing: "No ritual under that name.",
       ritualNew: "New ritual",
-      ritualCreate: "Create “{name}”",
       ritualUntitled: "Unnamed ritual",
       ritualBodyPlaceholder: "Write here what you will want to read again…",
       ritualSaved: "Saved",
@@ -1464,6 +1502,16 @@
       blockBloc: "Block",
       blockPlaceholderBloc: "Name it…",
       thinkingBlocTint: "Change the block colour",
+      blockTable: "Table",
+      blockPlaceholderTable: "Cell…",
+      thinkingAddTableColumn: "Add a column",
+      thinkingAddTableRow: "Add a row",
+      thinkingRemoveTableColumn: "Remove the column",
+      thinkingRemoveTableRow: "Remove the row",
+      thinkingRemoveTable: "Remove the table",
+      thinkingTableHeaderTint: "Change the title colour",
+      blockPlaceholderColumnHeader: "Column…",
+      blockPlaceholderRowHeader: "Row…",
       blockTask: "Task",
       blockEvent: "Event",
       blockProject: "Project",
@@ -1585,6 +1633,7 @@
     }
     // the tabs are written by the script, so they are not in the tagged sweep above
     if (appReady && !ritualsView.hidden) renderRituals();
+    if (appReady && !habitDetailView.hidden) renderHabitDetail();
   }
 
   /* NATIVE TOOLTIPS — browsers paint `title` in their own opaque window and do
@@ -3491,6 +3540,18 @@
   let zelligeHideTimer = null;
   let zelligePointerX = -9999, zelligePointerY = -9999;
   let zelligePointerInside = false;
+  /* Opening the rituals room, the wall wakes piece by piece: each one turns a
+     half-circle on its own vertical thread, in a wave off the top-left corner.
+     What turns is the piece's own patch of the fired wall, clipped out of it
+     and squashed about its centre — its glaze, its half of the cord, whatever
+     the pattern runs across it, all carried as the one rigid piece it is.
+     It has to read as a threshold crossed, not a scene watched — quick
+     enough that the room feels already there rather than arriving. */
+  const ZELLIGE_OPEN_DURATION_MS = 500;
+  const ZELLIGE_OPEN_STAGGER_FRACTION = .5;
+  const ZELLIGE_OPEN_TILE_MS = ZELLIGE_OPEN_DURATION_MS * (1 - ZELLIGE_OPEN_STAGGER_FRACTION);
+  const ZELLIGE_OPEN_MAX_DELAY_MS = ZELLIGE_OPEN_DURATION_MS * ZELLIGE_OPEN_STAGGER_FRACTION;
+  let zelligeOpenAnimStart = null;
 
   /* value noise: a coarse grid of random numbers, smoothed between the corners.
      Cheap, and its blobs are exactly the size of the patches we want. */
@@ -3834,6 +3895,7 @@
       const geometry = makeZelligeGeometry(P);
       const a = geometry.a;
       zelligePitch = a;   // the halo is sized off it
+      zelligeBand = Math.max(2, P * .019);   // the cord's width, wanted per piece below
       const cols = Math.ceil(w / a) + 2;
       const rows = Math.ceil(h / a) + 2;
       const placements = makeZelligePlacements(geometry, cols, rows);
@@ -3899,12 +3961,46 @@
         }
         path.closePath();
         zelligeGrout.closePath();
+
+        /* The cut is where the glaze stops, but the cord straddles it — half of
+           that metal lies outside the piece's own outline. A piece lifted off
+           the wall has to take all of it, or the half left behind draws a
+           ghost of the piece exactly where the piece no longer is. So the
+           turn works off a slightly grown outline instead: pushed out past
+           the cord, from the piece's own centre. Grown, it laps a little
+           over its neighbours — which costs nothing where it matters, since
+           at rest the patch lands back on the very pixels it came from. */
+        let radius = 0;
+        for (let i = 0; i < pts.length; i += 2) {
+          radius += Math.hypot(pts[i] - centreX, pts[i + 1] - centreY);
+        }
+        radius = radius / (pts.length / 2) || 1;
+        const grow = 1 + (zelligeBand * .5 + 1) / radius;
+        const rim = new Path2D();
+        let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+        for (let i = 0; i < pts.length; i += 2) {
+          const x = centreX + (pts[i] - centreX) * grow;
+          const y = centreY + (pts[i + 1] - centreY) * grow;
+          if (i === 0) rim.moveTo(x, y);
+          else rim.lineTo(x, y);
+          if (x < minX) minX = x;
+          if (x > maxX) maxX = x;
+          if (y < minY) minY = y;
+          if (y > maxY) maxY = y;
+        }
+        rim.closePath();
+
         zelligeTiles.push({
           path: path,
+          rim: rim,
           ink: ink,
           litInk: litInk,
           cx: centreX,
           cy: centreY,
+          x0: minX,
+          y0: minY,
+          x1: maxX,
+          y1: maxY,
           twinkles: twinkles,
           phase: phase,
           speed: speed,
@@ -3912,7 +4008,6 @@
           target: 0
         });
       }
-      zelligeBand = Math.max(2, P * .019);
       renderZelligeBase();
       if (zelligePointerInside) updateZelligeTargets();
     }
@@ -3938,10 +4033,26 @@
       zelligeLast = performance.now();
     }
 
+    // reduced motion skips the wave outright; otherwise it runs once, then
+    // clears itself so every later paint takes the ordinary blitted path
+    let opening = false;
+    let openElapsed = 0;
+    if (animated && zelligeOpenAnimStart !== null) {
+      if (still) zelligeOpenAnimStart = null;
+      else {
+        openElapsed = now - zelligeOpenAnimStart;
+        if (openElapsed < ZELLIGE_OPEN_DURATION_MS) opening = true;
+        else zelligeOpenAnimStart = null;
+      }
+    }
+
     /* The wall itself never changes, so it is drawn once and blitted. The light
        then goes on top additively: order stops mattering (the meshes overlap),
        and only the tiles that are actually lit cost anything. Additive also
-       means the light spills over the metal cord, which is what glaze does. */
+       means the light spills over the metal cord, which is what glaze does.
+       Opening blits that very same bitmap and then turns, over it, only the
+       pieces actually caught mid-flip — at either end of its turn a piece is
+       its own patch untouched, which the blit has already put there. */
     const ctx = zelligeCtx;
     const dpr = Math.min(window.devicePixelRatio || 1, 2);
     ctx.setTransform(1, 0, 0, 1, 0, 0);
@@ -3949,9 +4060,12 @@
     ctx.clearRect(0, 0, zelligeCanvas.width, zelligeCanvas.height);
     ctx.drawImage(zelligeBase, 0, 0);
     ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+    if (opening) paintZelligeOpening(ctx, openElapsed, dpr);
     ctx.globalCompositeOperation = "lighter";
 
-    for (let i = 0; i < zelligeTiles.length; i++) {
+    // added light over an empty gap is just light: the wall has to be whole
+    // again before the halo means anything, so the turn keeps it to itself
+    for (let i = 0; !opening && i < zelligeTiles.length; i++) {
       const tile = zelligeTiles[i];
       const glow = Math.max(tile.level, twinkleOf(tile, still));
       if (glow < .004) continue;
@@ -3966,8 +4080,60 @@
     ctx.globalCompositeOperation = "source-over";
 
     // the twinkle never settles, so an alive wall always asks for the next frame
-    if (animated && (moving || (zelligeAlive && !still))) zelligeWake();
+    if (animated && (opening || moving || (zelligeAlive && !still))) zelligeWake();
     else if (!animated && zelligeAlive) zelligeWake();
+  }
+
+  /* THE WALL WAKING — a piece mid-turn is cut straight out of the fired wall
+     and squashed about its own centre: the cord along its rim and every line
+     the pattern draws across it are pixels of that patch, so they turn with
+     it instead of being redrawn under it. Redrawing a stroke per piece was
+     tried and dropped — the three meshes interlock, so a piece is not a
+     picture on its own, and pieces drawn apart tear the pattern exactly
+     where it should read cleanest.
+
+     Two passes, not one. A piece is taken out of the wall before any piece
+     is put back, or a neighbour lifting out after would erase the one just
+     laid down — the outlines overlap, so within a single pass the order of
+     the pieces would decide what survives.
+
+     |cos| rather than cos: the piece thins to nothing and comes back the
+     right way round, landing on the wall already blitted underneath, so the
+     turn ends with nothing left to snap. */
+  function paintZelligeOpening(ctx, elapsed, dpr) {
+    const span = (zelligeW + zelligeH) || 1;
+    const turning = [];
+    for (let i = 0; i < zelligeTiles.length; i++) {
+      const tile = zelligeTiles[i];
+      const delay = (tile.cx + tile.cy) / span * ZELLIGE_OPEN_MAX_DELAY_MS;
+      const progress = (elapsed - delay) / ZELLIGE_OPEN_TILE_MS;
+      if (progress <= 0 || progress >= 1) continue;
+      turning.push(tile, Math.abs(Math.cos(progress * Math.PI)));
+    }
+
+    // out of the wall first: what a turning piece leaves is the sky itself,
+    // not a hole painted to look like one
+    ctx.globalCompositeOperation = "destination-out";
+    ctx.fillStyle = "#000";
+    for (let i = 0; i < turning.length; i += 2) ctx.fill(turning[i].rim);
+    ctx.globalCompositeOperation = "source-over";
+
+    for (let i = 0; i < turning.length; i += 2) {
+      const tile = turning[i];
+      const scaleX = turning[i + 1];
+      if (scaleX < .012) continue;   // edge-on: a sliver too thin to be worth a draw
+      const bw = tile.x1 - tile.x0;
+      const bh = tile.y1 - tile.y0;
+      ctx.save();
+      ctx.translate(tile.cx, tile.cy);
+      ctx.scale(scaleX, 1);
+      ctx.translate(-tile.cx, -tile.cy);
+      ctx.clip(tile.rim);
+      ctx.drawImage(zelligeBase,
+        tile.x0 * dpr, tile.y0 * dpr, bw * dpr, bh * dpr,
+        tile.x0, tile.y0, bw, bh);
+      ctx.restore();
+    }
   }
 
   /* the wall as fired: every tile in its own ink, then the metal cord over it */
@@ -6404,6 +6570,7 @@
             inlineIcons[i].innerHTML = habitSvg(iconKey);
           }
         }
+        if (habitDetailId === habit.id) habitDetailIcon.innerHTML = habitSvg(iconKey);
       }
     }
     saveState();
@@ -9489,10 +9656,13 @@
     const lane = document.createElement("div");
     lane.className = "hrule__lane";
 
-    const tag = document.createElement("span");
+    const tag = document.createElement("button");
+    tag.type = "button";
     tag.className = "hrule__tag";
     tag.title = habit.name || "";
+    tag.setAttribute("aria-label", translate("habitDetailAria") + (habit.name ? " — " + habit.name : ""));
     if (HABIT_ICONS[habit.icon]) tag.innerHTML = habitSvg(habit.icon);
+    tag.addEventListener("click", function () { openHabitDetail(habit.id); });
     lane.appendChild(tag);
 
     const done = laneDays(habit);
@@ -9667,7 +9837,239 @@
   }
 
   /* contribution grid: 13 weeks x 7 days, filled on completed days */
+  const HEAT_WEEKS = 13;
 
+  function renderHabitHeat(host, habit) {
+    host.innerHTML = "";
+    const done = laneDays(habit);
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    const todayWeekday = (today.getDay() + 6) % 7;   // Monday first
+    const day = new Date(today);
+    day.setDate(day.getDate() - todayWeekday - (HEAT_WEEKS - 1) * 7);
+    const todayK = todayKey();
+    for (let w = 0; w < HEAT_WEEKS; w++) {
+      const col = document.createElement("div");
+      col.className = "heat__col";
+      for (let d = 0; d < 7; d++) {
+        const cell = document.createElement("span");
+        cell.className = "heat__cell";
+        if (day > today) {
+          cell.classList.add("is-future");
+        } else {
+          const key = dateKeyOf(day);
+          if (done[key]) cell.classList.add("is-on");
+          if (key === todayK) cell.classList.add("is-today");
+          cell.title = key;
+        }
+        col.appendChild(cell);
+        day.setDate(day.getDate() + 1);
+      }
+      host.appendChild(col);
+    }
+  }
+
+  /* SLEEP CYCLE — bedtime and wake-up averaged like positions on a clock face,
+     not plain numbers: 23:45 and 00:15 are eighteen minutes apart, not gone
+     through the whole day, so a straight mean would put the average at noon. */
+  const MINUTES_PER_DAY = 24 * 60;
+
+  function circularClockMean(minutesList) {
+    let x = 0, y = 0;
+    for (let i = 0; i < minutesList.length; i++) {
+      const angle = minutesList[i] / MINUTES_PER_DAY * 2 * Math.PI;
+      x += Math.cos(angle);
+      y += Math.sin(angle);
+    }
+    x /= minutesList.length;
+    y /= minutesList.length;
+    let minutes = Math.atan2(y, x) / (2 * Math.PI) * MINUTES_PER_DAY;
+    if (minutes < 0) minutes += MINUTES_PER_DAY;
+    // resultant length as a circular std deviation, back in minutes: 0 when
+    // every night lands on the same minute, growing as nights scatter around
+    // the clock — a plain resultant length stays near 1 well past what a
+    // person would call an irregular bedtime, so minutes reads more truly
+    const r = Math.sqrt(x * x + y * y);
+    const spreadMinutes = r > 0.0001
+      ? Math.sqrt(-2 * Math.log(r)) * (MINUTES_PER_DAY / (2 * Math.PI))
+      : MINUTES_PER_DAY / 2;
+    return { minutes: minutes, spreadMinutes: spreadMinutes };
+  }
+
+  function clockFromMinutes(minutes) {
+    const rounded = Math.round(minutes) % MINUTES_PER_DAY;
+    return pad2(Math.floor(rounded / 60)) + ":" + pad2(rounded % 60);
+  }
+
+  function durationText(minutes) {
+    const hours = Math.floor(minutes / 60);
+    const rest = Math.round(minutes % 60);
+    return hours + " h" + (rest ? " " + pad2(rest) : "");
+  }
+
+  /* one bedtime and one wake-up per logged night, averaged the way a clock
+     would, plus how loosely they scatter, which the chronotype below reads
+     as sharper information than the average time itself. */
+  function sleepCycleStats(habit) {
+    const log = habit.sleepLog || {};
+    const bedMinutes = [];
+    const wakeMinutes = [];
+    let totalDuration = 0;
+    for (const day in log) {
+      const range = sleepEntryRange(day, log[day]);
+      if (!range) continue;
+      bedMinutes.push(toMinutes(log[day].bedtime));
+      wakeMinutes.push(toMinutes(log[day].wakeTime));
+      totalDuration += range.end - range.start;
+    }
+    if (!bedMinutes.length) return null;
+    const bed = circularClockMean(bedMinutes);
+    const wake = circularClockMean(wakeMinutes);
+    return {
+      nights: bedMinutes.length,
+      bedMinutes: bed.minutes,
+      wakeMinutes: wake.minutes,
+      bedSpreadMinutes: bed.spreadMinutes,
+      durationMinutes: totalDuration / bedMinutes.length / 60000
+    };
+  }
+
+  /* Four cute, rough profiles guessed from the nights logged so far, not a
+     diagnosis. One night is already a guess worth showing — it just reads as
+     whichever of the three clock-based profiles that single night fits, since
+     unsteadiness cannot be seen until a second night disagrees with the
+     first. A bedtime that will not hold still says more than where it sits
+     on average, so that is read first; otherwise the midpoint of the night —
+     half the sleep already behind, half still ahead — places the rest,
+     earliest sleepers to latest. */
+  const CHRONOTYPES = {
+    lion: { nameKey: "chronoLion", descKey: "chronoLionDesc" },
+    bear: { nameKey: "chronoBear", descKey: "chronoBearDesc" },
+    owl: { nameKey: "chronoOwl", descKey: "chronoOwlDesc" },
+    dolphin: { nameKey: "chronoDolphin", descKey: "chronoDolphinDesc" }
+  };
+
+  const MAX_STEADY_BEDTIME_SPREAD = 80;   // minutes; past this, call it irregular
+
+  function sleepChronotype(cycle) {
+    if (!cycle) return null;
+    if (cycle.bedSpreadMinutes > MAX_STEADY_BEDTIME_SPREAD) return "dolphin";
+    const midpoint = (cycle.bedMinutes + cycle.durationMinutes / 2) % MINUTES_PER_DAY;
+    const sinceEvening = (midpoint - 18 * 60 + MINUTES_PER_DAY) % MINUTES_PER_DAY;
+    if (sinceEvening <= 8 * 60) return "lion";     // asleep by ~2am on average
+    if (sinceEvening <= 10 * 60) return "bear";    // by ~4am
+    return "owl";
+  }
+
+  /* same stroke style as the habit catalog, drawn by hand for this alone */
+  const CHRONOTYPE_ICONS = {
+    lion: '<circle cx="12" cy="13" r="4.3"/>'
+      + '<circle cx="18.3" cy="13" r="1.5"/><circle cx="15.15" cy="18.46" r="1.5"/>'
+      + '<circle cx="8.85" cy="18.46" r="1.5"/><circle cx="5.7" cy="13" r="1.5"/>'
+      + '<circle cx="8.85" cy="7.54" r="1.5"/><circle cx="15.15" cy="7.54" r="1.5"/>'
+      + '<circle cx="10.3" cy="12.4" r=".6"/><circle cx="13.7" cy="12.4" r=".6"/>'
+      + '<circle cx="12" cy="14.6" r=".55"/>',
+    bear: '<circle cx="12" cy="13.4" r="5.6"/><circle cx="7.3" cy="7.6" r="2"/><circle cx="16.7" cy="7.6" r="2"/>'
+      + '<ellipse cx="12" cy="15.6" rx="2.6" ry="2"/><circle cx="12" cy="14.9" r=".55"/>'
+      + '<circle cx="9.3" cy="12.3" r=".6"/><circle cx="14.7" cy="12.3" r=".6"/>',
+    owl: '<circle cx="12" cy="13.2" r="6"/><path d="M8.2 7.7 6.8 4.3 9.9 6.5Z"/><path d="M15.8 7.7 17.2 4.3 14.1 6.5Z"/>'
+      + '<circle cx="9.3" cy="12.6" r="2.2"/><circle cx="14.7" cy="12.6" r="2.2"/>'
+      + '<circle cx="9.3" cy="12.6" r=".55"/><circle cx="14.7" cy="12.6" r=".55"/>'
+      + '<path d="M12 14.6 10.9 16.2h2.2Z"/>',
+    dolphin: '<path d="M3.5 16Q9 7.5 14 9Q18 9.5 19.8 12.8"/>'
+      + '<path d="M9.3 8.3 8.6 5.2 11.4 7.6"/>'
+      + '<line x1="3.5" y1="16" x2="1.1" y2="17.2"/><line x1="3.5" y1="16" x2="2.7" y2="18.9"/>'
+      + '<circle cx="17.3" cy="10.6" r=".55"/>'
+  };
+
+  function chronotypeIconSvg(key) { return catalogIconSvg(key, CHRONOTYPE_ICONS); }
+
+  function sleepStatTile(value, label) {
+    return '<div class="sleep__stat"><span class="sleep__stat-v">' + value
+      + '</span><span class="sleep__stat-l">' + label + "</span></div>";
+  }
+
+  function renderSleepCycleCard(habit) {
+    const cycle = sleepCycleStats(habit);
+    habitDetailCycle.innerHTML =
+      sleepStatTile(cycle ? clockFromMinutes(cycle.bedMinutes) : "–", translate("sleepBedAvgLabel"))
+      + sleepStatTile(cycle ? clockFromMinutes(cycle.wakeMinutes) : "–", translate("sleepWakeAvgLabel"))
+      + sleepStatTile(cycle ? durationText(cycle.durationMinutes) : "–", translate("sleepDurationAvgLabel"));
+
+    const key = sleepChronotype(cycle);
+    if (!key) {
+      habitDetailChrono.innerHTML = '<p class="chrono__empty">' + translate("chronotypeNeedMore") + "</p>";
+      return;
+    }
+    const kind = CHRONOTYPES[key];
+    habitDetailChrono.innerHTML = '<div class="chrono">'
+      + '<span class="chrono__badge">' + chronotypeIconSvg(key) + "</span>"
+      + '<span class="chrono__body"><span class="chrono__name">' + translate(kind.nameKey) + "</span>"
+      + '<span class="chrono__desc">' + translate(kind.descKey) + "</span></span></div>";
+  }
+
+  /* HABIT DETAIL — reached from the icon on its lane in the habit rule: rename,
+     re-pick the icon, see this habit alone, and whatever its type keeps besides. */
+  const habitDetailView = document.getElementById("habitDetailView");
+  const habitDetailIcon = document.getElementById("habitDetailIcon");
+  const habitDetailName = document.getElementById("habitDetailName");
+  const habitDetailDelete = document.getElementById("habitDetailDelete");
+  const habitDetailStreak = document.getElementById("habitDetailStreak");
+  const habitDetailHeat = document.getElementById("habitDetailHeat");
+  const habitDetailSleep = document.getElementById("habitDetailSleep");
+  const habitDetailCycle = document.getElementById("habitDetailCycle");
+  const habitDetailChrono = document.getElementById("habitDetailChrono");
+  let habitDetailId = null;
+
+  function currentHabitDetail() {
+    return habitById(habitDetailId);
+  }
+
+  function openHabitDetail(id) {
+    habitDetailId = id;
+    if (!currentHabitDetail()) return;
+    renderHabitDetail();
+    habitDetailView.hidden = false;
+  }
+
+  function renderHabitDetail() {
+    const habit = currentHabitDetail();
+    if (!habit) return;
+    habitDetailIcon.innerHTML = HABIT_ICONS[habit.icon] ? habitSvg(habit.icon) : "";
+    habitDetailName.value = habit.name || "";
+    habitDetailStreak.textContent = translate("streakLabel") + " " + habitStreak(habit);
+    renderHabitHeat(habitDetailHeat, habit);
+    habitDetailSleep.hidden = habit.type !== "sleep";
+    if (habit.type === "sleep") renderSleepCycleCard(habit);
+  }
+
+  habitDetailIcon.addEventListener("click", function () {
+    const habit = currentHabitDetail();
+    if (habit) openIconPickerForEdit(habit.id);
+  });
+
+  habitDetailName.addEventListener("input", function () {
+    const habit = currentHabitDetail();
+    if (!habit) return;
+    habit.name = habitDetailName.value;
+    saveState();
+  });
+
+  habitDetailDelete.addEventListener("click", function () {
+    const habit = currentHabitDetail();
+    if (!habit) return;
+    habitDetailView.hidden = true;
+    removeHabit(habit.id);
+  });
+
+  const habitDetailCloseButtons = habitDetailView.querySelectorAll("[data-close]");
+  for (let i = 0; i < habitDetailCloseButtons.length; i++) {
+    habitDetailCloseButtons[i].addEventListener("click", function () {
+      habitDetailView.hidden = true;
+      renderHabits();          // flush a rename or icon change back into the lists
+      renderWelcomeHabits();
+    });
+  }
 
   /* DETAIL — the inline editor for a task or an event: rename, notes, subtasks.
      Projects left this card for their own workspace, see PROJECT VIEW below. */
@@ -14267,15 +14669,39 @@
      each fired in the zellige's own glaze, and the search is how you pull one
      out when you need it. */
   const ritualsView = document.getElementById("ritualsView");
-  const ritualsWall = document.getElementById("ritualsWall");
-  const ritualsEmpty = document.getElementById("ritualsEmpty");
+  const ritualsBar = document.getElementById("ritualsBar");
+  const ritualsStage = document.getElementById("ritualsStage");
+  const ritualsReel = document.getElementById("ritualsReel");
+  const ritualsReelTrack = document.getElementById("ritualsReelTrack");
   const ritualsSearch = document.getElementById("ritualsSearch");
+  const ritualsInvite = document.getElementById("ritualsInvite");
+  const ritualsBareToggle = document.getElementById("ritualsBareToggle");
   const ritualPage = document.getElementById("ritualPage");
   const ritualPageName = document.getElementById("ritualPageName");
-  const ritualPageBody = document.getElementById("ritualPageBody");
+  const ritualPageSheet = document.getElementById("ritualPageSheet");
   const ritualPageSaved = document.getElementById("ritualPageSaved");
   let openRitualId = null;
+  let ritualPageBodyEl = null;   // the current paper's writing surface, remounted per ritual
   let ritualSavedTimer = null;
+  // the reel while a search is narrowing it: the 3 rituals it landed on, best
+  // match last (closest to the search bar), and which one the keyboard is on
+  let ritualsSearchResults = [];
+  let ritualSelectedRank = -1;
+  let ritualsSpinRaf = null;
+  let ritualsSearchDebounce = null;
+  // the reel outside of a search: never still, so it is driven by hand
+  // rather than a CSS loop — hovering the top or bottom edge has to bend its
+  // speed and direction, which a keyframe animation cannot do
+  let ritualsAmbientPos = 0;
+  let ritualsAmbientRaf = null;
+  let ritualsAmbientLastTime = null;
+  let ritualsReelHalfHeight = 0;
+  let ritualsHoverZone = null;   // "top" | "bottom" | null
+  // opening the room, the column is not there yet: parked below the floor,
+  // it rushes up into place at speed and only then joins the normal loop —
+  // which is why the top of the reel is the last thing to fill in
+  let ritualsReelEntering = false;
+  let ritualsReelEntryStart = 0;   // the starting distance, so progress can be read off it
 
   function findRitual(id) {
     for (let i = 0; i < state.rituals.length; i++) {
@@ -14287,6 +14713,15 @@
   // accents and case are noise when you are hunting for a name
   function ritualFold(value) {
     return (value || "").normalize("NFD").replace(/[\u0300-\u036f]/g, "").toLowerCase();
+  }
+
+  /* the body is written as html now (the same paper the canvas writes on);
+     searching and the blank-tab check both want the words alone */
+  function ritualBodyText(ritual) {
+    if (!ritual.body) return "";
+    const box = document.createElement("div");
+    box.innerHTML = ritual.body;
+    return box.textContent || "";
   }
 
   /* The name first, then what is written under it: you rarely remember how you
@@ -14302,7 +14737,7 @@
     for (let i = 0; i < state.rituals.length; i++) {
       const ritual = state.rituals[i];
       if (found.indexOf(ritual) === -1
-          && ritualFold(ritual.body).indexOf(needle) !== -1) found.push(ritual);
+          && ritualFold(ritualBodyText(ritual)).indexOf(needle) !== -1) found.push(ritual);
     }
     return found;
   }
@@ -14328,8 +14763,16 @@
     element.style.setProperty("--tab", rgbText(tile.ink));
     element.style.setProperty("--tab-lit", rgbText(tile.litInk));
     element.style.setProperty("--tab-glaze-x", (28 + tint * 44).toFixed(1) + "%");
-    // a glaze at one strength is not equally dark on every hue: yellow needs ink
-    element.style.setProperty("--tab-ink", lum > .56 ? "#20180a" : "#fdf7ec");
+    /* A glaze at one strength is not equally dark on every hue: yellow needs ink.
+       But a flat, universal cream or ink reads as a label stuck onto the piece
+       rather than fired into it — so both ends are tinted a little toward the
+       piece's own colour, and a shadow drawn from that same ink gives the
+       lettering the shallow relief a carved name would actually have. */
+    const inkText = lum > .56
+      ? mixRgb([30, 22, 10], tile.ink, .14)
+      : mixRgb([253, 247, 236], tile.ink, .14);
+    element.style.setProperty("--tab-ink", rgbText(inkText));
+    element.style.setProperty("--tab-ink-shadow", rgbText(mixRgb(tile.ink, [0, 0, 0], .6)));
   }
 
   /* Everything that happens at the rim of a fired piece, in the order the wall
@@ -14370,50 +14813,264 @@
     name.textContent = ritual.text || translate("ritualUntitled");
     tab.append(ritualEdge(), name);
     tab.addEventListener("click", function () { openRitual(ritual.id); });
+    // the thread lets go the moment the hand does: back to hanging flat
+    tab.addEventListener("pointerleave", function () { tab.style.removeProperty("--tab-tilt"); });
     return tab;
   }
 
-  /* The last tab is always a blank one. When the search found nothing it wears
-     what was typed, so a name that is not there yet is one click from being. */
-  function createRitualAdd(query) {
+  /* An empty piece is fired blank: no name, no glaze sampled off the wall —
+     just the cut and the cord, waiting. A click on one starts a ritual there. */
+  function createEmptyRitualTile() {
     const tab = document.createElement("button");
     tab.type = "button";
-    tab.className = "rtab rtab--add";
-    const name = document.createElement("span");
-    name.className = "rtab__name";
-    name.textContent = query
-      ? translate("ritualCreate").replace("{name}", query)
-      : translate("ritualNew");
-    tab.append(ritualEdge(), name);
-    tab.addEventListener("click", function () { addRitual(query); });
+    tab.className = "rtab rtab--empty";
+    tab.setAttribute("aria-label", translate("ritualNew"));
+    tab.appendChild(ritualEdge());
+    tab.addEventListener("click", function () { addRitual(""); });
+    tab.addEventListener("pointerleave", function () { tab.style.removeProperty("--tab-tilt"); });
     return tab;
   }
 
-  function renderRituals() {
-    const query = ritualsSearch.value.trim();
-    const found = ritualsMatching(query);
-    ritualsWall.innerHTML = "";
-    /* These are the very colours and the very width renderZelligeBase() just
-       used for its three grout passes, exposed once for every tab including the
-       blank one. Same band as the wall, so a piece reads as being off it and
-       not as a small picture of one. */
-    ritualsWall.style.setProperty("--ritual-metal-seat", zelligeMetal[0]);
-    ritualsWall.style.setProperty("--ritual-metal", zelligeMetal[1]);
-    ritualsWall.style.setProperty("--ritual-metal-lit", zelligeMetal[2]);
-    ritualsWall.style.setProperty("--ritual-band", (zelligeBand || 4).toFixed(2) + "px");
-    for (let i = 0; i < found.length; i++) {
-      ritualsWall.appendChild(createRitualTab(found[i]));
+  /* The reel is never short a piece: real rituals first, blank ones filling
+     out to a comfortable column, however few rituals there are. */
+  const RITUAL_REEL_MIN_TILES = 10;
+  function ritualReelList() {
+    const list = state.rituals.slice();
+    while (list.length < RITUAL_REEL_MIN_TILES) list.push(null);
+    return list;
+  }
+
+  /* One column, run twice back to back, moved up by exactly one copy's height
+     — the seam between the two copies interlocks like any other pair of
+     pieces, so the loop has nowhere for the eye to catch it. */
+  const RITUAL_REEL_PX_PER_SECOND = 26;
+  const RITUAL_REEL_HOVER_MULTIPLIER = 8;   // top or bottom edge: eight times the speed
+  const RITUAL_REEL_ENTRY_START_MULTIPLIER = 32;   // fastest at the very start, parked off the floor
+  const RITUAL_REEL_ENTRY_END_MULTIPLIER = 1;      // and down to plain speed exactly as it settles
+  const RITUAL_REEL_ENTRY_MARGIN = 30;      // a little past the floor, so nothing shows at frame one
+
+  /* These are the very colours and the very width renderZelligeBase() just
+     used for its three grout passes, exposed once for every tab including
+     the blank ones. Same band as the wall, so a piece reads as being off it
+     and not as a small picture of one. */
+  function buildAmbientReelContent() {
+    const list = ritualReelList();
+    ritualsReelTrack.innerHTML = "";
+    ritualsReelTrack.style.setProperty("--ritual-metal-seat", zelligeMetal[0]);
+    ritualsReelTrack.style.setProperty("--ritual-metal", zelligeMetal[1]);
+    ritualsReelTrack.style.setProperty("--ritual-metal-lit", zelligeMetal[2]);
+    ritualsReelTrack.style.setProperty("--ritual-band", (zelligeBand || 4).toFixed(2) + "px");
+    for (let pass = 0; pass < 2; pass++) {
+      for (let i = 0; i < list.length; i++) {
+        ritualsReelTrack.appendChild(list[i] ? createRitualTab(list[i]) : createEmptyRitualTile());
+      }
     }
-    ritualsWall.appendChild(createRitualAdd(query));
-    if (query && !found.length) {
-      ritualsEmpty.textContent = translate("ritualsNothing");
-      ritualsEmpty.hidden = false;
-    } else if (!query && !state.rituals.length) {
-      ritualsEmpty.textContent = translate("ritualsEmpty");
-      ritualsEmpty.hidden = false;
-    } else {
-      ritualsEmpty.hidden = true;
+    ritualsReelHalfHeight = ritualsReelTrack.scrollHeight / 2;
+  }
+
+  // entering: true only when the room itself is opening — every other call
+  // (a ritual added, deleted, or closed while the room stays up) wants the
+  // wall already standing, not rushing up from the floor again
+  function renderRituals(entering) {
+    // whatever a search left spinning or frozen, this is the way back to the
+    // plain endless loop — every path that returns here goes through it
+    cancelAnimationFrame(ritualsSpinRaf);
+    ritualsReelTrack.style.transform = "";
+    ritualsSearchResults = [];
+    ritualSelectedRank = -1;
+    ritualsInSearchMode = false;
+    buildAmbientReelContent();
+    // reduced motion gets the wall already standing — the rush has nothing
+    // to hand off to, since startRitualsAmbientLoop() below never schedules
+    // a frame for it, and an empty reel with no loop running would just stay empty
+    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    ritualsReelEntering = !!entering && !reduceMotion;
+    ritualsAmbientPos = ritualsReelEntering
+      ? -(ritualsReel.getBoundingClientRect().height + RITUAL_REEL_ENTRY_MARGIN)
+      : 0;
+    ritualsReelEntryStart = ritualsAmbientPos;
+    // set here rather than left for the loop's own first frame to catch up
+    // on: the room can open on the very same paint as an already-parked
+    // column, instead of one frame of it sitting wherever "" resolves to
+    ritualsReelTrack.style.transform = "translateY(" + (-ritualsAmbientPos) + "px)";
+    startRitualsAmbientLoop();
+  }
+
+  /* A query that matches nothing is not a dead end — the reel just keeps
+     turning as if the search had never grabbed it, picking up from wherever
+     it visually sits rather than snapping back to the start. */
+  function resumeRitualsAmbient() {
+    if (!ritualsInSearchMode) return;
+    cancelAnimationFrame(ritualsSpinRaf);
+    const currentY = currentRitualsReelY();
+    buildAmbientReelContent();
+    ritualsAmbientPos = ritualsReelHalfHeight > 0
+      ? (((-currentY) % ritualsReelHalfHeight) + ritualsReelHalfHeight) % ritualsReelHalfHeight
+      : 0;
+    ritualsReelTrack.style.transform = "translateY(" + (-ritualsAmbientPos) + "px)";
+    ritualsSearchResults = [];
+    ritualSelectedRank = -1;
+    ritualsInSearchMode = false;
+    startRitualsAmbientLoop();
+  }
+
+  function startRitualsAmbientLoop() {
+    cancelAnimationFrame(ritualsAmbientRaf);
+    ritualsAmbientLastTime = null;
+    if (window.matchMedia("(prefers-reduced-motion: reduce)").matches) return;
+    ritualsAmbientRaf = requestAnimationFrame(stepRitualsAmbient);
+  }
+
+  function stopRitualsAmbientLoop() {
+    cancelAnimationFrame(ritualsAmbientRaf);
+    ritualsAmbientRaf = null;
+  }
+
+  /* Never idle, never paused by a hovering hand — only bent by it: the top
+     edge pulls the reel backward, the bottom edge pushes it on faster, both
+     at the same speed, so leaving the pointer wherever is never a way to
+     freeze a tile in place to read it. Entering is the one exception: parked
+     below the floor, the column only ever runs up, deaf to the hover zones
+     until it has actually joined the loop — the top of the reel is furthest
+     along that run, so it is the last to fill. Its own speed is not flat: a
+     straight line from 32x down to plain speed, read off how much of the
+     climb is left, so the rush itself settles rather than cutting off. */
+  function stepRitualsAmbient(now) {
+    if (ritualsAmbientLastTime === null) ritualsAmbientLastTime = now;
+    const dt = (now - ritualsAmbientLastTime) / 1000;
+    ritualsAmbientLastTime = now;
+    if (ritualsReelHalfHeight > 0) {
+      if (ritualsReelEntering) {
+        const left = ritualsReelEntryStart ? Math.max(0, Math.min(1, ritualsAmbientPos / ritualsReelEntryStart)) : 0;
+        const multiplier = RITUAL_REEL_ENTRY_END_MULTIPLIER
+          + (RITUAL_REEL_ENTRY_START_MULTIPLIER - RITUAL_REEL_ENTRY_END_MULTIPLIER) * left;
+        ritualsAmbientPos += RITUAL_REEL_PX_PER_SECOND * multiplier * dt;
+        if (ritualsAmbientPos >= 0) { ritualsAmbientPos = 0; ritualsReelEntering = false; }
+      } else {
+        const direction = ritualsHoverZone === "top" ? -1 : 1;
+        const speed = ritualsHoverZone ? RITUAL_REEL_PX_PER_SECOND * RITUAL_REEL_HOVER_MULTIPLIER
+          : RITUAL_REEL_PX_PER_SECOND;
+        ritualsAmbientPos += direction * speed * dt;
+        // keep it inside one copy's height either way round, so the seam stays hidden
+        ritualsAmbientPos = ((ritualsAmbientPos % ritualsReelHalfHeight) + ritualsReelHalfHeight)
+          % ritualsReelHalfHeight;
+      }
+      ritualsReelTrack.style.transform = "translateY(" + (-ritualsAmbientPos) + "px)";
     }
+    ritualsAmbientRaf = requestAnimationFrame(stepRitualsAmbient);
+  }
+
+  /* Typing pulls the reel out of its endless loop: a run of tiles spins past
+     — real pieces, not a blank blur — and settles with the best match parked
+     lowest, right under the search bar, second and third stacked above it. A
+     slot machine, not a filtered list: what it lands on is still the wall.
+     Every letter typed after that first one only retargets the same motion —
+     it never snaps back to restart, or five keystrokes would look like five
+     separate spins instead of one settling on a sharper answer. */
+  const RITUAL_SEARCH_LEAD_TILES = 14;    // spin past above the results, purely decorative
+  const RITUAL_SEARCH_TRAIL_TILES = 14;   // and below them, so the reel is never short of
+                                           // content to show once the results sit near the bar
+  const RITUAL_SEARCH_LANDING_GAP = 14;   // breathing room between the bar and the first result
+  const RITUAL_SEARCH_SPIN_MS = 720;    // first letter: the full spin, ramp then settle
+  const RITUAL_SEARCH_REFINE_MS = 280;  // each letter after: just glide to the new landing spot
+  let ritualsInSearchMode = false;
+
+  // wherever the track visually is right now, loop or mid-flight — read off
+  // the live matrix rather than trusting a variable that could be stale
+  function currentRitualsReelY() {
+    const parsed = getComputedStyle(ritualsReelTrack).transform.match(/matrix(3d)?\(([^)]+)\)/);
+    if (!parsed) return 0;
+    const parts = parsed[2].split(",").map(Number);
+    return parts.length === 16 ? parts[13] : parts[5];
+  }
+
+  /* The results always sit just under the bar, however many there are — which
+     means there has to be filler both above AND below them, or a single match
+     would leave nothing left to show once it is pulled up near the top and
+     the reel would rather clamp short than reveal an empty floor. */
+  function buildRitualsSearchTrack(resultsBestFirst) {
+    ritualsReelTrack.innerHTML = "";
+    ritualsReelTrack.style.setProperty("--ritual-metal-seat", zelligeMetal[0]);
+    ritualsReelTrack.style.setProperty("--ritual-metal", zelligeMetal[1]);
+    ritualsReelTrack.style.setProperty("--ritual-metal-lit", zelligeMetal[2]);
+    ritualsReelTrack.style.setProperty("--ritual-band", (zelligeBand || 4).toFixed(2) + "px");
+    const filler = ritualReelList();
+    for (let i = 0; i < RITUAL_SEARCH_LEAD_TILES; i++) {
+      const ritual = filler[i % filler.length];
+      ritualsReelTrack.appendChild(ritual ? createRitualTab(ritual) : createEmptyRitualTile());
+    }
+    // reversed so the best match (rank 0) is the last of the block — the one
+    // that lands deepest, right below the other one or two
+    const displayed = resultsBestFirst.slice().reverse();
+    for (let i = 0; i < displayed.length; i++) {
+      const tab = createRitualTab(displayed[i]);
+      tab.classList.add("rtab--result");
+      tab.dataset.rank = String(resultsBestFirst.indexOf(displayed[i]));
+      ritualsReelTrack.appendChild(tab);
+    }
+    for (let i = 0; i < RITUAL_SEARCH_TRAIL_TILES; i++) {
+      const ritual = filler[(RITUAL_SEARCH_LEAD_TILES + i) % filler.length];
+      ritualsReelTrack.appendChild(ritual ? createRitualTab(ritual) : createEmptyRitualTile());
+    }
+  }
+
+  // quick ramp-up, then a long ease-out — a reel spun by hand, not a linear scroll
+  function ritualSpinEase(t) {
+    if (t < .12) return .12 * (t / .12) * (t / .12);
+    const local = (t - .12) / .88;
+    return .12 + .88 * (1 - Math.pow(1 - local, 3));
+  }
+
+  function easeOutCubic(t) { return 1 - Math.pow(1 - t, 3); }
+
+  function animateRitualsReel(startY, targetY, duration, useSpinCurve) {
+    const startTime = performance.now();
+    function step(now) {
+      const t = Math.min(1, (now - startTime) / duration);
+      const eased = useSpinCurve ? ritualSpinEase(t) : easeOutCubic(t);
+      ritualsReelTrack.style.transform = "translateY(" + (startY + (targetY - startY) * eased) + "px)";
+      if (t < 1) ritualsSpinRaf = requestAnimationFrame(step);
+      else updateRitualsSelectionHighlight();
+    }
+    ritualsSpinRaf = requestAnimationFrame(step);
+  }
+
+  function updateRitualsSelectionHighlight() {
+    const tabs = ritualsReelTrack.querySelectorAll(".rtab--result");
+    for (let i = 0; i < tabs.length; i++) {
+      tabs[i].classList.toggle("is-selected", Number(tabs[i].dataset.rank) === ritualSelectedRank);
+    }
+  }
+
+  // only called with at least one match — an empty result set keeps the
+  // ambient loop running instead, see resumeRitualsAmbient()
+  function spinRitualsReelTo(resultsBestFirst) {
+    const startY = currentRitualsReelY();
+    stopRitualsAmbientLoop();
+    cancelAnimationFrame(ritualsSpinRaf);
+    ritualsReelTrack.style.transform = "translateY(" + startY + "px)";
+    const freshEntry = !ritualsInSearchMode;
+    buildRitualsSearchTrack(resultsBestFirst);
+    ritualsInSearchMode = true;
+    ritualsSearchResults = resultsBestFirst;
+    ritualSelectedRank = 0;
+    requestAnimationFrame(function () {
+      const reelRect = ritualsReel.getBoundingClientRect();
+      const inviteRect = ritualsInvite.getBoundingClientRect();
+      const resultTabs = ritualsReelTrack.querySelectorAll(".rtab--result");
+      // the whole little block of results sits right under the bar — its
+      // first tile (the least relevant of up to 3) is what gets pinned there,
+      // so the block's own height decides how deep the best match sits, not
+      // a fixed spot in the reel that would strand a lone match near the floor
+      const firstTab = resultTabs[0];
+      if (!firstTab) return;
+      const landingY = inviteRect.bottom - reelRect.top + RITUAL_SEARCH_LANDING_GAP;
+      const trackHeight = ritualsReelTrack.scrollHeight;
+      let targetY = landingY - firstTab.offsetTop;
+      targetY = Math.max(-(Math.max(0, trackHeight - reelRect.height)), Math.min(0, targetY));
+      animateRitualsReel(startY, targetY,
+        freshEntry ? RITUAL_SEARCH_SPIN_MS : RITUAL_SEARCH_REFINE_MS, freshEntry);
+    });
   }
 
   /* Successive tabs are placed a golden angle apart on the hue ramp, so two
@@ -14433,18 +15090,46 @@
     openRitual(ritual.id);
   }
 
+  /* the same paper the canvas writes its documents on, mounted fresh for
+     whichever ritual is open — one editor, however many places hang it */
+  function ritualSource(ritual) {
+    return {
+      read: function () { return ritual.body || ""; },
+      write: function (html) {
+        ritual.body = html;
+        ritual.updatedAt = Date.now();
+        saveState();
+        flashRitualSaved();
+      },
+      placeholder: translate("ritualBodyPlaceholder")
+    };
+  }
+
+  function renderRitualSheet(ritual) {
+    ritualPageSheet.innerHTML = "";
+    const wrap = document.createElement("div");
+    wrap.className = "thinking-document-sheet thinking-document-sheet--panel";
+    const paper = createDocumentPaper(ritualSource(ritual));
+    wrap.append(paper.toolbar, paper.body);
+    ritualPageSheet.appendChild(wrap);
+    ritualPageBodyEl = paper.body;
+  }
+
   function openRitual(id) {
     const ritual = findRitual(id);
     if (!ritual) return;
     openRitualId = id;
     ritualPageName.value = ritual.text;
-    ritualPageBody.value = ritual.body;
-    paintRitualGlaze(ritualPage, ritual.tint);   // the page keeps its tab's colour
+    renderRitualSheet(ritual);
     ritualPageSaved.classList.remove("is-on");
+    // the reel steps aside rather than being covered: the page stands on the
+    // same mosaic, not on a screen laid over it
+    ritualsBar.hidden = true;
+    ritualsStage.hidden = true;
     ritualPage.hidden = false;
     requestAnimationFrame(function () {
       ritualPage.classList.add("is-open");
-      if (ritual.text) ritualPageBody.focus();
+      if (ritual.text) ritualPageBodyEl.focus();
       else ritualPageName.focus();
     });
   }
@@ -14452,23 +15137,30 @@
   function closeRitual() {
     const ritual = findRitual(openRitualId);
     // a tab opened and left blank was never a ritual; it does not stay on the wall
-    if (ritual && !ritual.text.trim() && !ritual.body.trim()) {
+    if (ritual && !ritual.text.trim() && !ritualBodyText(ritual).trim()) {
       state.rituals.splice(state.rituals.indexOf(ritual), 1);
       saveState();
     }
     openRitualId = null;
     ritualPage.classList.remove("is-open");
-    setTimeout(function () { ritualPage.hidden = true; }, 260);
+    setTimeout(function () {
+      ritualPage.hidden = true;
+      ritualsBar.hidden = false;
+      ritualsStage.hidden = false;
+    }, 260);
     renderRituals();
   }
 
-  function writeRitual() {
+  function writeRitualName() {
     const ritual = findRitual(openRitualId);
     if (!ritual) return;
     ritual.text = ritualPageName.value;
-    ritual.body = ritualPageBody.value;
     ritual.updatedAt = Date.now();
     saveState();
+    flashRitualSaved();
+  }
+
+  function flashRitualSaved() {
     ritualPageSaved.classList.add("is-on");
     clearTimeout(ritualSavedTimer);
     ritualSavedTimer = setTimeout(function () {
@@ -14482,6 +15174,7 @@
   function mountZelligeInRituals() {
     zelligeCanvas.classList.add("is-wall");
     ritualsView.insertBefore(zelligeCanvas, ritualsView.firstChild);
+    zelligeOpenAnimStart = performance.now();
     setZelligeOn(true);
   }
 
@@ -14492,12 +15185,24 @@
     document.body.insertBefore(zelligeCanvas, document.getElementById("decor"));
   }
 
+  // the topbars sit outside #app, so hiding the app screen alone leaves them
+  // floating over the room — through the mosaic's own translucency, sitting
+  // right on top of the rest, that bleeds back into view
+  const ritualsTopbars = document.querySelectorAll(".topbar");
+  function setTopbarsHidden(hidden) {
+    for (let i = 0; i < ritualsTopbars.length; i++) ritualsTopbars[i].hidden = hidden;
+  }
+
   function openRituals() {
     coverField(true);
+    appScreen.hidden = true;   // the room stands on the theme's sky, not on the app
+    setTopbarsHidden(true);
     ritualsView.hidden = false;
     mountZelligeInRituals();
     ritualsSearch.value = "";
-    renderRituals();
+    ritualsView.classList.remove("is-bare");
+    ritualsBareToggle.setAttribute("aria-pressed", "false");
+    renderRituals(true);
     requestAnimationFrame(function () {
       ritualsView.classList.add("is-open");
       // the search is where the room starts, but not at the price of throwing
@@ -14510,48 +15215,125 @@
     if (openRitualId) closeRitual();
     ritualsView.classList.remove("is-open");
     setZelligeOn(false);
+    stopRitualsAmbientLoop();
+    cancelAnimationFrame(ritualsSpinRaf);
     setTimeout(function () {
       ritualsView.hidden = true;
       releaseZellige();
       coverField(false);
+      appScreen.hidden = false;
+      setTopbarsHidden(false);
     }, 300);
   }
 
   document.getElementById("ritualsBtn").addEventListener("click", openRituals);
   document.getElementById("ritualsBack").addEventListener("click", closeRituals);
+  // strips the room down to the mosaic itself — no bar, no reel, no dimming
+  // scrim over it — a plain look at what the theme actually paints
+  ritualsBareToggle.addEventListener("click", function () {
+    const bare = ritualsView.classList.toggle("is-bare");
+    ritualsBareToggle.setAttribute("aria-pressed", bare ? "true" : "false");
+  });
   document.getElementById("ritualPageBack").addEventListener("click", closeRitual);
   document.getElementById("ritualPageDelete").addEventListener("click", function () {
     const id = openRitualId;
     if (!id) return;
     openRitualId = null;
     ritualPage.classList.remove("is-open");
-    setTimeout(function () { ritualPage.hidden = true; }, 260);
+    setTimeout(function () {
+      ritualPage.hidden = true;
+      ritualsBar.hidden = false;
+      ritualsStage.hidden = false;
+    }, 260);
     removeWithUndo("rituals", id, renderRituals);
   });
+  // the page stands on the open mosaic, so a click that lands on it rather
+  // than on the bar or the paper itself means the mosaic was clicked through
+  ritualPage.addEventListener("click", function (event) {
+    if (event.target === ritualPage) closeRitual();
+  });
+  // how far a tile leans when the hand reaches its edge — the middle is the
+  // thread, so the tilt grows the further off-centre the pointer sits
+  const RITUAL_TAB_TILT_MAX_DEG = 14;
+
   /* On the wall the pointer carries a halo and the tiles under it burn their
      own hue. A piece off that wall answers the same way: the light sits where
-     the hand is, instead of a fixed shine that gives the trick away. */
-  ritualsWall.addEventListener("pointermove", function (event) {
+     the hand is, instead of a fixed shine that gives the trick away. Same
+     touch, and the piece also rotates on its vertical thread: the side under
+     the hand sinks back into the wall, the far side swings toward the glass. */
+  ritualsReel.addEventListener("pointermove", function (event) {
     const tab = event.target.closest(".rtab");
-    if (!tab) return;
-    const box = tab.getBoundingClientRect();
-    tab.style.setProperty("--tab-halo-x",
-      ((event.clientX - box.left) / box.width * 100).toFixed(1) + "%");
-    tab.style.setProperty("--tab-halo-y",
-      ((event.clientY - box.top) / box.height * 100).toFixed(1) + "%");
+    if (tab) {
+      const box = tab.getBoundingClientRect();
+      const relX = (event.clientX - box.left) / box.width;
+      tab.style.setProperty("--tab-halo-x", (relX * 100).toFixed(1) + "%");
+      tab.style.setProperty("--tab-halo-y",
+        ((event.clientY - box.top) / box.height * 100).toFixed(1) + "%");
+      // rotateY(+) sinks the right edge and brings the left edge forward, so
+      // a pointer past centre (relX > .5, the right side) needs a positive
+      // angle for THAT side — the one under the hand — to be the one sinking
+      tab.style.setProperty("--tab-tilt",
+        ((relX - 0.5) * 2 * RITUAL_TAB_TILT_MAX_DEG).toFixed(2) + "deg");
+    }
+    // top edge pulls the reel back, bottom edge pushes it on — irrelevant
+    // once a search has taken the reel over, so left alone in that case
+    if (ritualsInSearchMode) return;
+    // only the two extremities are hot: above the invite card, and a band of
+    // the same depth mirrored at the reel's own bottom edge. Everything in
+    // between — most of the reel, including right under the search bar —
+    // stays neutral, so reading a name near the middle is never fought by it
+    const reelBox = ritualsReel.getBoundingClientRect();
+    const inviteBox = ritualsInvite.getBoundingClientRect();
+    const topDepth = Math.max(0, inviteBox.top - reelBox.top);
+    const bottomEdge = Math.max(inviteBox.bottom, reelBox.bottom - topDepth);
+    if (event.clientY < inviteBox.top) ritualsHoverZone = "top";
+    else if (event.clientY > bottomEdge) ritualsHoverZone = "bottom";
+    else ritualsHoverZone = null;
+  }, { passive: true });
+  ritualsReel.addEventListener("pointerleave", function () {
+    ritualsHoverZone = null;
   }, { passive: true });
 
-  ritualsSearch.addEventListener("input", renderRituals);
+  // a short debounce so the reel spins once per pause, not once per key
+  ritualsSearch.addEventListener("input", function () {
+    clearTimeout(ritualsSearchDebounce);
+    const query = ritualsSearch.value.trim();
+    if (!query) { resumeRitualsAmbient(); return; }
+    ritualsSearchDebounce = setTimeout(function () {
+      const found = ritualsMatching(query).slice(0, 3);
+      if (found.length) spinRitualsReelTo(found);
+      else resumeRitualsAmbient();
+    }, 180);
+  });
+
   ritualsSearch.addEventListener("keydown", function (event) {
+    if (event.key === "ArrowUp" || event.key === "ArrowDown") {
+      if (!ritualsSearchResults.length) return;
+      event.preventDefault();
+      // down moves toward the payline (rank 0, the closest match); up moves away from it
+      const step = event.key === "ArrowDown" ? -1 : 1;
+      ritualSelectedRank = Math.max(0, Math.min(ritualsSearchResults.length - 1, ritualSelectedRank + step));
+      updateRitualsSelectionHighlight();
+      return;
+    }
     if (event.key !== "Enter") return;
     event.preventDefault();
-    // Enter takes you where the search points: the one match, or a new tab
-    const found = ritualsMatching(ritualsSearch.value.trim());
-    if (found.length === 1) openRitual(found[0].id);
-    else if (!found.length) addRitual(ritualsSearch.value.trim());
+    const query = ritualsSearch.value.trim();
+    const found = ritualsMatching(query);
+    if (!query) {
+      // nothing typed: only a lone ritual is an unambiguous target
+      if (found.length === 1) openRitual(found[0].id);
+      return;
+    }
+    if (found.length) {
+      const rank = ritualSelectedRank >= 0 && ritualSelectedRank < Math.min(3, found.length)
+        ? ritualSelectedRank : 0;
+      openRitual(found[rank].id);
+    } else {
+      addRitual(query);
+    }
   });
-  ritualPageName.addEventListener("input", writeRitual);
-  ritualPageBody.addEventListener("input", writeRitual);
+  ritualPageName.addEventListener("input", writeRitualName);
 
   document.getElementById("skyBack").addEventListener("click", function () {
     // on the card there is nothing to close but the objective that opened it
@@ -19559,6 +20341,7 @@
     if (type === "note") return "note";
     if (type === "text") return "lines";
     if (type === "bloc") return "bloc";
+    if (type === "table") return "table";
     return "spark";
   }
 
@@ -19676,6 +20459,9 @@
       // the thing itself: a square box and its colour chip
       paths = '<path d="M4 6h16v12H4Z"/>'
         + '<circle class="ti-bloc-chip" cx="16.6" cy="9.6" r="1.6" fill="currentColor" stroke="none"/>';
+    } else if (name === "table") {
+      paths = '<rect x="3.5" y="4.5" width="17" height="15" rx="2.4"/>'
+        + '<path d="M3.5 10h17M10.5 4.5v15"/>';
     } else if (name === "lines") {
       paths = '<path class="ti-line ti-line--1" vector-effect="non-scaling-stroke" d="M5 7h14"/>'
         + '<path class="ti-line ti-line--2" vector-effect="non-scaling-stroke" d="M5 12h10"/>'
@@ -20981,8 +21767,10 @@
       const pointerId = event.pointerId;
       const start = { x: event.clientX, y: event.clientY,
         width: card.offsetWidth, height: card.offsetHeight };
-      const minimumWidth = block.type === "text" ? 110 : 140;
-      const minimumHeight = block.type === "question" ? 84 : block.type === "text" ? 52 : 60;
+      const minimumWidth = block.type === "table" ? thinkingTableAxisFloor(block, "width")
+        : block.type === "text" ? 110 : 140;
+      const minimumHeight = block.type === "table" ? thinkingTableAxisFloor(block, "height")
+        : block.type === "question" ? 84 : block.type === "text" ? 52 : 60;
       let moved = false;
       card.classList.add("is-resizing");
       const move = function (moveEvent) {
@@ -21168,9 +21956,11 @@
 
   /* The chain direction is useful on every member, but the quick-add affordance
      belongs only to its free end. Containers are deliberately excluded: adding
-     canvases, folders or documents remains an explicit action from the toolbar. */
+     canvases, folders or documents remains an explicit action from the toolbar.
+     A table grows from its titles instead (see thinkingTableLineRank) — a
+     whole line at a time, never one stuck neighbour. */
   function thinkingStickAdditionSide(canvas, block) {
-    if (isThinkingOrganization(block) || !block.stuckToId
+    if (isThinkingOrganization(block) || block.type === "table" || !block.stuckToId
         || THINKING_STICK_SIDES.indexOf(block.stuckSide) === -1) return null;
     const target = findThinkingParent(canvas, block.stuckToId);
     if (!target || target.parentId !== block.parentId) return null;
@@ -21179,7 +21969,548 @@
     return block.stuckSide;
   }
 
+  /* A TABLE IS A GRID OF CELLS, BUT A CELL ONLY EVER STICKS TO ONE NEIGHBOUR —
+     the same limit every stuck block has. So a row is built by sticking each
+     cell to the one on its left, and a column by sticking each row's first
+     cell to the row leader above it: one real link per cell, and the rest of
+     the grid falls out of it (a cell not directly reachable one way is still
+     reachable through its row or column, since layoutThinkingStuckParent walks
+     every side from every cell it places, not just the side that's "official").
+
+     What a single stuck link cannot do is carry a cell in BOTH its row's and
+     its column's size group at once — that would need two links on one cell.
+     thinkingTableGrid resolves this properly: it walks the whole table from
+     its root and gives every cell a logical (row, column), regardless of which
+     one direction its own link happens to use, so a resize still lines up the
+     full row or the full column, not just whichever cells share the literal
+     stuck edge. */
+  function thinkingTableRoot(canvas, cell) {
+    let node = cell;
+    const seen = {};
+    while (node.stuckToId && !seen[node.id]) {
+      seen[node.id] = true;
+      const anchor = findThinkingParent(canvas, node.stuckToId);
+      if (!anchor || anchor.type !== "table" || anchor.parentId !== node.parentId) break;
+      node = anchor;
+    }
+    return node;
+  }
+
+  const THINKING_TABLE_STEPS = { top: [0, -1], bottom: [0, 1], left: [-1, 0], right: [1, 0] };
+
+  function thinkingTableGrid(canvas, cell) {
+    const root = thinkingTableRoot(canvas, cell);
+    // plain objects, not arrays: a header row/column sits at a negative index,
+    // and a JS array does not keep a slot at index -1
+    const columns = {};
+    const rows = {};
+    const at = {};
+    const position = {};
+    const visited = {};
+    const queue = [{ block: root, column: 0, row: 0 }];
+    visited[root.id] = true;
+    for (let index = 0; index < queue.length; index++) {
+      const current = queue[index];
+      if (!columns[current.column]) columns[current.column] = [];
+      columns[current.column].push(current.block);
+      if (!rows[current.row]) rows[current.row] = [];
+      rows[current.row].push(current.block);
+      at[current.column + "," + current.row] = current.block;
+      position[current.block.id] = { column: current.column, row: current.row };
+      const neighbours = [];
+      if (current.block.stuckToId) {
+        const anchor = findThinkingParent(canvas, current.block.stuckToId);
+        if (anchor && anchor.type === "table" && anchor.parentId === current.block.parentId) {
+          neighbours.push({ block: anchor, side: oppositeThinkingStickSide(current.block.stuckSide) });
+        }
+      }
+      for (let i = 0; i < THINKING_STICK_SIDES.length; i++) {
+        const side = THINKING_STICK_SIDES[i];
+        const attached = thinkingAttachedBlock(canvas, current.block.id, side);
+        if (attached && attached.type === "table" && attached.parentId === current.block.parentId) {
+          neighbours.push({ block: attached, side: side });
+        }
+      }
+      for (let i = 0; i < neighbours.length; i++) {
+        const neighbour = neighbours[i];
+        if (visited[neighbour.block.id]) continue;
+        visited[neighbour.block.id] = true;
+        const step = THINKING_TABLE_STEPS[neighbour.side];
+        queue.push({ block: neighbour.block, column: current.column + step[0],
+          row: current.row + step[1] });
+      }
+    }
+    return { columns: columns, rows: rows, at: at, position: position };
+  }
+
+  /* Which of a cell's four sides touch another cell in the SAME logical grid —
+     not just the one side its own single stuck link happens to use. Reuses the
+     existing is-stuck / has-stuck class names (and their CSS) because the
+     visual result wanted is identical: the near side hides its border and
+     rounds off, the far side only rounds off and keeps the shared hairline. */
+  function thinkingTableEdgeClasses(canvas, cell) {
+    const grid = thinkingTableGrid(canvas, cell);
+    const position = grid.position[cell.id];
+    const classes = [];
+    if (grid.at[position.column + "," + (position.row - 1)]) classes.push("is-stuck-bottom");
+    if (grid.at[position.column + "," + (position.row + 1)]) classes.push("has-stuck-bottom");
+    if (grid.at[(position.column - 1) + "," + position.row]) classes.push("is-stuck-right");
+    if (grid.at[(position.column + 1) + "," + position.row]) classes.push("has-stuck-right");
+    return classes;
+  }
+
+  function thinkingTableAxisGroup(canvas, block, axis) {
+    const grid = thinkingTableGrid(canvas, block);
+    const position = grid.position[block.id];
+    const line = axis === "width" ? grid.columns[position.column] : grid.rows[position.row];
+    return line || [block];
+  }
+
+  /* Numeric keys of a {index: [...]} map, ascending — so index 0 is always
+     the first real column/row and a header (index -1) always sorts before it,
+     regardless of the object's own key order. */
+  function thinkingTableSortedKeys(indexed) {
+    const keys = [];
+    for (const key in indexed) keys.push(Number(key));
+    keys.sort(function (a, b) { return a - b; });
+    return keys;
+  }
+
+  function thinkingTableCorner(canvas, cell) {
+    const grid = thinkingTableGrid(canvas, cell);
+    for (const key in grid.at) {
+      if (grid.at[key].tableRole === "corner") return grid.at[key];
+    }
+    return null;
+  }
+
+  /* The one cell that carries the table's own name: the corner once the table
+     has a header line, otherwise the root — the very first cell, before there
+     was anywhere else for the name to go. */
+  function thinkingTableTitleCell(canvas, cell) {
+    return thinkingTableCorner(canvas, cell) || thinkingTableRoot(canvas, cell);
+  }
+
+  /* Where a title stands among its own kind, so a + knows the rank of the gap
+     it opens. The header line the title itself sits in is not one of the ranks:
+     a column's rank counts columns, never the row-title column. */
+  function thinkingTableLineRank(canvas, block, axis) {
+    const grid = thinkingTableGrid(canvas, block);
+    const position = grid.position[block.id];
+    const skip = axis === "column" ? thinkingTableRowHeaderColumn(grid)
+      : thinkingTableHeaderRow(grid);
+    const order = thinkingTableSortedKeys(axis === "column" ? grid.columns : grid.rows)
+      .filter(function (key) { return key !== skip; });
+    return { rank: order.indexOf(axis === "column" ? position.column : position.row),
+      count: order.length };
+  }
+
+  /* A line is made at the end, where the grid knows how to grow, and then
+     moved to the rank asked for — the same reordering a dragged title does,
+     so there is only one way a table is ever put back in order. */
+  function thinkingTableInsertColumn(canvas, cell, rank) {
+    thinkingTableAddColumn(canvas, cell);
+    const grid = thinkingTableGrid(canvas, cell);
+    const order = thinkingTableSortedKeys(grid.columns)
+      .filter(function (key) { return key !== thinkingTableRowHeaderColumn(grid); });
+    order.splice(rank, 0, order.pop());
+    thinkingTableRebuild(canvas, cell, order, null);
+  }
+
+  function thinkingTableInsertRow(canvas, cell, rank) {
+    thinkingTableAddRow(canvas, cell);
+    const grid = thinkingTableGrid(canvas, cell);
+    const order = thinkingTableSortedKeys(grid.rows)
+      .filter(function (key) { return key !== thinkingTableHeaderRow(grid); });
+    order.splice(rank, 0, order.pop());
+    thinkingTableRebuild(canvas, cell, null, order);
+  }
+
+  /* A header line is thin on the axis it does not share with its data — a
+     column header only as tall as a label needs, a row header only as wide.
+     The OTHER axis is left for the size-sync to fill in once it has company:
+     a column header's width settles to its column's, a row header's height
+     to its row's, by the very same evenThinkingStuckSizes that already keeps
+     a row or a column of ordinary cells even. */
+  const THINKING_TABLE_HEADER_THICKNESS = 32;
+  const THINKING_TABLE_HEADER_WIDTH = 88;
+
+  function thinkingTableRoleSize(role) {
+    if (role === "corner") return { width: THINKING_TABLE_HEADER_WIDTH, height: THINKING_TABLE_HEADER_THICKNESS };
+    if (role === "columnHeader") return { width: null, height: THINKING_TABLE_HEADER_THICKNESS };
+    if (role === "rowHeader") return { width: THINKING_TABLE_HEADER_WIDTH, height: null };
+    return { width: null, height: null };
+  }
+
+  function thinkingTableNewCell(parentId, anchor, side, role) {
+    const size = thinkingTableRoleSize(role);
+    const cell = {
+      id: thinkingId("b"), type: "table", text: "",
+      x: anchor.x, y: anchor.y, parentId: parentId,
+      blockWidth: size.width || anchor.blockWidth || 160,
+      blockHeight: size.height || anchor.blockHeight || 64,
+      stuckToId: anchor.id, stuckSide: side
+    };
+    if (role) cell.tableRole = role;
+    return cell;
+  }
+
+  /* Adding a column touches every row at once — a single click from any row's
+     edge would otherwise only grow that one row, leaving the rest short by a
+     cell and the grid ragged. Each new cell sticks to its own row's end, so
+     every row keeps its one real link and stays in the same size group. The
+     header row, if there is one, is just another row here: its own last cell
+     grows a new column header the same way a data row grows a new cell. */
+  function thinkingTableAddColumn(canvas, cell) {
+    const grid = thinkingTableGrid(canvas, cell);
+    const rows = thinkingTableSortedKeys(grid.rows);
+    for (let i = 0; i < rows.length; i++) {
+      const members = grid.rows[rows[i]];
+      let rightmost = members[0];
+      for (let j = 1; j < members.length; j++) {
+        if (grid.position[members[j].id].column > grid.position[rightmost.id].column) rightmost = members[j];
+      }
+      const role = rightmost.tableRole === "corner" ? "columnHeader" : rightmost.tableRole;
+      // a block riding the old edge (e.g. a note stuck below/beside the table)
+      // must move to the new edge, or it would collide with the new cell
+      const rider = thinkingAttachedBlock(canvas, rightmost.id, "right");
+      const newCell = thinkingTableNewCell(cell.parentId, rightmost, "right", role);
+      canvas.blocks.push(newCell);
+      if (rider) { rider.stuckToId = newCell.id; rider.stuckSide = "right"; }
+    }
+    thinkingTableRebuild(canvas, cell);
+  }
+
+  /* The same, turned sideways: a new row sticks one cell under each column's
+     current last cell, so the whole line arrives together instead of one cell
+     appearing under the column you happened to click from. */
+  function thinkingTableAddRow(canvas, cell) {
+    const grid = thinkingTableGrid(canvas, cell);
+    const columns = thinkingTableSortedKeys(grid.columns);
+    for (let i = 0; i < columns.length; i++) {
+      const members = grid.columns[columns[i]];
+      let bottommost = members[0];
+      for (let j = 1; j < members.length; j++) {
+        if (grid.position[members[j].id].row > grid.position[bottommost.id].row) bottommost = members[j];
+      }
+      const role = bottommost.tableRole === "corner" ? "rowHeader" : bottommost.tableRole;
+      const rider = thinkingAttachedBlock(canvas, bottommost.id, "bottom");
+      const newCell = thinkingTableNewCell(cell.parentId, bottommost, "bottom", role);
+      canvas.blocks.push(newCell);
+      if (rider) { rider.stuckToId = newCell.id; rider.stuckSide = "bottom"; }
+    }
+    thinkingTableRebuild(canvas, cell);
+  }
+
+  /* Turning on a table's column titles: one header above every existing
+     column, including the row-header column if there is one — its own header
+     is not a title, it is the corner, the one cell that is neither a row's
+     title nor a column's. If there is no row-header column to meet, the
+     corner gets a home of its own, hung off the first column header, so the
+     table's name always has somewhere to go once headers exist at all. */
+  function thinkingTableAddColumnHeaders(canvas, cell) {
+    const grid = thinkingTableGrid(canvas, cell);
+    const columns = thinkingTableSortedKeys(grid.columns);
+    let firstHeader = null;
+    for (let i = 0; i < columns.length; i++) {
+      const members = grid.columns[columns[i]];
+      let topmost = members[0];
+      for (let j = 1; j < members.length; j++) {
+        if (grid.position[members[j].id].row < grid.position[topmost.id].row) topmost = members[j];
+      }
+      if (topmost.tableRole === "corner") continue;
+      const role = topmost.tableRole === "rowHeader" ? "corner" : "columnHeader";
+      const header = thinkingTableNewCell(cell.parentId, topmost, "top", role);
+      if (!firstHeader) firstHeader = header;
+      canvas.blocks.push(header);
+    }
+    if (firstHeader && !thinkingTableCorner(canvas, cell)) {
+      canvas.blocks.push(thinkingTableNewCell(cell.parentId, firstHeader, "left", "corner"));
+    }
+    thinkingTableRebuild(canvas, cell);
+  }
+
+  /* The same, turned sideways, for a table's row titles. */
+  function thinkingTableAddRowHeaders(canvas, cell) {
+    const grid = thinkingTableGrid(canvas, cell);
+    const rows = thinkingTableSortedKeys(grid.rows);
+    let firstHeader = null;
+    for (let i = 0; i < rows.length; i++) {
+      const members = grid.rows[rows[i]];
+      let leftmost = members[0];
+      for (let j = 1; j < members.length; j++) {
+        if (grid.position[members[j].id].column < grid.position[leftmost.id].column) leftmost = members[j];
+      }
+      if (leftmost.tableRole === "corner") continue;
+      const role = leftmost.tableRole === "columnHeader" ? "corner" : "rowHeader";
+      const header = thinkingTableNewCell(cell.parentId, leftmost, "left", role);
+      if (!firstHeader) firstHeader = header;
+      canvas.blocks.push(header);
+    }
+    if (firstHeader && !thinkingTableCorner(canvas, cell)) {
+      canvas.blocks.push(thinkingTableNewCell(cell.parentId, firstHeader, "top", "corner"));
+    }
+    thinkingTableRebuild(canvas, cell);
+  }
+
+  /* A table is never born as one bare cell — an empty single square says
+     nothing about what it is for. Growing it right to a 2x2 and giving it
+     both header lines, the same four moves a person would make by hand,
+     means there is already a shape and a corner to hold it by the moment it
+     lands on the cloth. */
+  function thinkingTableStarter(canvas, root) {
+    thinkingTableAddColumn(canvas, root);
+    thinkingTableAddRow(canvas, root);
+    thinkingTableAddColumnHeaders(canvas, root);
+    thinkingTableAddRowHeaders(canvas, root);
+  }
+
+  /* Which column holds the row titles, and which row holds the column
+     titles — the two fixed lines a reorder never touches. Undefined when
+     that header line does not exist. */
+  function thinkingTableRowHeaderColumn(grid) {
+    return thinkingTableSortedKeys(grid.columns).find(function (key) {
+      return grid.columns[key].some(function (c) { return c.tableRole === "rowHeader"; });
+    });
+  }
+
+  function thinkingTableHeaderRow(grid) {
+    return thinkingTableSortedKeys(grid.rows).find(function (key) {
+      return grid.rows[key].some(function (c) { return c.tableRole === "columnHeader"; });
+    });
+  }
+
+  /* Re-lay the table's real links from scratch, in the column and row order
+     given (or the current order, for whichever axis is not being changed).
+     A cell only ever carries one link, so reordering a line cannot be done
+     by patching the odd edge — it is cheaper and always correct to rebuild
+     the whole tree: corner as the root, column titles chained rightward off
+     it, row titles chained downward off it, and every data cell chained
+     rightward off its row's title. Positions themselves are never touched
+     here — the next render walks these links and lays everyone out, which
+     is what closes the gap a moved line leaves behind. */
+  function thinkingTableRelink(grid, corner, columnOrder, rowOrder) {
+    const rowHeaderColumn = thinkingTableRowHeaderColumn(grid);
+    const headerRow = thinkingTableHeaderRow(grid);
+    const link = function (cell, anchor, side) {
+      // the corner anchors the table and answers to nothing; a lone root cell
+      // standing in for it must not end up pointing at itself
+      if (!cell || !anchor || cell === anchor) return;
+      cell.stuckToId = anchor.id;
+      cell.stuckSide = side;
+    };
+    delete corner.stuckToId;
+    delete corner.stuckSide;
+
+    if (headerRow !== undefined) {
+      let previous = corner;
+      for (let i = 0; i < columnOrder.length; i++) {
+        const header = grid.at[columnOrder[i] + "," + headerRow];
+        if (!header) continue;
+        link(header, previous, "right");
+        previous = header;
+      }
+    }
+    if (rowHeaderColumn !== undefined) {
+      let previous = corner;
+      for (let i = 0; i < rowOrder.length; i++) {
+        const header = grid.at[rowHeaderColumn + "," + rowOrder[i]];
+        if (!header) continue;
+        link(header, previous, "bottom");
+        previous = header;
+      }
+    }
+    for (let r = 0; r < rowOrder.length; r++) {
+      const rowHeader = rowHeaderColumn !== undefined
+        ? grid.at[rowHeaderColumn + "," + rowOrder[r]] : null;
+      let previous = rowHeader;
+      for (let c = 0; c < columnOrder.length; c++) {
+        const dataCell = grid.at[columnOrder[c] + "," + rowOrder[r]];
+        if (!dataCell) continue;
+        if (previous) link(dataCell, previous, "right");
+        else if (r === 0) link(dataCell, corner, "bottom");
+        else link(dataCell, grid.at[columnOrder[c] + "," + rowOrder[r - 1]], "bottom");
+        previous = dataCell;
+      }
+    }
+  }
+
+  function thinkingTableRebuild(canvas, cell, columnOrder, rowOrder) {
+    const grid = thinkingTableGrid(canvas, cell);
+    const corner = thinkingTableCorner(canvas, cell) || thinkingTableRoot(canvas, cell);
+    const rowHeaderColumn = thinkingTableRowHeaderColumn(grid);
+    const headerRow = thinkingTableHeaderRow(grid);
+    if (!columnOrder) {
+      columnOrder = thinkingTableSortedKeys(grid.columns)
+        .filter(function (key) { return key !== rowHeaderColumn; });
+    }
+    if (!rowOrder) {
+      rowOrder = thinkingTableSortedKeys(grid.rows)
+        .filter(function (key) { return key !== headerRow; });
+    }
+    thinkingTableRelink(grid, corner, columnOrder, rowOrder);
+  }
+
+  /* A single cell is never thrown out — a hole in a grid is not a shape
+     anyone can read. What a cross on a title means is "drop this whole line",
+     and the corner's cross means the table itself. The rebuild afterwards is
+     what closes the gap the line leaves, exactly as a reorder does. */
+  function removeThinkingTableAt(canvas, block) {
+    const grid = thinkingTableGrid(canvas, block);
+    const ids = [];
+    if (block.tableRole === "corner") {
+      for (const key in grid.at) ids.push(grid.at[key].id);
+      removeThinkingBlocks(canvas, ids);
+      return;
+    }
+    const column = block.tableRole === "columnHeader";
+    const gone = grid.position[block.id][column ? "column" : "row"];
+    const line = column ? grid.columns[gone] : grid.rows[gone];
+    for (let i = 0; i < line.length; i++) ids.push(line[i].id);
+
+    const corner = thinkingTableCorner(canvas, block) || thinkingTableRoot(canvas, block);
+    const keep = function (keys, dropIndex, headerIndex) {
+      return keys.filter(function (key) { return key !== dropIndex && key !== headerIndex; });
+    };
+    const columnOrder = keep(thinkingTableSortedKeys(grid.columns),
+      column ? gone : undefined, thinkingTableRowHeaderColumn(grid));
+    const rowOrder = keep(thinkingTableSortedKeys(grid.rows),
+      column ? undefined : gone, thinkingTableHeaderRow(grid));
+
+    removeThinkingBlocks(canvas, ids);
+    /* Relinked off the grid as it stood BEFORE the cut, not off what the cut
+       left behind: the generic chain repair can only mend a line whose links
+       all run the same way, and a table's rows are stitched through their row
+       title, so dropping a column would have left the rows in pieces. */
+    thinkingTableRelink(grid, corner, columnOrder, rowOrder);
+    touchCanvas(canvas);
+    renderThinkingCanvas(canvas);
+  }
+
+  /* Dragging a row or column title carries its whole line — title and every
+     cell in it — sideways or downways only, never freely: a table is not a
+     canvas for its own titles, it only ever reorders. The other titles open a
+     gap under the pointer as it goes, and letting go rebuilds the table in
+     the order they are standing in, which is what lets two lines close up
+     once the one between them has moved on. */
+  function armThinkingTableLineDrag(handle, headerBlock, canvas, axis) {
+    handle.addEventListener("pointerdown", function (event) {
+      if (thinkingSelectionMode || event.button !== 0
+          || event.target.closest("button, input, textarea, select")) return;
+      const grid = thinkingTableGrid(canvas, headerBlock);
+      const position = grid.position[headerBlock.id];
+      const ownIndex = axis === "column" ? position.column : position.row;
+      const lines = axis === "column" ? grid.columns : grid.rows;
+      const members = lines[ownIndex];
+      const role = axis === "column" ? "columnHeader" : "rowHeader";
+      const otherIndexes = thinkingTableSortedKeys(lines).filter(function (key) {
+        return key !== ownIndex && lines[key].some(function (c) { return c.tableRole === role; });
+      });
+      if (!members || !otherIndexes.length) return;
+      handle.setPointerCapture(event.pointerId);
+
+      const cardOf = function (block) {
+        return thinkingBlocks.querySelector('[data-block-id="' + block.id + '"]');
+      };
+      const lineStarts = function (lineMembers) {
+        const out = [];
+        for (let i = 0; i < lineMembers.length; i++) {
+          const card = cardOf(lineMembers[i]);
+          if (card) out.push({ card: card, left: card.offsetLeft, top: card.offsetTop });
+        }
+        return out;
+      };
+
+      const starts = lineStarts(members);
+      const ownTitleRect = cardOf(headerBlock).getBoundingClientRect();
+      const ownCenter = axis === "column" ? ownTitleRect.left + ownTitleRect.width / 2
+        : ownTitleRect.top + ownTitleRect.height / 2;
+      const ownSize = axis === "column" ? ownTitleRect.width : ownTitleRect.height;
+
+      // every other line, in the order they stand in, with the cards that have
+      // to step aside to open a gap where this one is heading
+      const others = [];
+      for (let i = 0; i < otherIndexes.length; i++) {
+        const title = lines[otherIndexes[i]].find(function (c) { return c.tableRole === role; });
+        const titleCard = title && cardOf(title);
+        if (!titleCard) continue;
+        const rect = titleCard.getBoundingClientRect();
+        others.push({
+          index: otherIndexes[i],
+          center: axis === "column" ? rect.left + rect.width / 2 : rect.top + rect.height / 2,
+          starts: lineStarts(lines[otherIndexes[i]])
+        });
+      }
+      others.sort(function (a, b) { return a.center - b.center; });
+      let ownRank = others.length;
+      for (let i = 0; i < others.length; i++) {
+        if (ownCenter < others[i].center) { ownRank = i; break; }
+      }
+
+      const pointerId = event.pointerId;
+      const startX = event.clientX;
+      const startY = event.clientY;
+      let moved = false;
+      let target = ownRank;
+      const move = function (moveEvent) {
+        if (moveEvent.pointerId !== pointerId) return;
+        const dx = axis === "column" ? moveEvent.clientX - startX : 0;
+        const dy = axis === "row" ? moveEvent.clientY - startY : 0;
+        if (!moved && Math.hypot(dx, dy) < 4) return;
+        moveEvent.preventDefault();
+        if (!moved) {
+          for (let i = 0; i < starts.length; i++) starts[i].card.classList.add("is-group-dragging");
+        }
+        moved = true;
+        for (let i = 0; i < starts.length; i++) {
+          starts[i].card.style.left = starts[i].left + dx + "px";
+          starts[i].card.style.top = starts[i].top + dy + "px";
+        }
+        /* Where it would land right now, and the gap that opens for it: the
+           lines it has passed slide back over the place it left, by exactly
+           the room it takes up. */
+        const carried = axis === "column" ? ownCenter + dx : ownCenter + dy;
+        target = others.length;
+        for (let i = 0; i < others.length; i++) {
+          if (carried < others[i].center) { target = i; break; }
+        }
+        const low = Math.min(ownRank, target);
+        const high = Math.max(ownRank, target);
+        for (let i = 0; i < others.length; i++) {
+          const shift = i >= low && i < high ? (target > ownRank ? -ownSize : ownSize) : 0;
+          for (let j = 0; j < others[i].starts.length; j++) {
+            const at = others[i].starts[j];
+            at.card.style.left = at.left + (axis === "column" ? shift : 0) + "px";
+            at.card.style.top = at.top + (axis === "row" ? shift : 0) + "px";
+          }
+        }
+      };
+      const up = function (upEvent) {
+        if (upEvent.pointerId !== pointerId) return;
+        handle.removeEventListener("pointermove", move);
+        handle.removeEventListener("pointerup", up);
+        handle.removeEventListener("pointercancel", up);
+        for (let i = 0; i < starts.length; i++) starts[i].card.classList.remove("is-group-dragging");
+        if (!moved) return;
+        if (upEvent.type !== "pointercancel") {
+          const newOrder = others.map(function (entry) { return entry.index; });
+          newOrder.splice(target, 0, ownIndex);
+          thinkingTableRebuild(canvas, headerBlock,
+            axis === "column" ? newOrder : null, axis === "row" ? newOrder : null);
+          touchCanvas(canvas);
+        }
+        renderThinkingCanvas(canvas);
+      };
+      handle.addEventListener("pointermove", move, { passive: false });
+      handle.addEventListener("pointerup", up);
+      handle.addEventListener("pointercancel", up);
+    });
+  }
+
   function thinkingUsesCompactStuckHeader(canvas, block) {
+    // a table cell keeps its own head — every cell is its own labelled note,
+    // not a row in a list that shares one
+    if (block.type === "table") return false;
     const target = block.stuckToId ? findThinkingParent(canvas, block.stuckToId) : null;
     if (target && target.parentId === block.parentId && target.type === block.type
         && (block.stuckSide === "bottom" || block.stuckSide === "right")) {
@@ -21306,16 +22637,28 @@
     return groups;
   }
 
+  /* The general floor keeps an ordinary block from being resized into
+     illegibility. A row title or the corner is deliberately narrower than
+     that on purpose — it carries a word or two, not a paragraph — so it gets
+     its own, lower floor rather than being dragged back up to 110 on every
+     sync. Same story sideways for a column title's height. */
+  function thinkingTableAxisFloor(block, axis) {
+    if (axis === "width") {
+      return block.tableRole === "rowHeader" || block.tableRole === "corner" ? 40 : 110;
+    }
+    return block.tableRole === "columnHeader" || block.tableRole === "corner" ? 20 : 52;
+  }
+
   function setThinkingBlockAxisSize(block, card, axis, value) {
     if (axis === "width") {
-      const width = Math.max(110, Math.round(value));
+      const width = Math.max(thinkingTableAxisFloor(block, "width"), Math.round(value));
       if (block.type === "folder") block.blockWidth = width;
       else if (isThinkingOrganization(block)) block.canvasWidth = width;
       else block.blockWidth = width;
       if (card) card.style.width = width + "px";
       return;
     }
-    const height = Math.max(52, Math.round(value));
+    const height = Math.max(thinkingTableAxisFloor(block, "height"), Math.round(value));
     if (block.type === "folder") return;
     if (isThinkingOrganization(block)) {
       block.canvasHeight = Math.max(50, height - THINKING_CANVAS_CHROME);
@@ -21360,8 +22703,17 @@
     return queue;
   }
 
+  /* A table cell's own stuck link only ever runs along its row or its column
+     — never both — so its size group has to come from the grid's logical
+     rows/columns instead of the literal edge, or a resize would only reach
+     the cells that happen to share that one link. */
+  function thinkingSizeAxisGroup(canvas, block, axis) {
+    return block.type === "table" ? thinkingTableAxisGroup(canvas, block, axis)
+      : thinkingStuckAxisGroup(canvas, block, axis);
+  }
+
   function resizeThinkingStuckSide(canvas, source, axis, value) {
-    const group = thinkingStuckAxisGroup(canvas, source, axis);
+    const group = thinkingSizeAxisGroup(canvas, source, axis);
     for (let i = 0; i < group.length; i++) {
       const card = thinkingBlocks.querySelector('[data-block-id="' + group[i].id + '"]');
       setThinkingBlockAxisSize(group[i], card, axis, value);
@@ -21379,7 +22731,7 @@
       const settled = {};
       for (let i = 0; i < blocks.length; i++) {
         if (settled[blocks[i].id]) continue;
-        const group = thinkingStuckAxisGroup(tree, blocks[i], axis);
+        const group = thinkingSizeAxisGroup(tree, blocks[i], axis);
         let largest = 0;
         for (let j = 0; j < group.length; j++) {
           settled[group[j].id] = true;
@@ -22094,25 +23446,25 @@
     head.append(createThinkingRunButton(canvas, block), keyword, hour, del);
   }
 
-  /* THE BLOC — a square box holding one bold line, the piece an industrial
-     diagram is drawn out of. It carries no type mark and no name: what it says
-     is its outline and its colour, and the chip in its corner walks through the
-     five palette stops and back to none, so a schema can be read by colour
-     without anything being decided when the box is drawn.
+  /* THE TINT CHIP — a corner dot that walks through the five palette stops and
+     back to none, so a bloc or a table header can be read by colour without
+     anything being decided when it is drawn. Shared by both: a bloc's whole
+     colour and a header's column/row tag are the same idea, one tap cycling
+     through the same five stops.
 
      The tint lives in block.tint. It cannot be block.color: loadState wipes
      that field on every read, it is a leftover from the blocks that once chose
      their own hue. */
-  const THINKING_BLOC_TINTS = 5;
+  const THINKING_TINT_STOPS = 5;
 
-  function createThinkingBlocChip(canvas, block) {
+  function createThinkingTintChip(canvas, block, ariaLabelKey) {
     const chip = document.createElement("button");
     chip.type = "button";
-    chip.className = "thinking-bloc__chip";
-    chip.setAttribute("aria-label", translate("thinkingBlocTint"));
+    chip.className = "thinking-tint-chip";
+    chip.setAttribute("aria-label", translate(ariaLabelKey));
     chip.addEventListener("click", function (event) {
       event.stopPropagation();
-      block.tint = ((block.tint || 0) + 1) % (THINKING_BLOC_TINTS + 1);
+      block.tint = ((block.tint || 0) + 1) % (THINKING_TINT_STOPS + 1);
       touchCanvas(canvas);
       renderThinkingCanvas(canvas);
     });
@@ -22150,15 +23502,38 @@
     }
     card.dataset.blockId = block.id;
     card.classList.toggle("is-selected", !!thinkingSelectedIds[block.id]);
-    const stuckTarget = block.stuckToId ? findThinkingParent(canvas, block.stuckToId) : null;
-    if (stuckTarget && stuckTarget.parentId === block.parentId) {
-      card.classList.add("is-stuck", "is-stuck-" + block.stuckSide);
+    if (block.type === "table") {
+      // a cell's seams follow the grid it sits in, not just the one real link
+      // it happens to carry — see thinkingTableEdgeClasses
+      const edges = thinkingTableEdgeClasses(canvas, block);
+      if (edges.length) card.classList.add("is-stuck");
+      for (let i = 0; i < edges.length; i++) card.classList.add(edges[i]);
+      if (block.tableRole) card.classList.add("thinking-table-cell--" + block.tableRole);
+      if (block.tint) card.classList.add("is-tinted", "is-tint-" + block.tint);
+    } else {
+      const stuckTarget = block.stuckToId ? findThinkingParent(canvas, block.stuckToId) : null;
+      if (stuckTarget && stuckTarget.parentId === block.parentId) {
+        card.classList.add("is-stuck", "is-stuck-" + block.stuckSide);
+      }
     }
     if (thinkingUsesCompactStuckHeader(canvas, block)) card.classList.add("is-stuck-compact");
+    // the table's own name shows once, on whichever cell currently holds it —
+    // the corner once headers exist, the root cell before that
+    const isTableTitleCell = block.type === "table"
+      && thinkingTableTitleCell(canvas, block).id === block.id;
     const stickContinuation = thinkingStickContinuationSide(canvas, block);
     const stickAdditionSide = thinkingStickAdditionSide(canvas, block);
-    const stuckListLead = thinkingIsStuckListLead(canvas, block);
-    if (stuckListLead && (stickContinuation === "left" || stickContinuation === "right")) {
+    /* A table cell's real link only ever points to ONE neighbour (see
+       thinkingTableGrid above), so most header cells look, by that one link
+       alone, like the lone lead of their own little chain — thinkingIsStuck
+       ListLead would hand a solo-drag grip to nearly every header. A table
+       has only one true handle: the same cell that carries its name — the
+       corner once one exists, the root before that — and dragging it by the
+       head moves the whole grid via armThinkingStuckGroupDrag. */
+    const stuckListLead = block.type === "table" ? isTableTitleCell
+      : thinkingIsStuckListLead(canvas, block);
+    if (block.type !== "table" && stuckListLead
+        && (stickContinuation === "left" || stickContinuation === "right")) {
       let horizontalNeighbor = thinkingAttachedBlock(canvas, block.id, stickContinuation);
       if (!horizontalNeighbor && block.stuckSide === stickContinuation && block.stuckToId) {
         horizontalNeighbor = findThinkingParent(canvas, block.stuckToId);
@@ -22168,7 +23543,8 @@
         card.classList.add("is-stuck-horizontal-title-raised");
       }
     }
-    for (let i = 0; i < THINKING_STICK_SIDES.length; i++) {
+    // a table cell's edges were already handled above, from the logical grid
+    if (block.type !== "table") for (let i = 0; i < THINKING_STICK_SIDES.length; i++) {
       const attached = thinkingAttachedBlock(canvas, block.id, THINKING_STICK_SIDES[i]);
       if (attached && attached.parentId === block.parentId) {
         card.classList.add("has-stuck-" + THINKING_STICK_SIDES[i]);
@@ -22244,12 +23620,17 @@
     const del = document.createElement("button");
     del.type = "button";
     del.className = "thinking-block__delete";
-    del.setAttribute("aria-label", translate("deleteAria"));
+    del.setAttribute("aria-label", translate(
+      block.tableRole === "columnHeader" ? "thinkingRemoveTableColumn"
+      : block.tableRole === "rowHeader" ? "thinkingRemoveTableRow"
+      : block.tableRole === "corner" ? "thinkingRemoveTable" : "deleteAria"));
     del.textContent = "×";
     del.addEventListener("click", function (event) {
       event.stopPropagation();
       if (thinkingSelectionMode && thinkingSelectedIds[block.id]) {
         removeThinkingSelection(canvas);
+      } else if (block.type === "table") {
+        removeThinkingTableAt(canvas, block);
       } else {
         removeThinkingBlock(canvas, block.id);
       }
@@ -22257,17 +23638,46 @@
     if (flow) {
       createThinkingFlowHead(canvas, block, head, del);
     } else {
-      if (block.type !== "text" && block.type !== "bloc") head.append(icon, type);
+      /* A table cell shows this head only once for the whole table, on
+         whichever cell is carrying its name — every other cell (data, row
+         title, column title) would otherwise repeat "TABLEAU" as many times
+         as it has cells. The corner, once it exists, keeps only the icon: it
+         is a tag, not a labelled row like the others. */
+      const showsBlockHead = block.type !== "text" && block.type !== "bloc"
+        && (block.type !== "table" || isTableTitleCell);
+      if (showsBlockHead) {
+        head.appendChild(icon);
+        if (!(block.type === "table" && block.tableRole === "corner")) head.appendChild(type);
+      }
       if (organization) {
         const rule = document.createElement("span");   // the fading filet, as in a task group
         rule.className = "thinking-block__rule";
         head.appendChild(rule);
       }
-      if (block.type === "bloc") head.appendChild(createThinkingBlocChip(canvas, block));
-      head.appendChild(del);
+      if (block.type === "bloc") {
+        head.appendChild(createThinkingTintChip(canvas, block, "thinkingBlocTint"));
+      } else if (block.type === "table"
+          && (block.tableRole === "columnHeader" || block.tableRole === "rowHeader")) {
+        head.appendChild(createThinkingTintChip(canvas, block, "thinkingTableHeaderTint"));
+      }
+      // a plain cell has no cross: only a title drops its line, only the corner
+      // drops the table
+      if (block.type !== "table" || block.tableRole) head.appendChild(del);
     }
-    if (stuckListLead) armThinkingStuckGroupDrag(head, card, block, canvas);
-    else armThinkingDrag(head, card, block, canvas, nested, insideCanvas);
+    /* A cell never moves alone — that is what kept breaking the reading of
+       the grid. Only a whole row or column answers the pointer, dragged by
+       its title, and only the corner moves the table entire. */
+    if (block.type === "table" && !block.tableRole) {
+      card.classList.add("thinking-table-cell--fixed");
+    } else if (block.type === "table"
+        && (block.tableRole === "columnHeader" || block.tableRole === "rowHeader")) {
+      armThinkingTableLineDrag(head, block, canvas,
+        block.tableRole === "columnHeader" ? "column" : "row");
+    } else if (stuckListLead) {
+      armThinkingStuckGroupDrag(head, card, block, canvas);
+    } else {
+      armThinkingDrag(head, card, block, canvas, nested, insideCanvas);
+    }
 
     let text = null;
     let taskBody = null;
@@ -22278,6 +23688,9 @@
       folderList = createThinkingFolderList(canvas, block, false);
     } else if (block.type === "logbook") {
       folderList = createThinkingLogbookSheet(canvas, block, false);
+    } else if (block.type === "table" && block.tableRole === "corner") {
+      // a tag, not a cell: nothing to write in, just the icon already shown above
+      children = createThinkingChildren(canvas, block, ownerCanvas, card);
     } else if (organization) {
       canvasStage = document.createElement("div");
       canvasStage.className = "thinking-canvas__stage";
@@ -22324,8 +23737,13 @@
     } else {
       text = document.createElement("textarea");
       text.className = "thinking-block__text";
+      // a textarea defaults to 2 rows tall regardless of content; fitThinkingText
+      // and the CSS floor are what actually size it, not the browser's own guess
+      text.rows = 1;
       text.value = block.text || "";
-      text.placeholder = translate(thinkingPlaceholderKey(block.type));
+      text.placeholder = translate(block.tableRole === "columnHeader" ? "blockPlaceholderColumnHeader"
+        : block.tableRole === "rowHeader" ? "blockPlaceholderRowHeader"
+        : thinkingPlaceholderKey(block.type));
       armThinkingLists(text);
       text.addEventListener("input", function () {
         applyThinkingListSyntax(text);
@@ -22340,7 +23758,8 @@
           const entry = findJournalEntry(journalOwner, block.journalEntryId);
           if (entry) entry.text = block.text;
         }
-        fitThinkingText(text, block.type === "text" || block.type === "bloc" ? 24
+        fitThinkingText(text, block.type === "text" || block.type === "bloc"
+          || block.tableRole === "columnHeader" || block.tableRole === "rowHeader" ? 24
           : nested ? 32 : 36);
         if (!nested || insideCanvas) {
           const naturalWidth = thinkingBlockNaturalWidth(block);
@@ -22481,7 +23900,8 @@
     }
 
     let soloDrag = null;
-    if (stuckListLead) {
+    // the corner has nothing to detach FROM — it is the handle, not a member
+    if (stuckListLead && !(block.type === "table" && block.tableRole === "corner")) {
       soloDrag = document.createElement("button");
       soloDrag.type = "button";
       soloDrag.className = "thinking-block__solo-drag";
@@ -22511,6 +23931,40 @@
       });
     }
 
+    /* A table only ever grows one way: a title offers the gap after it, right
+       for a column and down for a row. The gap at the very start belongs to
+       the corner, which sits before both first lines — so every place a line
+       can go is offered once, and no bar ever straddles two blocks. A cell
+       offers nothing. */
+    const tableAdds = [];
+    const tableGaps = [];
+    if (block.tableRole === "corner") {
+      tableGaps.push({ axis: "column", side: "right", rank: 0 });
+      tableGaps.push({ axis: "row", side: "bottom", rank: 0 });
+    } else if (block.tableRole === "columnHeader" || block.tableRole === "rowHeader") {
+      const axis = block.tableRole === "columnHeader" ? "column" : "row";
+      tableGaps.push({ axis: axis, side: axis === "column" ? "right" : "bottom",
+        rank: thinkingTableLineRank(canvas, block, axis).rank + 1 });
+    }
+    for (let i = 0; i < tableGaps.length; i++) {
+      const gap = tableGaps[i];
+      const add = document.createElement("button");
+      add.type = "button";
+      add.className = "thinking-block__stick-add thinking-block__stick-add--" + gap.side;
+      add.textContent = "+";
+      add.setAttribute("aria-label", translate(gap.axis === "column"
+        ? "thinkingAddTableColumn" : "thinkingAddTableRow"));
+      add.addEventListener("click", function (event) {
+        event.preventDefault();
+        event.stopPropagation();
+        if (gap.axis === "column") thinkingTableInsertColumn(canvas, block, gap.rank);
+        else thinkingTableInsertRow(canvas, block, gap.rank);
+        touchCanvas(canvas);
+        renderThinkingCanvas(canvas);
+      });
+      tableAdds.push(add);
+    }
+
     card.appendChild(head);
     if (soloDrag) card.appendChild(soloDrag);
     if (block.type === "folder" || block.type === "logbook") {
@@ -22525,6 +23979,7 @@
         && (linked || actions.childElementCount)) card.appendChild(foot);
     if (blockResize) card.appendChild(blockResize);
     if (stickAdd) card.appendChild(stickAdd);
+    for (let i = 0; i < tableAdds.length; i++) card.appendChild(tableAdds[i]);
     if (organization && block.pinned) {
       const pin = document.createElement("span");
       pin.className = "thinking-pin";
@@ -22537,7 +23992,8 @@
       card.appendChild(pin);
     }
     if (text) requestAnimationFrame(function () {
-      fitThinkingText(text, block.type === "text" || block.type === "bloc" ? 24
+      fitThinkingText(text, block.type === "text" || block.type === "bloc"
+        || block.tableRole === "columnHeader" || block.tableRole === "rowHeader" ? 24
         : nested ? 32 : 36);
       layoutVisibleThinkingStuckBlocks(canvas);
       requestThinkingLinks(canvas);
@@ -23515,6 +24971,9 @@
       block.folderOrder = nextThinkingFolderOrder(canvas, viewedCanvas);
     }
     canvas.blocks.push(block);
+    // a fresh table stands on its own; one stuck to something else is a
+    // single cell joining another shape, not a table of its own
+    if (type === "table" && !block.stuckToId) thinkingTableStarter(canvas, block);
     growThinkingCanvasForBlock(canvas, block, blockWidth, blockHeight);
     touchCanvas(canvas);
     if (THINKING_ACTION_TYPES.indexOf(type) !== -1) refreshThinkingActionViews();
@@ -24218,6 +25677,12 @@
     }
     if (!exerciseView.hidden) { exerciseView.hidden = true; return true; }
     if (!sleepView.hidden) { sleepView.hidden = true; return true; }
+    if (!habitDetailView.hidden) {
+      habitDetailView.hidden = true;
+      renderHabits();
+      renderWelcomeHabits();
+      return true;
+    }
     if (!weatherModal.hidden) { weatherModal.hidden = true; return true; }
     if (!iconPicker.hidden) {
       iconPicker.hidden = true;

@@ -1411,6 +1411,7 @@ body {
   align-items: center;
   gap: 0;   /* no gap: the hairlines below set the spacing */
 }
+.topbar[hidden] { display: none; }
 /* the way home sits on the other side, alone */
 .topbar--left {
   right: auto;
@@ -1926,8 +1927,10 @@ body {
   border-color: color-mix(in oklab, var(--threshold-ink) 42%, transparent);
 }
 /* the sky wears the raw gradient while the threshold is up, and cross-fades
-   back to the veiled one on entering */
-body:has(.welcome:not(.is-leaving)) #sky { background: var(--welcome-bg); }
+   back to the veiled one on entering — the rituals room asks for the same
+   raw sky, since the mosaic is meant to stand under the open theme sky */
+body:has(.welcome:not(.is-leaving)) #sky,
+body:has(.rituals.is-open) #sky { background: var(--welcome-bg); }
 
 /* nothing of the app has business on the threshold */
 body:has(.welcome:not(.is-leaving)) .topbar,
@@ -3508,8 +3511,15 @@ html.is-field-mode .ecal-band .project-tab::after { content: none; }
   display: grid; place-items: center;
   color: var(--muted);
   background: var(--bg);
+  border: none;
+  padding: 0;
+  font: inherit;
+  border-radius: 4px;
 }
 .hrule__tag svg { width: 13px; height: 13px; }
+button.hrule__tag { cursor: pointer; transition: color .15s ease, transform .15s ease; }
+button.hrule__tag:hover,
+button.hrule__tag:focus-visible { color: var(--sig-line); transform: scale(1.15); }
 .hrule__day {
   flex: 0 0 auto;
   width: 8px; height: 14px;
@@ -4608,6 +4618,47 @@ body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: non
 .sleep__field--wide { grid-column: 1 / -1; }
 .hcard__sleep { margin: 4px 0 6px; }
 .hcard__sleep .sleep__weekstats { margin-bottom: 10px; }
+
+/* HABIT DETAIL VIEW — icon, name and delete reuse the well-being hcard look;
+   only the history grid and the sleep cycle card are new here. */
+.modal__card.hdetail { max-width: 420px; }
+.modal__card.hdetail .hcard__head { margin-bottom: 14px; }
+.modal__card.hdetail .field__label { display: block; margin: 16px 0 8px; }
+.modal__card.hdetail .heat { flex-wrap: wrap; }
+
+.chrono {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 4px;
+  padding: 12px 14px;
+  border-radius: var(--radius);
+  background: color-mix(in srgb, var(--sig-line) 9%, var(--surface));
+  border: 1px solid color-mix(in srgb, var(--sig-line) 22%, var(--border));
+}
+.chrono__badge {
+  flex: 0 0 auto;
+  width: 50px; height: 50px;
+  border-radius: 50%;
+  display: grid;
+  place-items: center;
+  background: color-mix(in srgb, var(--sig-line) 14%, var(--surface-solid));
+  box-shadow: 0 0 14px var(--sig-glow);
+  color: var(--sig-line);
+}
+.chrono__badge svg { width: 28px; height: 28px; }
+.chrono__body { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.chrono__name { font-weight: 700; color: var(--text); font-size: .95rem; }
+.chrono__desc { font-size: .78rem; color: var(--muted); line-height: 1.35; }
+.chrono__empty {
+  margin: 4px 0 0;
+  padding: 12px 14px;
+  border-radius: var(--radius);
+  border: 1px dashed var(--border);
+  color: var(--muted);
+  font-size: .82rem;
+  text-align: center;
+}
 
 /* EXERCISE VIEW */
 .modal__card.exercise { max-width: 480px; }
@@ -8207,13 +8258,20 @@ html.is-field-mode .thinking { background: var(--sky); }
 .thinking-tool--idea, .thinking-block--idea, .thinking-link--idea { --block-color: var(--c-imp-5); }
 .thinking-tool--text, .thinking-block--text, .thinking-link--text { --block-color: var(--muted); }
 .thinking-tool--bloc, .thinking-block--bloc, .thinking-link--bloc { --block-color: var(--muted); }
-/* the five stops the chip walks through, the palette's own */
-.thinking-block--bloc.is-tint-1, .thinking-link--bloc.is-tint-1 { --block-color: var(--c-imp-1); }
-.thinking-block--bloc.is-tint-2, .thinking-link--bloc.is-tint-2 { --block-color: var(--c-imp-2); }
-.thinking-block--bloc.is-tint-3, .thinking-link--bloc.is-tint-3 { --block-color: var(--c-imp-3); }
-.thinking-block--bloc.is-tint-4, .thinking-link--bloc.is-tint-4 { --block-color: var(--c-imp-4); }
-.thinking-block--bloc.is-tint-5, .thinking-link--bloc.is-tint-5 { --block-color: var(--c-imp-5); }
+/* the five stops the chip walks through, the palette's own — shared by a bloc
+   and a table's row/column headers */
+.thinking-block--bloc.is-tint-1, .thinking-link--bloc.is-tint-1,
+.thinking-block--table.is-tint-1 { --block-color: var(--c-imp-1); }
+.thinking-block--bloc.is-tint-2, .thinking-link--bloc.is-tint-2,
+.thinking-block--table.is-tint-2 { --block-color: var(--c-imp-2); }
+.thinking-block--bloc.is-tint-3, .thinking-link--bloc.is-tint-3,
+.thinking-block--table.is-tint-3 { --block-color: var(--c-imp-3); }
+.thinking-block--bloc.is-tint-4, .thinking-link--bloc.is-tint-4,
+.thinking-block--table.is-tint-4 { --block-color: var(--c-imp-4); }
+.thinking-block--bloc.is-tint-5, .thinking-link--bloc.is-tint-5,
+.thinking-block--table.is-tint-5 { --block-color: var(--c-imp-5); }
 .thinking-tool--note, .thinking-block--note, .thinking-link--note { --block-color: var(--muted); }
+.thinking-tool--table, .thinking-block--table, .thinking-link--table { --block-color: var(--c-imp-2); }
 .thinking-tool--text {
   border-color: color-mix(in srgb, var(--muted) 24%, transparent);
   background: transparent;
@@ -10016,8 +10074,9 @@ html.is-field-mode .thinking-plane { background: transparent; box-shadow: none; 
   text-align: center;
 }
 /* a speck in the top left corner, not a button: at 7px a dashed ring falls
-   apart, so empty is a plain hollow one and colour simply fills it */
-.thinking-bloc__chip {
+   apart, so empty is a plain hollow one and colour simply fills it. Shared by
+   a bloc and a table header — both walk the same five stops. */
+.thinking-tint-chip {
   width: 7px;
   height: 7px;
   flex: none;
@@ -10028,12 +10087,84 @@ html.is-field-mode .thinking-plane { background: transparent; box-shadow: none; 
   cursor: pointer;
   transition: transform .16s ease, background .16s ease, border-color .16s ease;
 }
-.thinking-bloc__chip:hover { transform: scale(1.5); }
-.thinking-block--bloc.is-tinted .thinking-bloc__chip {
+.thinking-tint-chip:hover { transform: scale(1.5); }
+.thinking-block.is-tinted .thinking-tint-chip {
   border-color: var(--block-color);
   background: var(--block-color);
 }
 .thinking-block--bloc > .thinking-block__head > .thinking-block__delete { margin-left: auto; }
+
+/* A TABLE — the name shows once, on whichever cell is carrying it (see
+   isTableTitleCell in JS), so every other cell's head is just a thin strip
+   with a delete button, exactly like a text block's. Row and column titles
+   are bold and centred, the way a spreadsheet's own headers read; the corner
+   is smaller still, an icon and nothing else, since it holds no text. */
+.thinking-block--table > .thinking-block__head {
+  min-height: 23px;
+  padding: 2px 4px 0;
+  border-bottom: 0;
+  background: none;
+}
+.thinking-block--table > .thinking-block__head > .thinking-block__delete { margin-left: auto; }
+.thinking-table-cell--columnHeader .thinking-block__text,
+.thinking-table-cell--rowHeader .thinking-block__text {
+  min-height: 0;
+  padding: 0 8px 6px;
+  color: var(--text);
+  font-size: .82rem;
+  font-weight: 700;
+  line-height: 1.3;
+  text-align: center;
+}
+/* The corner carries no name, so its head is not a strip beside an icon —
+   it is the icon, filling the whole tile the way a folded organization
+   tile's own icon fills its square, badge dropped for the same reason. */
+.thinking-table-cell--corner > .thinking-block__head {
+  position: relative;
+  flex: 1 1 auto;
+  justify-content: center;
+  padding: 4px;
+}
+.thinking-table-cell--corner > .thinking-block__head > .thinking-block__icon {
+  width: 100%;
+  height: 100%;
+  max-width: 34px;
+  max-height: 34px;
+  background: none;
+}
+.thinking-table-cell--corner > .thinking-block__head > .thinking-block__icon svg {
+  width: 100%;
+  height: 100%;
+}
+/* out of the icon's way — the corner's cross floats over it, not beside it */
+.thinking-table-cell--corner > .thinking-block__head > .thinking-block__delete {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  margin-left: 0;
+}
+/* a plain cell answers to nothing — it moves only as part of the row or
+   column its title drags, never on its own */
+.thinking-table-cell--fixed > .thinking-block__head { cursor: default; }
+
+/* ONE SHEET, NOT A PILE OF CARDS — every cell used to carry the board's own
+   lift, so each cast a shadow onto the cell below and the grid read as tiles
+   at different heights, the titles highest of all. A table is flat: it is one
+   surface ruled into squares, not a stack of them.
+
+   Keeping the lift on the outer cells only does not work either — a shadow
+   spreads sideways past its own cell and lands on its neighbour, drawing a
+   dark seam at every boundary of the outer row. The whole grid gives it up. */
+.thinking-block--table { box-shadow: none; }
+/* A stuck block gives up the border on its joined edge so a pair does not
+   draw a double hairline. A grid cannot: cells overlap by a pixel, so
+   whichever one is painted last covers its neighbour's border and the rule
+   there simply vanishes — which is why some lines showed and others did not.
+   Every cell rules all four of its own sides instead; the overlap lands the
+   two borders of a boundary on the very same pixel, so it stays one hairline
+   however the cells happen to be painted. */
+.thinking-block--table.is-stuck-bottom { border-top-color: var(--border); }
+.thinking-block--table.is-stuck-right { border-left-color: var(--border); }
 .thinking-blank {
   position: absolute;
   z-index: 0;
@@ -13253,7 +13384,8 @@ html.is-field-mode .kanban__col.is-drop-target .kanban__list {
   display: flex;
   flex-direction: column;
   color: var(--c-text);
-  background: var(--c-bg);
+  /* no background of its own: #sky, underneath, is what shows through the
+     mosaic — the app itself is hidden while the room is open (see app.js) */
   opacity: 0;
   transition: opacity .3s ease;
 }
@@ -13288,73 +13420,114 @@ html.is-field-mode .kanban__col.is-drop-target .kanban__list {
   gap: 12px;
   padding: 14px 20px 10px;
 }
+.rituals__bar[hidden] { display: none; }
 .rituals__title {
   font-size: 1.05rem;
   font-weight: 600;
   letter-spacing: .01em;
 }
-.rituals__seek {
+.rituals__bare-toggle { margin-inline-start: auto; }
+.rituals__bare-toggle[aria-pressed="true"] { background: var(--accent-soft); color: var(--accent); }
+
+/* stripped down to the mosaic itself: no bar, no reel, no scrim dimming it */
+.rituals.is-bare .rituals__bar > :not(.rituals__bare-toggle),
+.rituals.is-bare .rituals__stage { display: none; }
+.rituals.is-bare::before { content: none; }
+
+.rituals__stage {
   position: relative;
-  margin-left: auto;
+  z-index: 2;
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  justify-content: center;
+}
+.rituals__stage[hidden] { display: none; }
+
+/* One column only, run top to bottom of the room — one strip, not two, so
+   the run above the search field and the run below it are never out of
+   step with each other: they are the same pieces, the same motion, just
+   hidden from view where the field sits over the middle of the run. */
+.rituals__reel {
+  flex: 0 0 auto;
+  width: min(280px, 58vw);
+  overflow: hidden;
+  padding: 10px 0;
+  -webkit-mask-image: linear-gradient(to bottom,
+    transparent 0, black 2vw,
+    black 6.5vw, transparent 8vw,
+    transparent 19vw, black 21vw,
+    black 92%, transparent 100%);
+  mask-image: linear-gradient(to bottom,
+    transparent 0, black 2vw,
+    black 6.5vw, transparent 8vw,
+    transparent 19vw, black 21vw,
+    black 92%, transparent 100%);
+}
+@media (max-width: 600px) { .rituals__reel { width: min(200px, 46vw); } }
+
+/* the run never holds still — even under the hand, it only bends speed and
+   direction — so its transform is driven entirely from app.js, frame by frame */
+.rituals__reel-track {
+  display: flex;
+  flex-direction: column;
+}
+
+/* No card, no card behind the card: just the two lines standing near the
+   top of the room, over whatever the reel or the mosaic show through. */
+.rituals__invite {
+  position: absolute;
+  z-index: 3;
+  top: 10vw;
+  left: 50%;
+  translate: -50% 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+  text-align: center;
+  width: min(560px, 92vw);
+  padding: 0 20px;
+}
+.rituals__invite-title {
+  font-size: clamp(1.3rem, 3vw, 1.9rem);
+  font-weight: 600;
+  color: var(--c-text);
+  text-shadow: 0 2px 14px rgba(0, 0, 0, .55);
+  opacity: .92;
+}
+
+.rituals__seekbar {
+  position: relative;
+  flex: 0 0 auto;
   display: flex;
   align-items: center;
-  width: min(340px, 46vw);
+  width: min(560px, 88vw);
 }
-.rituals__seek svg {
+.rituals__seekbar svg {
   position: absolute;
-  left: 11px;
-  width: 16px;
-  height: 16px;
+  left: 22px;
+  width: 19px;
+  height: 19px;
   color: var(--c-muted);
   pointer-events: none;
 }
-.rituals__seek-input {
+.rituals__seekbar-input {
   width: 100%;
-  padding: 9px 12px 9px 34px;
+  padding: 16px 22px 16px 52px;
   border: 1px solid color-mix(in srgb, var(--c-line) 70%, transparent);
   border-radius: 999px;
   background: color-mix(in srgb, var(--c-bg) 78%, transparent);
   backdrop-filter: blur(6px);
   color: var(--c-text);
   font: inherit;
-  font-size: .92rem;
+  font-size: 1.05rem;
 }
-.rituals__seek-input:focus {
+.rituals__seekbar-input:focus {
   outline: none;
   border-color: color-mix(in srgb, var(--c-accent) 60%, transparent);
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--c-sig) 22%, transparent);
 }
-
-.rituals__empty {
-  position: relative;
-  z-index: 2;
-  padding: 4px 22px 0;
-  color: var(--c-muted);
-  font-size: .9rem;
-}
-.rituals__empty[hidden] { display: none; }
-
-/* Six columns filled the way they are read: a column right down to the floor,
-   then the next one. Columns, not a grid — a grid lays its cells out row by
-   row. And `column-fill: auto` rather than the default: left to balance, five
-   tabs would spread themselves one per column instead of stacking. Filling to
-   the floor needs a height to fill, which is what the stretched flex item
-   gives; past the sixth column the wall is pushed sideways. */
-.rituals__wall {
-  position: relative;
-  z-index: 2;
-  flex: 1 1 auto;
-  min-height: 0;
-  columns: 6;
-  column-gap: 0;
-  column-fill: auto;
-  padding: 12px 22px 26px;
-  overflow-x: auto;
-  overflow-y: hidden;
-}
-@media (max-width: 1180px) { .rituals__wall { columns: 4; } }
-@media (max-width: 860px)  { .rituals__wall { columns: 3; } }
-@media (max-width: 600px)  { .rituals__wall { columns: 2; padding: 12px 14px 22px; } }
 
 /* A tile of the wall, taken off it and written on. This is the exact first
    polygon from makeZelligeGeometry(): the shallow point halfway along each
@@ -13370,7 +13543,6 @@ html.is-field-mode .kanban__col.is-drop-target .kanban__list {
      edges, where the clip eats it. */
   aspect-ratio: 3.181447 / 1;
   margin: 0;
-  break-inside: avoid;
   align-items: center;
   justify-content: center;
   padding: 12px 26px;
@@ -13378,15 +13550,21 @@ html.is-field-mode .kanban__col.is-drop-target .kanban__list {
   text-align: center;
   cursor: pointer;
   color: var(--tab-ink, #fdf7ec);
-  /* one ink, flat, exactly as the wall fires a piece — everything that gives it
-     depth happens at its rim, or in the light that passes over it */
-  background: var(--tab);
+  /* the same ink the wall fires a piece in, but let through rather than flat:
+     the piece reads as another course of the same glaze, not a sticker on it */
+  background: color-mix(in srgb, var(--tab) 72%, transparent);
   --ritual-cut: polygon(
     100% 50%, 88.2129% 87.5%, 53.929% 87.5%, 50% 100%,
     46.071% 87.5%, 11.7871% 87.5%, 0 50%, 11.7871% 12.5%,
     46.071% 12.5%, 50% 0, 53.929% 12.5%, 88.2129% 12.5%
   );
   clip-path: var(--ritual-cut);
+  /* strung on a vertical thread through its own middle, not set flat into
+     the wall: reaching for an edge sinks that side back and swings the
+     other forward, toward the glass — a spring easing it back once let go */
+  transform: perspective(560px) rotateY(var(--tab-tilt, 0deg));
+  transform-origin: 50% 50%;
+  transition: transform .26s cubic-bezier(.33, 1.5, .4, 1);
 }
 /* Light travels inside the glaze rather than painting a flat hover rectangle.
    The position varies gently from tile to tile, like the fired wall behind it. */
@@ -13430,32 +13608,41 @@ html.is-field-mode .kanban__col.is-drop-target .kanban__list {
   opacity: .8;
   transition: opacity .24s ease;
 }
-/* a piece is set in the wall: it lights, it never moves */
+/* raised above its neighbours while it turns, so the tilt clears their edges */
 .rtab:hover { z-index: 1; }
 .rtab:hover::before, .rtab:focus-visible::before { opacity: .62; }
 .rtab:hover .rtab__edge-line--5,
 .rtab:focus-visible .rtab__edge-line--5 { opacity: 1; }
+
+/* the result the keyboard rests on: lit like a hover, plus the theme's own
+   signature glow so it reads at a glance among the 3 landed on the payline */
+.rtab.is-selected { z-index: 1; filter: drop-shadow(0 0 9px var(--c-sig)) drop-shadow(0 0 2px var(--c-sig)); }
+.rtab.is-selected::before { opacity: .62; }
+.rtab.is-selected .rtab__edge-line--5 { opacity: 1; }
 .rtab__name {
   position: relative;
   z-index: 2;
   font-size: .96rem;
   font-weight: 600;
   line-height: 1.3;
+  /* fired into the glaze, not printed on it: a shallow dark relief under the
+     letters instead of a flat, stark block of colour */
+  text-shadow: 0 1px 1.5px color-mix(in srgb, var(--tab-ink-shadow, #000) 60%, transparent);
+  opacity: .92;
 }
 
-/* the blank tab at the end of the wall: nothing is fired on it yet */
-.rtab--add {
+/* an empty piece in the reel: nothing fired on it yet */
+.rtab--empty {
   --tab: color-mix(in srgb, var(--c-bg) 88%, var(--c-sig));
   --tab-lit: color-mix(in srgb, var(--c-bg) 70%, var(--c-sig));
-  color: var(--c-muted);
   backdrop-filter: blur(4px);
   border: 0;
 }
-.rtab--add .rtab__name { font-weight: 500; }
-.rtab--add:hover { color: var(--c-text); }
 
 /* THE PAGE — what the tab opens onto. White, with the tab's own colour along
    its head so you can see which one you pulled out. */
+/* no screen laid over the wall: the wall itself steps aside (see
+   ritualsWall.hidden in app.js) and this stands directly on the mosaic */
 .ritual-page {
   position: absolute;
   inset: 0;
@@ -13464,8 +13651,7 @@ html.is-field-mode .kanban__col.is-drop-target .kanban__list {
   flex-direction: column;
   align-items: center;
   padding: 16px 18px 0;
-  background: color-mix(in srgb, var(--c-bg) 72%, transparent);
-  backdrop-filter: blur(3px);
+  cursor: pointer;
   opacity: 0;
   translate: 0 8px;
   transition: opacity .24s ease, translate .24s ease;
@@ -13512,31 +13698,19 @@ html.is-field-mode .kanban__col.is-drop-target .kanban__list {
 }
 .ritual-page__del svg { width: 17px; height: 17px; }
 .ritual-page__del:hover { color: var(--c-danger); background: color-mix(in srgb, var(--c-danger) 12%, transparent); }
+/* the sheet only frames and scrolls the page now: the page itself is the
+   same paper the canvas writes its documents on, panel-sized to fit here */
 .ritual-page__sheet {
   width: min(880px, 100%);
   flex: 1 1 auto;
   min-height: 0;
-  padding: 26px 30px 20px;
-  border-top: 5px solid var(--tab, var(--c-accent));
+  overflow-y: auto;
   border-radius: 14px 14px 0 0;
-  /* white, but a paper takes a whisper of the room it is read in */
-  background: color-mix(in srgb, #fdfaf4 92%, var(--c-bg));
-  box-shadow: 0 -2px 40px -12px rgba(0, 0, 0, .5);
 }
-.ritual-page__body {
-  width: 100%;
+.ritual-page__sheet .thinking-document-sheet {
+  position: relative;
   height: 100%;
-  border: 0;
-  padding: 0;
-  resize: none;
-  background: transparent;
-  color: #2c2823;
-  font: inherit;
-  font-size: 1rem;
-  line-height: 1.8;
+  display: flex;
+  flex-direction: column;
 }
-.ritual-page__body:focus { outline: none; }
-.ritual-page__body::placeholder { color: #b3a99a; }
-@media (max-width: 600px) {
-  .ritual-page__sheet { padding: 18px 18px 14px; }
-}
+.ritual-page__sheet .thinking-document-body { flex: 1 1 auto; }

@@ -12,7 +12,7 @@
   <title>Mes tâches</title>
   <!-- the version travels in the query: without it a browser may keep
        serving the stylesheet it already has, and the app looks unchanged -->
-  <link rel="stylesheet" href="./style.css?v=651">
+  <link rel="stylesheet" href="./style.css?v=665">
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="apple-touch-icon" href="./icons/icon-192.png">
   <!-- svg tab icon, png fallback for browsers that ignore it -->
@@ -484,19 +484,32 @@
        mosaic finally lives. A tab is looked up by name, and opens onto a blank
        page: the reasons, the checklist, whatever has to be read again. -->
   <div id="ritualsView" class="rituals" hidden>
-    <div class="rituals__bar">
+    <div class="rituals__bar" id="ritualsBar">
       <button id="ritualsBack" class="detail__back" type="button" data-i18n-aria="backAria" aria-label="Retour">
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6"/></svg>
       </button>
       <h2 class="rituals__title" data-i18n="ritualsTitle">Les rituels</h2>
-      <div class="rituals__seek">
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.2"/><path d="m20 20-4.6-4.6"/></svg>
-        <input id="ritualsSearch" class="rituals__seek-input" type="text" autocomplete="off" maxlength="80"
-               data-i18n-placeholder="ritualsSearchPlaceholder" placeholder="Rechercher un rituel…">
+      <button id="ritualsBareToggle" class="detail__back rituals__bare-toggle" type="button"
+              data-i18n-aria="ritualsBareAria" aria-label="Afficher seulement la mosaïque" aria-pressed="false">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 12s3.6-7 10-7 10 7 10 7-3.6 7-10 7-10-7-10-7Z"/><circle cx="12" cy="12" r="3"/></svg>
+      </button>
+    </div>
+
+    <!-- one column of tabs, doubled back to back and scrolled by exactly half
+         its own height: a loop with no seam to notice -->
+    <div class="rituals__stage" id="ritualsStage">
+      <div class="rituals__reel" id="ritualsReel">
+        <div class="rituals__reel-track" id="ritualsReelTrack"></div>
+      </div>
+      <div class="rituals__invite" id="ritualsInvite">
+        <h3 class="rituals__invite-title" data-i18n="ritualsInviteTitle">Chercher un rituel.</h3>
+        <div class="rituals__seekbar">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="10.5" cy="10.5" r="6.2"/><path d="m20 20-4.6-4.6"/></svg>
+          <input id="ritualsSearch" class="rituals__seekbar-input" type="text" autocomplete="off" maxlength="80"
+                 data-i18n-placeholder="ritualsSearchPlaceholder" placeholder="Rechercher un rituel…">
+        </div>
       </div>
     </div>
-    <p class="rituals__empty" id="ritualsEmpty" hidden></p>
-    <div class="rituals__wall" id="ritualsWall"></div>
 
     <!-- the page the tab opens onto: white, and nothing else on it -->
     <section id="ritualPage" class="ritual-page" hidden>
@@ -511,11 +524,7 @@
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
         </button>
       </div>
-      <div class="ritual-page__sheet">
-        <textarea id="ritualPageBody" class="ritual-page__body" spellcheck="false"
-                  data-i18n-placeholder="ritualBodyPlaceholder"
-                  placeholder="Écrivez ici ce que vous voudrez relire…"></textarea>
-      </div>
+      <div class="ritual-page__sheet" id="ritualPageSheet"></div>
     </section>
   </div>
 
@@ -922,6 +931,40 @@
     </div>
   </div>
 
+  <!-- habit detail: reached from its icon in the habit rule. Rename, re-icon,
+       its own history alone, and whatever its type keeps besides. -->
+  <div id="habitDetailView" class="modal" hidden>
+    <div class="modal__backdrop" data-close></div>
+    <div class="modal__card hdetail">
+      <div class="modal__head">
+        <h2 class="modal__title" data-i18n="blockHabit">Habitude</h2>
+        <button class="modal__close" data-close data-i18n-aria="closeAria" aria-label="Fermer">×</button>
+      </div>
+
+      <div class="hcard__head">
+        <button class="hcard__icon" id="habitDetailIcon" type="button"
+                data-i18n-aria="editIconLabel" aria-label="Icône"></button>
+        <input class="hcard__name" id="habitDetailName" type="text" maxlength="40"
+               data-i18n-placeholder="habitNamePlaceholder" placeholder="Ex. Boire de l'eau">
+        <button class="hcard__del" id="habitDetailDelete" type="button"
+                data-i18n-aria="habitDeleteAria" aria-label="Supprimer l'habitude">×</button>
+      </div>
+
+      <div class="hcard__stats">
+        <span class="hcard__streak" id="habitDetailStreak"></span>
+      </div>
+
+      <span class="field__label" data-i18n="habitDetailHistoryLabel">Historique</span>
+      <div class="heat" id="habitDetailHeat"></div>
+
+      <div class="hdetail__sleep" id="habitDetailSleep" hidden>
+        <span class="field__label" data-i18n="sleepCycleLabel">Cycle de sommeil</span>
+        <div class="sleep__weekstats" id="habitDetailCycle"></div>
+        <div id="habitDetailChrono"></div>
+      </div>
+    </div>
+  </div>
+
   <!-- reflection opens directly on its working canvas -->
   <div id="thinkingView" class="thinking" hidden>
     <section id="thinkingBoard" class="thinking-board">
@@ -964,6 +1007,7 @@
             <button class="thinking-tool thinking-tool--text" type="button" data-block-type="text"><span class="thinking-tool__mark" aria-hidden="true"></span><span data-i18n="blockText">Texte</span></button>
             <button class="thinking-tool thinking-tool--note" type="button" data-block-type="note"><span class="thinking-tool__mark" aria-hidden="true"></span><span data-i18n="blockNote">Note</span></button>
             <button class="thinking-tool thinking-tool--bloc" type="button" data-block-type="bloc"><span class="thinking-tool__mark" aria-hidden="true"></span><span data-i18n="blockBloc">Bloc</span></button>
+            <button class="thinking-tool thinking-tool--table" type="button" data-block-type="table"><span class="thinking-tool__mark" aria-hidden="true"></span><span data-i18n="blockTable">Tableau</span></button>
             <button class="thinking-tool thinking-tool--step" type="button" data-block-type="step"><span class="thinking-tool__mark" aria-hidden="true"></span><span data-i18n="blockStep">Étape</span></button>
           </div>
           <div id="thinkingToolPanelPlanning" class="thinking-tools__panel" role="group" aria-labelledby="thinkingToolSectionSwitch" data-thinking-tool-panel="planning" hidden>
@@ -1165,6 +1209,6 @@
     <button id="toastAction" class="toast__action" type="button" hidden></button>
   </div>
 
-  <script src="./app.js?v=651"></script>
+  <script src="./app.js?v=665"></script>
 </body>
 </html>
