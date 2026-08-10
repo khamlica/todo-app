@@ -882,6 +882,8 @@
       sleepWakeEstimateLabel: "Lever estimé",
       sleepSave: "Enregistrer",
       sleepSaved: "Sommeil enregistré",
+      sleepWakePlaced: "Lever placé à {time}",
+      sleepLost: "{duration} de sommeil perdu",
       exerciseTitle: "Exercices rapides",
       exerciseSearchPlaceholder: "Rechercher un exercice…",
       exerciseCatalogEmpty: "Aucun résultat.",
@@ -946,6 +948,7 @@
       timerDone: "Minuteur terminé",
       railUnfold: "Déplier les sous-tâches",
       stepsLabel: "Étapes",
+      stepsAsideLabel: "Étapes mises de côté",
       importantLabel: "Important",
       importanceAria: "Importance",
       backAria: "Retour",
@@ -1127,6 +1130,8 @@
       thinkingDropProjectFolder: "Supprimer ce dossier supprimera aussi le projet qu'il range. Continuer ?",
       thinkingRename: "Renommer",
       thinkingLinkTool: "Liaison",
+      thinkingPinTool: "Épingler",
+      thinkingPinHint: "Choisissez un bloc organisation à épingler.",
       thinkingCancel: "Annuler",
       thinkingChangeType: "Changer le type du bloc",
       thinkingConnectionOne: "liaison",
@@ -1285,6 +1290,8 @@
       sleepWakeEstimateLabel: "Estimated wake-up",
       sleepSave: "Save",
       sleepSaved: "Sleep saved",
+      sleepWakePlaced: "Wake-up placed at {time}",
+      sleepLost: "{duration} of sleep lost",
       exerciseTitle: "Quick exercises",
       exerciseSearchPlaceholder: "Search an exercise…",
       exerciseCatalogEmpty: "No match.",
@@ -1349,6 +1356,7 @@
       timerDone: "Timer finished",
       railUnfold: "Unfold the subtasks",
       stepsLabel: "Steps",
+      stepsAsideLabel: "Set-aside steps",
       importantLabel: "Important",
       importanceAria: "Importance",
       backAria: "Back",
@@ -1530,6 +1538,8 @@
       thinkingDropProjectFolder: "Deleting this folder will also delete the project it holds. Continue?",
       thinkingRename: "Rename",
       thinkingLinkTool: "Link",
+      thinkingPinTool: "Pin",
+      thinkingPinHint: "Choose a container to pin down.",
       thinkingCancel: "Cancel",
       thinkingChangeType: "Change block type",
       thinkingConnectionOne: "connection",
@@ -4060,7 +4070,11 @@
 
   function onZelligeResize() {
     clearTimeout(zelligeResizeTimer);
-    zelligeResizeTimer = setTimeout(paintZellige, 180);   // a drag is one repaint
+    zelligeResizeTimer = setTimeout(function () {
+      paintZellige();   // a drag is one repaint
+      // the tiles it just rebuilt are what the tabs are cut from
+      if (!ritualsView.hidden) renderRituals();
+    }, 180);
   }
 
   /* The threshold may have a ground of its own, but the block field is now a
@@ -5781,6 +5795,29 @@
     const mirror = document.getElementById(config.mirror);
     const hint = document.getElementById(config.hint);
     const button = document.getElementById(config.button);
+    let chipMinWidth = 0;   // the chip it opened from — never shrinks past that
+
+    /* A ruler sized by nothing but its own text. The on-screen mirror cannot
+       measure a shrink: inset:0 stretches it to the field's current width, so
+       once the field is wide a short new line still reports that old width
+       back, never its own smaller one. Only built for the chip variant. */
+    let chipRuler = null;
+    if (form.classList.contains("quick--chip")) {
+      chipRuler = document.createElement("span");
+      chipRuler.style.cssText =
+        "position:fixed; visibility:hidden; white-space:pre; top:-9999px; left:-9999px;";
+      document.body.appendChild(chipRuler);
+    }
+    function chipWidth(text) {
+      chipRuler.style.font = getComputedStyle(input).font;
+      chipRuler.textContent = text;
+      const inputCs = getComputedStyle(input);
+      const fieldCs = getComputedStyle(input.closest(".quick__field"));
+      const frame = parseFloat(inputCs.paddingLeft) + parseFloat(inputCs.paddingRight)
+        + parseFloat(fieldCs.borderLeftWidth) + parseFloat(fieldCs.borderRightWidth);
+      // the +8 is not padding, it is room for the caret past the last glyph
+      return chipRuler.getBoundingClientRect().width + frame + 8;
+    }
 
     function dayOf(parsed) {
       return config.resolveDate ? config.resolveDate(parsed) : parsed.date;
@@ -5807,6 +5844,11 @@
       }
       mirror.appendChild(document.createTextNode(text.slice(at)));
       mirror.scrollLeft = input.scrollLeft;
+      // A chip opens at the width of the + it replaced; typing past that has to
+      // widen it, or every word past the first few is scrolled out of sight —
+      // and deleting back down has to narrow it again, all the way to the chip
+      // it started as.
+      if (chipRuler) form.style.width = Math.max(chipMinWidth, chipWidth(text)) + "px";
 
       const bits = [];
       const day = dayOf(parsed);
@@ -5826,7 +5868,10 @@
       const width = button.getBoundingClientRect().width;
       button.hidden = true;
       form.hidden = false;
-      if (form.classList.contains("quick--chip")) form.style.width = width + "px";
+      if (form.classList.contains("quick--chip")) {
+        chipMinWidth = width;
+        form.style.width = width + "px";
+      }
       input.focus();
       render();
     }
@@ -6661,6 +6706,7 @@
     sleepView.hidden = true;
     renderHabits();
     renderWelcomeHabits();
+    renderTimeRule();
     showToast(translate("sleepSaved"));
   });
 
@@ -9190,6 +9236,7 @@
       pointerX: event.clientX,
       pointerY: event.clientY,
       deleting: false,
+      sleepDrop: null,
       projectTarget: null,
       paneSwitchAt: 0
     };
@@ -9232,16 +9279,22 @@
     habitDrag.pointerY = clientY;
     maybeSwitchHabitPane();
     const deleting = timelineTrashHit(clientX, clientY);
-    const target = deleting ? null : habitProjectDropAt(clientX, clientY);
+    const sleepDrop = !deleting && habitDrag.habit.type === "sleep"
+      ? taskDropAt(clientX, clientY) : null;
+    const target = (deleting || sleepDrop) ? null : habitProjectDropAt(clientX, clientY);
     if (habitDrag.projectTarget) {
       habitDrag.projectTarget.row.classList.remove("is-habit-drop-target");
     }
     habitDrag.deleting = deleting;
+    habitDrag.sleepDrop = sleepDrop;
     habitDrag.projectTarget = target;
     if (target) target.row.classList.add("is-habit-drop-target");
     showTimelineTrash(true, deleting);
+    showSleepDrop(sleepDrop);
+    dtlEl.classList.toggle("is-sleep-target", !!sleepDrop);
     habitDrag.ghost.classList.toggle("is-delete-target", deleting);
     habitDrag.ghost.classList.toggle("is-link-target", !!target);
+    habitDrag.ghost.classList.toggle("is-sleep-target", !!sleepDrop);
   }
 
   function moveHabitDrag(event) {
@@ -9273,6 +9326,8 @@
       drag.handle.releasePointerCapture(drag.pointerId);
     }
     drag.ghost.remove();
+    showSleepDrop(null);
+    dtlEl.classList.remove("is-sleep-target");
     showTimelineTrash(false, false);
     clearHabitProjectTargets();
     pagesTrack.classList.remove("is-habit-dragging");
@@ -9304,6 +9359,7 @@
     habitDrag = null;
     cleanHabitDrag(drag);
     if (drag.deleting) removeHabit(drag.habit.id);
+    else if (drag.sleepDrop) placeSleepWake(drag.habit, drag.sleepDrop);
     else if (drag.projectTarget) linkHabitToProject(drag.habit, drag.projectTarget.project);
   }
 
@@ -10898,6 +10954,99 @@
     if (!skyView.hidden) renderSky();
   }
 
+  const asideStepSectionsOpen = {};
+
+  /* What has been put aside is no longer a dim star left on the active course.
+     Every constellation owns its own folded shelf under its steps and keeps
+     only the plain controls needed to bring an item back. */
+  function createAsideStepsSection(project, branch) {
+    const shelved = asideSteps(branch);
+    if (!shelved.length) return null;
+
+    const section = document.createElement("section");
+    section.className = "psteps-aside";
+    const toggle = document.createElement("button");
+    toggle.type = "button";
+    toggle.className = "psteps-aside__toggle";
+    const label = document.createElement("span");
+    label.textContent = translate("stepsAsideLabel");
+    const count = document.createElement("span");
+    count.className = "psteps-aside__count";
+    count.textContent = String(shelved.length);
+    const chevron = document.createElement("span");
+    chevron.className = "psteps-aside__chevron";
+    chevron.innerHTML = iconSvg('<polyline points="6 9 12 15 18 9"/>');
+    toggle.append(label, count, chevron);
+
+    const body = document.createElement("div");
+    body.className = "psteps-aside__body";
+    const shelfKey = project.id + "|" + branch.id;
+    const open = !!asideStepSectionsOpen[shelfKey];
+    body.hidden = !open;
+    section.classList.toggle("is-open", open);
+    toggle.setAttribute("aria-expanded", open ? "true" : "false");
+    toggle.addEventListener("click", function () {
+      const expanded = !section.classList.contains("is-open");
+      asideStepSectionsOpen[shelfKey] = expanded;
+      section.classList.toggle("is-open", expanded);
+      toggle.setAttribute("aria-expanded", expanded ? "true" : "false");
+      body.hidden = !expanded;
+    });
+
+    for (let i = shelved.length - 1; i >= 0; i--) {
+      body.appendChild(createAsideStepRow(project, branch, shelved[i]));
+    }
+    section.append(toggle, body);
+    return section;
+  }
+
+  function createAsideStepRow(project, branch, step) {
+    const row = document.createElement("div");
+    row.className = "psteps-aside__row";
+    row.dataset.stepId = step.id;
+    const index = branch.steps.indexOf(step);
+    row.style.setProperty("--goal-color", paletteColorAt(paletteStops(),
+      branch.steps.length > 1 ? Math.max(0, index) / (branch.steps.length - 1) : 0));
+    row.title = translate("stepDragAria");
+    armInlineStepDrag(row, row, project, step);
+
+    const text = document.createElement("textarea");
+    text.className = "step__text psteps-aside__text";
+    text.rows = 1;
+    text.maxLength = 200;
+    text.value = step.text || "";
+    text.addEventListener("input", function () {
+      step.text = text.value;
+      fitLine(text);
+      saveState();
+    });
+    text.addEventListener("keydown", function (event) {
+      if (event.key === "Enter") { event.preventDefault(); text.blur(); }
+    });
+    requestAnimationFrame(function () { fitLine(text); });
+
+    row.appendChild(text);
+
+    const restore = document.createElement("button");
+    restore.type = "button";
+    restore.className = "step__aside psteps-aside__restore";
+    restore.setAttribute("aria-label", translate("asideBack"));
+    restore.title = translate("asideBack");
+    restore.innerHTML = iconSvg(ICON_ASIDE_OFF);
+    restore.addEventListener("click", function () {
+      toggleAside(step, function () { refreshAsideStep(project); });
+    });
+
+    const del = document.createElement("button");
+    del.type = "button";
+    del.className = "step__del psteps-aside__del";
+    del.setAttribute("aria-label", translate("deleteAria"));
+    del.textContent = "×";
+    del.addEventListener("click", function () { removeStep(project, step.id); });
+    row.append(restore, del);
+    return row;
+  }
+
   /* one branch: its name, then the same two readings the objective had before */
   function createBranchBlock(project, branch) {
     const block = document.createElement("section");
@@ -10911,6 +11060,8 @@
     if (pulse !== null) body.style.setProperty("--branch-pulse", pulse.toFixed(2));
     renderStepChecklist(body, project, branch);
     block.appendChild(body);
+    const asideSection = createAsideStepsSection(project, branch);
+    if (asideSection) block.appendChild(asideSection);
     block.appendChild(createBranchHabits(project, branch));
     return block;
   }
@@ -11164,18 +11315,15 @@
     return at;
   }
 
-  /* WHAT IS SET ASIDE STAYS ON THE COURSE — it used to be filed away in an inbox,
-     which meant a second place to look and a second thing to keep in step. It is
-     read where it was left instead: greyed and shrunk, as a task set aside is. */
+  /* The active course contains only steps still in play. Shelved steps are
+     gathered by asideSteps() into the folded list immediately below it. */
   function activeSteps(branch) {
-    return branch.steps.slice();
+    return branch.steps.filter(function (step) { return !step.aside; });
   }
 
-  /* a step set aside is redrawn where it stands, on its course */
+  /* Moving a step between the course and its shelf only redraws step surfaces. */
   function refreshAsideStep(project) {
     refreshStepSections(project);
-    refreshBranchHead(project);
-    if (openProject === project.id) renderPanelSheets(project);
   }
 
   /* An objective sets steps aside and a task sets subtasks aside; both stay in
@@ -11191,15 +11339,10 @@
     refreshOpenRow(owner);
   }
 
-  function asideSteps(project) {
-    const branches = projectBranches(project);
+  function asideSteps(branch) {
     const shelved = [];
-    for (let b = 0; b < branches.length; b++) {
-      for (let i = 0; i < branches[b].steps.length; i++) {
-        if (branches[b].steps[i].aside) {
-          shelved.push({ branch: branches[b], step: branches[b].steps[i] });
-        }
-      }
+    for (let i = 0; i < branch.steps.length; i++) {
+      if (branch.steps[i].aside) shelved.push(branch.steps[i]);
     }
     return shelved;
   }
@@ -12303,6 +12446,25 @@
     openThinkingCanvas(found.tree.id);
     if (found.node !== found.tree) navigateThinkingCanvas(found.node.id);
     centreThinkingCanvas(found.node);
+  }
+
+  /* A pin left on a container anywhere in the thinking space, reached exactly
+     the way a task's or a project's own canvas already is: the calendar turns
+     over and the board mounts on its back, not a full screen shown over it. A
+     folder has no view of its own to land on — thinkingBackTarget already walks
+     past folders to find the nearest room that does, which is exactly the room
+     its own card sits in. The key is built off the pin's own id rather than the
+     room it resolves to, so two different pinned folders sharing a room never
+     collide into looking like the same open/close toggle. */
+  function openPinnedThinkingBlock(blockId) {
+    const found = findSheetCanvas(blockId);
+    if (!found) return;
+    const node = found.node.type === "folder"
+      ? (thinkingBackTarget(found.tree, found.node) || found.node)
+      : found.node;
+    showCanvasOnCard("canvas:pin:" + found.node.id, null, function () {
+      return { tree: found.tree, node: node };
+    });
   }
 
   /* A camera is a scroll offset, so the same one shows a different part of the
@@ -14145,32 +14307,26 @@
     return found;
   }
 
-  /* A tab is cut from the wall behind it: the theme gives the hue, the zellige
-     gives how deep and how loud it is fired. Change theme and the tabs are
-     recoloured with the mosaic, which is the whole point of taking their
-     colours from there rather than picking eight of our own. */
+  /* A tab is a piece taken off the wall behind it — not a colour approximated
+     from the theme's seeds, the fired ink of an actual tile that paintZellige()
+     already painted there. zelligeTiles holds exactly that: every tile of the
+     wall currently on screen, each with the ink it was really fired in. Picking
+     one by the ritual's place on the ramp means the tabs are drawn from the
+     same variety the wall shows — no more and no less warm than it really is. */
+  function ritualTile(tint) {
+    if (!zelligeTiles.length) return null;
+    const at = Math.max(0, Math.min(.9999, tint)) * zelligeTiles.length;
+    return zelligeTiles[Math.floor(at)];
+  }
+
   function paintRitualGlaze(element, tint) {
-    const hues = zelligeHues();
-    const at = Math.max(0, Math.min(.9999, tint)) * (hues.length - 1);
-    const first = Math.floor(at);
-    const hue = hues[first] + (hues[first + 1] - hues[first]) * (at - first);
-    const page = readColour(getComputedStyle(document.documentElement)
-      .getPropertyValue("--c-bg"));
-    /* From here it is paintZellige's own recipe, line for line. A piece is one
-       flat ink — the wall's life comes from no two being fired quite alike, not
-       from shading inside each one — and darkening keeps the colour where
-       whitening eats it, so the two sides of the lift are not the same size. */
-    const lift = (Math.sin((tint + .17) * 31.7) * .5) * .3;
-    const base = mixRgb(hslRgb(hue, ZL_SAT, ZL_LIG), page, .04);
-    const ink = lift < 0
-      ? mixRgb(base, [0, 0, 0], -lift)
-      : mixRgb(base, [255, 255, 255], lift * .45);
-    const lum = (ink[0] * .2126 + ink[1] * .7152 + ink[2] * .0722) / 255;
-    element.style.setProperty("--tab", rgbText(ink));
-    // lit, a piece burns its own hue harder rather than climbing to white
-    element.style.setProperty("--tab-lit", rgbText(hslRgb(hue,
-      Math.min(1, ZL_SAT * 1.2),
-      Math.min(.76, ZL_LIG + .14 + Math.max(0, lift) * .35))));
+    // the wall may not have painted yet the very first time this runs; a gold
+    // close to the metal cord is a reasonable stand-in for one frame
+    const tile = ritualTile(tint) || { ink: hslRgb(38, ZL_SAT, ZL_LIG),
+      litInk: hslRgb(38, Math.min(1, ZL_SAT * 1.2), ZL_LIG + .14) };
+    const lum = (tile.ink[0] * .2126 + tile.ink[1] * .7152 + tile.ink[2] * .0722) / 255;
+    element.style.setProperty("--tab", rgbText(tile.ink));
+    element.style.setProperty("--tab-lit", rgbText(tile.litInk));
     element.style.setProperty("--tab-glaze-x", (28 + tint * 44).toFixed(1) + "%");
     // a glaze at one strength is not equally dark on every hue: yellow needs ink
     element.style.setProperty("--tab-ink", lum > .56 ? "#20180a" : "#fdf7ec");
@@ -14761,6 +14917,45 @@
      folded again. One list, wherever it is being worked in. */
   const calBandLeft = document.getElementById("calBandLeft");
   const calBandRight = document.getElementById("calBandRight");
+
+  /* THE PINS — a container anywhere in the thinking space can be pinned from
+     inside it; this is the other end of that pin, reached without the board
+     opened and walked across first. Collected fresh off every canvas, since a
+     pin is just a flag left on an ordinary block. */
+  function pinnedThinkingBlocks() {
+    const pins = [];
+    for (let i = 0; i < state.canvases.length; i++) {
+      const blocks = state.canvases[i].blocks;
+      for (let j = 0; j < blocks.length; j++) {
+        if (blocks[j].pinned) pins.push(blocks[j]);
+      }
+    }
+    return pins;
+  }
+
+  function renderCalPins() {
+    const host = document.getElementById("calPinsBand");
+    if (!host) return;
+    const pins = pinnedThinkingBlocks();
+    host.innerHTML = "";
+    host.hidden = !pins.length;
+    for (let i = 0; i < pins.length; i++) {
+      const block = pins[i];
+      const pin = document.createElement("button");
+      pin.type = "button";
+      pin.className = "calpin thinking-row--" + block.type;
+      const mark = document.createElement("span");
+      mark.className = "calpin__mark";
+      mark.setAttribute("aria-hidden", "true");
+      mark.innerHTML = thinkingIconSvg(thinkingTypeIcon(block.type));
+      const name = document.createElement("span");
+      name.className = "calpin__name";
+      name.textContent = thinkingOrganizationTitle(block);
+      pin.append(mark, name);
+      pin.addEventListener("click", function () { openPinnedThinkingBlock(block.id); });
+      host.appendChild(pin);
+    }
+  }
 
   /* THE IDEA BOX — deliberately shallower than a task model: a line of text and
      its place in the pocket are all an idea owns. New thoughts land on top. */
@@ -15763,12 +15958,15 @@
   }
 
 
-  /* DAILY TIMELINE — one stable scale from midnight to midnight. Its geometry
-     never changes when a task or event appears, which also lets day dragging
-     move two neighbouring rails continuously without a change of scale. */
+  /* DAILY TIMELINE — a stable sixteen-hour window. The present is held at the
+     first quarter while the scale travels underneath it: four hours remain
+     visible behind the sun and twelve ahead. Its geometry never depends on the
+     next task or event, so neighbouring days still slide on the same scale. */
   const DAY_MS = 86400000;
-  let spanMs = DAY_MS;
-  let nowAnchor = .5;
+  const TIMELINE_SPAN_MS = 16 * 60 * 60 * 1000;
+  const TIMELINE_NOW_ANCHOR = .25;
+  let spanMs = TIMELINE_SPAN_MS;
+  let nowAnchor = TIMELINE_NOW_ANCHOR;
 
   /* the moment the rule is drawn around — the clock, unless the user is
      dragging the timeline (an option), in which case it is shifted */
@@ -15782,10 +15980,6 @@
   }
   function windowStartMs() { return timelineTime() - spanMs * nowAnchor; }
 
-  function onThreshold() {
-    return !!welcomeScreen && !welcomeScreen.dataset.gone;
-  }
-
   /* Until the day's real sunrise and sunset come back, the cursor runs on these.
      They are only ever used to place and colour the sun itself — the sunrise and
      sunset markers stay away, since those carry a time and must not be invented. */
@@ -15793,14 +15987,8 @@
   const CIVIL_SET = 19 * 60;
 
   function fitTimelineWindow() {
-    spanMs = DAY_MS;
-    // On the threshold the rule is the only thing on screen, so the present sits
-    // dead centre and the sun is in view whatever the hour. Pinned to midnight
-    // the way the app frames it, an evening sun ends up squashed against the
-    // right edge and a small-hours one against the left.
-    if (sectionDay || onThreshold()) { nowAnchor = .5; return; }
-    const start = new Date(todayKey() + "T00:00").getTime();
-    nowAnchor = Math.max(0, Math.min(1, (Date.now() - start) / DAY_MS));
+    spanMs = TIMELINE_SPAN_MS;
+    nowAnchor = TIMELINE_NOW_ANCHOR;
   }
 
   /* a moment's position across the rule, in percent (may fall outside 0-100) */
@@ -15811,6 +15999,154 @@
   function toMinutes(hhmm) {
     const parts = hhmm.split(":");
     return parseInt(parts[0], 10) * 60 + parseInt(parts[1], 10);
+  }
+
+  /* SLEEP ON THE RULE — dropping the sleep habit chooses its wake-up point.
+     The stored bedtime is exactly eight hours earlier; ordinary edits keep
+     their own two entered times and are drawn from those instead. */
+  const SLEEP_DROP_MS = 8 * 60 * 60 * 1000;
+  const dtlSleepRanges = document.getElementById("dtlSleepRanges");
+
+  function sleepEntryRange(day, entry) {
+    if (!entry || typeof entry !== "object" || !entry.wakeTime || !entry.bedtime) return null;
+    const wake = new Date(day + "T" + entry.wakeTime).getTime();
+    let bed = new Date(day + "T" + entry.bedtime).getTime();
+    if (!Number.isFinite(wake) || !Number.isFinite(bed)) return null;
+    if (bed >= wake) bed -= DAY_MS;
+    return { start: bed, end: wake };
+  }
+
+  function positionSleepRange(range, start, end, windowStart) {
+    const windowEnd = windowStart + spanMs;
+    if (end <= windowStart || start >= windowEnd) {
+      range.hidden = true;
+      return false;
+    }
+    range.hidden = false;
+    const visibleStart = Math.max(start, windowStart);
+    const visibleEnd = Math.min(end, windowEnd);
+    range.classList.toggle("is-start-clipped", start < windowStart);
+    range.classList.toggle("is-end-clipped", end > windowEnd);
+    range.style.left = timePct(visibleStart, windowStart).toFixed(3) + "%";
+    range.style.width = Math.max(.2,
+      timePct(visibleEnd, windowStart) - timePct(visibleStart, windowStart)).toFixed(3) + "%";
+    range.dataset.sleepStart = String(start);
+    range.dataset.sleepEnd = String(end);
+    range.dataset.visibleStart = String(visibleStart);
+    range.dataset.visibleEnd = String(visibleEnd);
+    return true;
+  }
+
+  function appendSleepRange(layer, start, end, windowStart, preview, habitId, day) {
+    const range = document.createElement("span");
+    range.className = "dtl__sleep-range" + (preview ? " is-preview" : "");
+    if (habitId) range.dataset.sleepHabit = habitId;
+    if (day) range.dataset.sleepDay = day;
+    if (!positionSleepRange(range, start, end, windowStart)) return null;
+    layer.appendChild(range);
+    return range;
+  }
+
+  function sleepLossText(milliseconds) {
+    const minutes = Math.max(0, Math.floor(milliseconds / 60000));
+    const hours = Math.floor(minutes / 60);
+    const rest = minutes % 60;
+    const duration = hours
+      ? hours + " h" + (rest ? " " + pad2(rest) : "")
+      : minutes + " min";
+    return translate("sleepLost").replace("{duration}", duration);
+  }
+
+  /* The moon chars only the sleep range it is currently crossing. The darkened
+     share advances with it, so the ash itself is also a reading of lost time. */
+  function paintSleepLoss(cursor, atMs, moon) {
+    if (!dtlSleepRanges || !cursor) return;
+    const ranges = dtlSleepRanges.querySelectorAll(".dtl__sleep-range");
+    let active = null;
+    let lost = 0;
+    for (let i = 0; i < ranges.length; i++) {
+      const start = Number(ranges[i].dataset.sleepStart);
+      const end = Number(ranges[i].dataset.sleepEnd);
+      const inside = moon && atMs >= start && atMs <= end;
+      ranges[i].classList.toggle("is-scorched", inside);
+      if (!inside) {
+        ranges[i].style.removeProperty("--sleep-burn");
+        continue;
+      }
+      const visibleStart = Number(ranges[i].dataset.visibleStart);
+      const visibleEnd = Number(ranges[i].dataset.visibleEnd);
+      const burn = Math.max(0, Math.min(100,
+        (atMs - visibleStart) / Math.max(1, visibleEnd - visibleStart) * 100));
+      ranges[i].style.setProperty("--sleep-burn", burn.toFixed(2) + "%");
+      active = ranges[i];
+      lost = atMs - start;
+    }
+    cursor.classList.toggle("is-sleep-lost", !!active);
+    const readout = document.getElementById("dtlCursorLoss");
+    if (readout) readout.textContent = active ? sleepLossText(lost) : "";
+  }
+
+  function renderSleepRanges(windowStart) {
+    if (!dtlSleepRanges) return;
+    dtlSleepRanges.innerHTML = "";
+    for (let i = 0; i < state.habits.length; i++) {
+      const habit = state.habits[i];
+      if (habit.type !== "sleep" || !habit.sleepLog) continue;
+      const days = Object.keys(habit.sleepLog);
+      for (let d = 0; d < days.length; d++) {
+        const span = sleepEntryRange(days[d], habit.sleepLog[days[d]]);
+        if (span) appendSleepRange(dtlSleepRanges, span.start, span.end,
+          windowStart, false, habit.id, days[d]);
+      }
+    }
+  }
+
+  function showSleepDrop(drop) {
+    if (!dtlSleepRanges) return;
+    const old = dtlSleepRanges.querySelector(".is-preview");
+    if (old) old.remove();
+    const markerLayer = document.getElementById("dtlEticks");
+    const oldMarker = markerLayer && markerLayer.querySelector(".dtl__sleep-event.is-preview");
+    if (oldMarker) oldMarker.remove();
+    const cursor = document.getElementById("dtlCursor");
+    if (!drop) {
+      paintSleepLoss(cursor, refTime(), cursor && cursor.dataset.moon === "true");
+      return;
+    }
+    const wake = new Date(drop.date + "T" + drop.time).getTime();
+    if (!Number.isFinite(wake)) return;
+    const range = appendSleepRange(dtlSleepRanges,
+      wake - SLEEP_DROP_MS, wake, windowStartMs(), true);
+    if (range) {
+      const time = document.createElement("span");
+      time.className = "dtl__sleep-wake-time";
+      time.textContent = drop.time;
+      range.appendChild(time);
+    }
+    if (markerLayer && habitDrag && habitDrag.habit.type === "sleep") {
+      const previewMarker = createSleepTimelineMarker(habitDrag.habit, drop.date,
+        { bedtime: "", wakeTime: drop.time }, wake, timePct(wake, windowStartMs()),
+        windowStartMs(), true);
+      markerLayer.appendChild(previewMarker);
+    }
+    paintSleepLoss(cursor, refTime(), cursor && cursor.dataset.moon === "true");
+  }
+
+  function placeSleepWake(habit, drop) {
+    if (!habit || habit.type !== "sleep" || !drop) return;
+    const wake = new Date(drop.date + "T" + drop.time);
+    if (!Number.isFinite(wake.getTime())) return;
+    const bed = new Date(wake.getTime() - SLEEP_DROP_MS);
+    const bedtime = pad2(bed.getHours()) + ":" + pad2(bed.getMinutes());
+    if (!habit.sleepLog) habit.sleepLog = {};
+    habit.sleepLog[drop.date] = { bedtime: bedtime, wakeTime: drop.time };
+    if (!habit.completedDates) habit.completedDates = [];
+    if (habit.completedDates.indexOf(drop.date) === -1) habit.completedDates.push(drop.date);
+    saveState();
+    renderHabits();
+    renderWelcomeHabits();
+    renderTimeRule();
+    showToast(translate("sleepWakePlaced").replace("{time}", drop.time));
   }
 
   function todaySun() {
@@ -15970,6 +16306,7 @@
     const gradient = stripGradient(sun, windowStart);
     strip.style.background = gradient;
     renderDtlTicks(windowStart);
+    renderSleepRanges(windowStart);
 
     const markers = document.getElementById("dtlMarkers");
     const cursor = document.getElementById("dtlCursor");
@@ -16127,6 +16464,13 @@
     if (offset < 0 && moonCore) {
       core = mixRgb(core, readColour(moonCore), Math.min(1, -offset / 24));
     }
+
+    const timeReadout = document.getElementById("dtlCursorTime");
+    if (timeReadout) {
+      timeReadout.textContent = pad2(at.getHours()) + ":" + pad2(at.getMinutes());
+    }
+    cursor.dataset.moon = offset < 0 ? "true" : "false";
+    paintSleepLoss(cursor, at.getTime(), offset < 0);
 
     // one colour for the whole halo: tinting the tail towards the sky made it
     // vanish at night, leaving a round disc where the day had a long smear
@@ -16758,6 +17102,197 @@
     return parseInt(parts[0], 10) * 60 + parseInt(parts[1], 10);
   }
 
+  function sleepRangeNode(habitId, day) {
+    if (!dtlSleepRanges) return null;
+    const ranges = dtlSleepRanges.querySelectorAll(".dtl__sleep-range:not(.is-preview)");
+    for (let i = 0; i < ranges.length; i++) {
+      if (ranges[i].dataset.sleepHabit === habitId
+          && ranges[i].dataset.sleepDay === day) return ranges[i];
+    }
+    return null;
+  }
+
+  /* The wake-up is a timeline object in its own right: the same square mark and
+     filament as an event, carrying the sleep glyph instead of a calendar one. */
+  function createSleepTimelineMarker(habit, day, entry, wakeAt, pct, windowStart, preview) {
+    const marker = document.createElement("button");
+    marker.type = "button";
+    marker.className = "dtl__event dtl__sleep-event" + (preview ? " is-preview" : "");
+    marker.style.left = Math.max(0, Math.min(100, pct)).toFixed(2) + "%";
+    marker.dataset.lift = "0";
+    marker.dataset.sleepHabit = habit.id;
+    marker.dataset.sleepDay = day;
+    const label = entry.wakeTime + " · " + (habit.name || translate("sleepTitle"));
+    marker.setAttribute("aria-label", label);
+
+    const wire = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+    wire.setAttribute("class", "dtl__event-filament");
+    wire.setAttribute("viewBox", "0 0 80 74");
+    wire.setAttribute("aria-hidden", "true");
+    const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+    path.setAttribute("class", "dtl__event-path");
+    path.setAttribute("d", "M40 30 C40 48 40 44 40 72");
+    const foot = document.createElementNS("http://www.w3.org/2000/svg", "circle");
+    foot.setAttribute("class", "dtl__event-foot");
+    foot.setAttribute("cx", "40");
+    foot.setAttribute("cy", "72");
+    foot.setAttribute("r", "3.5");
+    wire.append(path, foot);
+
+    const icon = document.createElement("span");
+    icon.className = "dtl__event-icon";
+    icon.innerHTML = habitSvg(habit.icon || "sleep");
+    const tip = document.createElement("span");
+    tip.className = "dtl__event-tip";
+    tip.textContent = label;
+    marker.append(wire, icon, tip);
+
+    if (preview) {
+      marker.disabled = true;
+      return marker;
+    }
+    marker.addEventListener("click", function (event) {
+      if (Date.now() < eventDragUntil) { event.preventDefault(); return; }
+      openSleepView(habit.id);
+    });
+    armSleepTimeDrag(marker, habit, day, entry, wakeAt, windowStart);
+    return marker;
+  }
+
+  function removeSleepTimelineEntry(habit, day) {
+    if (!habit.sleepLog || !habit.sleepLog[day]) return;
+    delete habit.sleepLog[day];
+    const doneAt = (habit.completedDates || []).indexOf(day);
+    if (doneAt !== -1) habit.completedDates.splice(doneAt, 1);
+    saveState();
+    renderHabits();
+    renderWelcomeHabits();
+    renderTimeRule();
+  }
+
+  /* Moving the wake-up preserves the length of its range. The marker remains
+     tied to the rule while moving sideways; the shared bin is the only other
+     destination and removes both the endpoint and its sleep span. */
+  function armSleepTimeDrag(marker, habit, originalDay, entry, originalAt, windowStart) {
+    marker.addEventListener("pointerdown", function (downEvent) {
+      if (downEvent.pointerType === "mouse" && downEvent.button !== 0) return;
+      downEvent.stopPropagation();
+      const originalRange = sleepEntryRange(originalDay, entry);
+      if (!originalRange) return;
+      const duration = originalRange.end - originalRange.start;
+      const line = dtlEl.getBoundingClientRect();
+      let moved = false;
+      let deleting = false;
+      let nextAt = originalAt;
+      marker.setPointerCapture(downEvent.pointerId);
+
+      const move = function (event) {
+        const distance = Math.abs(event.clientX - downEvent.clientX)
+          + Math.abs(event.clientY - downEvent.clientY);
+        if (!moved && distance < 4) return;
+        if (!moved) {
+          moved = true;
+          marker.classList.add("is-dragging");
+          showTimelineTrash(true, false);
+        }
+        deleting = timelineTrashHit(event.clientX, event.clientY);
+        marker.classList.toggle("is-delete-target", deleting);
+        showTimelineTrash(true, deleting);
+        const tip = marker.querySelector(".dtl__event-tip");
+        if (deleting) {
+          if (tip) tip.textContent = translate("timelineDelete");
+          return;
+        }
+
+        const ratio = Math.max(0, Math.min(1, (event.clientX - line.left) / line.width));
+        const raw = windowStart + ratio * spanMs;
+        nextAt = Math.round(raw / (EVENT_DRAG_STEP * 60000)) * EVENT_DRAG_STEP * 60000;
+        const wake = new Date(nextAt);
+        const time = pad2(wake.getHours()) + ":" + pad2(wake.getMinutes());
+        marker.style.left = timePct(nextAt, windowStart).toFixed(2) + "%";
+        marker.setAttribute("aria-label", time + " · " + (habit.name || translate("sleepTitle")));
+        if (tip) tip.textContent = time + " · " + (habit.name || translate("sleepTitle"));
+
+        const range = sleepRangeNode(habit.id, originalDay);
+        if (range) {
+          positionSleepRange(range, nextAt - duration, nextAt, windowStart);
+          let readout = range.querySelector(".dtl__sleep-wake-time");
+          if (!readout) {
+            readout = document.createElement("span");
+            readout.className = "dtl__sleep-wake-time";
+            range.appendChild(readout);
+          }
+          readout.textContent = time;
+          const cursor = document.getElementById("dtlCursor");
+          paintSleepLoss(cursor, refTime(), cursor && cursor.dataset.moon === "true");
+        }
+      };
+
+      const cleanup = function () {
+        marker.removeEventListener("pointermove", move);
+        marker.removeEventListener("pointerup", up);
+        marker.removeEventListener("pointercancel", cancel);
+        marker.classList.remove("is-dragging", "is-delete-target");
+        showTimelineTrash(false, false);
+        if (marker.hasPointerCapture(downEvent.pointerId)) {
+          marker.releasePointerCapture(downEvent.pointerId);
+        }
+      };
+
+      const up = function () {
+        cleanup();
+        if (!moved) return;
+        eventDragUntil = Date.now() + 300;
+        if (deleting) {
+          removeSleepTimelineEntry(habit, originalDay);
+          return;
+        }
+        const wake = new Date(nextAt);
+        const bed = new Date(nextAt - duration);
+        const nextDay = dateKeyOf(wake);
+        const nextEntry = {
+          bedtime: pad2(bed.getHours()) + ":" + pad2(bed.getMinutes()),
+          wakeTime: pad2(wake.getHours()) + ":" + pad2(wake.getMinutes())
+        };
+        delete habit.sleepLog[originalDay];
+        habit.sleepLog[nextDay] = nextEntry;
+        if (!habit.completedDates) habit.completedDates = [];
+        const oldDone = habit.completedDates.indexOf(originalDay);
+        if (oldDone !== -1) habit.completedDates.splice(oldDone, 1);
+        if (habit.completedDates.indexOf(nextDay) === -1) habit.completedDates.push(nextDay);
+        saveState();
+        renderHabits();
+        renderWelcomeHabits();
+        renderTimeRule();
+      };
+
+      const cancel = function () {
+        cleanup();
+        if (moved) renderTimeRule();
+      };
+      marker.addEventListener("pointermove", move);
+      marker.addEventListener("pointerup", up);
+      marker.addEventListener("pointercancel", cancel);
+    });
+  }
+
+  function renderSleepTimelineMarkers(layer, windowStart) {
+    for (let i = 0; i < state.habits.length; i++) {
+      const habit = state.habits[i];
+      if (habit.type !== "sleep" || !habit.sleepLog) continue;
+      const days = Object.keys(habit.sleepLog);
+      for (let d = 0; d < days.length; d++) {
+        const entry = habit.sleepLog[days[d]];
+        const span = sleepEntryRange(days[d], entry);
+        if (!span) continue;
+        const pct = timePct(span.end, windowStart);
+        if (pct < 0 || pct > 100) continue;
+        layer.appendChild(createSleepTimelineMarker(habit, days[d], entry,
+          span.end, pct, windowStart, false));
+      }
+    }
+  }
+
   /* A marker is a small physical thing above the time rule, so the sun can catch
      the edge turned towards it. Use the boxes actually drawn on screen: cluster
      shifts, lifted lanes, responsive widths and the moving present are then all
@@ -16916,6 +17451,7 @@
       else armEventTimeDrag(marker, data, windowStart);
       layer.appendChild(marker);
     }
+    renderSleepTimelineMarkers(layer, windowStart);
     paintTimelineSunReflections(layer);
   }
 
@@ -17787,9 +18323,12 @@
   const thinkingLinks = document.getElementById("thinkingLinks");
   const thinkingBlank = document.getElementById("thinkingBlank");
   const thinkingLinkHint = document.getElementById("thinkingLinkHint");
+  const thinkingLinkHintText = document.getElementById("thinkingLinkHintText");
+  const thinkingLinkCancel = document.getElementById("thinkingLinkCancel");
   const thinkingTrash = document.getElementById("thinkingTrash");
   const thinkingSelect = document.getElementById("thinkingSelect");
   const thinkingLinkTool = document.getElementById("thinkingLinkTool");
+  const thinkingPin = document.getElementById("thinkingPin");
   const thinkingSelectionActions = document.getElementById("thinkingSelectionActions");
   const thinkingSelectionCount = document.getElementById("thinkingSelectionCount");
   const thinkingSelectionCanvas = document.getElementById("thinkingSelectionCanvas");
@@ -17837,6 +18376,7 @@
   let thinkingTrashTimer = null;
   let thinkingSelectionMode = false;
   let thinkingLinkMode = false;
+  let thinkingPinMode = false;
   let thinkingSelectionParentId = null;
   let thinkingSelectedIds = {};
   let thinkingSelectionClickSuppressed = false;
@@ -18427,7 +18967,10 @@
 
   function setThinkingSelectionMode(active) {
     thinkingSelectionMode = !!active;
-    if (thinkingSelectionMode) thinkingLinkMode = false;
+    if (thinkingSelectionMode) {
+      thinkingLinkMode = false;
+      thinkingPinMode = false;
+    }
     thinkingLinkFrom = null;
     clearThinkingLinkPreview();
     if (!thinkingSelectionMode) clearThinkingSelection();
@@ -18441,6 +18984,20 @@
     clearThinkingLinkPreview();
     if (thinkingLinkMode) {
       thinkingSelectionMode = false;
+      thinkingPinMode = false;
+      clearThinkingSelection();
+    }
+    syncThinkingSelection();
+    syncThinkingLinkMode();
+  }
+
+  function setThinkingPinMode(active) {
+    thinkingPinMode = !!active;
+    if (thinkingPinMode) {
+      thinkingLinkMode = false;
+      thinkingSelectionMode = false;
+      thinkingLinkFrom = null;
+      clearThinkingLinkPreview();
       clearThinkingSelection();
     }
     syncThinkingSelection();
@@ -19134,6 +19691,7 @@
     releaseCanvasSheet();   // the board cannot be in a sheet and on the screen at once
     setThinkingLinkToolMode(false);
     setThinkingSelectionMode(false);
+    setThinkingPinMode(false);
     thinkingLinkFrom = null;
     thinkingView.hidden = false;
     // the board stands on the app's own ground: the very same field canvas moves
@@ -19151,11 +19709,13 @@
     hideThinkingTrash();
     setThinkingLinkToolMode(false);
     setThinkingSelectionMode(false);
+    setThinkingPinMode(false);
     thinkingView.classList.remove("is-open");
     openCanvasId = null;
     viewedCanvasId = null;
     thinkingToolContext = null;
     thinkingLinkFrom = null;
+    renderCalPins();   // whatever changed in the board, the calendar sees on the way out
     setTimeout(function () {
       thinkingView.hidden = true;
       document.body.insertBefore(fieldCanvas, document.getElementById("decor"));
@@ -21156,6 +21716,13 @@
     card.addEventListener("pointerdown", function () { clearTimeout(clickTimer); });
     card.addEventListener("click", function (event) {
       if (!hitsCanvasSurface(event)) return;
+      if (thinkingPinMode) {
+        block.pinned = !block.pinned;
+        touchCanvas(canvas);
+        renderThinkingCanvas(canvas);
+        renderCalPins();   // the calendar's own copy of the pin, kept in step
+        return;
+      }
       // Only a folder still has something to unfold, and only its head answers a
       // click once it is open. Everything else is a tile: one click goes in, so
       // there is no second gesture to wait for and no delay before it moves.
@@ -21958,6 +22525,17 @@
         && (linked || actions.childElementCount)) card.appendChild(foot);
     if (blockResize) card.appendChild(blockResize);
     if (stickAdd) card.appendChild(stickAdd);
+    if (organization && block.pinned) {
+      const pin = document.createElement("span");
+      pin.className = "thinking-pin";
+      pin.setAttribute("aria-hidden", "true");
+      pin.innerHTML = '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true">'
+        + '<path d="M12 12.5 12 22" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>'
+        + '<path d="M9.6 3.2h4.8l-.9 5.1 3.1 3.3a1 1 0 0 1-.7 1.7H8.1a1 1 0 0 1-.7-1.7l3.1-3.3Z"'
+        + ' fill="currentColor"/>'
+        + '<rect x="8.7" y="2" width="6.6" height="2.6" rx="1.3" fill="currentColor"/></svg>';
+      card.appendChild(pin);
+    }
     if (text) requestAnimationFrame(function () {
       fitThinkingText(text, block.type === "text" || block.type === "bloc" ? 24
         : nested ? 32 : 36);
@@ -22705,7 +23283,7 @@
 
   function armThinkingDrag(handle, card, block, canvas, nested, insideCanvas) {
     handle.addEventListener("pointerdown", function (event) {
-      if (thinkingSelectionMode) return;
+      if (thinkingSelectionMode || block.pinned) return;
       const interactive = event.target.closest("button, input, textarea, select");
       if (event.button !== 0 || (interactive && interactive !== handle)) return;
       handle.setPointerCapture(event.pointerId);
@@ -23194,11 +23772,17 @@
   }
 
   function syncThinkingLinkMode() {
-    thinkingLinkHint.hidden = !thinkingLinkMode || !thinkingLinkFrom;
+    thinkingLinkHint.hidden = !(thinkingLinkMode && thinkingLinkFrom) && !thinkingPinMode;
+    thinkingLinkHintText.textContent = translate(thinkingPinMode
+      ? "thinkingPinHint" : "thinkingLinkHint");
+    thinkingLinkCancel.hidden = thinkingPinMode;
     thinkingLinkTool.setAttribute("aria-pressed", thinkingLinkMode ? "true" : "false");
     thinkingLinkTool.title = translate("thinkingLinkTool");
     thinkingBoard.classList.toggle("is-link-tool", thinkingLinkMode);
     thinkingBoard.classList.toggle("is-linking", thinkingLinkMode && !!thinkingLinkFrom);
+    thinkingPin.setAttribute("aria-pressed", thinkingPinMode ? "true" : "false");
+    thinkingPin.title = translate("thinkingPinTool");
+    thinkingBoard.classList.toggle("is-pin-tool", thinkingPinMode);
     const cards = thinkingBlocks.querySelectorAll(".thinking-block");
     for (let i = 0; i < cards.length; i++) {
       cards[i].classList.toggle("is-link-source", cards[i].dataset.blockId === thinkingLinkFrom);
@@ -23324,7 +23908,7 @@
   document.getElementById("thinkingBtn").addEventListener("click", openThinking);
   document.getElementById("thinkingBoardBack").addEventListener("click", closeCurrentThinkingCanvas);
   document.getElementById("thinkingExit").addEventListener("click", closeThinking);
-  document.getElementById("thinkingLinkCancel").addEventListener("click", function () {
+  thinkingLinkCancel.addEventListener("click", function () {
     thinkingLinkFrom = null;
     clearThinkingLinkPreview();
     syncThinkingLinkMode();
@@ -23334,6 +23918,9 @@
   });
   thinkingLinkTool.addEventListener("click", function () {
     setThinkingLinkToolMode(!thinkingLinkMode);
+  });
+  thinkingPin.addEventListener("click", function () {
+    setThinkingPinMode(!thinkingPinMode);
   });
   thinkingToolSectionSwitch.addEventListener("click", cycleThinkingToolSection);
   thinkingSelectionCanvas.addEventListener("click", putThinkingSelectionInCanvas);
@@ -23659,6 +24246,7 @@
   appReady = true;
   renderList("tasks");
   renderList("projects");
+  renderCalPins();
   renderHabits();
   renderEventCal();
   renderDailyTimeline();

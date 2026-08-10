@@ -3808,7 +3808,7 @@ html.is-field-mode .ecal-band .project-tab::after { content: none; }
    its own — and the hint hangs under the line rather than opening it. */
 .quick--chip {
   position: relative;
-  flex: 0 0 auto;   /* its width is the chip's, measured when it opens */
+  flex: 0 0 auto;   /* its width starts as the chip's, then follows what is typed */
   margin: 0;
 }
 .quick--chip .quick__field {
@@ -4168,6 +4168,12 @@ body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: non
 .habit-drag-ghost.is-link-target {
   border-color: var(--accent);
   background: color-mix(in srgb, var(--surface-solid) 90%, var(--accent) 10%);
+}
+.habit-drag-ghost.is-sleep-target {
+  color: color-mix(in srgb, var(--sig-line) 82%, var(--text));
+  border-color: color-mix(in srgb, var(--sig-line) 76%, transparent);
+  background: color-mix(in srgb, var(--surface-solid) 88%, var(--sig-line) 12%);
+  box-shadow: 0 0 22px color-mix(in srgb, var(--sig-line) 28%, transparent);
 }
 .habit-drag-ghost.is-delete-target {
   color: var(--danger);
@@ -5517,6 +5523,15 @@ body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: non
 }
 /* the hint is centred under the field it belongs to, not against the column */
 .quick--event .quick__hint { text-align: center; }
+/* Typing past the chip's starting width grows it (see the mirror-width measure
+   in wireQuickAdd), up to a cap so one long line cannot push the whole rule
+   wide. Both classes named: .quick--event alone resets max-width to none just
+   above, and a single-class rule for the cap would lose that tie by sitting
+   earlier in the file. */
+.quick--chip.quick--event {
+  max-width: min(420px, 100%);
+  transition: width .15s ease;
+}
 
 
 /* WEATHER GRAPH (modal) */
@@ -5656,6 +5671,102 @@ body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: non
   opacity: .5;
   z-index: -1;
 }
+
+/* SLEEP RANGE — a wake-up dropped on the rule lays the preceding sleep above
+   it. The band is translucent and softly layered, closer to moonlight than to
+   an event bar; its separate sleep marker lands on the chosen waking minute. */
+.dtl__sleep-ranges {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  overflow: visible;
+  pointer-events: none;
+}
+.dtl__sleep-range {
+  position: absolute;
+  bottom: 6px;
+  height: 7px;
+  min-width: 3px;
+  border-radius: 999px;
+  background: linear-gradient(90deg,
+    color-mix(in srgb, var(--sig-line) 36%, transparent),
+    color-mix(in srgb, var(--sig-line) 52%, transparent) 56%,
+    color-mix(in srgb, var(--sig-line) 74%, transparent) 84%,
+    color-mix(in srgb, var(--sig-line) 76%, white));
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--sig-line) 46%, white),
+    inset -7px 0 8px -5px color-mix(in srgb, var(--sig-line) 72%, white),
+    0 0 8px color-mix(in srgb, var(--sig-line) 30%, transparent);
+  opacity: .78;
+}
+.dtl__sleep-range::before {
+  content: "";
+  position: absolute;
+  inset: -5px 0;
+  border-radius: inherit;
+  background: inherit;
+  filter: blur(7px);
+  opacity: .22;
+}
+.dtl__sleep-range::after { content: none; }
+.dtl__sleep-range.is-start-clipped {
+  border-radius: 0 999px 999px 0;
+  -webkit-mask-image: linear-gradient(90deg, transparent, #000 18px);
+          mask-image: linear-gradient(90deg, transparent, #000 18px);
+}
+.dtl__sleep-range.is-end-clipped { border-radius: 999px 0 0 999px; }
+.dtl__sleep-range.is-preview {
+  opacity: .96;
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--sig-line) 54%, white),
+    0 0 13px color-mix(in srgb, var(--sig-line) 50%, transparent);
+  animation: sleep-range-breathe 1.25s ease-in-out infinite;
+}
+.dtl__sleep-wake-time {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 7px);
+  z-index: 2;
+  transform: translateX(50%);
+  color: color-mix(in srgb, var(--sig-line) 84%, var(--text));
+  font-family: var(--mono);
+  font-size: .66rem;
+  font-weight: 700;
+  letter-spacing: .035em;
+  white-space: nowrap;
+  text-shadow: 0 0 4px color-mix(in srgb, var(--sig-line) 80%, transparent),
+    0 0 10px color-mix(in srgb, var(--sig-line) 42%, transparent);
+}
+/* When the nocturnal cursor enters, the part already crossed chars darker.
+   The edge between both is the moving measure. */
+.dtl__sleep-range.is-scorched {
+  background: linear-gradient(90deg,
+    #222630 0%, #3a3f49 var(--sleep-burn, 0%),
+    color-mix(in srgb, var(--sig-line) 72%, transparent) calc(var(--sleep-burn, 0%) + .8%),
+    color-mix(in srgb, var(--sig-line) 76%, white) 100%);
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, #d7dce4 22%, transparent),
+    0 0 8px color-mix(in srgb, var(--sig-line) 24%, transparent);
+  opacity: .84;
+}
+.dtl__sleep-range.is-scorched::before {
+  inset: 0;
+  right: auto;
+  width: var(--sleep-burn, 0%);
+  border-radius: inherit;
+  background: repeating-linear-gradient(108deg,
+    transparent 0 7px, rgba(12, 15, 20, .34) 8px,
+    transparent 9px 15px);
+  filter: none;
+  opacity: .72;
+}
+@keyframes sleep-range-breathe {
+  0%, 100% { filter: brightness(.96); }
+  50%      { filter: brightness(1.16); }
+}
+.dtl.is-sleep-target {
+  filter: drop-shadow(0 0 11px color-mix(in srgb, var(--sig-line) 42%, transparent));
+}
 /* In Champ mode the hard two-pixel rule remains only as invisible geometry for
    scrubbing and placement. A four-pixel signature bloom marks its full span. */
 html.is-field-mode .dtl__strip { background: transparent !important; }
@@ -5768,6 +5879,42 @@ html.is-field-mode .dtl__marker-dot::after {
   pointer-events: none;
   z-index: 3;
 }
+.dtl__cursor-readouts {
+  position: absolute;
+  left: 50%;
+  bottom: 21px;
+  z-index: 5;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 3px;
+  transform: translateX(-50%);
+  pointer-events: none;
+  white-space: nowrap;
+}
+.dtl__cursor-time,
+.dtl__cursor-loss {
+  font-family: var(--mono);
+  font-variant-numeric: tabular-nums;
+  letter-spacing: .025em;
+  opacity: 0;
+  transition: opacity .16s ease;
+}
+.dtl__cursor-time {
+  color: var(--sun-core, var(--text));
+  font-size: .68rem;
+  font-weight: 700;
+  text-shadow: 0 0 5px color-mix(in srgb, currentColor 62%, transparent),
+    0 0 11px color-mix(in srgb, currentColor 32%, transparent);
+}
+.dtl.is-scrubbing .dtl__cursor-time { opacity: 1; }
+.dtl__cursor-loss {
+  color: color-mix(in srgb, #aab1bc 88%, var(--text));
+  font-size: .65rem;
+  font-weight: 650;
+  text-shadow: 0 0 6px color-mix(in srgb, #7c838e 48%, transparent);
+}
+.dtl__cursor.is-sleep-lost .dtl__cursor-loss { opacity: 1; }
 .dtl__cursor-ico {
   position: absolute;
   inset: 0;
@@ -5931,6 +6078,30 @@ html.is-field-mode .dtl__marker-dot::after {
   transition: transform .18s ease, border-color .18s ease, background .18s ease;
 }
 .dtl__event-icon svg { position: relative; z-index: 1; width: 18px; height: 18px; }
+/* The sleep endpoint is an event-shaped cursor: same filament and rounded tile,
+   tinted by the current theme signature like the range underneath. */
+.dtl__sleep-event { color: var(--sig-line); }
+.dtl__sleep-event .dtl__event-icon {
+  border-color: color-mix(in srgb, var(--sig-line) 58%, transparent);
+  background: color-mix(in srgb, var(--c-surface) 84%, var(--sig-line) 16%);
+  box-shadow: 0 6px 18px -12px color-mix(in srgb, var(--sig-line) 74%, transparent),
+    0 0 10px color-mix(in srgb, var(--sig-line) 18%, transparent);
+}
+.dtl__sleep-event .dtl__event-path,
+.dtl__sleep-event .dtl__event-foot {
+  filter: drop-shadow(0 0 5px color-mix(in srgb, var(--sig-line) 52%, transparent));
+}
+.dtl__sleep-event.is-preview {
+  pointer-events: none;
+  opacity: .9;
+}
+.dtl__sleep-event.is-preview .dtl__event-icon {
+  animation: sleep-marker-breathe 1.25s ease-in-out infinite;
+}
+@keyframes sleep-marker-breathe {
+  0%, 100% { box-shadow: 0 0 7px color-mix(in srgb, var(--sig-line) 22%, transparent); }
+  50%      { box-shadow: 0 0 15px color-mix(in srgb, var(--sig-line) 48%, transparent); }
+}
 /* SUNLIGHT ON A MARKER — one unbroken wash crosses both the rounded-square edge
    and its surface. Its centre is supplied from the real direction of the moving
    sun: events above the rule catch it from below, tasks below catch it from
@@ -8348,6 +8519,41 @@ html.is-field-mode .thinking-plane { background: transparent; box-shadow: none; 
 .thinking-block.is-drop-target {
   border-color: var(--block-color);
   box-shadow: 0 0 0 4px color-mix(in srgb, var(--block-color) 24%, transparent), var(--thinking-lift);
+}
+/* THE PIN — a real one, planted through the corner of the tile: the head sits
+   above the edge and the needle runs down into the block, which is the whole
+   point of the image. It is stuck where it stands, so it no longer drags. */
+.thinking-pin {
+  position: absolute;
+  z-index: 6;
+  top: -17px;
+  right: 2px;
+  width: 22px;
+  height: 28px;
+  color: color-mix(in srgb, var(--danger) 52%, #d1121a);
+  /* the needle tip is the bottom middle of the box, so turning around that
+     point aims the pin without moving where it goes in */
+  transform: rotate(21deg);
+  transform-origin: 50% 100%;
+  pointer-events: none;
+  filter: drop-shadow(-1px 3px 2px color-mix(in srgb, #000 calc(var(--c-shade) * 60%), transparent));
+}
+/* a folded container is an icon on a plate: the pin goes through the plate,
+   not through the empty corner of the tile around it */
+.thinking-block--organization.is-collapsed .thinking-pin {
+  top: 3px;
+  right: 30px;
+}
+.thinking-pin svg { width: 100%; height: 100%; display: block; }
+/* the needle is thinner and darker than the head, as a needle is */
+.thinking-pin svg > path:first-child { color: color-mix(in srgb, var(--danger) 62%, #000); }
+.thinking-board.is-pin-tool .thinking-block--organization { cursor: pointer; }
+.thinking-board.is-pin-tool .thinking-block--organization:hover {
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--danger) 26%, transparent), var(--thinking-lift);
+}
+/* while the tool is armed, what it cannot pin steps back */
+.thinking-board.is-pin-tool .thinking-block:not(.thinking-block--organization) {
+  opacity: .5;
 }
 .thinking-board:is(.is-combining, .is-tool-dragging)
   .thinking-block:is(.is-drop-option, .is-stick-option) {
@@ -10884,8 +11090,8 @@ html.is-field-mode .sheets__tab.is-on { --field-panel-accent: 1; }
   background: none;
   border-style: dashed;
 }
-/* the same for a step and a subtask, which used to be filed away in an inbox:
-   they stay on their course, smaller and quieter, out of the way but in sight */
+/* A set-aside subtask stays in its task; project steps use their dedicated shelf
+   below the active course instead. */
 .step.is-aside {
   opacity: .46;
   font-size: .92em;
@@ -11352,6 +11558,81 @@ html.is-field-mode .thinking-board.is-weaving { background: transparent; }
 /* in the pane the tick is one of three buttons, sized like the other two */
 .step .step__acts .item__check { width: 26px; height: 26px; border-radius: 9px; }
 .step .step__acts .item__check svg { width: 17px; height: 17px; }
+
+/* THE SHELF UNDER THE COURSE — steps put aside leave the constellation entirely:
+   no star, no thread, only a folded line between the active steps and habits. */
+.psteps-aside {
+  margin-top: 9px;
+  padding-top: 3px;
+  border-top: 1px solid color-mix(in srgb, var(--c-line) 34%, transparent);
+}
+.psteps-aside__toggle {
+  display: flex;
+  align-items: center;
+  width: 100%;
+  gap: 7px;
+  padding: 7px 1px 5px;
+  border: 0;
+  background: none;
+  color: var(--muted);
+  font: inherit;
+  font-size: .75rem;
+  text-align: left;
+  cursor: pointer;
+  transition: color .18s ease;
+}
+.psteps-aside__toggle:hover,
+.psteps-aside__toggle:focus-visible { color: var(--text); outline: none; }
+.psteps-aside__count {
+  min-width: 17px;
+  padding: 1px 5px;
+  border-radius: 999px;
+  color: color-mix(in srgb, var(--muted) 84%, transparent);
+  background: color-mix(in srgb, var(--c-line) 15%, transparent);
+  font-size: .66rem;
+  line-height: 1.35;
+  text-align: center;
+}
+.psteps-aside__chevron {
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  margin-left: auto;
+  transition: transform .22s ease;
+}
+.psteps-aside__chevron svg { width: 14px; height: 14px; }
+.psteps-aside.is-open .psteps-aside__chevron { transform: rotate(180deg); }
+.psteps-aside__body[hidden] { display: none; }
+.psteps-aside__body {
+  display: flex;
+  flex-direction: column;
+  padding: 2px 0 5px;
+}
+.psteps-aside__row {
+  display: flex;
+  align-items: flex-start;
+  gap: 7px;
+  min-width: 0;
+  padding: 4px 0 4px 5px;
+  border-bottom: 1px solid color-mix(in srgb, var(--c-line) 24%, transparent);
+  color: var(--muted);
+  opacity: .66;
+  cursor: grab;
+  transition: opacity .18s ease;
+}
+.psteps-aside__row:last-child { border-bottom: 0; }
+.psteps-aside__row:hover { opacity: .92; }
+.psteps-aside__row.is-dragging { opacity: .28; cursor: grabbing; }
+.psteps-aside__text {
+  color: var(--muted);
+  font-size: .84rem;
+}
+.psteps-aside__restore,
+.psteps-aside__del { opacity: .5; }
+.psteps-aside__row:hover .psteps-aside__restore,
+.psteps-aside__row:hover .psteps-aside__del { opacity: .85; }
+.psteps-aside__restore:hover { opacity: 1; }
 
 /* a journal block wears its date ahead of the line, the way the journal does */
 .thinking-journal__body { display: flex; align-items: flex-start; gap: 8px; }
@@ -12426,6 +12707,54 @@ html.is-field-mode .ecal-band .item--project {
 .mini-cal__reset[hidden] { display: none; }
 .mini-cal__reset svg { width: 13px; height: 13px; }
 
+/* PINNED CONTAINERS — a pin left on a canvas, folder, document, planner or
+   journal anywhere in the thinking space, reachable straight from here without
+   crossing the board to find it again. --block-color comes from the same
+   thinking-row--type hook the folder list uses, so a pin wears the type's own
+   colour without a second palette to keep in step. */
+.calpins {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin: 0 2px 18px;
+}
+.calpins[hidden] { display: none; }
+.calpin {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: 100%;
+  border: 1px solid color-mix(in srgb, var(--block-color) 38%, var(--border));
+  border-radius: 999px;
+  padding: 3px 11px 3px 3px;
+  background: color-mix(in srgb, var(--block-color) 13%, var(--surface-solid));
+  color: var(--text);
+  font: inherit;
+  font-size: .78rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: background .14s ease;
+}
+.calpin:hover { background: color-mix(in srgb, var(--block-color) 24%, var(--surface-solid)); }
+.calpin__mark {
+  flex: 0 0 auto;
+  width: 20px;
+  height: 20px;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  background: color-mix(in srgb, var(--block-color) 82%, transparent);
+  color: var(--surface-solid);
+}
+.calpin__mark svg { width: 12px; height: 12px; }
+.calpin__name {
+  min-width: 0;
+  max-width: 150px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 /* THE BAND'S CANVAS — one way in for the whole band, beside the way to a new
    objective: the canvas of what is open, or the mother canvas. Lit while the
    card is holding one. */
@@ -13043,9 +13372,10 @@ html.is-field-mode .kanban__col.is-drop-target .kanban__list {
   margin: 0;
   break-inside: avoid;
   align-items: center;
-  padding: 12px 24px;
+  justify-content: center;
+  padding: 12px 26px;
   border: 0;
-  text-align: left;
+  text-align: center;
   cursor: pointer;
   color: var(--tab-ink, #fdf7ec);
   /* one ink, flat, exactly as the wall fires a piece — everything that gives it
@@ -13117,15 +13447,11 @@ html.is-field-mode .kanban__col.is-drop-target .kanban__list {
 .rtab--add {
   --tab: color-mix(in srgb, var(--c-bg) 88%, var(--c-sig));
   --tab-lit: color-mix(in srgb, var(--c-bg) 70%, var(--c-sig));
-  justify-content: center;
   color: var(--c-muted);
   backdrop-filter: blur(4px);
   border: 0;
 }
-.rtab--add .rtab__name {
-  text-align: center;
-  font-weight: 500;
-}
+.rtab--add .rtab__name { font-weight: 500; }
 .rtab--add:hover { color: var(--c-text); }
 
 /* THE PAGE — what the tab opens onto. White, with the tab's own colour along
