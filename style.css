@@ -13444,6 +13444,25 @@ html.is-field-mode .kanban__col.is-drop-target .kanban__list {
 }
 .rituals__stage[hidden] { display: none; }
 
+/* A NOTE STANDING OVER THE ROOM — the reel and the bar step aside for it, but
+   they are not taken down: pulled out of the layout they would have to be
+   measured and rebuilt on the way back, and would snap into place a beat
+   after the note had gone. Faded instead, and left exactly where they were,
+   they come back on the same beat the note leaves on, still mid-scroll.
+   visibility trails the fade so nothing invisible can still be tabbed into,
+   and unlike display it keeps the reel measurable the whole time. */
+.rituals__bar,
+.rituals__stage {
+  transition: opacity .24s ease, visibility 0s linear 0s;
+}
+.rituals.is-noting .rituals__bar,
+.rituals.is-noting .rituals__stage {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition: opacity .24s ease, visibility 0s linear .24s;
+}
+
 /* One column only, run top to bottom of the room — one strip, not two, so
    the run above the search field and the run below it are never out of
    step with each other: they are the same pieces, the same motion, just

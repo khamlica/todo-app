@@ -14669,8 +14669,6 @@
      each fired in the zellige's own glaze, and the search is how you pull one
      out when you need it. */
   const ritualsView = document.getElementById("ritualsView");
-  const ritualsBar = document.getElementById("ritualsBar");
-  const ritualsStage = document.getElementById("ritualsStage");
   const ritualsReel = document.getElementById("ritualsReel");
   const ritualsReelTrack = document.getElementById("ritualsReelTrack");
   const ritualsSearch = document.getElementById("ritualsSearch");
@@ -14870,24 +14868,33 @@
 
   // entering: true only when the room itself is opening — every other call
   // (a ritual added, deleted, or closed while the room stays up) wants the
-  // wall already standing, not rushing up from the floor again
+  // column picked up from wherever it already was, not reset to a fresh
+  // start: closing a note hides the reel but the loop keeps running behind
+  // it, so snapping back to zero would read as the wall blinking to a
+  // different pattern the instant the note closes
   function renderRituals(entering) {
     // whatever a search left spinning or frozen, this is the way back to the
     // plain endless loop — every path that returns here goes through it
     cancelAnimationFrame(ritualsSpinRaf);
-    ritualsReelTrack.style.transform = "";
     ritualsSearchResults = [];
     ritualSelectedRank = -1;
     ritualsInSearchMode = false;
+    const keepPos = ritualsAmbientPos;
     buildAmbientReelContent();
     // reduced motion gets the wall already standing — the rush has nothing
     // to hand off to, since startRitualsAmbientLoop() below never schedules
     // a frame for it, and an empty reel with no loop running would just stay empty
     const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     ritualsReelEntering = !!entering && !reduceMotion;
-    ritualsAmbientPos = ritualsReelEntering
-      ? -(ritualsReel.getBoundingClientRect().height + RITUAL_REEL_ENTRY_MARGIN)
-      : 0;
+    if (ritualsReelEntering) {
+      ritualsAmbientPos = -(ritualsReel.getBoundingClientRect().height + RITUAL_REEL_ENTRY_MARGIN);
+    } else if (entering || !(ritualsReelHalfHeight > 0)) {
+      // a genuine fresh room (reduced motion suppressed the rush above), or
+      // nothing to wrap the old position against yet
+      ritualsAmbientPos = 0;
+    } else {
+      ritualsAmbientPos = ((keepPos % ritualsReelHalfHeight) + ritualsReelHalfHeight) % ritualsReelHalfHeight;
+    }
     ritualsReelEntryStart = ritualsAmbientPos;
     // set here rather than left for the loop's own first frame to catch up
     // on: the room can open on the very same paint as an already-parked
@@ -15123,9 +15130,10 @@
     renderRitualSheet(ritual);
     ritualPageSaved.classList.remove("is-on");
     // the reel steps aside rather than being covered: the page stands on the
-    // same mosaic, not on a screen laid over it
-    ritualsBar.hidden = true;
-    ritualsStage.hidden = true;
+    // same mosaic, not on a screen laid over it. It fades rather than being
+    // taken down, and keeps scrolling behind the note, so coming back is a
+    // fade and not a rebuild — see .rituals.is-noting
+    ritualsView.classList.add("is-noting");
     ritualPage.hidden = false;
     requestAnimationFrame(function () {
       ritualPage.classList.add("is-open");
@@ -15137,18 +15145,23 @@
   function closeRitual() {
     const ritual = findRitual(openRitualId);
     // a tab opened and left blank was never a ritual; it does not stay on the wall
+    let removed = false;
     if (ritual && !ritual.text.trim() && !ritualBodyText(ritual).trim()) {
       state.rituals.splice(state.rituals.indexOf(ritual), 1);
       saveState();
+      removed = true;
     }
     openRitualId = null;
     ritualPage.classList.remove("is-open");
-    setTimeout(function () {
-      ritualPage.hidden = true;
-      ritualsBar.hidden = false;
-      ritualsStage.hidden = false;
-    }, 260);
-    renderRituals();
+    // both cross on the same beat: the note fading out, the reel fading back
+    // in from wherever its own scrolling had carried it
+    ritualsView.classList.remove("is-noting");
+    // the reel was never taken down, only faded, so the ordinary close has
+    // nothing to rebuild. Only losing the blank tab changes what the wall
+    // should show — and it still measures true, the stage having kept its
+    // place in the layout throughout
+    if (removed) renderRituals();
+    setTimeout(function () { ritualPage.hidden = true; }, 260);
   }
 
   function writeRitualName() {
@@ -15240,11 +15253,10 @@
     if (!id) return;
     openRitualId = null;
     ritualPage.classList.remove("is-open");
-    setTimeout(function () {
-      ritualPage.hidden = true;
-      ritualsBar.hidden = false;
-      ritualsStage.hidden = false;
-    }, 260);
+    ritualsView.classList.remove("is-noting");
+    setTimeout(function () { ritualPage.hidden = true; }, 260);
+    // the stage never left the layout, so the rerender this fires measures
+    // true on its own — one pass, not one now and a corrected one later
     removeWithUndo("rituals", id, renderRituals);
   });
   // the page stands on the open mosaic, so a click that lands on it rather
