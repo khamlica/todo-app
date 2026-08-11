@@ -8347,6 +8347,166 @@ html.is-field-mode .thinking { background: var(--sky); }
   font-weight: 700;
   cursor: pointer;
 }
+/* THE ORGANISATION LIST — a mini folder that belongs to a single bloc
+   organisation (never one itself), holding the other blocs organisation it
+   has taken in: a tab pulled out from the board's right edge, unfolding a
+   rail of icons only — the name shows on hover, the way a dossier's tools
+   show theirs. */
+.thinking-orglist {
+  position: absolute;
+  z-index: 22;
+  top: 50%;
+  right: 0;
+  transform: translateY(-50%);
+  display: flex;
+  flex-direction: row-reverse;
+  align-items: flex-start;
+}
+.thinking-orglist[hidden] { display: none; }
+.thinking-orglist__tab {
+  pointer-events: auto;
+  flex: 0 0 auto;
+  width: 22px;
+  height: 60px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 1px solid color-mix(in srgb, var(--c-line) 34%, transparent);
+  border-right: 0;
+  border-radius: 10px 0 0 10px;
+  background: color-mix(in srgb, var(--surface-solid) 82%, transparent);
+  backdrop-filter: blur(14px) saturate(120%);
+  color: var(--muted);
+  cursor: grab;
+  touch-action: none;
+  transition: color .2s ease, border-color .2s ease;
+}
+.thinking-orglist__tab svg { width: 19px; height: 19px; }
+.thinking-orglist__tab:hover,
+.thinking-orglist__tab:focus-visible { color: var(--accent); border-color: var(--accent); }
+.thinking-orglist.is-drop-target .thinking-orglist__tab {
+  color: var(--accent);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 30%, transparent);
+}
+.thinking-orglist__panel {
+  max-width: 0;
+  opacity: 0;
+  overflow: hidden;
+  border: 1px solid color-mix(in srgb, var(--c-line) 34%, transparent);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--surface-solid) 92%, transparent);
+  backdrop-filter: blur(14px) saturate(120%);
+  box-shadow: 0 12px 30px -14px color-mix(in srgb, #000 calc(var(--c-shade) * 95%), transparent);
+  transition: max-width .22s cubic-bezier(.22, .8, .25, 1), opacity .18s ease;
+}
+.thinking-orglist.is-open .thinking-orglist__panel,
+.thinking-orglist.is-drag-open .thinking-orglist__panel {
+  max-width: 60px;
+  opacity: 1;
+}
+.thinking-orglist__rows {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+  padding: 8px;
+  width: 50px;
+  max-height: 50vh;
+  overflow-y: auto;
+}
+.thinking-orglist__row {
+  flex: 0 0 auto;
+  width: 34px;
+  height: 34px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 9px;
+  padding: 0;
+  background: color-mix(in srgb, var(--block-color) 20%, transparent);
+  color: var(--block-color);
+  cursor: pointer;
+  transition: background .16s ease, transform .16s ease;
+}
+.thinking-orglist__row:hover { background: color-mix(in srgb, var(--block-color) 40%, transparent); }
+.thinking-orglist__row.is-dragging { opacity: .5; }
+/* pulled out of the rail, it follows the pointer like any other detached
+   nested card — armThinkingDrag positions it with inline left/top */
+.thinking-orglist__row.is-detaching {
+  position: fixed;
+  z-index: 100;
+  margin: 0;
+  pointer-events: none;
+  box-shadow: var(--thinking-lift);
+}
+.thinking-orglist__row svg { width: 16px; height: 16px; }
+.thinking-orglist__add {
+  flex: 0 0 auto;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+.thinking-orglist__add-open {
+  width: 34px;
+  height: 34px;
+  border: 1px dashed color-mix(in srgb, var(--muted) 38%, transparent);
+  border-radius: 9px;
+  background: none;
+  color: color-mix(in srgb, var(--muted) 80%, transparent);
+  font: inherit;
+  font-size: 1.1rem;
+  line-height: 1;
+  cursor: pointer;
+  transition: border-color .16s ease, color .16s ease, background .16s ease;
+}
+.thinking-orglist__add-open:hover {
+  border-color: color-mix(in srgb, var(--accent) 55%, transparent);
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+  color: var(--accent);
+}
+.thinking-orglist__add.is-open .thinking-orglist__add-open { display: none; }
+/* the choices grow inline, in the same scrollable rail as the icons — a
+   flyout would have been clipped by the panel's own fold-up overflow */
+.thinking-orglist__add-choices {
+  display: none;
+  flex-direction: column;
+  gap: 4px;
+}
+.thinking-orglist__add.is-open .thinking-orglist__add-choices { display: flex; }
+.thinking-orglist__add-choice {
+  width: 30px;
+  height: 30px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 50%;
+  padding: 0;
+  background: color-mix(in srgb, var(--block-color) 26%, transparent);
+  color: var(--block-color);
+  cursor: pointer;
+  transition: background .16s ease, transform .16s ease;
+}
+.thinking-orglist__add-choice svg { width: 15px; height: 15px; }
+.thinking-orglist__add-choice:hover {
+  background: color-mix(in srgb, var(--block-color) 86%, transparent);
+  color: var(--surface-solid);
+  transform: scale(1.06);
+}
+/* THE HOVER PREVIEW — same rail of icons as the mini-folder, floated next to
+   a card seen from outside it, so a peek doesn't need walking in. It hangs off
+   the body like a dragged card does, so it has to clear the board's own 82. */
+.thinking-orghover {
+  position: fixed;
+  z-index: 100;
+  border: 1px solid color-mix(in srgb, var(--c-line) 34%, transparent);
+  border-radius: 10px;
+  background: color-mix(in srgb, var(--surface-solid) 92%, transparent);
+  backdrop-filter: blur(14px) saturate(120%);
+  box-shadow: 0 12px 30px -14px color-mix(in srgb, #000 calc(var(--c-shade) * 95%), transparent);
+}
+.thinking-orghover[hidden] { display: none; }
 .thinking-trash {
   position: absolute;
   z-index: 24;

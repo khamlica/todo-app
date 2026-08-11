@@ -372,6 +372,17 @@
             branch = canvasBlocks[branch.stuckToId];
           }
         }
+        // a spot in someone's mini organisation list only makes sense between
+        // two real containers, neither of them a folder
+        for (let j = 0; j < canvas.blocks.length; j++) {
+          const block = canvas.blocks[j];
+          if (block.orgListOrder == null) continue;
+          const parent = canvasBlocks[block.parentId];
+          const validHost = parent
+            && ["canvas", "document", "planner", "logbook"].indexOf(parent.type) !== -1;
+          const validItem = ["canvas", "document", "planner", "logbook"].indexOf(block.type) !== -1;
+          if (!validHost || !validItem) delete block.orgListOrder;
+        }
 
         // Remove mothers made by the old back action.
         while (true) {
@@ -1156,6 +1167,8 @@
       thinkingLinkTool: "Liaison",
       thinkingPinTool: "Épingler",
       thinkingPinHint: "Choisissez un bloc organisation à épingler.",
+      thinkingOrgListTab: "Blocs organisation",
+      thinkingOrgListAdd: "Ajouter à la liste",
       thinkingCancel: "Annuler",
       thinkingChangeType: "Changer le type du bloc",
       thinkingConnectionOne: "liaison",
@@ -1588,6 +1601,8 @@
       thinkingLinkTool: "Link",
       thinkingPinTool: "Pin",
       thinkingPinHint: "Choose a container to pin down.",
+      thinkingOrgListTab: "Organisation blocks",
+      thinkingOrgListAdd: "Add to the list",
       thinkingCancel: "Cancel",
       thinkingChangeType: "Change block type",
       thinkingConnectionOne: "connection",
@@ -19120,6 +19135,26 @@
   const thinkingLinkHintText = document.getElementById("thinkingLinkHintText");
   const thinkingLinkCancel = document.getElementById("thinkingLinkCancel");
   const thinkingTrash = document.getElementById("thinkingTrash");
+  const thinkingOrgList = document.getElementById("thinkingOrgList");
+  const thinkingOrgListTab = document.getElementById("thinkingOrgListTab");
+  const thinkingOrgListRows = document.getElementById("thinkingOrgListRows");
+  /* THE HOVER PREVIEW — a bloc organisation's list, glanced at from outside
+     it, without walking in: rest the pointer on its card a moment and the
+     same icons show up beside it. */
+  const thinkingOrgHoverPreview = document.createElement("div");
+  thinkingOrgHoverPreview.className = "thinking-orghover";
+  thinkingOrgHoverPreview.hidden = true;
+  const thinkingOrgHoverRows = document.createElement("div");
+  thinkingOrgHoverRows.className = "thinking-orglist__rows";
+  thinkingOrgHoverPreview.appendChild(thinkingOrgHoverRows);
+  document.body.appendChild(thinkingOrgHoverPreview);
+  thinkingOrgHoverPreview.addEventListener("pointerenter", function () {
+    clearTimeout(thinkingOrgHoverHideTimer);
+  });
+  thinkingOrgHoverPreview.addEventListener("pointerleave", scheduleThinkingOrgHoverHide);
+  let thinkingOrgHoverShowTimer = null;
+  let thinkingOrgHoverHideTimer = null;
+  let thinkingOrgHoverBlockId = null;
   const thinkingSelect = document.getElementById("thinkingSelect");
   const thinkingLinkTool = document.getElementById("thinkingLinkTool");
   const thinkingPin = document.getElementById("thinkingPin");
@@ -20662,7 +20697,11 @@
     const host = held;
     for (let i = 0; i < tools.length; i++) {
       const type = tools[i].dataset.blockType;
-      tools[i].disabled = !thinkingOrganizationAllows(canvasNode, { type: type });
+      // a journal has no canvas of its own for these to sit on, but its
+      // organisation list is a real destination now that one exists
+      const intoOrgList = canvasNode.type === "logbook"
+        && THINKING_ORGANIZATION_TYPES.indexOf(type) !== -1 && type !== "folder";
+      tools[i].disabled = !thinkingOrganizationAllows(canvasNode, { type: type }) && !intoOrgList;
       // On a task's canvas a step means nothing, and on a constellation's a loose
       // task means nothing either: each hides what its own object cannot hold.
       tools[i].hidden = !!host
@@ -21625,7 +21664,8 @@
     }
     if (viewedCanvas.type !== "folder" && viewedCanvas.type !== "logbook") {
       for (let i = 0; i < canvas.blocks.length; i++) {
-        if (canvas.blocks[i].parentId === viewedCanvas.id) {
+        if (canvas.blocks[i].parentId === viewedCanvas.id
+            && canvas.blocks[i].orgListOrder == null) {
           thinkingBlocks.appendChild(createThinkingBlock(canvas, canvas.blocks[i], false, false,
             viewedCanvas));
           visibleCount++;
@@ -21638,6 +21678,214 @@
     syncThinkingLinkMode();
     syncThinkingSelection();
     requestThinkingLinks(canvas);
+    renderThinkingOrgList(canvas, viewedCanvas);
+  }
+
+  /* THE ORGANISATION LIST — a mini folder that belongs to a single bloc
+     organisation (never a folder itself): the other blocs organisation it has
+     taken in live here, off its own canvas, instead of free-floating on it.
+     A tab on the board's edge, pulled open to a rail of icons. */
+  function canHoldOrgListBlocks(block) {
+    return isThinkingOrganization(block) && block.type !== "folder";
+  }
+
+  function thinkingOrgListChildren(canvas, block) {
+    const children = [];
+    for (let i = 0; i < canvas.blocks.length; i++) {
+      if (canvas.blocks[i].parentId === block.id && canvas.blocks[i].orgListOrder != null) {
+        children.push(canvas.blocks[i]);
+      }
+    }
+    children.sort(function (a, b) { return a.orgListOrder - b.orgListOrder; });
+    return children;
+  }
+
+  function nextThinkingOrgListOrder(canvas, block) {
+    const children = thinkingOrgListChildren(canvas, block);
+    return children.length ? children[children.length - 1].orgListOrder + 100 : 100;
+  }
+
+  function renderThinkingOrgList(canvas, viewedCanvas) {
+    if (!thinkingOrgList) return;
+    const eligible = canHoldOrgListBlocks(viewedCanvas);
+    thinkingOrgList.hidden = !eligible;
+    if (!eligible) return;
+    if (thinkingOrgList.dataset.blockId !== viewedCanvas.id) {
+      thinkingOrgList.classList.remove("is-open");
+      thinkingOrgList.dataset.blockId = viewedCanvas.id;
+    }
+    const children = thinkingOrgListChildren(canvas, viewedCanvas);
+    thinkingOrgListRows.innerHTML = "";
+    for (let i = 0; i < children.length; i++) {
+      thinkingOrgListRows.appendChild(createThinkingOrgListRow(canvas, children[i]));
+    }
+    thinkingOrgListRows.appendChild(createThinkingOrgListAdd(canvas, viewedCanvas));
+  }
+
+  function createThinkingOrgListRow(canvas, block) {
+    const row = document.createElement("button");
+    row.type = "button";
+    row.className = "thinking-orglist__row thinking-row--" + block.type;
+    row.title = thinkingOrganizationTitle(block);
+    row.dataset.blockId = block.id;
+    row.innerHTML = thinkingIconSvg(thinkingTypeIcon(block.type));
+    row.addEventListener("click", function () { navigateThinkingCanvas(block.id, true); });
+    armThinkingDrag(row, row, block, canvas, true, false);
+    return row;
+  }
+
+  function createThinkingOrgListAdd(canvas, block) {
+    const tile = document.createElement("div");
+    tile.className = "thinking-orglist__add";
+    const open = document.createElement("button");
+    open.type = "button";
+    open.className = "thinking-orglist__add-open";
+    open.setAttribute("aria-expanded", "false");
+    open.setAttribute("aria-label", translate("thinkingOrgListAdd"));
+    open.textContent = "+";
+    const choices = document.createElement("div");
+    choices.className = "thinking-orglist__add-choices";
+    for (let i = 0; i < THINKING_ORGANIZATION_TYPES.length; i++) {
+      const type = THINKING_ORGANIZATION_TYPES[i];
+      if (type === "folder") continue;
+      const pick = document.createElement("button");
+      pick.type = "button";
+      pick.className = "thinking-orglist__add-choice thinking-add--" + type;
+      pick.setAttribute("aria-label", translate(thinkingTypeKey(type)));
+      pick.title = translate(thinkingTypeKey(type));
+      pick.innerHTML = thinkingIconSvg(thinkingTypeIcon(type));
+      pick.addEventListener("click", function (event) {
+        event.stopPropagation();
+        addThinkingContainerToOrgList(canvas, block, type);
+      });
+      choices.appendChild(pick);
+    }
+    open.addEventListener("click", function (event) {
+      event.stopPropagation();
+      const shown = tile.classList.toggle("is-open");
+      open.setAttribute("aria-expanded", shown ? "true" : "false");
+      if (!shown) return;
+      // one click anywhere else puts the choices away again
+      setTimeout(function () {
+        document.addEventListener("click", function close() {
+          tile.classList.remove("is-open");
+          open.setAttribute("aria-expanded", "false");
+          document.removeEventListener("click", close);
+        }, { once: true });
+      }, 0);
+    });
+    tile.append(open, choices);
+    return tile;
+  }
+
+  function addThinkingContainerToOrgList(canvas, block, type) {
+    const camera = thinkingHomeCamera();
+    const newBlock = {
+      id: thinkingId("b"), type: type, text: "", title: "",
+      x: block.x || 80, y: block.y || 80, parentId: block.id,
+      collapsed: true,
+      cameraX: camera.x, cameraY: camera.y,
+      orgListOrder: nextThinkingOrgListOrder(canvas, block)
+    };
+    if (type === "logbook") {
+      newBlock.blockWidth = 420;
+    } else {
+      newBlock.canvasWidth = 650;
+      newBlock.canvasHeight = 330;
+      newBlock.previewX = THINKING_WORLD_X
+        + thinkingViewport.clientWidth / 2 - (newBlock.canvasWidth - 20) / 2;
+      newBlock.previewY = THINKING_WORLD_Y
+        + thinkingViewport.clientHeight / 2 - newBlock.canvasHeight / 2;
+    }
+    if (type === "document") newBlock.documentHtml = "";
+    canvas.blocks.push(newBlock);
+    touchCanvas(canvas);
+    if (thinkingOrgList) thinkingOrgList.classList.add("is-open");
+    renderThinkingCanvas(canvas);
+  }
+
+  function addToThinkingOrgList(canvas, hostBlock, block) {
+    block.parentId = hostBlock.id;
+    block.orgListOrder = nextThinkingOrgListOrder(canvas, hostBlock);
+    delete block.folderOrder;
+    touchCanvas(canvas);
+    const viewed = currentThinkingCanvasNode() || canvas;
+    if (thinkingOrgList && viewed.id === hostBlock.id) thinkingOrgList.classList.add("is-open");
+  }
+
+  function pointInsideThinkingOrgList(x, y) {
+    if (!thinkingOrgList || thinkingOrgList.hidden) return false;
+    const rect = thinkingOrgList.getBoundingClientRect();
+    return x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom;
+  }
+
+  /* Where a dragged bloc organisation is offering to land: its current
+     parent's own tab (there is no card for the container you are inside),
+     or straight onto another bloc organisation's card seen anywhere else. */
+  function thinkingOrgListDropTarget(clientX, clientY, card, block, canvas) {
+    if (!canHoldOrgListBlocks(block)) return null;
+    const viewed = currentThinkingCanvasNode() || canvas;
+    if (viewed.id !== block.id && pointInsideThinkingOrgList(clientX, clientY)) return viewed;
+    const underPointer = document.elementsFromPoint(clientX, clientY);
+    for (let i = 0; i < underPointer.length; i++) {
+      if (card.contains(underPointer[i])) continue;
+      const target = underPointer[i].closest ? underPointer[i].closest(".thinking-block") : null;
+      if (!target) continue;
+      const parent = findThinkingParent(canvas, target.dataset.blockId);
+      if (!canHoldOrgListBlocks(parent) || parent.id === block.id) continue;
+      let branch = parent;
+      let cyclic = false;
+      while (branch) {
+        if (branch.id === block.id) { cyclic = true; break; }
+        branch = branch.parentId ? findThinkingParent(canvas, branch.parentId) : null;
+      }
+      if (cyclic) continue;
+      return parent;
+    }
+    return null;
+  }
+
+  function armThinkingOrgHoverPreview(card, block, canvas) {
+    card.addEventListener("pointerenter", function (event) {
+      if (event.pointerType === "touch") return;
+      clearTimeout(thinkingOrgHoverHideTimer);
+      if (thinkingOrgHoverBlockId === block.id) return;
+      clearTimeout(thinkingOrgHoverShowTimer);
+      thinkingOrgHoverShowTimer = setTimeout(function () {
+        showThinkingOrgHoverPreview(card, block, canvas);
+      }, 700);
+    });
+    card.addEventListener("pointerleave", function () {
+      clearTimeout(thinkingOrgHoverShowTimer);
+      scheduleThinkingOrgHoverHide();
+    });
+  }
+
+  function showThinkingOrgHoverPreview(card, block, canvas) {
+    // a drag in progress is busy deciding a drop target, not asking for a peek
+    if (thinkingBoard.classList.contains("is-combining")
+        || thinkingBoard.classList.contains("is-tool-dragging")) return;
+    const children = thinkingOrgListChildren(canvas, block);
+    if (!children.length) return;
+    thinkingOrgHoverBlockId = block.id;
+    thinkingOrgHoverRows.innerHTML = "";
+    for (let i = 0; i < children.length; i++) {
+      thinkingOrgHoverRows.appendChild(createThinkingOrgListRow(canvas, children[i]));
+    }
+    const rect = card.getBoundingClientRect();
+    const fitsRight = rect.right + 66 <= window.innerWidth;
+    thinkingOrgHoverPreview.style.left = (fitsRight ? rect.right + 8 : rect.left - 66) + "px";
+    thinkingOrgHoverPreview.style.top = Math.max(8,
+      Math.min(window.innerHeight - 60, rect.top)) + "px";
+    thinkingOrgHoverPreview.hidden = false;
+  }
+
+  function scheduleThinkingOrgHoverHide() {
+    clearTimeout(thinkingOrgHoverHideTimer);
+    thinkingOrgHoverHideTimer = setTimeout(function () {
+      thinkingOrgHoverPreview.hidden = true;
+      thinkingOrgHoverBlockId = null;
+    }, 150);
   }
 
   function fitThinkingText(textarea, minimum) {
@@ -24013,6 +24261,7 @@
     armThinkingSelection(card, head, block, canvas, contained);
     armThinkingLinkTool(card, block, canvas);
     if (organization) armThinkingCanvasClicks(card, head, block, canvas);
+    if (canHoldOrgListBlocks(block)) armThinkingOrgHoverPreview(card, block, canvas);
     return card;
   }
 
@@ -24489,6 +24738,7 @@
     const parent = findThinkingParent(canvas,
       parentElement.dataset.organizationId || parentElement.dataset.blockId);
     if (!parent) return;
+    delete block.orgListOrder;
     syncThinkingBlockTaskPlacement(canvas, block, parent);
     block.parentId = parent.id;
     if (!isThinkingOrganization(parent)) {
@@ -24754,6 +25004,12 @@
       if (thinkingSelectionMode || block.pinned) return;
       const interactive = event.target.closest("button, input, textarea, select");
       if (event.button !== 0 || (interactive && interactive !== handle)) return;
+      // pointer capture swallows enter/leave elsewhere, so a hover preview
+      // left open would have no way left to hear it should close
+      clearTimeout(thinkingOrgHoverShowTimer);
+      clearTimeout(thinkingOrgHoverHideTimer);
+      thinkingOrgHoverPreview.hidden = true;
+      thinkingOrgHoverBlockId = null;
       handle.setPointerCapture(event.pointerId);
       const pointerId = event.pointerId;
       const cardRect = card.getBoundingClientRect();
@@ -24809,6 +25065,19 @@
           : thinkingDropParent(moveEvent.clientX, moveEvent.clientY, card, block, canvas);
         markThinkingStickTarget(stickDrop);
         if (dropParent) dropParent.classList.add("is-drop-target");
+        if (thinkingOrgList) {
+          const orgListTarget = thinkingOrgListDropTarget(moveEvent.clientX, moveEvent.clientY,
+            card, block, canvas);
+          const viewed = currentThinkingCanvasNode() || canvas;
+          const overOwnList = orgListTarget === viewed;
+          thinkingOrgList.classList.toggle("is-drag-open", overOwnList);
+          thinkingOrgList.classList.toggle("is-drop-target", overOwnList);
+          if (orgListTarget && !overOwnList) {
+            const targetCard = thinkingBlocks.querySelector(
+              '[data-block-id="' + orgListTarget.id + '"]');
+            if (targetCard) targetCard.classList.add("is-drop-target");
+          }
+        }
         thinkingTrash.classList.toggle("is-active",
           pointInsideThinkingTrash(moveEvent.clientX, moveEvent.clientY));
         requestThinkingLinks(canvas);
@@ -24822,6 +25091,7 @@
         thinkingBoard.classList.remove("is-combining");
         markThinkingCombineOptions(canvas, block, false);
         clearThinkingDropTargets();
+        if (thinkingOrgList) thinkingOrgList.classList.remove("is-drag-open", "is-drop-target");
         const cancelled = upEvent.type === "pointercancel";
         const deleted = moved && !cancelled
           && pointInsideThinkingTrash(upEvent.clientX, upEvent.clientY);
@@ -24842,6 +25112,16 @@
         stickDrop = thinkingStickDrop(card, block, canvas);
         dropParent = stickDrop ? null
           : thinkingDropParent(upEvent.clientX, upEvent.clientY, card, block, canvas);
+        const orgListTarget = thinkingOrgListDropTarget(upEvent.clientX, upEvent.clientY,
+          card, block, canvas);
+        const previousOrgListOrder = block.orgListOrder;
+        if (orgListTarget) {
+          stickDrop = null;
+          dropParent = null;
+          addToThinkingOrgList(canvas, orgListTarget, block);
+        } else if (canHoldOrgListBlocks(block)) {
+          delete block.orgListOrder;
+        }
         if (moved && !stickDrop && !dropParent && insideCanvas) {
           const originalParent = findThinkingParent(canvas, block.parentId);
           const originalCard = originalParent
@@ -24867,6 +25147,11 @@
             const folderList = thinkingBlocks.querySelector(".thinking-folder__list--fullscreen");
             placeThinkingBlockInFolder(canvas, block, viewedCanvas, folderList,
               lastPoint.x, lastPoint.y);
+          } else if (viewedCanvas && viewedCanvas.type === "logbook"
+              && previousOrgListOrder != null && !orgListTarget) {
+            // a journal has no canvas of its own to drop this onto — with
+            // nowhere else offered, it stays exactly where it was listed
+            block.orgListOrder = previousOrgListOrder;
           } else {
             if (viewedCanvas) syncThinkingBlockTaskPlacement(canvas, block, viewedCanvas);
             block.parentId = viewedCanvas ? viewedCanvas.id : canvas.id;
@@ -24893,11 +25178,14 @@
     const viewedCanvas = currentThinkingCanvasNode();
     if (!canvas || !viewedCanvas) return;
     const organization = THINKING_ORGANIZATION_TYPES.indexOf(type) !== -1;
-    if (!dropParentId && !thinkingOrganizationAllows(viewedCanvas, { type: type })) return;
+    const intoOrgList = organization && type !== "folder";
+    if (!dropParentId && !thinkingOrganizationAllows(viewedCanvas, { type: type })
+        && !(intoOrgList && viewedCanvas.type === "logbook")) return;
     if (dropParentId) {
       const requestedParent = findThinkingParent(canvas, dropParentId);
       if (isThinkingOrganization(requestedParent)
-          && !thinkingOrganizationAllows(requestedParent, { type: type })) return;
+          && !thinkingOrganizationAllows(requestedParent, { type: type })
+          && !(intoOrgList && requestedParent.type === "logbook")) return;
       if (requestedParent && THINKING_FLOW_TYPES.indexOf(requestedParent.type) !== -1
           && THINKING_ACTION_TYPES.indexOf(type) === -1
           && THINKING_FLOW_TYPES.indexOf(type) === -1) return;
@@ -24961,6 +25249,18 @@
       }
       block.collapsed = true;
       if (type === "document") block.documentHtml = "";
+    }
+    if (intoOrgList) {
+      const orgListHost = dropParentId ? findThinkingParent(canvas, dropParentId) : viewedCanvas;
+      if (orgListHost && orgListHost.type === "logbook") {
+        block.parentId = orgListHost.id;
+        block.orgListOrder = nextThinkingOrgListOrder(canvas, orgListHost);
+        canvas.blocks.push(block);
+        touchCanvas(canvas);
+        if (thinkingOrgList) thinkingOrgList.classList.add("is-open");
+        renderThinkingCanvas(canvas);
+        return;
+      }
     }
     if (point && stickTargetId) {
       const stickTarget = findThinkingParent(canvas, stickTargetId);
@@ -25392,6 +25692,9 @@
   });
   thinkingPin.addEventListener("click", function () {
     setThinkingPinMode(!thinkingPinMode);
+  });
+  thinkingOrgListTab.addEventListener("click", function () {
+    thinkingOrgList.classList.toggle("is-open");
   });
   thinkingToolSectionSwitch.addEventListener("click", cycleThinkingToolSection);
   thinkingSelectionCanvas.addEventListener("click", putThinkingSelectionInCanvas);
