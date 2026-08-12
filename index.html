@@ -12,7 +12,7 @@
   <title>Mes tâches</title>
   <!-- the version travels in the query: without it a browser may keep
        serving the stylesheet it already has, and the app looks unchanged -->
-  <link rel="stylesheet" href="./style.css?v=665">
+  <link rel="stylesheet" href="./style.css?v=667">
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="apple-touch-icon" href="./icons/icon-192.png">
   <!-- svg tab icon, png fallback for browsers that ignore it -->
@@ -659,6 +659,16 @@
             <input id="importFile" type="file" accept="application/json,.json" hidden>
           </div>
         </div>
+
+        <div class="field">
+          <span class="field__label" data-i18n="qualityLabel">Qualité des animations</span>
+          <div class="langs" id="qualities">
+            <button class="lang" data-quality="high" data-i18n="qualityHigh" type="button">Haute</button>
+            <button class="lang" data-quality="medium" data-i18n="qualityMedium" type="button">Moyenne</button>
+            <button class="lang" data-quality="low" data-i18n="qualityLow" type="button">Faible</button>
+          </div>
+        </div>
+        <p class="field__hint" data-i18n="qualityHint">Baissez-la si les animations saccadent : moins de pixels, moins de halos, moins de décor</p>
       </div>
 
       <div class="tab-panel" data-tabpanel="custom" hidden>
@@ -704,6 +714,12 @@
             <button class="decor-opt" data-decor="field" data-i18n="decorField" type="button">Champ</button>
           </div>
         </div>
+
+        <div class="field field--row">
+          <span class="field__label" data-i18n="ritualsWallLabel">Rituels : mur en mosaïque</span>
+          <span id="ritualsWallToggleSlot"></span>
+        </div>
+        <p class="field__hint" data-i18n="ritualsWallHint">Retrouver l'ancien décor des rituels, à la place du ciel et du champ</p>
       </div>
     </div>
   </div>
@@ -1217,6 +1233,12 @@
     <button id="toastAction" class="toast__action" type="button" hidden></button>
   </div>
 
-  <script src="./app.js?v=665"></script>
+  <!-- glowing dot cursor: only turned on for fine-pointer devices, see initCursor() -->
+  <div id="cursorDot" class="cursor-dot" aria-hidden="true">
+    <span class="cursor-dot__ring"></span>
+    <span class="cursor-dot__core"></span>
+  </div>
+
+  <script src="./app.js?v=667"></script>
 </body>
 </html>

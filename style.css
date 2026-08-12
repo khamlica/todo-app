@@ -3583,6 +3583,7 @@ button.hrule__tag:focus-visible { color: var(--sig-line); transform: scale(1.15)
 }
 .pages__track.is-dragging { transition: none; }
 .pages__track.is-habit-dragging { transition: none; }
+.pages__track.is-row-dragging { transition: none; }
 
 /* THE TWO COLUMNS — tasks and planning, under the rule of time. Wide, they are a
    row; narrow, a rail of full-width panes. One layout to reason about, not two. */
@@ -4107,6 +4108,8 @@ body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: non
   transform: translateY(-1px);
   border-color: color-mix(in srgb, var(--accent) 45%, transparent);
 }
+/* a project's habit is read, not ticked: the dashed edge says so at a glance */
+.habit--project { border-style: dashed; }
 
 .habit__icon {
   position: relative;
@@ -4224,6 +4227,50 @@ body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: non
 .habit-project-drop-guide > span:first-child,
 .habit-project-drop-guide svg { width: 16px; height: 16px; }
 .item--project.is-habit-drop-target .habit-project-drop-guide {
+  border-style: solid;
+  border-color: var(--accent);
+  color: var(--accent);
+  background: color-mix(in srgb, var(--surface-solid) 88%, var(--accent) 12%);
+  box-shadow: 0 0 20px color-mix(in srgb, var(--accent) 24%, transparent);
+}
+
+/* THE HABIT BAND AS A TARGET — the mirror of the two rules above: a project
+   dragged over the band, rather than a habit dragged over a project row. */
+.habits-band.is-project-drop-available {
+  outline: 1px dashed color-mix(in srgb, var(--accent) 42%, transparent);
+  outline-offset: -3px;
+  border-radius: 10px;
+}
+.habits-band.is-project-drop-target {
+  outline: 1px solid var(--accent);
+  outline-offset: -2px;
+  box-shadow: 0 0 24px color-mix(in srgb, var(--accent) 20%, transparent);
+  border-radius: 10px;
+}
+.project-habit-drop-guide {
+  position: absolute;
+  right: 12px;
+  top: 50%;
+  z-index: 5;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  max-width: calc(100% - 24px);
+  padding: 6px 9px;
+  border: 1px dashed color-mix(in srgb, var(--accent) 46%, transparent);
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--surface-solid) 90%, transparent);
+  color: color-mix(in srgb, var(--accent) 74%, var(--muted));
+  box-shadow: 0 5px 18px color-mix(in srgb, var(--c-sky-3) calc(var(--c-shade) * 28%), transparent);
+  pointer-events: none;
+  transform: translateY(-50%);
+  font-size: .7rem;
+  font-weight: 650;
+  white-space: nowrap;
+}
+.project-habit-drop-guide > span:first-child,
+.project-habit-drop-guide svg { width: 16px; height: 16px; }
+.habits-band.is-project-drop-target .project-habit-drop-guide {
   border-style: solid;
   border-color: var(--accent);
   color: var(--accent);
@@ -13623,23 +13670,22 @@ html.is-field-mode .kanban__col.is-drop-target .kanban__list {
   transition: opacity .24s ease, visibility 0s linear .24s;
 }
 
-/* One column only, run top to bottom of the room — one strip, not two, so
-   the run above the search field and the run below it are never out of
-   step with each other: they are the same pieces, the same motion, just
-   hidden from view where the field sits over the middle of the run. */
+/* One column, rising from the floor and absorbed by the search bar: nothing
+   ever shows above it any more, so the run needs only the one visible band
+   below the bar, fading in under it and out again at the reel's own floor. */
 .rituals__reel {
   flex: 0 0 auto;
   width: min(280px, 58vw);
   overflow: hidden;
   padding: 10px 0;
+  /* a finger drags the run itself (see the pointer handlers in app.js), not
+     the page underneath it — without this the browser's own touch scroll
+     fights the manual one */
+  touch-action: none;
   -webkit-mask-image: linear-gradient(to bottom,
-    transparent 0, black 2vw,
-    black 6.5vw, transparent 8vw,
     transparent 19vw, black 21vw,
     black 92%, transparent 100%);
   mask-image: linear-gradient(to bottom,
-    transparent 0, black 2vw,
-    black 6.5vw, transparent 8vw,
     transparent 19vw, black 21vw,
     black 92%, transparent 100%);
 }
@@ -13650,7 +13696,12 @@ html.is-field-mode .kanban__col.is-drop-target .kanban__list {
 .rituals__reel-track {
   display: flex;
   flex-direction: column;
+  /* digital badges float over the field with room between them, so the field
+     shows and the flux keeps a visible run to travel through; the mosaic
+     tiles below reinstate the old edge-to-edge tessellation */
+  gap: 14px;
 }
+.rituals__reel-track--mosaic { gap: 0; }
 
 /* No card, no card behind the card: just the two lines standing near the
    top of the room, over whatever the reel or the mosaic show through. */
@@ -13701,26 +13752,32 @@ html.is-field-mode .kanban__col.is-drop-target .kanban__list {
   color: var(--c-text);
   font: inherit;
   font-size: 1.05rem;
+  /* the same pool of light today's calendar cell rests on, just the theme's
+     own signature glow stretched wide under the bar instead of a small cell;
+     the second layer is the bar feeding — --feed (app.js, updateRitualsFeedGlow)
+     is 0 until a block's own virtual body nears the absorption line, so it
+     contributes nothing until then and burns brighter the closer it gets */
+  box-shadow:
+    0 18px 40px -20px var(--sig-glow),
+    0 6px 30px -8px color-mix(in srgb, var(--c-sig) calc(var(--feed, 0) * 85%), transparent);
 }
 .rituals__seekbar-input:focus {
   outline: none;
   border-color: color-mix(in srgb, var(--c-accent) 60%, transparent);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--c-sig) 22%, transparent);
+  box-shadow:
+    0 18px 40px -20px var(--sig-glow),
+    0 6px 30px -8px color-mix(in srgb, var(--c-sig) calc(var(--feed, 0) * 85%), transparent),
+    0 0 0 3px color-mix(in srgb, var(--c-sig) 22%, transparent);
 }
 
-/* A tile of the wall, taken off it and written on. This is the exact first
-   polygon from makeZelligeGeometry(): the shallow point halfway along each
-   long edge and the triangular points on both short edges. Its native ratio is
-   kept too, so adjacent bounding boxes meet point against point on all sides. */
+/* A tab, whichever material it is cut from. Everything either variant needs
+   regardless of shape lives here; the shape, the fill and the edge are each
+   variant's own (.rtab--mosaic, the classic-wall option's own piece, or
+   .rtab--digital, the default now — see createRitualTab() in app.js). */
 .rtab {
   position: relative;
   display: flex;
   width: 100%;
-  /* The cut's own ratio, and no floor under it: left alone, aspect-ratio gives
-     the piece its exact size while a long name is still free to grow it —
-     pinned by any min-height, the third line would spill over the slanted
-     edges, where the clip eats it. */
-  aspect-ratio: 3.181447 / 1;
   margin: 0;
   align-items: center;
   justify-content: center;
@@ -13728,6 +13785,57 @@ html.is-field-mode .kanban__col.is-drop-target .kanban__list {
   border: 0;
   text-align: center;
   cursor: pointer;
+}
+.rtab__edge {
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+}
+.rtab__edge-line {
+  fill: none;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+.rtab__name {
+  position: relative;
+  z-index: 2;
+  font-size: .96rem;
+  font-weight: 600;
+  line-height: 1.3;
+}
+/* THE VIRTUAL BODY — what actually digs the field is not the badge's own
+   full box (that read as one solid strip, wide and tall enough to erase any
+   sense of the reel moving through it) but this thin band alone, the same
+   contract [data-field-panel] already gives any pane whose reported depth
+   isn't its own paint: a single row of the grid, not the whole tile. */
+.rtab__pulse {
+  position: absolute;
+  left: 0;
+  right: 0;
+  top: 50%;
+  height: 24px;
+  transform: translateY(-50%);
+  pointer-events: none;
+  --field-panel-opacity: .42;
+}
+
+/* THE MOSAIC TAB — a tile of the wall, taken off it and written on. This is
+   the exact first polygon from makeZelligeGeometry(): the shallow point
+   halfway along each long edge and the triangular points on both short
+   edges. Its native ratio is kept too, so adjacent bounding boxes meet point
+   against point on all sides. Only reachable through the classic-wall
+   setting now; the default tab is .rtab--digital, below. */
+.rtab--mosaic {
+  /* The cut's own ratio, and no floor under it: left alone, aspect-ratio gives
+     the piece its exact size while a long name is still free to grow it —
+     pinned by any min-height, the third line would spill over the slanted
+     edges, where the clip eats it. */
+  aspect-ratio: 3.181447 / 1;
   color: var(--tab-ink, #fdf7ec);
   /* the same ink the wall fires a piece in, but let through rather than flat:
      the piece reads as another course of the same glaze, not a sticker on it */
@@ -13747,7 +13855,7 @@ html.is-field-mode .kanban__col.is-drop-target .kanban__list {
 }
 /* Light travels inside the glaze rather than painting a flat hover rectangle.
    The position varies gently from tile to tile, like the fired wall behind it. */
-.rtab::before {
+.rtab--mosaic::before {
   content: "";
   position: absolute;
   inset: 0;
@@ -13759,56 +13867,122 @@ html.is-field-mode .kanban__col.is-drop-target .kanban__list {
   opacity: .1;
   transition: opacity .24s ease;
 }
-.rtab::after { content: none; }
-.rtab__edge {
-  position: absolute;
-  inset: 0;
-  z-index: 3;
-  width: 100%;
-  height: 100%;
-  overflow: visible;
-  pointer-events: none;
-}
-.rtab__edge-line {
-  fill: none;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  vector-effect: non-scaling-stroke;
-}
+.rtab--mosaic::after { content: none; }
 /* the glaze pools against the edge, in two steps rather than a blur */
-.rtab__edge-line--1 { stroke: rgba(0, 0, 0, .11); stroke-width: calc(var(--ritual-band, 4px) * 3.4); }
-.rtab__edge-line--2 { stroke: rgba(0, 0, 0, .1); stroke-width: calc(var(--ritual-band, 4px) * 1.7); }
+.rtab--mosaic .rtab__edge-line--1 { stroke: rgba(0, 0, 0, .11); stroke-width: calc(var(--ritual-band, 4px) * 3.4); }
+.rtab--mosaic .rtab__edge-line--2 { stroke: rgba(0, 0, 0, .1); stroke-width: calc(var(--ritual-band, 4px) * 1.7); }
 /* and the cord over it, the wall's own three passes at the wall's own width */
-.rtab__edge-line--3 { stroke: var(--ritual-metal-seat, #76551f); stroke-width: var(--ritual-band, 4px); }
-.rtab__edge-line--4 { stroke: var(--ritual-metal, #d3a94c); stroke-width: calc(var(--ritual-band, 4px) * .7); }
-.rtab__edge-line--5 {
+.rtab--mosaic .rtab__edge-line--3 { stroke: var(--ritual-metal-seat, #76551f); stroke-width: var(--ritual-band, 4px); }
+.rtab--mosaic .rtab__edge-line--4 { stroke: var(--ritual-metal, #d3a94c); stroke-width: calc(var(--ritual-band, 4px) * .7); }
+.rtab--mosaic .rtab__edge-line--5 {
   stroke: var(--ritual-metal-lit, #f2dda2);
   stroke-width: calc(var(--ritual-band, 4px) * .4);
   opacity: .8;
   transition: opacity .24s ease;
 }
 /* raised above its neighbours while it turns, so the tilt clears their edges */
-.rtab:hover { z-index: 1; }
-.rtab:hover::before, .rtab:focus-visible::before { opacity: .62; }
-.rtab:hover .rtab__edge-line--5,
-.rtab:focus-visible .rtab__edge-line--5 { opacity: 1; }
-
+.rtab--mosaic:hover { z-index: 1; }
+.rtab--mosaic:hover::before, .rtab--mosaic:focus-visible::before { opacity: .62; }
+.rtab--mosaic:hover .rtab__edge-line--5,
+.rtab--mosaic:focus-visible .rtab__edge-line--5 { opacity: 1; }
 /* the result the keyboard rests on: lit like a hover, plus the theme's own
    signature glow so it reads at a glance among the 3 landed on the payline */
-.rtab.is-selected { z-index: 1; filter: drop-shadow(0 0 9px var(--c-sig)) drop-shadow(0 0 2px var(--c-sig)); }
-.rtab.is-selected::before { opacity: .62; }
-.rtab.is-selected .rtab__edge-line--5 { opacity: 1; }
-.rtab__name {
-  position: relative;
-  z-index: 2;
-  font-size: .96rem;
-  font-weight: 600;
-  line-height: 1.3;
+.rtab--mosaic.is-selected { z-index: 1; filter: drop-shadow(0 0 9px var(--c-sig)) drop-shadow(0 0 2px var(--c-sig)); }
+.rtab--mosaic.is-selected::before { opacity: .62; }
+.rtab--mosaic.is-selected .rtab__edge-line--5 { opacity: 1; }
+.rtab--mosaic .rtab__name {
   /* fired into the glaze, not printed on it: a shallow dark relief under the
      letters instead of a flat, stark block of colour */
   text-shadow: 0 1px 1.5px color-mix(in srgb, var(--tab-ink-shadow, #000) 60%, transparent);
   opacity: .92;
 }
+
+/* THE DIGITAL TAB — a badge cut from the field itself, not from a wall: two
+   corners chamfered like a keycard, a lit trace for a border instead of a
+   fired cord, no thread to hang from. The chamfer is proportioned so it cuts
+   at the same true angle whichever way the reel scales — see the matching
+   340x100 viewBox in ritualDigitalEdge() (app.js). */
+.rtab--digital {
+  aspect-ratio: 3.4 / 1;
+  color: var(--c-text);
+  /* one colour for every tab — the theme's own signature, not a hue sampled
+     per ritual: that variety belonged to the mosaic's glaze, not to this */
+  --tab: var(--c-sig);
+  --tab-lit: color-mix(in srgb, var(--c-sig) 75%, white);
+  background: color-mix(in srgb, var(--c-bg) 74%, transparent);
+  backdrop-filter: blur(5px);
+  --ritual-cut: polygon(
+    0 0, 93.5294% 0, 100% 22%,
+    100% 100%, 6.4706% 100%, 0 78%
+  );
+  clip-path: var(--ritual-cut);
+  transition: transform .2s ease;
+}
+/* the tab's own hue, faint under the name — a lit panel, not a flat card */
+.rtab--digital::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  pointer-events: none;
+  background: color-mix(in srgb, var(--tab) 18%, transparent);
+  opacity: .55;
+  transition: opacity .24s ease;
+}
+.rtab--digital::after { content: none; }
+.rtab--digital .rtab__edge-line--glow {
+  stroke: var(--tab-lit);
+  stroke-width: 5px;
+  opacity: .3;
+  filter: blur(2.5px);
+  transition: opacity .24s ease, stroke-width .24s ease;
+}
+.rtab--digital .rtab__edge-line--core {
+  stroke: var(--tab);
+  stroke-width: 1.4px;
+  opacity: .8;
+  transition: opacity .24s ease, stroke .24s ease;
+}
+/* a current running the outline — equal dash and gap, so it stays clearly
+   visible (half the border always lit) whatever the exact perimeter under
+   non-scaling-stroke turns out to be, rather than betting the whole effect
+   on one thin segment matched to a guessed length. Kept a layer of its own
+   rather than dashing the core line, so the outline itself stays a solid,
+   continuous trace and this only rides on top of it. */
+.rtab--digital .rtab__edge-line--spark {
+  stroke: var(--tab-lit);
+  stroke-width: 3px;
+  stroke-dasharray: 90 90;
+  opacity: .85;
+  filter: drop-shadow(0 0 4px var(--tab-lit));
+  animation: rtab-flux 2.6s linear infinite;
+  transition: opacity .24s ease;
+}
+@keyframes rtab-flux {
+  to { stroke-dashoffset: -180; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .rtab--digital .rtab__edge-line--spark { animation: none; }
+}
+.rtab--digital:hover,
+.rtab--digital:focus-visible { z-index: 1; transform: translateY(-2px); }
+.rtab--digital:hover::before,
+.rtab--digital:focus-visible::before { opacity: .85; }
+.rtab--digital:hover .rtab__edge-line--glow,
+.rtab--digital:focus-visible .rtab__edge-line--glow { opacity: .65; stroke-width: 7px; }
+.rtab--digital:hover .rtab__edge-line--core,
+.rtab--digital:focus-visible .rtab__edge-line--core { stroke: var(--tab-lit); }
+.rtab--digital:hover .rtab__edge-line--spark,
+.rtab--digital:focus-visible .rtab__edge-line--spark { opacity: 1; }
+.rtab--digital.is-selected {
+  z-index: 1;
+  filter: drop-shadow(0 0 9px var(--c-sig)) drop-shadow(0 0 2px var(--c-sig));
+}
+.rtab--digital.is-selected::before { opacity: .85; }
+.rtab--digital.is-selected .rtab__edge-line--glow { opacity: .65; stroke-width: 7px; }
+.rtab--digital.is-selected .rtab__edge-line--core { stroke: var(--tab-lit); }
+.rtab--digital.is-selected .rtab__edge-line--spark { opacity: 1; }
+.rtab--digital .rtab__name { opacity: .94; }
 
 /* an empty piece in the reel: nothing fired on it yet */
 .rtab--empty {
@@ -13891,5 +14065,73 @@ html.is-field-mode .kanban__col.is-drop-target .kanban__list {
   height: 100%;
   display: flex;
   flex-direction: column;
+}
+
+/* CURSOR
+   Fine-pointer devices only (see initCursor in app.js). html.has-glow-cursor
+   sets cursor:none on the root and every explicit cursor:pointer/grab rule
+   in this file keeps winning through the cascade, so hovering a button still
+   reports "pointer" in JS — that's what drives the ring's active state. */
+html.has-glow-cursor { cursor: none; }
+html.has-glow-cursor input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="file"]),
+html.has-glow-cursor textarea,
+html.has-glow-cursor [contenteditable="true"] {
+  cursor: text;
+}
+
+/* zero-size anchor at the viewport origin: never transformed, so the two
+   layers below read their translate straight off the pointer coordinates */
+.cursor-dot {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 2000;
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity .18s ease;
+}
+html.has-glow-cursor .cursor-dot.is-live { opacity: 1; }
+html.has-glow-cursor .cursor-dot.is-text { opacity: 0; }
+
+.cursor-dot__core {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 6px;
+  height: 6px;
+  margin: -3px 0 0 -3px;
+  border-radius: 50%;
+  background: var(--sig-line);
+  box-shadow: 0 0 6px var(--sig-glow);
+}
+.cursor-dot__ring {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 26px;
+  height: 26px;
+  margin: -13px 0 0 -13px;
+  border-radius: 50%;
+  border: 1.4px solid var(--sig-line);
+  box-shadow: 0 0 10px var(--sig-glow);
+  opacity: .55;
+  transition: width .22s cubic-bezier(.2, .8, .2, 1), height .22s cubic-bezier(.2, .8, .2, 1),
+    margin .22s cubic-bezier(.2, .8, .2, 1), opacity .22s ease, box-shadow .22s ease;
+}
+.cursor-dot.is-active .cursor-dot__ring {
+  width: 42px;
+  height: 42px;
+  margin: -21px 0 0 -21px;
+  opacity: 1;
+  box-shadow: 0 0 18px var(--sig-glow);
+}
+.cursor-dot.is-down .cursor-dot__ring {
+  width: 20px;
+  height: 20px;
+  margin: -10px 0 0 -10px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cursor-dot__ring { transition: opacity .18s ease; }
 }
 .ritual-page__sheet .thinking-document-body { flex: 1 1 auto; }

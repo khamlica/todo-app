@@ -39,6 +39,15 @@
     return list;
   }
 
+  /* How much the animated surfaces are allowed to cost. Only the choices that
+     genuinely lower the render — pixel density, canvas bloom, how many
+     decoration pieces are alive — hang off this; everything that could be made
+     cheaper without being made worse is simply done that way for everyone. */
+  function qualityName(saved) {
+    if (saved === "medium" || saved === "low") return saved;
+    return "high";
+  }
+
   /* The cell is cut from the zellige now; the earlier cuts, and the amethyst
      druse that replaced them, are both gone. Anyone holding one lands on motif. */
   function glassCut(saved) {
@@ -435,6 +444,8 @@
           glass: glassCut(saved.settings && saved.settings.glass),
           decorations: decorationList(saved.settings && saved.settings.decorations),
           fieldMode: !!(saved.settings && saved.settings.fieldMode),
+          ritualsClassicWall: !!(saved.settings && saved.settings.ritualsClassicWall),
+          quality: qualityName(saved.settings && saved.settings.quality),
           projectMode: saved.settings && saved.settings.projectMode === "leisure"
             ? "leisure" : "work",
           timeScrub: saved.settings && saved.settings.timeScrub != null
@@ -453,7 +464,7 @@
         }
       };
     } catch (err) {
-      return { tasks: [], projects: [], habits: [], canvases: [], events: [], ideas: [], rituals: [], sun: null, settings: { name: "", theme: "auto", language: "fr", palette: "theme", glass: "motif", decorations: [], fieldMode: false, projectMode: "work", timeScrub: true, treeFull: false, treeWisps: true, treeTrunk: true, treeBranches: true, treeBlooms: ["corolla"], treeSap: true, autoBands: { dawn: "dawn", day: "day", dusk: "dusk", night: "night" }, themeDecorLent: [], themeEdits: {}, paletteEdits: {}, themePalettes: {} } };
+      return { tasks: [], projects: [], habits: [], canvases: [], events: [], ideas: [], rituals: [], sun: null, settings: { name: "", theme: "auto", language: "fr", palette: "theme", glass: "motif", decorations: [], fieldMode: false, ritualsClassicWall: false, quality: "high", projectMode: "work", timeScrub: true, treeFull: false, treeWisps: true, treeTrunk: true, treeBranches: true, treeBlooms: ["corolla"], treeSap: true, autoBands: { dawn: "dawn", day: "day", dusk: "dusk", night: "night" }, themeDecorLent: [], themeEdits: {}, paletteEdits: {}, themePalettes: {} } };
     }
   }
 
@@ -678,6 +689,62 @@
     saveState();
   }
 
+  /* THE PROJECT HABIT — a project dropped on the habit band becomes a habit of
+     its own, wearing the project's icon. Unlike a moon it does not orbit one
+     constellation: it is kept the way the project itself is kept, done for a
+     day once any of its steps, in any of its constellations, was reached that
+     day. Nothing to tap, nothing to miss — the tile only ever reports back. */
+  function projectHabitFor(projectId) {
+    for (let i = 0; i < state.habits.length; i++) {
+      const habit = state.habits[i];
+      if (habit.type === "project" && habit.projectId === projectId) return habit;
+    }
+    return null;
+  }
+
+  function projectStepDates(project) {
+    const steps = allProjectSteps(project);
+    const dates = [];
+    for (let i = 0; i < steps.length; i++) {
+      if (steps[i].completedDate && dates.indexOf(steps[i].completedDate) === -1) {
+        dates.push(steps[i].completedDate);
+      }
+    }
+    return dates;
+  }
+
+  /* Called wherever a step's completedDate can change. A project with no
+     habit of its own costs one quick scan of the habit list and nothing else. */
+  function syncProjectHabit(project) {
+    const habit = projectHabitFor(project.id);
+    if (!habit) return;
+    habit.completedDates = projectStepDates(project);
+    renderHabits();
+  }
+
+  function createProjectHabit(project) {
+    if (projectHabitFor(project.id)) {
+      showToast(translate("projectHabitAlreadyExists"));
+      return;
+    }
+    state.habits.push({
+      id: Date.now().toString(),
+      type: "project",
+      projectId: project.id,
+      name: project.text,
+      icon: project.icon,
+      completedDates: projectStepDates(project)
+    });
+    saveState();
+    renderHabits();
+    showToast(translate("projectHabitCreated"));
+  }
+
+  function openProjectFromHabit(habit) {
+    const project = habit.projectId && findItem("projects", habit.projectId);
+    if (project) openProjectView(project.id);
+  }
+
   /* THE MARK OF A COURSE — dealt in catalogue order, the first course of every
      objective wore the same glyph, the second the next one, and the tail of the
      catalogue was never seen at all. It is drawn instead, and never twice in the
@@ -843,6 +910,9 @@
       habitDropProject: "Lier à ce projet",
       habitLinkedProject: "Habitude liée au projet.",
       habitAlreadyLinkedProject: "Cette habitude est déjà liée.",
+      projectDropHabit: "Déposer pour créer une habitude",
+      projectHabitCreated: "Habitude de projet créée.",
+      projectHabitAlreadyExists: "Ce projet a déjà son habitude.",
       undoDeleted: "Élément supprimé",
       undoBtn: "Annuler",
       decorLabel: "Décorations",
@@ -859,6 +929,13 @@
       decorFog: "Brouillard",
       decorStorm: "Orage",
       decorField: "Champ",
+      ritualsWallLabel: "Rituels : mur en mosaïque",
+      qualityLabel: "Qualité des animations",
+      qualityHigh: "Haute",
+      qualityMedium: "Moyenne",
+      qualityLow: "Faible",
+      qualityHint: "Baissez-la si les animations saccadent : moins de pixels, moins de halos, moins de décor",
+      ritualsWallHint: "Retrouver l'ancien décor des rituels, à la place du ciel et du champ",
       enterHint: "Touchez pour entrer",
       treeTrunkLabel: "Afficher le tronc",
       treeBranchesLabel: "Afficher les branches",
@@ -1277,6 +1354,9 @@
       habitDropProject: "Link to this project",
       habitLinkedProject: "Habit linked to the project.",
       habitAlreadyLinkedProject: "This habit is already linked.",
+      projectDropHabit: "Drop to create a habit",
+      projectHabitCreated: "Project habit created.",
+      projectHabitAlreadyExists: "This project already has a habit.",
       undoDeleted: "Item deleted",
       undoBtn: "Undo",
       decorLabel: "Decorations",
@@ -1293,6 +1373,13 @@
       decorFog: "Fog",
       decorStorm: "Storm",
       decorField: "Field",
+      ritualsWallLabel: "Rituals: mosaic wall",
+      qualityLabel: "Animation quality",
+      qualityHigh: "High",
+      qualityMedium: "Medium",
+      qualityLow: "Low",
+      qualityHint: "Turn it down if animations stutter: fewer pixels, fewer glows, less decor",
+      ritualsWallHint: "Bring back the old rituals look, instead of the sky and the field",
       enterHint: "Tap to enter",
       treeTrunkLabel: "Show the trunk",
       treeBranchesLabel: "Show the branches",
@@ -1642,7 +1729,7 @@
       ariaNodes[i].setAttribute("aria-label", dictionary[ariaNodes[i].dataset.i18nAria]);
     }
 
-    const languageButtons = document.querySelectorAll(".lang");
+    const languageButtons = document.querySelectorAll("#langs .lang");
     for (let i = 0; i < languageButtons.length; i++) {
       languageButtons[i].classList.toggle("is-active", languageButtons[i].dataset.lang === language);
     }
@@ -2074,6 +2161,7 @@
     // is under it. Waiting for the fade to end put that glow on screen after the
     // passage rather than during it: the ground goes now, with the scenery.
     setFieldWelcome(false);
+    triggerFieldFlash();
     thresholdTimers.push(setTimeout(function () {
       welcomeScreen.style.display = "none";
     }, 560));
@@ -2098,6 +2186,7 @@
     flyRule(from, 1 / WELCOME_RULE_SCALE);
 
     setFieldWelcome(true);
+    triggerFieldFlash();
     renderGreeting();
     renderWelcomeHabits();
     renderScene();
@@ -2266,7 +2355,7 @@
     });
   }
 
-  const languageButtons = document.querySelectorAll(".lang");
+  const languageButtons = document.querySelectorAll("#langs .lang");
   for (let i = 0; i < languageButtons.length; i++) {
     languageButtons[i].addEventListener("click", function () {
       state.settings.language = languageButtons[i].dataset.lang;
@@ -2647,6 +2736,24 @@
     reader.readAsText(file);
   });
 
+  /* WHAT THE QUALITY SETTING ACTUALLY BUYS BACK. Three costs, and only these
+     three, because each one is a real trade rather than waste: the pixels
+     every canvas is rendered at, the canvas bloom (a shadowed stroke is the
+     single most expensive thing any of these loops does), and how many
+     decoration pieces are alive at once. */
+  const QUALITY_DPR = { high: 2, medium: 1.5, low: 1 };
+  const QUALITY_DECOR = { high: 1, medium: .7, low: .45 };
+  function renderDpr() {
+    return Math.min(window.devicePixelRatio || 1, QUALITY_DPR[state.settings.quality] || 2);
+  }
+  // the bloom itself stays at every level — only the blur behind it goes, and
+  // only at the bottom one, where it is the difference between a loop that
+  // keeps up and one that does not
+  function canvasBloomOn() { return state.settings.quality !== "low"; }
+  function decorCount(full) {
+    return Math.max(3, Math.round(full * (QUALITY_DECOR[state.settings.quality] || 1)));
+  }
+
   /* DECORATIONS — activatable ambient effects (particles / petals / bubbles / fireflies) */
   const decor = document.getElementById("decor");
 
@@ -2658,7 +2765,8 @@
   }
 
   function spawnParticles() {
-    for (let i = 0; i < 14; i++) {
+    const total = decorCount(14);
+    for (let i = 0; i < total; i++) {
       const p = decorEl("dp");
       const size = rand(4, 9);
       p.style.width = size + "px";
@@ -2671,7 +2779,8 @@
     }
   }
   function spawnPetals() {
-    for (let i = 0; i < 16; i++) {
+    const total = decorCount(16);
+    for (let i = 0; i < total; i++) {
       const p = decorEl("petal");
       const size = rand(9, 16);
       p.style.width = size + "px";
@@ -2686,7 +2795,8 @@
   }
   /* briar petals, and the decoy some of them carry */
   function spawnThorns() {
-    for (let i = 0; i < 14; i++) {
+    const total = decorCount(14);
+    for (let i = 0; i < total; i++) {
       const p = decorEl("thorn-petal");
       const size = rand(9, 15);
       p.style.width = size + "px";
@@ -2706,7 +2816,8 @@
     }
   }
   function spawnBubbles() {
-    for (let i = 0; i < 12; i++) {
+    const total = decorCount(12);
+    for (let i = 0; i < total; i++) {
       const b = decorEl("bubble2");
       const size = rand(8, 22);
       b.style.width = size + "px";
@@ -2722,7 +2833,8 @@
      One layer, so bubbles alone still work without the whole underwater room. */
   function spawnSeabed() {
     decor.appendChild(decorEl("sea-floor"));
-    for (let i = 0; i < 9; i++) {
+    const total = decorCount(9);
+    for (let i = 0; i < total; i++) {
       const weed = decorEl("sea-weed");
       const height = rand(9, 26);
       weed.style.height = height + "vh";
@@ -2774,7 +2886,8 @@
   }
 
   function spawnPollen() {
-    for (let i = 0; i < 22; i++) {
+    const total = decorCount(22);
+    for (let i = 0; i < total; i++) {
       const p = decorEl("pollen");
       const size = rand(2, 5);
       p.style.width = size + "px";
@@ -2789,7 +2902,8 @@
   }
 
   function spawnFireflies() {
-    for (let i = 0; i < 16; i++) {
+    const total = decorCount(16);
+    for (let i = 0; i < total; i++) {
       const f = decorEl("firefly");
       f.style.left = rand(0, 100) + "%";
       f.style.top = rand(10, 90) + "%";
@@ -2801,7 +2915,8 @@
 
   /* WEATHER DECORATIONS — ambient effects, combinable with any theme */
   function spawnRain() {
-    for (let i = 0; i < 60; i++) {
+    const total = decorCount(60);
+    for (let i = 0; i < total; i++) {
       const drop = decorEl("wx-rain");
       drop.style.left = rand(-6, 100) + "%";   // start left, the slant drifts them right
       drop.style.height = rand(16, 30) + "px";
@@ -2811,7 +2926,8 @@
     }
   }
   function spawnSnow() {
-    for (let i = 0; i < 40; i++) {
+    const total = decorCount(40);
+    for (let i = 0; i < total; i++) {
       const flake = decorEl("wx-snow");
       const size = rand(3, 7);
       flake.style.width = size + "px";
@@ -2950,6 +3066,7 @@
   let latticePath = null;
   let fieldInk = "rgb(255,255,255)";
   let fieldSignature = "rgb(255,255,255)";
+  let fieldSignatureRgb = [255, 255, 255];
   let fieldAccent = "rgb(255,255,255)";
   let rowShade = [];
   let shadeLift = 1;
@@ -2967,6 +3084,88 @@
   const FOLLOW_MS = 700;
   let liveUntil = 0;
   let fieldCovered = false;   // a full-screen space is over it: nobody can see it
+  /* Crossing a threshold — home to tasks, tasks to rituals and back — lights
+     the whole lattice at once and lets it go, on top of whatever the field is
+     already showing there rather than replacing it: the grid itself marks
+     the passage, once, everywhere, then fades back to whatever it was. */
+  let fieldFlashStart = 0;   // 0: no flash running
+  const FIELD_FLASH_DURATION = 1100;   // ms, full grid down to nothing
+  const FIELD_FLASH_LINE_WIDTH = 1.4;
+  const FIELD_FLASH_BLUR = 6;
+  function triggerFieldFlash() {
+    fieldFlashStart = performance.now();
+    fieldWake();
+  }
+
+  /* THE IGNITE — rituals only. A click there does not just press its cell,
+     it lights it whole and the light jumps on: one random direction, four
+     more cells beyond the one clicked (five lit in all), each a few cells
+     further than the last rather than the immediate neighbour, so it reads
+     as a spark finding its way rather than a square block growing. */
+  const RITUAL_IGNITE_TOTAL = 5;    // including the clicked cell
+  const RITUAL_IGNITE_GAP_MIN = 1;
+  const RITUAL_IGNITE_GAP_MAX = 5;
+  const RITUAL_IGNITE_STAGGER = 65;    // ms between one cell catching and the next
+  const RITUAL_IGNITE_LIFE = 480;      // ms a cell's own light takes to fade
+  const RITUAL_IGNITE_DIRS = [[1, 0], [-1, 0], [0, 1], [0, -1],
+    [1, 1], [1, -1], [-1, 1], [-1, -1]];
+  const ritualIgnites = [];   // { col, row, born }: born in the future = not lit yet
+  function spawnRitualIgnite(x, y) {
+    if (fieldCols <= 0 || fieldRows <= 0) return;
+    const now = performance.now();
+    let col = Math.floor(x / FIELD_STEP);
+    let row = Math.floor(y / FIELD_STEP);
+    if (col < 0 || col >= fieldCols || row < 0 || row >= fieldRows) return;
+    ritualIgnites.push({ col: col, row: row, born: now });
+    const dir = RITUAL_IGNITE_DIRS[Math.floor(Math.random() * RITUAL_IGNITE_DIRS.length)];
+    for (let i = 1; i < RITUAL_IGNITE_TOTAL; i++) {
+      const gap = RITUAL_IGNITE_GAP_MIN
+        + Math.floor(Math.random() * (RITUAL_IGNITE_GAP_MAX - RITUAL_IGNITE_GAP_MIN + 1));
+      col += dir[0] * gap;
+      row += dir[1] * gap;
+      if (col < 0 || col >= fieldCols || row < 0 || row >= fieldRows) break;   // ran off the grid
+      ritualIgnites.push({ col: col, row: row, born: now + i * RITUAL_IGNITE_STAGGER });
+    }
+    fieldWake();
+  }
+  function paintRitualIgnites(ctx, now) {
+    const bloom = canvasBloomOn();
+    for (let i = ritualIgnites.length - 1; i >= 0; i--) {
+      const spark = ritualIgnites[i];
+      const age = now - spark.born;
+      if (age < 0) continue;   // its turn in the chain hasn't come yet
+      if (age > RITUAL_IGNITE_LIFE) { ritualIgnites.splice(i, 1); continue; }
+      const life = 1 - age / RITUAL_IGNITE_LIFE;
+      ctx.fillStyle = fieldSignature;
+      ctx.globalAlpha = life * life;   // full the instant it catches, then lets go
+      if (bloom) {
+        ctx.shadowColor = fieldSignature;
+        ctx.shadowBlur = 10 * life;
+      }
+      ctx.fillRect(spark.col * FIELD_STEP, spark.row * FIELD_STEP, FIELD_STEP, FIELD_STEP);
+      ctx.shadowBlur = 0;
+    }
+    ctx.globalAlpha = 1;
+  }
+  /* In the rituals room the lattice itself is the decor: its lines run with
+     the theme's own signature instead of sitting nearly invisible under the
+     panels. At rest they stay modest — half the weight and half the width of
+     the lit state. Where the hand hovers, the flux runs wider and brighter,
+     cell by cell, off the very same trail-shaped energy the dig already
+     presses into the cells (see gatherEnergy's shade) — not a smooth halo
+     of its own, but the field's own pixel grid lighting up. */
+  let fieldRitualsMode = false;
+  const RITUAL_LINE_WIDTH = .5;
+  const RITUAL_LINE_ALPHA = .25;
+  const RITUAL_LINE_WIDTH_HOT = 1.6;
+  const RITUAL_LINE_ALPHA_HOT = .85;
+  const RITUAL_GLOW_WIDTH = 1.2;
+  const RITUAL_GLOW_ALPHA = .2;
+  const RITUAL_GLOW_WIDTH_HOT = 3.4;
+  const RITUAL_GLOW_ALPHA_HOT = .7;
+  const RITUAL_GLOW_BLUR = 4;
+  const RITUAL_GLOW_BLUR_HOT = 9;
+  const RITUAL_HOT_MIN = .04;   // below this fraction of full well weight, skip the cell
 
   function readColour(text) {
     const raw = text.trim();
@@ -2979,6 +3178,92 @@
       : raw.slice(1, 7);
     return [parseInt(hex.slice(0, 2), 16), parseInt(hex.slice(2, 4), 16),
             parseInt(hex.slice(4, 6), 16)];
+  }
+
+  function rgbaText(rgb, alpha) {
+    return "rgba(" + rgb[0] + "," + rgb[1] + "," + rgb[2] + "," + alpha + ")";
+  }
+
+  /* The hot run of flux, stroked as bright grid edges instead of filled as a
+     dark hollow — shared by the rituals room's own lattice (every cell's
+     trail-shaped dig energy, WELL_WEIGHT-normalised) and, at a much lower
+     reach, the sun on the day timeline in the ordinary task view (see
+     paintSunFlux below). Nothing here invents its own zone: whatever map it
+     is handed is what lights up, nothing more.
+
+     Cells are sorted into a few intensity bands and each band stroked once,
+     rather than every cell being stroked on its own settings. A sweep of the
+     hand lights a couple of hundred cells at a time, and a shadowed stroke —
+     the bloom — is by far the dearest call in this whole file: paid per cell
+     it was hundreds of blurs a frame, paid per band it is a handful. The only
+     thing lost is that the ramp climbs in steps rather than continuously, and
+     under a blur that wide nothing of it survives to be seen anyway. */
+  const FLUX_BANDS = 7;
+  const fluxBandPaths = [];   // reused frame to frame: these are hot every frame
+  function paintFieldFlux(ctx, energyByCell, weight, colorRgb, colorText, preset) {
+    for (let i = 0; i < FLUX_BANDS; i++) fluxBandPaths[i] = null;
+    energyByCell.forEach(function (energy, key) {
+      const t = Math.min(1, energy / weight);
+      if (t < preset.hotMin) return;
+      const band = Math.min(FLUX_BANDS - 1, Math.floor(t * FLUX_BANDS));
+      let path = fluxBandPaths[band];
+      if (!path) path = fluxBandPaths[band] = new Path2D();
+      const col = key % fieldCols;
+      const row = (key - col) / fieldCols;
+      const x0 = col * FIELD_STEP, x1 = x0 + FIELD_STEP;
+      const y0 = row * FIELD_STEP, y1 = y0 + FIELD_STEP;
+      path.moveTo(x0, y0); path.lineTo(x1, y0);
+      path.moveTo(x0, y1); path.lineTo(x1, y1);
+      path.moveTo(x0, y0); path.lineTo(x0, y1);
+      path.moveTo(x1, y0); path.lineTo(x1, y1);
+    });
+
+    const bloom = canvasBloomOn();
+    for (let band = 0; band < FLUX_BANDS; band++) {
+      const path = fluxBandPaths[band];
+      if (!path) continue;
+      const t = (band + .5) / FLUX_BANDS;   // the band answers for its own middle
+      ctx.strokeStyle = rgbaText(colorRgb, preset.glowAlpha + (preset.glowAlphaHot - preset.glowAlpha) * t);
+      ctx.lineWidth = preset.glowWidth + (preset.glowWidthHot - preset.glowWidth) * t;
+      if (bloom) {
+        ctx.shadowColor = colorText;
+        ctx.shadowBlur = preset.glowBlur + (preset.glowBlurHot - preset.glowBlur) * t;
+      }
+      ctx.stroke(path);
+      ctx.shadowBlur = 0;
+
+      ctx.strokeStyle = rgbaText(colorRgb, preset.lineAlpha + (preset.lineAlphaHot - preset.lineAlpha) * t);
+      ctx.lineWidth = preset.lineWidth + (preset.lineWidthHot - preset.lineWidth) * t;
+      ctx.stroke(path);
+    }
+  }
+
+  const RITUAL_FLUX_PRESET = {
+    glowAlpha: RITUAL_GLOW_ALPHA, glowAlphaHot: RITUAL_GLOW_ALPHA_HOT,
+    glowWidth: RITUAL_GLOW_WIDTH, glowWidthHot: RITUAL_GLOW_WIDTH_HOT,
+    glowBlur: RITUAL_GLOW_BLUR, glowBlurHot: RITUAL_GLOW_BLUR_HOT,
+    lineAlpha: RITUAL_LINE_ALPHA, lineAlphaHot: RITUAL_LINE_ALPHA_HOT,
+    lineWidth: RITUAL_LINE_WIDTH, lineWidthHot: RITUAL_LINE_WIDTH_HOT,
+    hotMin: RITUAL_HOT_MIN
+  };
+
+  /* The ordinary task view keeps its lattice nearly invisible everywhere
+     (REST_ALPHA) — only right around the sun does a trace of it light up,
+     in the theme's own signature rather than the sun's warm ink (the halo
+     underneath already carries that colour; the wires read as the field's
+     own, not the sun's), same grammar as the rituals room but at rest
+     values of zero, and kept much fainter — a trace, not a second halo. */
+  const SUN_FLUX_PRESET = {
+    glowAlpha: 0, glowAlphaHot: 0.05,
+    glowWidth: .2, glowWidthHot: 0.5,
+    glowBlur: 0.5, glowBlurHot: 1,
+    lineAlpha: 0, lineAlphaHot: .25,
+    lineWidth: .15, lineWidthHot: .45,
+    hotMin: .08
+  };
+  function paintSunFlux(ctx, glow) {
+    if (!sunSpot) return;
+    paintFieldFlux(ctx, glow, 1, fieldSignatureRgb, fieldSignature, SUN_FLUX_PRESET);
   }
 
   /* The colour a cell darkens to, worked out row by row. It follows the sky
@@ -3024,7 +3309,7 @@
   }
 
   function fieldResize() {
-    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const dpr = renderDpr();
     fieldW = window.innerWidth;
     fieldH = window.innerHeight;
     fieldCanvas.width = Math.round(fieldW * dpr);
@@ -3054,8 +3339,9 @@
      cells a source can actually reach are visited, so a lone click near the
      edge does not cost a full sweep of the grid. */
   /* where the sun sits on screen, and what colour it is burning right now */
+  const sunCursor = document.getElementById("dtlCursor");
   function readSun() {
-    const cursor = document.getElementById("dtlCursor");
+    const cursor = sunCursor;
     if (!cursor || cursor.hidden) { sunSpot = null; return; }
     const box = cursor.getBoundingClientRect();
     if (!box.width || box.bottom < -SUN_RADIUS || box.top > fieldH + SUN_RADIUS) {
@@ -3197,6 +3483,13 @@
        the rail sliding, a list rebuilt. So the field watches the rects it just
        drew: as long as one of them is still moving it keeps drawing, and the
        hollows stay under the panels that cast them. */
+    /* The reel's own mask hides everything above the search bar now — a
+       pulse still rising up there is invisible, but still fully laid out,
+       so its rect alone can't tell a masked one from a shown one. Nothing
+       above the invite's own bottom edge is on screen to press with. */
+    const ritualsVisibleFrom = (!ritualsView.hidden && !state.settings.ritualsClassicWall)
+      ? ritualsInvite.getBoundingClientRect().bottom : null;
+
     let stalePanels = false;
     panelsMoving = false;
     for (let i = 0; i < panels.length; i++) {
@@ -3208,6 +3501,8 @@
         panels[i].left = box.left;
       }
       if (!box.width || box.bottom < 0 || box.top > fieldH) continue;
+      if (ritualsVisibleFrom !== null && panels[i].el.classList.contains("rtab__pulse")
+          && box.top + box.height / 2 < ritualsVisibleFrom) continue;
       const depth = panels[i].depth * PANEL_DEPTH;
       const pulses = (panels[i].signatureHover && panels[i].el.matches(":hover"))
         || (panels[i].signatureFocus && panels[i].el.matches(":focus-within"));
@@ -3283,10 +3578,12 @@
      it casts belongs to the field. Project stars reach several cells; the small
      steps only wake the cells immediately around them. Keeping the strongest
      source per square prevents a dense constellation becoming a flat patch. */
+  const skyRoomEl = document.getElementById("skyView");
   function gatherSkyStars() {
     const glow = new Map();
-    const room = document.getElementById("skyView");
-    if (!state.settings.fieldMode || !room || room.hidden) return glow;
+    if (!state.settings.fieldMode) return glow;   // settled before the DOM is touched
+    const room = skyRoomEl;
+    if (!room || room.hidden) return glow;
     const stars = room.querySelectorAll(".pstar, .bstar");
     for (let i = 0; i < stars.length; i++) {
       const star = stars[i];
@@ -3337,6 +3634,7 @@
       const rootStyle = getComputedStyle(document.documentElement);
       fieldInk = getComputedStyle(fieldCanvas).color;
       fieldSignature = rootStyle.getPropertyValue("--c-sig").trim() || fieldInk;
+      fieldSignatureRgb = readColour(fieldSignature);
       fieldAccent = rootStyle.getPropertyValue("--c-accent").trim() || fieldSignature;
       buildRowShades();
       readPanels();          // lists get rebuilt, themes change their veil
@@ -3346,21 +3644,21 @@
        square — the sun is the only temporal source allowed to lift one. */
     readSun();
     const glow = gatherSun();
+    if (sunSpot) ctx.fillStyle = sunSpot.ink;
     glow.forEach(function (light, key) {
       if (light < .02) return;
       const col = key % fieldCols;
       const row = (key - col) / fieldCols;
-      ctx.fillStyle = sunSpot.ink;
       ctx.globalAlpha = SUN_ALPHA * light;
       ctx.fillRect(col * FIELD_STEP, row * FIELD_STEP, FIELD_STEP, FIELD_STEP);
     });
 
     const starGlow = gatherSkyStars();
+    ctx.fillStyle = fieldSignature;
     starGlow.forEach(function (light, key) {
       if (light < .02) return;
       const col = key % fieldCols;
       const row = (key - col) / fieldCols;
-      ctx.fillStyle = fieldSignature;
       ctx.globalAlpha = SKY_STAR_ALPHA * light;
       ctx.fillRect(col * FIELD_STEP, row * FIELD_STEP, FIELD_STEP, FIELD_STEP);
     });
@@ -3376,45 +3674,87 @@
     });
 
     /* Persistent identities and active controls carry colour inside their
-       existing hollow. This is cell paint on the field, never a smooth card. */
+       existing hollow. This is cell paint on the field, never a smooth card.
+       One ink per pass, so it is set once here rather than per cell — only
+       the alpha actually differs from one cell to the next. */
+    ctx.fillStyle = fieldSignature;
     energyMap.signature.forEach(function (energy, key) {
       if (energy < .02) return;
       const col = key % fieldCols;
       const row = (key - col) / fieldCols;
-      ctx.fillStyle = fieldSignature;
       ctx.globalAlpha = PANEL_SIGNATURE_ALPHA * Math.min(1, energy / PANEL_DEPTH);
       ctx.fillRect(col * FIELD_STEP, row * FIELD_STEP, FIELD_STEP, FIELD_STEP);
     });
+    ctx.fillStyle = fieldAccent;
     energyMap.accent.forEach(function (energy, key) {
       if (energy < .02) return;
       const col = key % fieldCols;
       const row = (key - col) / fieldCols;
-      ctx.fillStyle = fieldAccent;
       ctx.globalAlpha = FIELD_ACCENT_ALPHA * Math.min(1, energy / PANEL_DEPTH);
       ctx.fillRect(col * FIELD_STEP, row * FIELD_STEP, FIELD_STEP, FIELD_STEP);
     });
+    ctx.fillStyle = fieldSignature;
     energyMap.signaturePulse.forEach(function (energy, key) {
       if (energy < .02) return;
       const col = key % fieldCols;
       const row = (key - col) / fieldCols;
-      ctx.fillStyle = fieldSignature;
       ctx.globalAlpha = PANEL_SIGNATURE_ALPHA * Math.min(1, energy);
       ctx.fillRect(col * FIELD_STEP, row * FIELD_STEP, FIELD_STEP, FIELD_STEP);
     });
+    ctx.fillStyle = fieldAccent;
     energyMap.accentPulse.forEach(function (energy, key) {
       if (energy < .02) return;
       const col = key % fieldCols;
       const row = (key - col) / fieldCols;
-      ctx.fillStyle = fieldAccent;
       ctx.globalAlpha = PANEL_SIGNATURE_ALPHA * Math.min(1, energy);
       ctx.fillRect(col * FIELD_STEP, row * FIELD_STEP, FIELD_STEP, FIELD_STEP);
     });
 
-    ctx.strokeStyle = fieldInk;
-    ctx.lineWidth = 1;
-    ctx.globalAlpha = REST_ALPHA;
-    ctx.stroke(latticePath);
-    ctx.globalAlpha = 1;
+    if (fieldRitualsMode) {
+      // the bare grid first, uniform and dim, alpha baked into the colour.
+      // This bloom is one stroke, but over every line on the screen, so it is
+      // the one the bottom quality level drops the blur from — the wide pale
+      // pass underneath still carries the glow, just without the halo.
+      ctx.globalAlpha = 1;
+      ctx.strokeStyle = rgbaText(fieldSignatureRgb, RITUAL_GLOW_ALPHA);
+      ctx.lineWidth = RITUAL_GLOW_WIDTH;
+      if (canvasBloomOn()) {
+        ctx.shadowColor = fieldSignature;
+        ctx.shadowBlur = RITUAL_GLOW_BLUR;
+      }
+      ctx.stroke(latticePath);
+      ctx.shadowBlur = 0;
+      ctx.strokeStyle = rgbaText(fieldSignatureRgb, RITUAL_LINE_ALPHA);
+      ctx.lineWidth = RITUAL_LINE_WIDTH;
+      ctx.stroke(latticePath);
+      // then the hot run, cell by cell, over the pointer's own trail shape
+      paintFieldFlux(ctx, energyMap.shade, WELL_WEIGHT, fieldSignatureRgb, fieldSignature, RITUAL_FLUX_PRESET);
+      if (ritualIgnites.length) paintRitualIgnites(ctx, now);
+    } else {
+      ctx.strokeStyle = fieldInk;
+      ctx.lineWidth = 1;
+      ctx.globalAlpha = REST_ALPHA;
+      ctx.stroke(latticePath);
+      ctx.globalAlpha = 1;
+      paintSunFlux(ctx, glow);
+    }
+
+    if (fieldFlashStart) {
+      const fade = 1 - Math.min(1, (now - fieldFlashStart) / FIELD_FLASH_DURATION);
+      const flashAlpha = fade * fade;   // eased: holds near full, then lets go
+      if (flashAlpha > .003) {
+        ctx.strokeStyle = fieldSignature;
+        ctx.lineWidth = FIELD_FLASH_LINE_WIDTH;
+        if (canvasBloomOn()) {
+          ctx.shadowColor = fieldSignature;
+          ctx.shadowBlur = FIELD_FLASH_BLUR;
+        }
+        ctx.globalAlpha = flashAlpha;
+        ctx.stroke(latticePath);
+        ctx.shadowBlur = 0;
+        ctx.globalAlpha = 1;
+      }
+    }
   }
 
   function fieldStep(now) {
@@ -3427,12 +3767,14 @@
       if (now - presses[i].born > PRESS_LIFE) presses.splice(i, 1);
     }
     while (trail.length && now - trail[0].at > TRAIL_MS) trail.shift();
+    const flashing = fieldFlashStart && now - fieldFlashStart < FIELD_FLASH_DURATION;
+    if (fieldFlashStart && !flashing) fieldFlashStart = 0;   // spent, one last plain frame
     fieldDraw(now);
 
     // nothing left to animate: stop, and let the last frame stand
     const settling = Math.abs(wellTarget - wellNow) > .002;
     if (presses.length || trail.length || settling || pointerMoved
-        || panelsMoving || now < liveUntil) {
+        || panelsMoving || now < liveUntil || flashing || ritualIgnites.length) {
       pointerMoved = false;
       // NOT fieldWake: waking is what an event does, and it pushes the tail back
       // by another FOLLOW_MS. Asking for the next frame through it meant the field
@@ -3507,7 +3849,16 @@
   function onFieldDown(event) {
     pointerX = event.clientX;
     pointerY = event.clientY;
-    presses.push({ x: event.clientX, y: event.clientY, born: performance.now() });
+    // rituals swaps the ordinary dig for the ignite — a click there lights
+    // its cell rather than sinking it. Buttons and fields keep their own
+    // click behaviour; this only fires on the bare field showing through
+    if (fieldRitualsMode) {
+      if (!event.target.closest("button, a, input, textarea")) {
+        spawnRitualIgnite(event.clientX, event.clientY);
+      }
+    } else {
+      presses.push({ x: event.clientX, y: event.clientY, born: performance.now() });
+    }
     wellTarget = 1;
     fieldWake();
   }
@@ -3897,7 +4248,7 @@
     const rebuild = !animated || !zelligeCtx || w !== zelligeW || h !== zelligeH;
 
     if (rebuild) {
-      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      const dpr = renderDpr();
       zelligeW = w;
       zelligeH = h;
       zelligeCanvas.width = Math.round(w * dpr);
@@ -4069,7 +4420,7 @@
        pieces actually caught mid-flip — at either end of its turn a piece is
        its own patch untouched, which the blit has already put there. */
     const ctx = zelligeCtx;
-    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const dpr = renderDpr();
     ctx.setTransform(1, 0, 0, 1, 0, 0);
     ctx.globalCompositeOperation = "source-over";
     ctx.clearRect(0, 0, zelligeCanvas.width, zelligeCanvas.height);
@@ -4154,7 +4505,7 @@
   /* the wall as fired: every tile in its own ink, then the metal cord over it */
   function renderZelligeBase() {
     if (!zelligeBase) zelligeBase = document.createElement("canvas");
-    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const dpr = renderDpr();
     zelligeBase.width = zelligeCanvas.width;    // also wipes it
     zelligeBase.height = zelligeCanvas.height;
     const ctx = zelligeBase.getContext("2d");
@@ -4404,6 +4755,38 @@
   treeFullToggle.classList.add("toggle--accent");
   treeFullToggle.setAttribute("aria-label", translate("treeFullLabel"));
   document.getElementById("treeFullSlot").appendChild(treeFullToggle);
+
+  /* the rituals room's own look: the mosaic wall it used to stand on, kept
+     as an option now that the default is the sky and the field */
+  const ritualsWallToggle = createToggle(state.settings.ritualsClassicWall, function (on) {
+    state.settings.ritualsClassicWall = on;
+    saveState();
+  });
+  ritualsWallToggle.setAttribute("aria-label", translate("ritualsWallLabel"));
+  document.getElementById("ritualsWallToggleSlot").appendChild(ritualsWallToggle);
+
+  /* Every canvas is sized in device pixels at paint time, so changing the
+     level only takes effect on the next resize — which is exactly what these
+     force, rather than waiting for the user to turn their phone. */
+  const qualityButtons = document.querySelectorAll("[data-quality]");
+  function markQuality() {
+    for (let i = 0; i < qualityButtons.length; i++) {
+      qualityButtons[i].classList.toggle("is-active",
+        qualityButtons[i].dataset.quality === state.settings.quality);
+    }
+  }
+  markQuality();
+  for (let i = 0; i < qualityButtons.length; i++) {
+    qualityButtons[i].addEventListener("click", function () {
+      state.settings.quality = qualityButtons[i].dataset.quality;
+      saveState();
+      markQuality();
+      applyDecorations();      // the piece count is read as they are spawned
+      if (!fieldCanvas.hidden) { fieldResize(); fieldWake(); }
+      if (!zelligeCanvas.hidden) paintZellige();
+      drawTree();
+    });
+  }
 
   /* the tree workshop, opened from the personalisation tab */
   const treeShop = document.getElementById("treeShop");
@@ -5290,6 +5673,8 @@
       undatedDay: null,
       projectDrop: null,
       projectRow: null,
+      habitsBandDrop: false,
+      paneSwitchAt: 0,
       crossedLists: false,
       reordered: false
     };
@@ -5303,6 +5688,8 @@
     if (rowDrag.canDelete) showTimelineTrash(true, false);
     // the objectives offer themselves for the length of the drag, guide and all
     if (listName === "tasks") showHabitProjectTargets();
+    // a project offers the habit band instead, wherever the rail has to slide to reach it
+    if (listName === "projects") showProjectHabitTarget();
     moveRowGhost(event);
     document.addEventListener("pointermove", onRowDragMove, { passive: false });
     document.addEventListener("pointerup", endRowDrag);
@@ -5411,8 +5798,9 @@
   function updateRowDragDestinations() {
     const deleting = updateRowTrashDrop();
     const project = deleting ? null : updateProjectDrop();
+    const habitsBand = (deleting || project) ? false : updateHabitsBandDrop();
     let onDay = null;
-    if (deleting || project) showCalendarDayTarget(null);
+    if (deleting || project || habitsBand) showCalendarDayTarget(null);
     else onDay = updateCalendarDrop();
     if (onDay) {
       // a day of the grid answers alone: the rule and the groups let go
@@ -5424,10 +5812,13 @@
       clearDropGroups();
       if (rowDrag.crossedLists) restoreDraggedRowOrigin(rowDrag);
     }
-    const spent = deleting || project || onDay;
+    const spent = deleting || project || habitsBand || onDay;
     const drop = spent ? null : updateRowTimelineDrop();
     const undatedDrop = spent ? false : updateUndatedDrop();
-    return { deleting: deleting, drop: drop, undatedDrop: undatedDrop, onDay: onDay };
+    return {
+      deleting: deleting, drop: drop, undatedDrop: undatedDrop, onDay: onDay,
+      habitsBand: habitsBand
+    };
   }
 
   /* A TASK GIVEN TO A PROJECT — dropped on a project's row it joins that project,
@@ -5447,6 +5838,40 @@
     if (target) target.row.classList.add("is-habit-drop-target");
     rowDrag.projectDrop = target ? target.project.id : null;
     return rowDrag.projectDrop;
+  }
+
+  /* A PROJECT GIVEN TO THE HABIT BAND — the mirror gesture: dropped there, an
+     objective becomes a habit of its own instead of joining another one. On a
+     narrow screen the band lives in the other pane, so the rail is nudged
+     across the same way a habit dragged the other way already nudges it. */
+  function updateHabitsBandDrop() {
+    if (!rowDrag || rowDrag.listName !== "projects") return false;
+    maybeSwitchRowPane();
+    const band = document.querySelector(".habits-band");
+    const over = !!habitsBandDropAt(rowDrag.pointerX, rowDrag.pointerY);
+    if (band) band.classList.toggle("is-project-drop-target", over);
+    rowDrag.habitsBandDrop = over;
+    return over;
+  }
+
+  function habitsBandDropAt(clientX, clientY) {
+    const at = document.elementFromPoint(clientX, clientY);
+    return at && at.closest ? at.closest(".habits-band") : null;
+  }
+
+  /* Dragging a project toward the far edge of a narrow screen slides the rail
+     to the pane that holds the habit band, exactly as a habit dragged the
+     other way already slides it back — same trick, same cooldown. */
+  function maybeSwitchRowPane() {
+    if (!rowDrag || rowDrag.listName !== "projects" || !railed()
+      || Date.now() < rowDrag.paneSwitchAt) return;
+    let next = paneAt;
+    if (rowDrag.pointerX < 26 && paneAt === 1) next = 0;
+    else if (rowDrag.pointerX > window.innerWidth - 26 && paneAt === 0) next = 1;
+    if (next === paneAt) return;
+    pagesTrack.classList.add("is-row-dragging");
+    setPane(next);
+    rowDrag.paneSwitchAt = Date.now() + 650;
   }
 
   function restoreDraggedRowOrigin(drag) {
@@ -5562,7 +5987,7 @@
     moveRowGhost(event);
     const destination = updateRowDragDestinations();
     if (destination.deleting || destination.drop || destination.undatedDrop
-      || destination.onDay || !rowDrag.canReorder) return;
+      || destination.onDay || destination.habitsBand || !rowDrag.canReorder) return;
 
     const listEl = rowDrag.listEl;
     const siblings = listEl.querySelectorAll('.item[data-reorder]:not(.is-dragging)');
@@ -5594,6 +6019,8 @@
     showCalendarDayTarget(null);
     clearDropGroups();
     clearHabitProjectTargets();
+    clearProjectHabitTarget();
+    pagesTrack.classList.remove("is-row-dragging");
     dragEndedAt = Date.now() + 350;   // swallow the click that ends the drag
     cancelAnimationFrame(rowDragScrollFrame);
     rowDragScrollFrame = 0;
@@ -5629,6 +6056,12 @@
         refreshStepStructure(project);
         showToast(translate("taskLinked"));
       }
+      return;
+    }
+
+    if (drag.habitsBandDrop) {
+      const project = findItem("projects", drag.row.dataset.id);
+      if (project) createProjectHabit(project);
       return;
     }
 
@@ -5781,11 +6214,14 @@
     if (!removed) return;
     items.splice(index, 1);
     const canvasUndo = cutSheetCanvas(removed);   // the sheets go with it
+    const habitUndo = listName === "projects" ? cutProjectHabit(removed) : null;
     saveState();
     rerender();
+    if (habitUndo) renderHabits();   // the tile leaves the band along with the row
     showToast(translate("undoDeleted"), translate("undoBtn"), function () {
       state[listName].splice(index, 0, removed);
       if (canvasUndo) canvasUndo();
+      if (habitUndo) habitUndo();
       if (onRestore) onRestore();   // whatever pointed at it points again
       saveState();
       rerender();
@@ -6206,6 +6642,15 @@
   function projectSvg(iconKey) { return catalogIconSvg(iconKey, PROJECT_ICONS); }
   function eventSvg(iconKey) { return catalogIconSvg(iconKey, EVENT_ICONS); }
 
+  /* A project habit wears an icon out of whichever catalog the project itself
+     drew it from — the project one, or the sky bodies a project can just as
+     well be given. catalogIconSvg already walks every catalog in turn and
+     draws nothing for an icon that matches none, so there is no guard to get
+     wrong: this is exactly what habitSvg does everywhere else too. */
+  function habitIconMarkup(habit) {
+    return habitSvg(habit.icon);
+  }
+
   /* A small celestial alphabet reserved for constellation lists. The points and
      their threads stay legible at the compact size used beside a branch name. */
   const CONSTELLATION_ICONS = {
@@ -6556,9 +7001,12 @@
     if (iconPickerMode.kind === "project") {
       const project = findItem("projects", iconPickerMode.projectId);
       if (project) project.icon = iconKey;
+      const projectHabit = project ? projectHabitFor(project.id) : null;
+      if (projectHabit) projectHabit.icon = iconKey;
       saveState();
       if (project) refreshGoalMarks(project);
       if (project && !skyView.hidden) renderSky();
+      if (projectHabit) renderHabitCells();
       const choices = iconPicker.querySelectorAll(".icon-choice");
       for (let i = 0; i < choices.length; i++) {
         choices[i].classList.toggle("is-on", choices[i].dataset.icon === iconKey);
@@ -8748,7 +9196,7 @@
      put up in one go or grown a slice at a time. */
   function readyTree() {
     if (!treeCanvas || !treeCanvas.parentNode.offsetWidth) return null;
-    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    const dpr = renderDpr();
     const w = treeCanvas.parentNode.offsetWidth;
     const h = stageHeight();
     const sky = skyHeight();
@@ -9217,7 +9665,7 @@
       node.style.setProperty("--vigour", habitVigour(habit).toFixed(2));
       node.setAttribute("aria-label", habit.name || translate("habitToggleAria"));
       node.setAttribute("aria-pressed", done ? "true" : "false");
-      if (HABIT_ICONS[habit.icon]) node.innerHTML = habitSvg(habit.icon);
+      node.innerHTML = habitIconMarkup(habit);
 
       const tag = document.createElement("span");
       tag.className = "tnode__name";
@@ -9236,6 +9684,7 @@
       node.addEventListener("click", function () {
         if (habit.type === "sleep") { openSleepView(habit.id); return; }
         if (habit.type === "exercise") { openExerciseView(habit.id); return; }
+        if (habit.type === "project") { openProjectFromHabit(habit); return; }
         toggleHabit(habit.id, node);
         node.classList.remove("done");
         drawTree();                         // the tree answers straight away
@@ -9306,7 +9755,7 @@
     const today = todayKey();
     for (let i = 0; i < state.habits.length; i++) {
       const habit = state.habits[i];
-      if (habit.type === "sleep" || habit.type === "exercise") continue;   // not a yes or no
+      if (habit.type === "sleep" || habit.type === "exercise" || habit.type === "project") continue;   // not a yes or no
       welcomeHabits.appendChild(welcomeRing(habit, today));
     }
   }
@@ -9396,6 +9845,35 @@
     if (!row) return null;
     const project = findItem("projects", row.dataset.id);
     return project ? { row: row, project: project } : null;
+  }
+
+  /* the same chain-link guide, offered by the band instead of by a row: a
+     project dragged onto it becomes a habit the same way a habit dragged onto
+     a row becomes part of a project — one gesture, read from either side. */
+  function projectHabitGuide() {
+    const guide = document.createElement("span");
+    guide.className = "project-habit-drop-guide";
+    const icon = document.createElement("span");
+    icon.innerHTML = iconSvg('<path d="M10 13a5 5 0 0 0 7.5.5l2-2a5 5 0 0 0-7-7l-1.1 1.1"/>'
+      + '<path d="M14 11a5 5 0 0 0-7.5-.5l-2 2a5 5 0 0 0 7 7l1.1-1.1"/>');
+    const text = document.createElement("span");
+    text.textContent = translate("projectDropHabit");
+    guide.append(icon, text);
+    return guide;
+  }
+
+  function showProjectHabitTarget() {
+    const band = document.querySelector(".habits-band");
+    if (!band) return;
+    band.classList.add("is-project-drop-available");
+    band.appendChild(projectHabitGuide());
+  }
+
+  function clearProjectHabitTarget() {
+    const band = document.querySelector(".habits-band");
+    if (band) band.classList.remove("is-project-drop-available", "is-project-drop-target");
+    const guides = document.querySelectorAll(".project-habit-drop-guide");
+    for (let i = 0; i < guides.length; i++) guides[i].remove();
   }
 
   function startHabitDrag(event, handle, habit) {
@@ -9557,6 +10035,7 @@
     const tile = document.createElement("button");
     tile.type = "button";
     tile.className = done ? "habit done" : "habit";
+    if (habit.type === "project") tile.classList.add("habit--project");
     tile.setAttribute("aria-pressed", done ? "true" : "false");
     tile.setAttribute("aria-label", habit.name || translate("habitToggleAria"));
 
@@ -9564,7 +10043,7 @@
     water.className = "habit__water";
     const icon = document.createElement("span");
     icon.className = "habit__icon";
-    if (HABIT_ICONS[habit.icon]) icon.innerHTML = habitSvg(habit.icon);
+    icon.innerHTML = habitIconMarkup(habit);
     tile.append(water, icon);
 
     armHabitDrag(tile, habit);
@@ -9575,6 +10054,10 @@
       }
       if (habit.type === "sleep") {
         openSleepView(habit.id);
+        return;
+      }
+      if (habit.type === "project") {   // kept by the project, not by the tap
+        openProjectFromHabit(habit);
         return;
       }
       toggleHabit(habit.id, tile);   // flips the "done" class the water reads
@@ -9591,7 +10074,7 @@
     ring.className = done ? "welcome__ring is-done" : "welcome__ring";
     ring.setAttribute("aria-label", habit.name || translate("habitToggleAria"));
     ring.setAttribute("aria-pressed", done ? "true" : "false");
-    if (HABIT_ICONS[habit.icon]) ring.innerHTML = habitSvg(habit.icon);
+    ring.innerHTML = habitIconMarkup(habit);
     ring.addEventListener("click", function (event) {
       event.stopPropagation();          // tick it, do not walk in
       toggleHabit(habit.id, ring);      // flips a "done" class on what it is given
@@ -9676,7 +10159,7 @@
     tag.className = "hrule__tag";
     tag.title = habit.name || "";
     tag.setAttribute("aria-label", translate("habitDetailAria") + (habit.name ? " — " + habit.name : ""));
-    if (HABIT_ICONS[habit.icon]) tag.innerHTML = habitSvg(habit.icon);
+    tag.innerHTML = habitIconMarkup(habit);
     tag.addEventListener("click", function () { openHabitDetail(habit.id); });
     lane.appendChild(tag);
 
@@ -9735,7 +10218,7 @@
     iconBtn.type = "button";
     iconBtn.className = "hcard__icon";
     iconBtn.setAttribute("aria-label", translate("editIconLabel"));
-    iconBtn.innerHTML = HABIT_ICONS[habit.icon] ? habitSvg(habit.icon) : "";
+    iconBtn.innerHTML = habitIconMarkup(habit);
     iconBtn.addEventListener("click", function () { openIconPickerForEdit(habit.id); });
 
     const nameInput = document.createElement("input");
@@ -10050,7 +10533,7 @@
   function renderHabitDetail() {
     const habit = currentHabitDetail();
     if (!habit) return;
-    habitDetailIcon.innerHTML = HABIT_ICONS[habit.icon] ? habitSvg(habit.icon) : "";
+    habitDetailIcon.innerHTML = habitIconMarkup(habit);
     habitDetailName.value = habit.name || "";
     habitDetailStreak.textContent = translate("streakLabel") + " " + habitStreak(habit);
     renderHabitHeat(habitDetailHeat, habit);
@@ -11132,6 +11615,7 @@
     addStepToBranch(activeProjectBranch(project), step);
     task.projectId = project.id;
     task.stepId = step.id;
+    if (step.completedDate) syncProjectHabit(project);
   }
 
   function createTaskFromStep(project, step, drop, beforeId, day) {
@@ -11805,6 +12289,7 @@
     const moved = settleStep(branch, step);
     const completedTasks = step.completedDate
       ? completeStepTasks(project, step) : [];
+    syncProjectHabit(project);
     saveState();
     if (moved) {
       // its rank changed: no section can be patched in place, but they all slide
@@ -11856,6 +12341,7 @@
       }
     }
     const freed = unlinkTasksFromStep(id);
+    syncProjectHabit(project);
     saveState();
     refreshStepStructure(project);
     if (freed) renderList("tasks");   // the star it carried is gone with the step
@@ -11934,6 +12420,7 @@
     if (!link || link.step.completedDate) return null;
     link.step.completedDate = task.doneDate || todayKey();
     link.moved = settleStep(link.branch, link.step);
+    syncProjectHabit(link.project);
     return link;
   }
 
@@ -12840,6 +13327,22 @@
     return cutThinkingBlocks(found.tree, [found.node.id]);
   }
 
+  /* A project habit lives only as long as the project it stands for: without
+     this it would stay behind, an icon that can never be completed again. The
+     bin takes it along with the project, and Undo brings it back where it stood. */
+  function cutProjectHabit(project) {
+    for (let i = 0; i < state.habits.length; i++) {
+      if (state.habits[i].type === "project" && state.habits[i].projectId === project.id) {
+        const habit = state.habits.splice(i, 1)[0];
+        return function () {
+          state.habits.splice(Math.min(i, state.habits.length), 0, habit);
+          renderHabits();
+        };
+      }
+    }
+    return null;
+  }
+
   /* the board is alive in either frame; a refresh must not test only for the view */
   function thinkingLive() {
     return !thinkingView.hidden || !!canvasSheetSlot;
@@ -13003,6 +13506,8 @@
 
   function renameProject(project, text) {
     project.text = text;
+    const habit = projectHabitFor(project.id);
+    if (habit) habit.name = text;
     saveState();
   }
 
@@ -14709,12 +15214,23 @@
   let ritualsAmbientRaf = null;
   let ritualsAmbientLastTime = null;
   let ritualsReelHalfHeight = 0;
-  let ritualsHoverZone = null;   // "top" | "bottom" | null
+  let ritualsHoverZone = null;   // "bottom" | null
   // opening the room, the column is not there yet: parked below the floor,
   // it rushes up into place at speed and only then joins the normal loop —
   // which is why the top of the reel is the last thing to fill in
   let ritualsReelEntering = false;
   let ritualsReelEntryStart = 0;   // the starting distance, so progress can be read off it
+  // a wheel or a finger can force the reel's own pace and direction for a
+  // moment — a kick added on top of the ambient speed, that fades back to it
+  // rather than snapping off, so nothing about resuming reads as a mode switch
+  let ritualsScrollVelocity = 0;   // px/s
+  // a touch drag moves the track directly, frame by frame, while it's held;
+  // ritualsScrollVelocity only takes over once the finger lifts, carrying
+  // whatever speed the drag was actually let go at
+  let ritualsDragPointerId = null;
+  let ritualsDragLastY = 0;
+  let ritualsDragLastT = 0;
+  let ritualsDragMoved = 0;   // total px travelled this touch, to tell a drag from a tap
 
   function findRitual(id) {
     for (let i = 0; i < state.rituals.length; i++) {
@@ -14814,33 +15330,99 @@
     return svg;
   }
 
+  /* THE DIGITAL TAB — a badge cut off the same field the room now stands on,
+     not off a wall. One colour for every tab, the theme's own signature (set
+     in CSS, --c-sig — no per-tile hue to compute, that variety belonged to
+     the mosaic's glaze); the edge is a lit trace instead of a fired cord,
+     two passes instead of five: a soft bloom and a crisp core, same grammar
+     as the flux running through the field's own lines. */
+
+  /* Two corners chamfered off a 340x100 box — the same proportions the CSS
+     clip-path cuts the button to, so the traced outline and the clip agree
+     down to the pixel and the clip keeps only this piece's own half of a
+     border it would otherwise share with its neighbour, same as the wall did. */
+  const RITUAL_SPARK_PERIOD = 2.6;   // seconds for one lap, kept in sync with the CSS animation
+  function ritualDigitalEdge() {
+    const ns = "http://www.w3.org/2000/svg";
+    const svg = document.createElementNS(ns, "svg");
+    svg.classList.add("rtab__edge");
+    svg.setAttribute("viewBox", "0 0 340 100");
+    svg.setAttribute("preserveAspectRatio", "none");
+    svg.setAttribute("aria-hidden", "true");
+    const d = "M0 0L318 0L340 22L340 100L22 100L0 78Z";
+    const glow = document.createElementNS(ns, "path");
+    glow.setAttribute("d", d);
+    glow.classList.add("rtab__edge-line", "rtab__edge-line--glow");
+    const core = document.createElementNS(ns, "path");
+    core.setAttribute("d", d);
+    core.classList.add("rtab__edge-line", "rtab__edge-line--core");
+    // a live current, not a static outline — each tile starts mid-lap so a
+    // whole reel of them never pulses in lockstep
+    const spark = document.createElementNS(ns, "path");
+    spark.setAttribute("d", d);
+    spark.classList.add("rtab__edge-line", "rtab__edge-line--spark");
+    spark.style.animationDelay = (Math.random() * -RITUAL_SPARK_PERIOD).toFixed(2) + "s";
+    svg.append(glow, core, spark);
+    return svg;
+  }
+
+  /* The badge stays full size — that read fine — but what presses into the
+     field underneath it is only this thin strip, opted into the same
+     [data-field-panel] contract PANEL_SELECTOR already gives any pane whose
+     reported depth isn't its own paint. A tile as tall as the badge dug a
+     solid stripe the whole run sat in, with nothing left uncovered to show
+     the reel actually moving; one row of the grid still marks the tile's
+     place without swallowing the field around it. */
+  function ritualDigitalPulse() {
+    const pulse = document.createElement("span");
+    pulse.className = "rtab__pulse";
+    pulse.setAttribute("data-field-panel", "");
+    pulse.setAttribute("aria-hidden", "true");
+    return pulse;
+  }
+
   function createRitualTab(ritual) {
+    const classicWall = state.settings.ritualsClassicWall;
     const tab = document.createElement("button");
     tab.type = "button";
-    tab.className = "rtab";
+    tab.className = classicWall ? "rtab rtab--mosaic" : "rtab rtab--digital";
     tab.dataset.id = ritual.id;
-    paintRitualGlaze(tab, ritual.tint);
+    if (classicWall) paintRitualGlaze(tab, ritual.tint);
 
     const name = document.createElement("span");
     name.className = "rtab__name";
     name.textContent = ritual.text || translate("ritualUntitled");
-    tab.append(ritualEdge(), name);
-    tab.addEventListener("click", function () { openRitual(ritual.id); });
-    // the thread lets go the moment the hand does: back to hanging flat
-    tab.addEventListener("pointerleave", function () { tab.style.removeProperty("--tab-tilt"); });
+    tab.append(classicWall ? ritualEdge() : ritualDigitalEdge(), name);
+    if (!classicWall) tab.appendChild(ritualDigitalPulse());
+    // a released drag can end right over a tile; only a tap this short opens it
+    tab.addEventListener("click", function () {
+      if (ritualsDragMoved > RITUAL_DRAG_TAP_THRESHOLD) return;
+      openRitual(ritual.id);
+    });
+    if (classicWall) {
+      // the thread lets go the moment the hand does: back to hanging flat
+      tab.addEventListener("pointerleave", function () { tab.style.removeProperty("--tab-tilt"); });
+    }
     return tab;
   }
 
   /* An empty piece is fired blank: no name, no glaze sampled off the wall —
      just the cut and the cord, waiting. A click on one starts a ritual there. */
   function createEmptyRitualTile() {
+    const classicWall = state.settings.ritualsClassicWall;
     const tab = document.createElement("button");
     tab.type = "button";
-    tab.className = "rtab rtab--empty";
+    tab.className = (classicWall ? "rtab rtab--mosaic" : "rtab rtab--digital") + " rtab--empty";
     tab.setAttribute("aria-label", translate("ritualNew"));
-    tab.appendChild(ritualEdge());
-    tab.addEventListener("click", function () { addRitual(""); });
-    tab.addEventListener("pointerleave", function () { tab.style.removeProperty("--tab-tilt"); });
+    tab.appendChild(classicWall ? ritualEdge() : ritualDigitalEdge());
+    if (!classicWall) tab.appendChild(ritualDigitalPulse());
+    tab.addEventListener("click", function () {
+      if (ritualsDragMoved > RITUAL_DRAG_TAP_THRESHOLD) return;
+      addRitual("");
+    });
+    if (classicWall) {
+      tab.addEventListener("pointerleave", function () { tab.style.removeProperty("--tab-tilt"); });
+    }
     return tab;
   }
 
@@ -14857,10 +15439,60 @@
      — the seam between the two copies interlocks like any other pair of
      pieces, so the loop has nowhere for the eye to catch it. */
   const RITUAL_REEL_PX_PER_SECOND = 26;
-  const RITUAL_REEL_HOVER_MULTIPLIER = 8;   // top or bottom edge: eight times the speed
+  const RITUAL_REEL_HOVER_MULTIPLIER = 8;   // the bottom edge: eight times the speed
   const RITUAL_REEL_ENTRY_START_MULTIPLIER = 32;   // fastest at the very start, parked off the floor
   const RITUAL_REEL_ENTRY_END_MULTIPLIER = 1;      // and down to plain speed exactly as it settles
   const RITUAL_REEL_ENTRY_MARGIN = 30;      // a little past the floor, so nothing shows at frame one
+  const RITUAL_REEL_HOT_DEPTH = .92;   // matches the mask's own fade point, near the reel's floor
+  const RITUAL_WHEEL_GAIN = 2.6;       // px/s of kick per unit of wheel delta
+  const RITUAL_SCROLL_MAX = RITUAL_REEL_PX_PER_SECOND * RITUAL_REEL_HOVER_MULTIPLIER * 3;
+  const RITUAL_SCROLL_DECAY = 3.2;     // 1/s: how fast a kick fades back to the ambient pace
+  const RITUAL_DRAG_TAP_THRESHOLD = 8; // px a touch can move and still count as a tap
+
+  /* The bar's own halo feeds on whatever block is passing under it right
+     now: the closer a pulse sits to the absorption line (the invite's own
+     bottom edge, the same line gatherEnergy() already treats as where a
+     tile stops being on screen), the brighter it burns. Read once a frame
+     off the reel's own step, not the field's — this is the bar's business.
+
+     Where each pulse sits inside the track never changes between rebuilds,
+     and the track only ever slides: so the offsets are measured once when
+     the reel is built and the frame itself is arithmetic. Asking the DOM
+     again every frame — a query plus a rect per tile — was buying numbers
+     that could not have moved. */
+  const RITUAL_FEED_REACH = 60;   // px either side of the line still felt
+  let ritualPulseOffsets = [];    // each tile's middle, in the track's own space
+  let ritualFeedLine = 0;         // where the bar absorbs, in the track's own space
+  /* Everything is measured off the same rect in the same pass, so the slide
+     the track is currently under cancels out of the tile offsets and is taken
+     back out of the bar's line explicitly — leaving both in the track's own
+     unmoving space, where a frame is subtraction and nothing else. */
+  function cacheRitualPulses() {
+    if (ritualsView.hidden) return;
+    const trackBox = ritualsReelTrack.getBoundingClientRect();
+    const pulses = ritualsReelTrack.querySelectorAll(".rtab__pulse");
+    ritualPulseOffsets = [];
+    for (let i = 0; i < pulses.length; i++) {
+      const box = pulses[i].getBoundingClientRect();
+      ritualPulseOffsets.push(box.top + box.height / 2 - trackBox.top);
+    }
+    ritualFeedLine = ritualsInvite.getBoundingClientRect().bottom
+      - (trackBox.top + ritualsAmbientPos);
+  }
+  function updateRitualsFeedGlow() {
+    if (ritualsView.hidden || state.settings.ritualsClassicWall) {
+      ritualsSearch.style.setProperty("--feed", "0");
+      return;
+    }
+    let best = 0;
+    for (let i = 0; i < ritualPulseOffsets.length; i++) {
+      const d = ritualPulseOffsets[i] - ritualsAmbientPos - ritualFeedLine;
+      if (d > RITUAL_FEED_REACH * 3 || d < -RITUAL_FEED_REACH * 3) continue;
+      const t = Math.exp(-(d * d) / (RITUAL_FEED_REACH * RITUAL_FEED_REACH));
+      if (t > best) best = t;
+    }
+    ritualsSearch.style.setProperty("--feed", best.toFixed(3));
+  }
 
   /* These are the very colours and the very width renderZelligeBase() just
      used for its three grout passes, exposed once for every tab including
@@ -14879,6 +15511,7 @@
       }
     }
     ritualsReelHalfHeight = ritualsReelTrack.scrollHeight / 2;
+    cacheRitualPulses();
   }
 
   // entering: true only when the room itself is opening — every other call
@@ -14896,6 +15529,7 @@
     ritualsInSearchMode = false;
     const keepPos = ritualsAmbientPos;
     buildAmbientReelContent();
+    panelsDirty = true;   // fresh tiles: the field needs to pick up the new ones
     // reduced motion gets the wall already standing — the rush has nothing
     // to hand off to, since startRitualsAmbientLoop() below never schedules
     // a frame for it, and an empty reel with no loop running would just stay empty
@@ -14968,16 +15602,23 @@
           + (RITUAL_REEL_ENTRY_START_MULTIPLIER - RITUAL_REEL_ENTRY_END_MULTIPLIER) * left;
         ritualsAmbientPos += RITUAL_REEL_PX_PER_SECOND * multiplier * dt;
         if (ritualsAmbientPos >= 0) { ritualsAmbientPos = 0; ritualsReelEntering = false; }
-      } else {
-        const direction = ritualsHoverZone === "top" ? -1 : 1;
+      } else if (ritualsDragPointerId === null) {
+        // rising on its own, absorbed at the top of its band — the bottom
+        // edge speeds it through, and a wheel or a released drag can add its
+        // own kick on top, forward or backward, fading back to this pace
+        // rather than snapping off. A live drag skips this branch entirely:
+        // the pointermove handler is moving the track itself, frame by frame
         const speed = ritualsHoverZone ? RITUAL_REEL_PX_PER_SECOND * RITUAL_REEL_HOVER_MULTIPLIER
           : RITUAL_REEL_PX_PER_SECOND;
-        ritualsAmbientPos += direction * speed * dt;
-        // keep it inside one copy's height either way round, so the seam stays hidden
+        ritualsAmbientPos += (speed + ritualsScrollVelocity) * dt;
+        ritualsScrollVelocity *= Math.max(0, 1 - RITUAL_SCROLL_DECAY * dt);
+        if (Math.abs(ritualsScrollVelocity) < 1) ritualsScrollVelocity = 0;
+        // keep it inside one copy's height, so the seam stays hidden
         ritualsAmbientPos = ((ritualsAmbientPos % ritualsReelHalfHeight) + ritualsReelHalfHeight)
           % ritualsReelHalfHeight;
       }
       ritualsReelTrack.style.transform = "translateY(" + (-ritualsAmbientPos) + "px)";
+      updateRitualsFeedGlow();
     }
     ritualsAmbientRaf = requestAnimationFrame(stepRitualsAmbient);
   }
@@ -15034,6 +15675,7 @@
       const ritual = filler[(RITUAL_SEARCH_LEAD_TILES + i) % filler.length];
       ritualsReelTrack.appendChild(ritual ? createRitualTab(ritual) : createEmptyRitualTile());
     }
+    cacheRitualPulses();
   }
 
   // quick ramp-up, then a long ease-out — a reel spun by hand, not a linear scroll
@@ -15051,6 +15693,7 @@
       const t = Math.min(1, (now - startTime) / duration);
       const eased = useSpinCurve ? ritualSpinEase(t) : easeOutCubic(t);
       ritualsReelTrack.style.transform = "translateY(" + (startY + (targetY - startY) * eased) + "px)";
+      updateRitualsFeedGlow();
       if (t < 1) ritualsSpinRaf = requestAnimationFrame(step);
       else updateRitualsSelectionHighlight();
     }
@@ -15222,11 +15865,19 @@
   }
 
   function openRituals() {
-    coverField(true);
+    // default look now stands on the sky and the field, same as the task view;
+    // the mosaic wall is kept only for the classic-wall setting
+    const classicWall = state.settings.ritualsClassicWall;
+    if (classicWall) coverField(true);
     appScreen.hidden = true;   // the room stands on the theme's sky, not on the app
     setTopbarsHidden(true);
     ritualsView.hidden = false;
-    mountZelligeInRituals();
+    if (classicWall) mountZelligeInRituals();
+    else { fieldRitualsMode = true; triggerFieldFlash(); }
+    ritualsBareToggle.hidden = !classicWall;   // nothing to bare down to without the wall
+    // the mosaic tiles tessellate edge to edge; the digital badges float over
+    // the field with room to breathe, so the run needs the gap only there
+    ritualsReelTrack.classList.toggle("rituals__reel-track--mosaic", classicWall);
     ritualsSearch.value = "";
     ritualsView.classList.remove("is-bare");
     ritualsBareToggle.setAttribute("aria-pressed", "false");
@@ -15242,13 +15893,15 @@
   function closeRituals() {
     if (openRitualId) closeRitual();
     ritualsView.classList.remove("is-open");
-    setZelligeOn(false);
+    const classicWall = state.settings.ritualsClassicWall;
+    if (classicWall) setZelligeOn(false);
+    else { fieldRitualsMode = false; triggerFieldFlash(); }
     stopRitualsAmbientLoop();
     cancelAnimationFrame(ritualsSpinRaf);
     setTimeout(function () {
       ritualsView.hidden = true;
-      releaseZellige();
-      coverField(false);
+      if (classicWall) releaseZellige();
+      if (classicWall) coverField(false);
       appScreen.hidden = false;
       setTopbarsHidden(false);
     }, 300);
@@ -15289,7 +15942,7 @@
      touch, and the piece also rotates on its vertical thread: the side under
      the hand sinks back into the wall, the far side swings toward the glass. */
   ritualsReel.addEventListener("pointermove", function (event) {
-    const tab = event.target.closest(".rtab");
+    const tab = event.target.closest(".rtab--mosaic");
     if (tab) {
       const box = tab.getBoundingClientRect();
       const relX = (event.clientX - box.left) / box.width;
@@ -15302,24 +15955,73 @@
       tab.style.setProperty("--tab-tilt",
         ((relX - 0.5) * 2 * RITUAL_TAB_TILT_MAX_DEG).toFixed(2) + "deg");
     }
-    // top edge pulls the reel back, bottom edge pushes it on — irrelevant
-    // once a search has taken the reel over, so left alone in that case
+    // the bottom edge pushes the reel on — irrelevant once a search has
+    // taken the reel over, so left alone in that case
     if (ritualsInSearchMode) return;
-    // only the two extremities are hot: above the invite card, and a band of
-    // the same depth mirrored at the reel's own bottom edge. Everything in
-    // between — most of the reel, including right under the search bar —
-    // stays neutral, so reading a name near the middle is never fought by it
+    // only the reel's own floor is hot, where the mask already starts fading
+    // the tiles out; everything above it, including right under the search
+    // bar, stays neutral, so reading a name is never fought by it
     const reelBox = ritualsReel.getBoundingClientRect();
-    const inviteBox = ritualsInvite.getBoundingClientRect();
-    const topDepth = Math.max(0, inviteBox.top - reelBox.top);
-    const bottomEdge = Math.max(inviteBox.bottom, reelBox.bottom - topDepth);
-    if (event.clientY < inviteBox.top) ritualsHoverZone = "top";
-    else if (event.clientY > bottomEdge) ritualsHoverZone = "bottom";
-    else ritualsHoverZone = null;
+    const bottomEdge = reelBox.top + reelBox.height * RITUAL_REEL_HOT_DEPTH;
+    ritualsHoverZone = event.clientY > bottomEdge ? "bottom" : null;
   }, { passive: true });
   ritualsReel.addEventListener("pointerleave", function () {
     ritualsHoverZone = null;
   }, { passive: true });
+
+  /* THE HAND TAKES THE WHEEL — a mouse wheel or a finger can force the reel's
+     own pace and direction, forward or back, for as long as it keeps moving;
+     letting go hands it straight back to the ambient loop rather than
+     stopping dead or needing a mode switch — see the decay in
+     stepRitualsAmbient(). Search already owns the reel's motion at that
+     point, so both leave it alone while a search is live. */
+  ritualsReel.addEventListener("wheel", function (event) {
+    if (ritualsInSearchMode || ritualsReelEntering) return;
+    event.preventDefault();
+    ritualsScrollVelocity = Math.max(-RITUAL_SCROLL_MAX, Math.min(RITUAL_SCROLL_MAX,
+      ritualsScrollVelocity + event.deltaY * RITUAL_WHEEL_GAIN));
+  }, { passive: false });
+
+  /* A finger drags the track directly, 1:1, rather than being read as a
+     velocity like the wheel is — it only becomes a kick (ritualsScrollVelocity)
+     the moment it lifts, carrying whatever speed the drag was actually
+     let go at into the ambient loop's own decay. Mouse and pen keep using
+     hover and the wheel instead; a touch is the one input that can't. */
+  ritualsReel.addEventListener("pointerdown", function (event) {
+    if (event.pointerType !== "touch" || ritualsInSearchMode || ritualsReelEntering) return;
+    ritualsDragPointerId = event.pointerId;
+    ritualsDragLastY = event.clientY;
+    ritualsDragLastT = performance.now();
+    ritualsDragMoved = 0;
+    ritualsScrollVelocity = 0;   // the hand takes over outright, no kick left fighting it
+    ritualsReel.setPointerCapture(event.pointerId);
+  });
+  ritualsReel.addEventListener("pointermove", function (event) {
+    if (event.pointerId !== ritualsDragPointerId || ritualsReelHalfHeight <= 0) return;
+    const now = performance.now();
+    const dy = event.clientY - ritualsDragLastY;
+    const dt = Math.max(1, now - ritualsDragLastT) / 1000;
+    ritualsDragMoved += Math.abs(dy);
+    // dragging down pulls the run down with it — the same mapping the wheel
+    // uses, just moved straight rather than left to build up as a velocity
+    ritualsAmbientPos = ((ritualsAmbientPos - dy) % ritualsReelHalfHeight + ritualsReelHalfHeight)
+      % ritualsReelHalfHeight;
+    ritualsReelTrack.style.transform = "translateY(" + (-ritualsAmbientPos) + "px)";
+    ritualsScrollVelocity = -dy / dt;   // only spent once the finger actually lifts
+    ritualsDragLastY = event.clientY;
+    ritualsDragLastT = now;
+  });
+  function ritualsEndDrag(event) {
+    if (event.pointerId !== ritualsDragPointerId) return;
+    ritualsDragPointerId = null;
+    ritualsScrollVelocity = Math.max(-RITUAL_SCROLL_MAX, Math.min(RITUAL_SCROLL_MAX, ritualsScrollVelocity));
+  }
+  ritualsReel.addEventListener("pointerup", ritualsEndDrag);
+  ritualsReel.addEventListener("pointercancel", ritualsEndDrag);
+  // the tiles keep their places inside the track, but the bar itself moves
+  window.addEventListener("resize", function () {
+    if (!ritualsView.hidden) cacheRitualPulses();
+  });
 
   // a short debounce so the reel spins once per pause, not once per key
   ritualsSearch.addEventListener("input", function () {
@@ -26018,6 +26720,68 @@
     if (closeTopOverlay()) history.pushState(null, "");   // re-arm for the next Back
   });
   history.pushState(null, "");   // arm the trap
+
+  /* Custom dot+ring cursor, mouse-and-hover devices only. The dot tracks the
+     pointer directly, the ring eases behind it for a bit of weight, and both
+     glow with --sig-line/--sig-glow so the colour follows the active theme.
+     cursor is an inherited CSS property: setting cursor:none on <html> hides
+     the system arrow, but every explicit cursor:pointer/grab rule already in
+     this file still wins for its own element, so getComputedStyle keeps
+     reporting "pointer"/"grab" there — that's what lights the ring up. */
+  function initCursor() {
+    if (!window.matchMedia("(pointer: fine) and (hover: hover)").matches) return;
+    const cursorEl = document.getElementById("cursorDot");
+    if (!cursorEl) return;
+    const ringEl = cursorEl.querySelector(".cursor-dot__ring");
+    const coreEl = cursorEl.querySelector(".cursor-dot__core");
+    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+    document.documentElement.classList.add("has-glow-cursor");
+
+    let pointerX = 0, pointerY = 0, ringX = 0, ringY = 0, live = false;
+
+    document.addEventListener("pointermove", function (event) {
+      if (event.pointerType !== "mouse") return;
+      pointerX = event.clientX;
+      pointerY = event.clientY;
+      if (!live) {
+        live = true;
+        ringX = pointerX;
+        ringY = pointerY;
+        cursorEl.classList.add("is-live");
+      }
+    });
+    document.addEventListener("pointerdown", function (event) {
+      if (event.pointerType === "mouse") cursorEl.classList.add("is-down");
+    });
+    document.addEventListener("pointerup", function (event) {
+      if (event.pointerType === "mouse") cursorEl.classList.remove("is-down");
+    });
+    document.addEventListener("mouseleave", function () {
+      live = false;
+      cursorEl.classList.remove("is-live");
+    });
+
+    const IDLE_CURSORS = new Set(["none", "default", "auto", ""]);
+    document.addEventListener("mouseover", function (event) {
+      const cursorValue = getComputedStyle(event.target).cursor;
+      cursorEl.classList.toggle("is-text", cursorValue === "text");
+      cursorEl.classList.toggle("is-active", cursorValue !== "text" && !IDLE_CURSORS.has(cursorValue));
+    });
+
+    function tick() {
+      if (live) {
+        const ease = reduceMotion ? 1 : .25;
+        ringX += (pointerX - ringX) * ease;
+        ringY += (pointerY - ringY) * ease;
+        coreEl.style.transform = "translate3d(" + pointerX + "px, " + pointerY + "px, 0)";
+        ringEl.style.transform = "translate3d(" + ringX + "px, " + ringY + "px, 0)";
+      }
+      requestAnimationFrame(tick);
+    }
+    requestAnimationFrame(tick);
+  }
+  initCursor();
 
   applyTheme(state.settings.theme);
   applyPalette(state.settings.palette);
