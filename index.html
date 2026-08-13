@@ -12,7 +12,7 @@
   <title>Mes tâches</title>
   <!-- the version travels in the query: without it a browser may keep
        serving the stylesheet it already has, and the app looks unchanged -->
-  <link rel="stylesheet" href="./style.css?v=667">
+  <link rel="stylesheet" href="./style.css?v=670">
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="apple-touch-icon" href="./icons/icon-192.png">
   <!-- svg tab icon, png fallback for browsers that ignore it -->
@@ -688,6 +688,18 @@
         <p class="field__hint" data-i18n="scrubHint">Tirez la barre du temps pour voyager dans la journée</p>
 
         <div class="field">
+          <span class="field__label" data-i18n="cursorLabel">Curseur</span>
+          <div class="langs" id="cursors">
+            <button class="lang" data-cursor="arrow" data-i18n="cursorArrow" type="button">Flèche</button>
+            <button class="lang" data-cursor="reticle" data-i18n="cursorReticle" type="button">Réticule</button>
+            <button class="lang" data-cursor="frame" data-i18n="cursorFrame" type="button">Cadre</button>
+            <button class="lang" data-cursor="dot" data-i18n="cursorDot" type="button">Point</button>
+            <button class="lang" data-cursor="off" data-i18n="cursorOff" type="button">Système</button>
+          </div>
+        </div>
+        <p class="field__hint" data-i18n="cursorHint">Un curseur dessiné par l'app, au trait lumineux du thème. Sur ordinateur seulement</p>
+
+        <div class="field">
           <span class="field__label" data-i18n="treeShopLabel">Arbre</span>
           <button id="treeBtn" class="data-btn data-btn--wide" type="button"
                   data-i18n-aria="treeShopAria" aria-label="Modifier l'arbre">
@@ -1233,12 +1245,28 @@
     <button id="toastAction" class="toast__action" type="button" hidden></button>
   </div>
 
-  <!-- glowing dot cursor: only turned on for fine-pointer devices, see initCursor() -->
-  <div id="cursorDot" class="cursor-dot" aria-hidden="true">
-    <span class="cursor-dot__ring"></span>
-    <span class="cursor-dot__core"></span>
+  <!-- app-drawn cursor. Every shape ships in the markup; data-shape picks the
+       chosen one, and applyCursor() only turns any of it on for a real mouse.
+       The beam and the move glyph are states, not choices: they answer for text
+       and for draggable things whichever shape is set. -->
+  <div id="cursorLayer" class="cursor" aria-hidden="true" data-shape="off">
+    <span class="cursor__trail"></span>
+    <span class="cursor__lead">
+      <svg class="cursor__arrow" viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M1 1v16.5l4.3-4.1 2.8 6.2 2.8-1.2-2.7-6 5.8-.3z"/>
+      </svg>
+      <span class="cursor__reticle"><i></i><i></i><i></i><i></i></span>
+      <span class="cursor__frame"><i></i><i></i><i></i><i></i></span>
+      <span class="cursor__core"></span>
+      <svg class="cursor__beam" viewBox="0 0 12 22" aria-hidden="true">
+        <path d="M2 2h8M6 2v18M2 20h8"/>
+      </svg>
+      <svg class="cursor__grab" viewBox="0 0 24 24" aria-hidden="true">
+        <path d="M12 2.5 9 7h6zM12 21.5 15 17H9zM2.5 12 7 9v6zM21.5 12 17 15V9z"/>
+      </svg>
+    </span>
   </div>
 
-  <script src="./app.js?v=667"></script>
+  <script src="./app.js?v=670"></script>
 </body>
 </html>

@@ -48,6 +48,11 @@
     return "high";
   }
 
+  function cursorName(saved) {
+    if (saved === "reticle" || saved === "frame" || saved === "dot" || saved === "off") return saved;
+    return "arrow";
+  }
+
   /* The cell is cut from the zellige now; the earlier cuts, and the amethyst
      druse that replaced them, are both gone. Anyone holding one lands on motif. */
   function glassCut(saved) {
@@ -446,6 +451,7 @@
           fieldMode: !!(saved.settings && saved.settings.fieldMode),
           ritualsClassicWall: !!(saved.settings && saved.settings.ritualsClassicWall),
           quality: qualityName(saved.settings && saved.settings.quality),
+          cursor: cursorName(saved.settings && saved.settings.cursor),
           projectMode: saved.settings && saved.settings.projectMode === "leisure"
             ? "leisure" : "work",
           timeScrub: saved.settings && saved.settings.timeScrub != null
@@ -464,7 +470,7 @@
         }
       };
     } catch (err) {
-      return { tasks: [], projects: [], habits: [], canvases: [], events: [], ideas: [], rituals: [], sun: null, settings: { name: "", theme: "auto", language: "fr", palette: "theme", glass: "motif", decorations: [], fieldMode: false, ritualsClassicWall: false, quality: "high", projectMode: "work", timeScrub: true, treeFull: false, treeWisps: true, treeTrunk: true, treeBranches: true, treeBlooms: ["corolla"], treeSap: true, autoBands: { dawn: "dawn", day: "day", dusk: "dusk", night: "night" }, themeDecorLent: [], themeEdits: {}, paletteEdits: {}, themePalettes: {} } };
+      return { tasks: [], projects: [], habits: [], canvases: [], events: [], ideas: [], rituals: [], sun: null, settings: { name: "", theme: "auto", language: "fr", palette: "theme", glass: "motif", decorations: [], fieldMode: false, ritualsClassicWall: false, quality: "high", cursor: "arrow", projectMode: "work", timeScrub: true, treeFull: false, treeWisps: true, treeTrunk: true, treeBranches: true, treeBlooms: ["corolla"], treeSap: true, autoBands: { dawn: "dawn", day: "day", dusk: "dusk", night: "night" }, themeDecorLent: [], themeEdits: {}, paletteEdits: {}, themePalettes: {} } };
     }
   }
 
@@ -935,6 +941,13 @@
       qualityMedium: "Moyenne",
       qualityLow: "Faible",
       qualityHint: "Baissez-la si les animations saccadent : moins de pixels, moins de halos, moins de décor",
+      cursorLabel: "Curseur",
+      cursorArrow: "Flèche",
+      cursorReticle: "Réticule",
+      cursorFrame: "Cadre",
+      cursorDot: "Point",
+      cursorOff: "Système",
+      cursorHint: "Un curseur dessiné par l'app, au trait lumineux du thème. Sur ordinateur seulement",
       ritualsWallHint: "Retrouver l'ancien décor des rituels, à la place du ciel et du champ",
       enterHint: "Touchez pour entrer",
       treeTrunkLabel: "Afficher le tronc",
@@ -1212,6 +1225,7 @@
       thinkingLoopCreated: "{count} éléments planifiés",
       thinkingLoopRewound: "Boucle annulée : {count} éléments supprimés",
       thinkingQuestionAddAnswer: "Ajouter une réponse",
+      thinkingJournalAddNote: "Ajouter une note",
       thinkingCanvasEmpty: "Déposez vos blocs ici.",
       thinkingFolderAdd: "Ajouter dans le dossier",
       thinkingDocumentEmpty: "Écrivez, ou déposez un bloc.",
@@ -1219,6 +1233,8 @@
       thinkingDocumentFormatting: "Mise en forme de la note",
       thinkingBulletsAria: "Liste à puces",
       thinkingNumberedAria: "Liste numérotée",
+      thinkingToggleAria: "Texte dépliant",
+      thinkingToggleTitlePlaceholder: "Titre…",
       thinkingResizeCanvas: "Redimensionner la toile",
       thinkingResizeFolder: "Rogner la vue du dossier",
       thinkingResizeBlock: "Redimensionner le bloc",
@@ -1379,6 +1395,13 @@
       qualityMedium: "Medium",
       qualityLow: "Low",
       qualityHint: "Turn it down if animations stutter: fewer pixels, fewer glows, less decor",
+      cursorLabel: "Cursor",
+      cursorArrow: "Arrow",
+      cursorReticle: "Reticle",
+      cursorFrame: "Frame",
+      cursorDot: "Dot",
+      cursorOff: "System",
+      cursorHint: "A cursor drawn by the app, edged with the theme's own light. Desktop only",
       ritualsWallHint: "Bring back the old rituals look, instead of the sky and the field",
       enterHint: "Tap to enter",
       treeTrunkLabel: "Show the trunk",
@@ -1656,6 +1679,7 @@
       thinkingLoopCreated: "{count} items scheduled",
       thinkingLoopRewound: "Loop undone: {count} items removed",
       thinkingQuestionAddAnswer: "Add an answer",
+      thinkingJournalAddNote: "Add a note",
       thinkingCanvasEmpty: "Drop your blocks here.",
       thinkingFolderAdd: "Add to the folder",
       thinkingDocumentEmpty: "Write, or drop a block.",
@@ -1663,6 +1687,8 @@
       thinkingDocumentFormatting: "Note formatting",
       thinkingBulletsAria: "Bulleted list",
       thinkingNumberedAria: "Numbered list",
+      thinkingToggleAria: "Toggle text",
+      thinkingToggleTitlePlaceholder: "Title…",
       thinkingResizeCanvas: "Resize canvas",
       thinkingResizeFolder: "Crop folder view",
       thinkingResizeBlock: "Resize block",
@@ -4788,6 +4814,152 @@
     });
   }
 
+  /* CURSOR
+     The app draws its own pointer so it can carry the theme's signature light.
+     Only for a real mouse: on touch and pens the system pointer stays. The lead
+     layer tracks the pointer exactly — a cursor that lags is a cursor that
+     misses — and only the dot's ring eases behind, where the lag is the point. */
+  const cursorLayer = document.getElementById("cursorLayer");
+  let cursorOn = false;
+  let cursorTracking = false;
+
+  function applyCursor(shape) {
+    const fineMouse = window.matchMedia("(pointer: fine) and (hover: hover)").matches;
+    cursorOn = fineMouse && shape !== "off";
+    document.documentElement.classList.toggle("has-glow-cursor", cursorOn);
+    cursorLayer.dataset.shape = cursorOn ? shape : "off";
+    if (cursorOn && !cursorTracking) {
+      trackCursor();
+      cursorTracking = true;
+    }
+  }
+
+  /* Collect the selectors the stylesheet gives a pointer, a grab or a caret to,
+     grouped into three lists closest() can match against. Read once at startup:
+     from the moment has-glow-cursor lands, every element computes to none. */
+  function harvestCursorMap() {
+    const pointerSels = [], grabSels = [], textSels = [];
+    function scan(rules) {
+      for (let i = 0; i < rules.length; i++) {
+        const rule = rules[i];
+        const selector = rule.selectorText;
+        /* A plain style rule carries an empty cssRules list of its own now that
+           nesting exists, so read the rule first and recurse after — treating
+           the two as a choice would walk straight past every flat rule. */
+        if (selector && rule.style && selector.indexOf("::") === -1
+            && selector.indexOf("&") === -1) {
+          const asked = rule.style.cursor;
+          if (asked === "text") textSels.push(selector);
+          // the move glyph speaks for anything that gets dragged or pulled
+          else if (asked === "grab" || asked === "grabbing" || asked === "move"
+                   || asked === "nwse-resize") grabSels.push(selector);
+          else if (asked === "pointer") pointerSels.push(selector);
+        }
+        if (rule.cssRules) scan(rule.cssRules);   // @media and friends
+      }
+    }
+    const sheets = document.styleSheets;
+    for (let i = 0; i < sheets.length; i++) {
+      // opened from file:// the rules are walled off; the cursor then just
+      // stops reacting to what it is over, rather than breaking outright
+      try { scan(sheets[i].cssRules); } catch (err) { break; }
+    }
+    /* one selector the browser refuses would throw on every closest() call, so
+       the joined list is tried once here and dropped whole if it does */
+    function usable(list) {
+      const selector = list.join(",");
+      if (!selector) return "";
+      try { document.querySelector(selector); } catch (err) { return ""; }
+      return selector;
+    }
+    return { pointer: usable(pointerSels), grab: usable(grabSels), text: usable(textSels) };
+  }
+
+  /* wired once, on the first shape that needs it */
+  function trackCursor() {
+    const leadEl = cursorLayer.querySelector(".cursor__lead");
+    const trailEl = cursorLayer.querySelector(".cursor__trail");
+    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    let pointerX = 0, pointerY = 0, trailX = 0, trailY = 0, live = false;
+
+    document.addEventListener("pointermove", function (event) {
+      if (event.pointerType !== "mouse") return;
+      pointerX = event.clientX;
+      pointerY = event.clientY;
+      if (!live) {
+        live = true;
+        trailX = pointerX;   // no swoop in from the last known spot
+        trailY = pointerY;
+        cursorLayer.classList.add("is-live");
+      }
+    });
+    document.addEventListener("pointerdown", function (event) {
+      if (event.pointerType === "mouse") cursorLayer.classList.add("is-down");
+    });
+    document.addEventListener("pointerup", function (event) {
+      if (event.pointerType === "mouse") cursorLayer.classList.remove("is-down");
+    });
+    document.addEventListener("mouseleave", function () {
+      live = false;
+      cursorLayer.classList.remove("is-live");
+    });
+
+    /* What the element asks for is what the drawn cursor answers with. The
+       stylesheet's own cursor rules are still the whole map, but they can no
+       longer be read off the element: hiding the system pointer meant
+       overriding every one of them. So the map is matched by selector instead. */
+    const cursorMap = harvestCursorMap();
+
+    /* Both lists can answer for the same spot — a button inside a text block is
+       in the caret's list by way of its parent and in the pointer's by its own
+       rule. closest() walks upwards, so the deeper hit is the nearer rule, which
+       is the one the cascade would have applied. */
+    function nearer(hit, other) {
+      if (!hit || !other || hit === other) return hit || other;
+      return hit.contains(other) ? other : hit;
+    }
+    document.addEventListener("mouseover", function (event) {
+      const over = event.target;
+      const textHit = cursorMap.text ? over.closest(cursorMap.text) : null;
+      const grabHit = cursorMap.grab ? over.closest(cursorMap.grab) : null;
+      const pointerHit = cursorMap.pointer ? over.closest(cursorMap.pointer) : null;
+      const won = nearer(nearer(textHit, grabHit), pointerHit);
+      cursorLayer.classList.toggle("is-text", !!won && won === textHit);
+      cursorLayer.classList.toggle("is-grab", !!won && won !== textHit && won === grabHit);
+      cursorLayer.classList.toggle("is-active",
+        !!won && won !== textHit && won !== grabHit && won === pointerHit);
+    });
+
+    function drawCursor() {
+      if (cursorOn && live) {
+        leadEl.style.transform = "translate3d(" + pointerX + "px, " + pointerY + "px, 0)";
+        const ease = reduceMotion ? 1 : .25;
+        trailX += (pointerX - trailX) * ease;
+        trailY += (pointerY - trailY) * ease;
+        trailEl.style.transform = "translate3d(" + trailX + "px, " + trailY + "px, 0)";
+      }
+      requestAnimationFrame(drawCursor);
+    }
+    requestAnimationFrame(drawCursor);
+  }
+
+  const cursorButtons = document.querySelectorAll("[data-cursor]");
+  function markCursor() {
+    for (let i = 0; i < cursorButtons.length; i++) {
+      cursorButtons[i].classList.toggle("is-active",
+        cursorButtons[i].dataset.cursor === state.settings.cursor);
+    }
+  }
+  markCursor();
+  for (let i = 0; i < cursorButtons.length; i++) {
+    cursorButtons[i].addEventListener("click", function () {
+      state.settings.cursor = cursorButtons[i].dataset.cursor;
+      saveState();
+      markCursor();
+      applyCursor(state.settings.cursor);
+    });
+  }
+
   /* the tree workshop, opened from the personalisation tab */
   const treeShop = document.getElementById("treeShop");
   document.getElementById("treeBtn").addEventListener("click", function () {
@@ -6861,6 +7033,10 @@
     renderHabitCells();
   }
 
+  function habitDayWritable(day) {
+    return (day || shownDay()) <= todayKey();
+  }
+
   document.getElementById("addHabitBtn").addEventListener("click", openIconPicker);
   let regrow = 0;
   window.addEventListener("resize", function () {
@@ -6868,7 +7044,7 @@
     regrow = setTimeout(function () { if (!wellView.hidden) drawTree(); }, 160);
   });
 
-  /* reps logged today for one exercise; 0 if none */
+  /* reps logged on one day for one exercise; 0 if none */
   function exerciseCount(habit, key, date) {
     const day = (habit.exerciseLog || {})[date];
     return (day && day[key]) || 0;
@@ -6893,15 +7069,16 @@
     return sum / items.length;
   }
 
-  /* Exercise tile: water fills to today's overall completion, "n/n done" label. */
+  /* Exercise tile: water fills to the displayed day's overall completion. */
   function toggleHabit(id, tile) {
-    const today = todayKey();
+    const day = shownDay();
+    if (!habitDayWritable(day)) return;
     const habit = findItem("habits", id);
     if (!habit) return;
     if (!habit.completedDates) habit.completedDates = [];
-    const at = habit.completedDates.indexOf(today);
+    const at = habit.completedDates.indexOf(day);
     const nowDone = at === -1;
-    if (nowDone) habit.completedDates.push(today);
+    if (nowDone) habit.completedDates.push(day);
     else habit.completedDates.splice(at, 1);
     tile.classList.toggle("done", nowDone);
     saveState();
@@ -7293,12 +7470,14 @@
     openExerciseView(state.habits[state.habits.length - 1].id);
   });
 
-  /* SLEEP VIEW — a deliberately small memory: two estimated times make today's
-     habit complete. No target, interpretation, score or reminder is derived. */
+  /* SLEEP VIEW — a deliberately small memory: two estimated times make the
+     displayed day's habit complete. No target, interpretation, score or reminder
+     is derived. */
   const sleepView = document.getElementById("sleepView");
   const sleepForm = document.getElementById("sleepForm");
   const sleepBedEstimate = document.getElementById("sleepBedEstimate");
   const sleepWakeEstimate = document.getElementById("sleepWakeEstimate");
+  const sleepSave = sleepForm.querySelector('[type="submit"]');
   let sleepHabitId = null;
 
   function currentSleep() {
@@ -7311,21 +7490,28 @@
     const habit = currentSleep();
     if (!habit) return;
     if (!habit.sleepLog) habit.sleepLog = {};
-    const entry = habit.sleepLog[todayKey()];
+    const day = shownDay();
+    const entry = habit.sleepLog[day];
     const estimate = entry && typeof entry === "object" ? entry : {};
     sleepBedEstimate.value = estimate.bedtime || "";
     sleepWakeEstimate.value = estimate.wakeTime || "";
+    const writable = habitDayWritable(day);
+    sleepBedEstimate.disabled = !writable;
+    sleepWakeEstimate.disabled = !writable;
+    sleepSave.disabled = !writable;
     sleepView.hidden = false;
-    requestAnimationFrame(function () {
-      (sleepBedEstimate.value ? sleepWakeEstimate : sleepBedEstimate).focus();
-    });
+    if (writable) {
+      requestAnimationFrame(function () {
+        (sleepBedEstimate.value ? sleepWakeEstimate : sleepBedEstimate).focus();
+      });
+    }
   }
 
   sleepForm.addEventListener("submit", function (event) {
     event.preventDefault();
     const habit = currentSleep();
-    if (!habit || !sleepForm.reportValidity()) return;
-    const day = todayKey();
+    const day = shownDay();
+    if (!habit || !habitDayWritable(day) || !sleepForm.reportValidity()) return;
     habit.sleepLog[day] = {
       bedtime: sleepBedEstimate.value,
       wakeTime: sleepWakeEstimate.value
@@ -7375,7 +7561,7 @@
     renderExerciseWeek(habit);
   }
 
-  /* the selected exercises: icon, name, editable target, today's progress, -/+1/+10 */
+  /* the selected exercises: icon, name, editable target, displayed-day progress */
   function renderExerciseItems(habit) {
     const box = document.getElementById("exerciseItems");
     box.innerHTML = "";
@@ -7391,8 +7577,8 @@
   }
 
   function createExerciseItemRow(habit, item) {
-    const today = todayKey();
-    const count = exerciseCount(habit, item.key, today);
+    const day = shownDay();
+    const count = exerciseCount(habit, item.key, day);
     const pct = Math.min(100, Math.round((count / item.target) * 100));
     const row = document.createElement("div");
     row.className = pct >= 100 ? "ex-item is-done" : "ex-item";
@@ -7446,20 +7632,24 @@
 
     const controls = document.createElement("div");
     controls.className = "ex-item__controls";
+    const writable = habitDayWritable();
     const minus = document.createElement("button");
     minus.type = "button";
     minus.className = "ex-item__btn";
     minus.textContent = "−";
+    minus.disabled = !writable;
     minus.addEventListener("click", function () { adjustExerciseCount(habit, item.key, -1); });
     const plus = document.createElement("button");
     plus.type = "button";
     plus.className = "ex-item__btn ex-item__btn--main";
     plus.textContent = "+1";
+    plus.disabled = !writable;
     plus.addEventListener("click", function () { adjustExerciseCount(habit, item.key, 1); });
     const plusTen = document.createElement("button");
     plusTen.type = "button";
     plusTen.className = "ex-item__btn";
     plusTen.textContent = "+10";
+    plusTen.disabled = !writable;
     plusTen.addEventListener("click", function () { adjustExerciseCount(habit, item.key, 10); });
     controls.append(minus, plus, plusTen);
 
@@ -7468,10 +7658,11 @@
   }
 
   function adjustExerciseCount(habit, key, delta) {
-    const today = todayKey();
-    if (!habit.exerciseLog[today]) habit.exerciseLog[today] = {};
-    const next = Math.max(0, (habit.exerciseLog[today][key] || 0) + delta);
-    habit.exerciseLog[today][key] = next;
+    const day = shownDay();
+    if (!habitDayWritable(day)) return;
+    if (!habit.exerciseLog[day]) habit.exerciseLog[day] = {};
+    const next = Math.max(0, (habit.exerciseLog[day][key] || 0) + delta);
+    habit.exerciseLog[day][key] = next;
     saveState();
     renderExerciseItems(habit);
     renderExerciseWeek(habit);
@@ -7532,13 +7723,13 @@
     if (habit) renderExerciseCatalog(habit);
   });
 
-  /* last 7 days: overall completion fraction per day (0 if unlogged), and the average */
+  /* Seven days ending on the displayed day: completion fraction and average. */
   function exerciseWeekData(habit) {
-    const now = new Date();
+    const shown = new Date(shownDay() + "T00:00");
     const days = [];
     for (let i = 6; i >= 0; i--) {
-      const d = new Date(now);
-      d.setDate(now.getDate() - i);
+      const d = new Date(shown);
+      d.setDate(shown.getDate() - i);
       const key = dateKey(d.getFullYear(), d.getMonth(), d.getDate());
       days.push({ fraction: exerciseOverallFraction(habit, key), date: new Date(d) });
     }
@@ -9646,14 +9837,14 @@
      back down to the heart. */
   function placeTreeNodes(tree, owners, sky, growing) {
     treeNodes.innerHTML = "";
-    const today = todayKey();
+    const day = shownDay();
     const taken = [];
     for (let i = 0; i < state.habits.length; i++) {
       const habit = state.habits[i];
       const spot = habitSpot(tree, owners, i, taken);
       if (!spot) continue;
       taken.push(spot);
-      const done = !!(habit.completedDates && habit.completedDates.indexOf(today) !== -1);
+      const done = !!(habit.completedDates && habit.completedDates.indexOf(day) !== -1);
 
       const node = document.createElement("button");
       node.type = "button";
@@ -9665,6 +9856,8 @@
       node.style.setProperty("--vigour", habitVigour(habit).toFixed(2));
       node.setAttribute("aria-label", habit.name || translate("habitToggleAria"));
       node.setAttribute("aria-pressed", done ? "true" : "false");
+      node.disabled = !habitDayWritable(day)
+        && habit.type !== "sleep" && habit.type !== "exercise" && habit.type !== "project";
       node.innerHTML = habitIconMarkup(habit);
 
       const tag = document.createElement("span");
@@ -9752,11 +9945,11 @@
   function renderWelcomeHabits() {
     if (!welcomeHabits) return;
     welcomeHabits.innerHTML = "";
-    const today = todayKey();
+    const day = shownDay();
     for (let i = 0; i < state.habits.length; i++) {
       const habit = state.habits[i];
       if (habit.type === "sleep" || habit.type === "exercise" || habit.type === "project") continue;   // not a yes or no
-      welcomeHabits.appendChild(welcomeRing(habit, today));
+      welcomeHabits.appendChild(welcomeRing(habit, day));
     }
   }
 
@@ -9765,11 +9958,11 @@
   function renderHabitCells() {
     const box = document.getElementById("habitCells");
     box.innerHTML = "";
-    const today = todayKey();
+    const day = shownDay();
     for (let i = 0; i < state.habits.length; i++) {
       const habit = state.habits[i];
       if (habit.type === "exercise") continue;
-      box.appendChild(habitCell(habit, today));
+      box.appendChild(habitCell(habit, day));
     }
   }
 
@@ -10030,14 +10223,16 @@
     cleanHabitDrag(drag);
   }
 
-  function habitCell(habit, today) {
-    const done = !!(habit.completedDates && habit.completedDates.indexOf(today) !== -1);
+  function habitCell(habit, day) {
+    const done = !!(habit.completedDates && habit.completedDates.indexOf(day) !== -1);
     const tile = document.createElement("button");
     tile.type = "button";
     tile.className = done ? "habit done" : "habit";
     if (habit.type === "project") tile.classList.add("habit--project");
     tile.setAttribute("aria-pressed", done ? "true" : "false");
     tile.setAttribute("aria-label", habit.name || translate("habitToggleAria"));
+    tile.disabled = !habitDayWritable(day)
+      && habit.type !== "sleep" && habit.type !== "project";
 
     const water = document.createElement("span");
     water.className = "habit__water";
@@ -10067,13 +10262,14 @@
     return tile;
   }
 
-  function welcomeRing(habit, today) {
-    const done = !!(habit.completedDates && habit.completedDates.indexOf(today) !== -1);
+  function welcomeRing(habit, day) {
+    const done = !!(habit.completedDates && habit.completedDates.indexOf(day) !== -1);
     const ring = document.createElement("button");
     ring.type = "button";
     ring.className = done ? "welcome__ring is-done" : "welcome__ring";
     ring.setAttribute("aria-label", habit.name || translate("habitToggleAria"));
     ring.setAttribute("aria-pressed", done ? "true" : "false");
+    ring.disabled = !habitDayWritable(day);
     ring.innerHTML = habitIconMarkup(habit);
     ring.addEventListener("click", function (event) {
       event.stopPropagation();          // tick it, do not walk in
@@ -10245,7 +10441,7 @@
     head.append(iconBtn, nameInput, del);
 
     card.appendChild(head);
-    if (habit.type === "exercise") card.appendChild(buildExerciseStats(habit));   // per-exercise today + week rate
+    if (habit.type === "exercise") card.appendChild(buildExerciseStats(habit));
 
     const stats = document.createElement("div");
     stats.className = "hcard__stats";
@@ -10258,11 +10454,10 @@
     return card;
   }
 
-  /* exercise-specific stats block for the habits view: today's per-exercise chips,
-     7-day success rate, week chart */
+  /* Exercise stats for the displayed day, plus its trailing seven-day window. */
   function buildExerciseStats(habit) {
     const items = (habit.config && habit.config.items) || [];
-    const today = todayKey();
+    const day = shownDay();
     const wk = exerciseWeekData(habit);
     const wrap = document.createElement("div");
     wrap.className = "hcard__sleep";
@@ -10271,7 +10466,7 @@
       const chips = document.createElement("div");
       chips.className = "ex-stats__chips";
       for (let i = 0; i < items.length; i++) {
-        const count = exerciseCount(habit, items[i].key, today);
+        const count = exerciseCount(habit, items[i].key, day);
         const chip = document.createElement("span");
         chip.className = count >= items[i].target ? "ex-stats__chip is-done" : "ex-stats__chip";
         chip.textContent = exerciseName(items[i].key) + " " + count + "/" + items[i].target;
@@ -17645,6 +17840,7 @@
 
   function placeSleepWake(habit, drop) {
     if (!habit || habit.type !== "sleep" || !drop) return;
+    if (!habitDayWritable(drop.date)) return;
     const wake = new Date(drop.date + "T" + drop.time);
     if (!Number.isFinite(wake.getTime())) return;
     const bed = new Date(wake.getTime() - SLEEP_DROP_MS);
@@ -18976,6 +19172,11 @@
     markPickedDay();
     paintDayToday();
     renderDailyTimeline();
+    // The habit band is another reading of the selected calendar day. Rebuild
+    // its controls immediately so both their state and their next write use it.
+    renderHabitCells();
+    renderWelcomeHabits();
+    if (!exerciseView.hidden) renderExerciseView();
     // In the work zone the grid is the list's selector: picking a day is asking
     // for that day's work. Everywhere else the flow stays where it was.
     if (workBandsOn()) {
@@ -21504,7 +21705,8 @@
       insertUnorderedList: '<path d="M9 6h11M9 12h11M9 18h11"/>'
         + '<path d="M4 6h.01M4 12h.01M4 18h.01" stroke-width="3"/>',
       insertOrderedList: '<path d="M10 6h10M10 12h10M10 18h10"/>'
-        + '<path d="M4 4h1v4M3.5 15.5c.3-.9 2.5-1.1 2.5.3 0 1-2.5 2.1-2.5 3.7H6"/>'
+        + '<path d="M4 4h1v4M3.5 15.5c.3-.9 2.5-1.1 2.5.3 0 1-2.5 2.1-2.5 3.7H6"/>',
+      toggle: '<path d="M8 7l4 5-4 5"/><path d="M14 8h6M14 16h6"/>'
     };
     return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"'
       + ' stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
@@ -21769,6 +21971,71 @@
     }
   }
 
+  /* A FOLD IN THE PAGE — a title row and, hung under it, whatever it hides.
+     Not a note of its own: just a block of the same page, with a chevron that
+     flips like a task group's and a hairline down the left of what it hides,
+     there only so the fold has a visible edge. */
+  function buildThinkingDocumentToggle(titleText) {
+    const toggle = document.createElement("div");
+    toggle.className = "note-toggle";
+    const head = document.createElement("div");
+    head.className = "note-toggle__head";
+    const arrow = document.createElement("button");
+    arrow.type = "button";
+    arrow.className = "note-toggle__arrow";
+    arrow.contentEditable = "false";
+    arrow.setAttribute("aria-label", translate("thinkingToggleAria"));
+    arrow.innerHTML = iconSvg('<polyline points="6 9 12 15 18 9"/>');
+    const title = document.createElement("div");
+    title.className = "note-toggle__title";
+    title.setAttribute("data-placeholder", translate("thinkingToggleTitlePlaceholder"));
+    if (titleText) title.textContent = titleText;
+    head.append(arrow, title);
+    const content = document.createElement("div");
+    content.className = "note-toggle__content";
+    content.appendChild(document.createElement("br"));
+    toggle.append(head, content);
+    return toggle;
+  }
+
+  function focusThinkingToggleTitle(toggle) {
+    const title = toggle.querySelector(".note-toggle__title");
+    const range = document.createRange();
+    range.selectNodeContents(title);
+    range.collapse(false);
+    const selection = window.getSelection();
+    selection.removeAllRanges();
+    selection.addRange(range);
+  }
+
+  /* drop a toggle where the range sits, with an empty line left after it to
+     keep typing on */
+  function plantThinkingToggle(range, titleText) {
+    const toggle = buildThinkingDocumentToggle(titleText || "");
+    range.deleteContents();
+    range.insertNode(toggle);
+    const spacer = document.createElement("div");
+    spacer.appendChild(document.createElement("br"));
+    toggle.after(spacer);
+    focusThinkingToggleTitle(toggle);
+  }
+
+  function insertThinkingDocumentToggle(body) {
+    body.focus();
+    const selection = window.getSelection();
+    if (!selection) return;
+    if (!selection.rangeCount
+        || !body.contains(selection.getRangeAt(0).commonAncestorContainer)) {
+      const fallback = document.createRange();
+      fallback.selectNodeContents(body);
+      fallback.collapse(false);
+      selection.removeAllRanges();
+      selection.addRange(fallback);
+    }
+    const range = selection.getRangeAt(0);
+    plantThinkingToggle(range, range.collapsed ? "" : range.toString());
+  }
+
   /* THE PAPER — the ruled page and its formatting bar, with every bit of the
      selection machinery that makes the two work together. It is given a source
      and nothing else: what it reads, what it writes into, and what to say when
@@ -21785,7 +22052,8 @@
       { command: "underline", label: "underlineAria" },
       { command: "hilite", label: "highlightAria" },
       { command: "insertUnorderedList", label: "thinkingBulletsAria", separated: true },
-      { command: "insertOrderedList", label: "thinkingNumberedAria" }
+      { command: "insertOrderedList", label: "thinkingNumberedAria" },
+      { command: "toggle", label: "thinkingToggleAria", separated: true }
     ];
 
     const body = createDocumentBody(source);
@@ -21891,6 +22159,7 @@
         if (insideBody) {
           active = command === "hilite" && selection.isCollapsed ? pendingHighlight
             : command === "hilite" ? thinkingDocumentHighlightActive(body)
+            : command === "toggle" ? false
             : !!document.queryCommandState(command);
         }
         buttons[i].classList.toggle("is-active", active);
@@ -21927,6 +22196,8 @@
           managesHighlightTyping = true;
           if (pendingHighlight) exitNoteHighlightAtCaret(body);
           pendingHighlight = !pendingHighlight;
+        } else if (this.dataset.command === "toggle") {
+          insertThinkingDocumentToggle(body);
         } else {
           applyThinkingDocumentFormat(this.dataset.command, body, null);
         }
@@ -21943,6 +22214,34 @@
       syncToolbarState(!movedCaret);
     });
     body.addEventListener("mouseup", function () { syncToolbarState(false); });
+
+    body.addEventListener("mousedown", function (event) {
+      if (event.target.closest(".note-toggle__arrow")) event.preventDefault();
+    });
+    body.addEventListener("click", function (event) {
+      const arrow = event.target.closest(".note-toggle__arrow");
+      if (!arrow) return;
+      event.preventDefault();
+      arrow.closest(".note-toggle").classList.toggle("is-collapsed");
+      source.write(serializedDocumentHtml());
+    });
+    // a title stays one line: Enter there opens the fold instead of breaking it
+    body.addEventListener("keydown", function (event) {
+      if (event.key !== "Enter") return;
+      const anchor = window.getSelection().anchorNode;
+      const anchorElement = anchor && (anchor.nodeType === Node.ELEMENT_NODE
+        ? anchor : anchor.parentElement);
+      const title = anchorElement && anchorElement.closest(".note-toggle__title");
+      if (!title || title.closest(".note-toggle").classList.contains("is-collapsed")) return;
+      event.preventDefault();
+      const content = title.closest(".note-toggle").querySelector(".note-toggle__content");
+      const range = document.createRange();
+      range.selectNodeContents(content);
+      range.collapse(true);
+      const selection = window.getSelection();
+      selection.removeAllRanges();
+      selection.addRange(range);
+    });
     return { toolbar: toolbar, body: body };
   }
 
@@ -24807,6 +25106,14 @@
       addAnswer.addEventListener("click", function () { addThinkingAnswer(canvas, block); });
       actions.appendChild(addAnswer);
     }
+    if (block.type === "journal") {
+      const addNote = document.createElement("button");
+      addNote.type = "button";
+      addNote.className = "thinking-block__add-note";
+      addNote.textContent = "+ " + translate("thinkingJournalAddNote");
+      addNote.addEventListener("click", function () { addThinkingJournalNote(canvas, block); });
+      actions.appendChild(addNote);
+    }
     if (block.type === "folder") {
       const fold = document.createElement("button");
       fold.type = "button";
@@ -26107,6 +26414,20 @@
     if (field) field.focus();
   }
 
+  /* an entry is not a canvas: nothing to drag onto it, so the note it takes in
+     is spawned straight into it, the same way a question grows an answer */
+  function addThinkingJournalNote(canvas, entry) {
+    const note = {
+      id: thinkingId("b"), type: "note", text: "",
+      x: entry.x + 24, y: entry.y + 180, parentId: entry.id
+    };
+    canvas.blocks.push(note);
+    touchCanvas(canvas);
+    renderThinkingCanvas(canvas);
+    const field = thinkingBlocks.querySelector('[data-block-id="' + note.id + '"] textarea');
+    if (field) field.focus();
+  }
+
   function chooseThinkingLink(canvas, id) {
     if (!thinkingLinkFrom) {
       thinkingLinkFrom = id;
@@ -26721,67 +27042,7 @@
   });
   history.pushState(null, "");   // arm the trap
 
-  /* Custom dot+ring cursor, mouse-and-hover devices only. The dot tracks the
-     pointer directly, the ring eases behind it for a bit of weight, and both
-     glow with --sig-line/--sig-glow so the colour follows the active theme.
-     cursor is an inherited CSS property: setting cursor:none on <html> hides
-     the system arrow, but every explicit cursor:pointer/grab rule already in
-     this file still wins for its own element, so getComputedStyle keeps
-     reporting "pointer"/"grab" there — that's what lights the ring up. */
-  function initCursor() {
-    if (!window.matchMedia("(pointer: fine) and (hover: hover)").matches) return;
-    const cursorEl = document.getElementById("cursorDot");
-    if (!cursorEl) return;
-    const ringEl = cursorEl.querySelector(".cursor-dot__ring");
-    const coreEl = cursorEl.querySelector(".cursor-dot__core");
-    const reduceMotion = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
-
-    document.documentElement.classList.add("has-glow-cursor");
-
-    let pointerX = 0, pointerY = 0, ringX = 0, ringY = 0, live = false;
-
-    document.addEventListener("pointermove", function (event) {
-      if (event.pointerType !== "mouse") return;
-      pointerX = event.clientX;
-      pointerY = event.clientY;
-      if (!live) {
-        live = true;
-        ringX = pointerX;
-        ringY = pointerY;
-        cursorEl.classList.add("is-live");
-      }
-    });
-    document.addEventListener("pointerdown", function (event) {
-      if (event.pointerType === "mouse") cursorEl.classList.add("is-down");
-    });
-    document.addEventListener("pointerup", function (event) {
-      if (event.pointerType === "mouse") cursorEl.classList.remove("is-down");
-    });
-    document.addEventListener("mouseleave", function () {
-      live = false;
-      cursorEl.classList.remove("is-live");
-    });
-
-    const IDLE_CURSORS = new Set(["none", "default", "auto", ""]);
-    document.addEventListener("mouseover", function (event) {
-      const cursorValue = getComputedStyle(event.target).cursor;
-      cursorEl.classList.toggle("is-text", cursorValue === "text");
-      cursorEl.classList.toggle("is-active", cursorValue !== "text" && !IDLE_CURSORS.has(cursorValue));
-    });
-
-    function tick() {
-      if (live) {
-        const ease = reduceMotion ? 1 : .25;
-        ringX += (pointerX - ringX) * ease;
-        ringY += (pointerY - ringY) * ease;
-        coreEl.style.transform = "translate3d(" + pointerX + "px, " + pointerY + "px, 0)";
-        ringEl.style.transform = "translate3d(" + ringX + "px, " + ringY + "px, 0)";
-      }
-      requestAnimationFrame(tick);
-    }
-    requestAnimationFrame(tick);
-  }
-  initCursor();
+  applyCursor(state.settings.cursor);
 
   applyTheme(state.settings.theme);
   applyPalette(state.settings.palette);

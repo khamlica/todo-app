@@ -442,6 +442,10 @@ html[data-theme="espace"] {
   /* every signature is a light tint, so its ink is a dark version of itself */
   --sig-ink: color-mix(in oklab, var(--c-sig) 20%, #101017);
   --sig-glow: color-mix(in srgb, var(--c-sig) 42%, transparent);
+  /* the drawn cursor reads the signature through these, so the light themes can
+     trade the tint for something that actually shows against a pale page */
+  --cursor-line: var(--sig-line);
+  --cursor-glow: var(--sig-glow);
 
   /* TODAY, CUT FROM THE ZELLIGE — the cell is a piece of the same mosaic as the
      threshold, not a motif of its own. An amethyst druse was irregular by
@@ -548,6 +552,19 @@ html[data-theme="espace"] {
   --r-md: 14px;
   --radius: 20px;
   --mono: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, "Liberation Mono", monospace;
+}
+
+/* Every signature is a light tint, which is what the dark themes want and what
+   leaves a 1.4px cursor at about 1.5:1 on a pale page — barely there. On the
+   light themes only, the shapes keep the hue and take the ink's depth instead,
+   and their halo darkens so it separates rather than dissolves. */
+[data-theme="light"],
+[data-theme="sakura"],
+[data-theme="forest"],
+[data-theme="dawn"],
+[data-theme="day"] {
+  --cursor-line: color-mix(in oklab, var(--c-sig) 45%, #17131f);
+  --cursor-glow: color-mix(in srgb, var(--sig-ink) 30%, transparent);
 }
 
 * {
@@ -912,6 +929,11 @@ body {
 }
 .welcome__ring svg { width: 15px; height: 15px; }
 .welcome__ring:hover { border-color: var(--accent); color: var(--accent); }
+.welcome__ring:disabled { opacity: .35; cursor: default; }
+.welcome__ring:disabled:hover {
+  border-color: color-mix(in srgb, var(--c-line) 55%, transparent);
+  color: var(--muted);
+}
 .welcome__ring.is-done {
   background: color-mix(in srgb, var(--accent) 22%, transparent);
   border-color: var(--accent);
@@ -3440,6 +3462,11 @@ html.is-field-mode .ecal-band .project-tab::after { content: none; }
 }
 .tnode svg { width: 16px; height: 16px; }
 .tnode:hover { border-color: var(--tree-core); color: var(--tree-core); }
+.tnode:disabled { opacity: .35; cursor: default; }
+.tnode:disabled:hover {
+  border-color: color-mix(in srgb, var(--tree-fiber) 45%, transparent);
+  color: color-mix(in srgb, var(--tree-fiber) 70%, transparent);
+}
 .tnode.is-done {
   background: color-mix(in srgb, var(--tree-core) 26%, transparent);
   border-color: var(--tree-core);
@@ -4108,6 +4135,11 @@ body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: non
   transform: translateY(-1px);
   border-color: color-mix(in srgb, var(--accent) 45%, transparent);
 }
+.habit:disabled { opacity: .35; cursor: default; }
+.habit:disabled:hover {
+  transform: none;
+  border-color: color-mix(in srgb, var(--c-line) 36%, transparent);
+}
 /* a project's habit is read, not ticked: the dashed edge says so at a glance */
 .habit--project { border-style: dashed; }
 
@@ -4531,6 +4563,7 @@ body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: non
 }
 .sleep-simple__save:hover,
 .sleep-simple__save:focus-visible { color: var(--text); }
+.sleep-simple__save:disabled { opacity: .35; color: var(--muted); cursor: default; }
 @media (max-width: 430px) {
   .sleep-simple__times { grid-template-columns: 1fr; gap: 14px; }
 }
@@ -4772,6 +4805,8 @@ body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: non
 .ex-item__btn:hover { border-color: var(--accent); color: var(--accent); }
 .ex-item__btn--main { background: var(--accent); border-color: var(--accent); color: #fff; }
 .ex-item__btn--main:hover { color: #fff; opacity: .9; }
+.ex-item__btn:disabled { opacity: .35; cursor: default; }
+.ex-item__btn:disabled:hover { border-color: var(--border); color: var(--text); }
 
 /* search + catalog of exercises not yet added */
 .ex-search { margin-bottom: 8px; }
@@ -9798,6 +9833,46 @@ html.is-field-mode .thinking-plane { background: transparent; box-shadow: none; 
 }
 .thinking-document-body :is(ul, ol) { padding-left: 24px; }
 
+/* A FOLD, NOT ANOTHER SHEET — the title sits in the normal flow of the page,
+   and what it hides hangs under a single hairline: the only mark of how far
+   the fold reaches. Nothing is filled, boxed or lifted off the paper. */
+.note-toggle__head {
+  display: flex;
+  align-items: center;
+  gap: .5em;
+}
+.note-toggle__arrow {
+  flex: 0 0 auto;
+  display: inline-grid;
+  place-items: center;
+  width: 1.1em;
+  height: 1.1em;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--muted);
+  cursor: pointer;
+  transition: transform .25s cubic-bezier(.4, 0, .2, 1), color .15s ease;
+}
+.note-toggle__arrow:hover { color: var(--text); }
+.note-toggle__arrow svg { width: 100%; height: 100%; stroke-width: 2.2; }
+.note-toggle.is-collapsed .note-toggle__arrow { transform: rotate(-90deg); }
+.note-toggle__title {
+  flex: 1 1 auto;
+  outline: none;
+}
+.note-toggle__title:empty::before {
+  content: attr(data-placeholder);
+  color: var(--muted);
+  pointer-events: none;
+}
+.note-toggle__content {
+  margin-left: 1.6em;
+  padding-left: .9em;
+  border-left: 1px solid color-mix(in srgb, var(--c-line) 40%, transparent);
+}
+.note-toggle.is-collapsed .note-toggle__content { display: none; }
+
 /* THE SAME PAGE, IN A PANEL — it stands in the flow and takes the width it is
    given. Everything about it is drawn for a 700px sheet: a 54px margin, 76px of
    indent, a 32px ruling. At 300px that margin is a fifth of the page and the
@@ -10118,7 +10193,8 @@ html.is-field-mode .thinking-plane { background: transparent; box-shadow: none; 
 /* in a head it is a flex item, so an empty one would still cost a gap */
 .thinking-block__connections:empty { display: none; }
 .thinking-block__actions { display: inline-flex; align-items: center; gap: 3px; }
-.thinking-block__add-answer {
+.thinking-block__add-answer,
+.thinking-block__add-note {
   border: 0;
   background: none;
   color: var(--muted);
@@ -10128,6 +10204,7 @@ html.is-field-mode .thinking-plane { background: transparent; box-shadow: none; 
   padding: 5px 4px;
 }
 .thinking-block__add-answer:hover { color: var(--c-imp-4); }   /* the answer colour */
+.thinking-block__add-note:hover { color: var(--text); }
 .thinking-block__canvas-action {
   width: 29px;
   height: 27px;
@@ -14068,20 +14145,31 @@ html.is-field-mode .kanban__col.is-drop-target .kanban__list {
 }
 
 /* CURSOR
-   Fine-pointer devices only (see initCursor in app.js). html.has-glow-cursor
-   sets cursor:none on the root and every explicit cursor:pointer/grab rule
-   in this file keeps winning through the cascade, so hovering a button still
-   reports "pointer" in JS — that's what drives the ring's active state. */
-html.has-glow-cursor { cursor: none; }
-html.has-glow-cursor input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="file"]),
-html.has-glow-cursor textarea,
-html.has-glow-cursor [contenteditable="true"] {
-  cursor: text;
-}
+   Fine-pointer devices only (see applyCursor in app.js). html.has-glow-cursor
+   sets cursor:none on the root; every explicit cursor:pointer/grab rule in this
+   file keeps winning through the cascade, so hovering a button still reports
+   "pointer" in JS — that is what puts the shape in its is-active state.
+   Four shapes ride the same two layers: __lead tracks the pointer exactly,
+   __trail eases behind it and is only used by the dot. */
+/* A typing field gets its caret from the browser's own stylesheet, which
+   harvestCursorMap() cannot see. Saying it here changes nothing on screen and
+   puts the caret targets on the map with everything else. */
+input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):not([type="file"]),
+textarea,
+[contenteditable="true"] { cursor: text; }
 
-/* zero-size anchor at the viewport origin: never transformed, so the two
-   layers below read their translate straight off the pointer coordinates */
-.cursor-dot {
+/* The drawn cursor answers for every state now, so no native one may show
+   through. Inheriting none from the root is not enough: the ~140 explicit
+   cursor:pointer/grab/text rules in this file each outrank it on their own
+   element, which is what left a system hand and a system caret on top of the
+   drawn shape. Those rules still hold the map — harvestCursorMap() reads it
+   once, before this override makes the computed value unreadable. */
+html.has-glow-cursor,
+html.has-glow-cursor * { cursor: none !important; }
+
+/* zero-size anchor at the viewport origin: never transformed, so the layers
+   below read their translate straight off the pointer coordinates */
+.cursor {
   position: fixed;
   top: 0;
   left: 0;
@@ -14090,48 +14178,200 @@ html.has-glow-cursor [contenteditable="true"] {
   opacity: 0;
   transition: opacity .18s ease;
 }
-html.has-glow-cursor .cursor-dot.is-live { opacity: 1; }
-html.has-glow-cursor .cursor-dot.is-text { opacity: 0; }
+html.has-glow-cursor .cursor.is-live { opacity: 1; }
+.cursor__lead, .cursor__trail { position: absolute; top: 0; left: 0; }
 
-.cursor-dot__core {
+/* One shape at a time — and the two state glyphs outrank the chosen shape,
+   because precision on text and a clear grip on draggables matter more than
+   keeping one's favourite outline on show. */
+.cursor__arrow, .cursor__reticle, .cursor__frame, .cursor__core, .cursor__trail,
+.cursor__beam, .cursor__grab { display: none; }
+.cursor:not(.is-text):not(.is-grab)[data-shape="arrow"] .cursor__arrow,
+.cursor:not(.is-text):not(.is-grab)[data-shape="reticle"] .cursor__reticle,
+.cursor:not(.is-text):not(.is-grab)[data-shape="frame"] .cursor__frame,
+.cursor:not(.is-text):not(.is-grab)[data-shape="dot"] .cursor__core,
+.cursor:not(.is-text):not(.is-grab)[data-shape="dot"] .cursor__trail { display: block; }
+.cursor.is-grab .cursor__grab,
+.cursor.is-text .cursor__beam { display: block; }
+
+/* ARROW — the classic pointer: dark body, signature edge, tip on the hotspot */
+.cursor__arrow {
   position: absolute;
   top: 0;
   left: 0;
-  width: 6px;
-  height: 6px;
-  margin: -3px 0 0 -3px;
-  border-radius: 50%;
-  background: var(--sig-line);
-  box-shadow: 0 0 6px var(--sig-glow);
+  width: 21px;
+  height: 21px;
+  margin: -1px 0 0 -1px;   /* the path tip sits at 1,1 in the viewBox */
+  overflow: visible;
+  filter: drop-shadow(0 0 3px var(--sig-glow));
+  transition: filter .2s ease, transform .18s cubic-bezier(.2, .8, .2, 1);
+  transform-origin: 1px 1px;
 }
-.cursor-dot__ring {
+.cursor__arrow path {
+  fill: var(--sig-ink);
+  stroke: var(--sig-line);
+  stroke-width: 1.4;
+  stroke-linejoin: round;
+}
+.cursor.is-active .cursor__arrow {
+  filter: drop-shadow(0 0 7px var(--sig-glow));
+  transform: scale(1.12);
+}
+.cursor.is-down .cursor__arrow { transform: scale(.92); }
+
+/* RETICLE — four arms around a gap; the gap opens on anything clickable */
+.cursor__reticle {
   position: absolute;
   top: 0;
   left: 0;
+  width: 18px;
+  height: 18px;
+  margin: -9px 0 0 -9px;
+  transition: width .22s cubic-bezier(.2, .8, .2, 1), height .22s cubic-bezier(.2, .8, .2, 1),
+    margin .22s cubic-bezier(.2, .8, .2, 1);
+}
+.cursor__reticle i {
+  position: absolute;
+  background: var(--cursor-line);
+  box-shadow: 0 0 5px var(--cursor-glow);
+}
+.cursor__reticle i:nth-child(1),
+.cursor__reticle i:nth-child(3) {
+  left: 50%;
+  width: 1.4px;
+  height: 28%;
+  margin-left: -.7px;
+}
+.cursor__reticle i:nth-child(1) { top: 0; }
+.cursor__reticle i:nth-child(3) { bottom: 0; }
+.cursor__reticle i:nth-child(2),
+.cursor__reticle i:nth-child(4) {
+  top: 50%;
+  height: 1.4px;
+  width: 28%;
+  margin-top: -.7px;
+}
+.cursor__reticle i:nth-child(2) { right: 0; }
+.cursor__reticle i:nth-child(4) { left: 0; }
+.cursor.is-active .cursor__reticle {
+  width: 27px;
+  height: 27px;
+  margin: -13.5px 0 0 -13.5px;
+}
+.cursor.is-down .cursor__reticle {
+  width: 13px;
+  height: 13px;
+  margin: -6.5px 0 0 -6.5px;
+}
+
+/* FRAME — a viewfinder: four corner brackets that open on anything clickable */
+.cursor__frame {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 17px;
+  height: 17px;
+  margin: -8.5px 0 0 -8.5px;
+  transition: width .22s cubic-bezier(.2, .8, .2, 1), height .22s cubic-bezier(.2, .8, .2, 1),
+    margin .22s cubic-bezier(.2, .8, .2, 1);
+}
+.cursor__frame i {
+  position: absolute;
+  width: 5px;
+  height: 5px;
+  border: 0 solid var(--cursor-line);
+  box-shadow: 0 0 5px var(--cursor-glow);
+}
+.cursor__frame i:nth-child(1) { top: 0; left: 0; border-width: 1.4px 0 0 1.4px; }
+.cursor__frame i:nth-child(2) { top: 0; right: 0; border-width: 1.4px 1.4px 0 0; }
+.cursor__frame i:nth-child(3) { bottom: 0; right: 0; border-width: 0 1.4px 1.4px 0; }
+.cursor__frame i:nth-child(4) { bottom: 0; left: 0; border-width: 0 0 1.4px 1.4px; }
+.cursor.is-active .cursor__frame {
   width: 26px;
   height: 26px;
   margin: -13px 0 0 -13px;
+}
+.cursor.is-down .cursor__frame {
+  width: 13px;
+  height: 13px;
+  margin: -6.5px 0 0 -6.5px;
+}
+
+/* DOT — the round one, kept small: exact core, ring easing behind it */
+.cursor__core {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 5px;
+  height: 5px;
+  margin: -2.5px 0 0 -2.5px;
   border-radius: 50%;
-  border: 1.4px solid var(--sig-line);
-  box-shadow: 0 0 10px var(--sig-glow);
+  background: var(--cursor-line);
+  box-shadow: 0 0 6px var(--cursor-glow);
+}
+.cursor__trail {
+  width: 15px;
+  height: 15px;
+  margin: -7.5px 0 0 -7.5px;
+  border-radius: 50%;
+  border: 1.4px solid var(--cursor-line);
+  box-shadow: 0 0 8px var(--cursor-glow);
   opacity: .55;
   transition: width .22s cubic-bezier(.2, .8, .2, 1), height .22s cubic-bezier(.2, .8, .2, 1),
     margin .22s cubic-bezier(.2, .8, .2, 1), opacity .22s ease, box-shadow .22s ease;
 }
-.cursor-dot.is-active .cursor-dot__ring {
-  width: 42px;
-  height: 42px;
-  margin: -21px 0 0 -21px;
+.cursor.is-active .cursor__trail {
+  width: 24px;
+  height: 24px;
+  margin: -12px 0 0 -12px;
   opacity: 1;
-  box-shadow: 0 0 18px var(--sig-glow);
+  box-shadow: 0 0 14px var(--cursor-glow);
 }
-.cursor-dot.is-down .cursor-dot__ring {
-  width: 20px;
-  height: 20px;
-  margin: -10px 0 0 -10px;
+.cursor.is-down .cursor__trail {
+  width: 11px;
+  height: 11px;
+  margin: -5.5px 0 0 -5.5px;
 }
 
+/* BEAM — the caret, drawn rather than borrowed: same serifs as the system one,
+   so it still reads as "you can type here", but lit like everything else */
+.cursor__beam {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 12px;
+  height: 22px;
+  margin: -11px 0 0 -6px;   /* the stem sits on the hotspot */
+  overflow: visible;
+  filter: drop-shadow(0 0 4px var(--cursor-glow));
+}
+.cursor__beam path {
+  fill: none;
+  stroke: var(--cursor-line);
+  stroke-width: 1.5;
+  stroke-linecap: round;
+}
+
+/* MOVE — four arrows for anything draggable. A hand would have to be drawn
+   well to be worth drawing at all; this says the same thing in the app's own
+   geometry, and says it in every direction the thing can actually go. */
+.cursor__grab {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 23px;
+  height: 23px;
+  margin: -11.5px 0 0 -11.5px;
+  overflow: visible;
+  fill: var(--cursor-line);
+  filter: drop-shadow(0 0 5px var(--cursor-glow));
+  transition: transform .18s cubic-bezier(.2, .8, .2, 1);
+}
+/* closing on the grip */
+.cursor.is-down .cursor__grab { transform: scale(.82); }
+
 @media (prefers-reduced-motion: reduce) {
-  .cursor-dot__ring { transition: opacity .18s ease; }
+  .cursor__arrow, .cursor__reticle, .cursor__frame, .cursor__trail,
+  .cursor__grab { transition: none; }
 }
 .ritual-page__sheet .thinking-document-body { flex: 1 1 auto; }
