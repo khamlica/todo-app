@@ -7882,8 +7882,7 @@
     if (!project) return;
     project.aside = !project.aside;
     if (project.aside && openInlineProject === project.id) {
-      openProjectSheet = null;
-      setInlineProjectLayout(false);
+      closeOpenInlineProject();
     }
     saveState();
     renderList("projects");
@@ -11960,8 +11959,7 @@
       event.stopPropagation();
       toggleAside(project, function () {
         if (project.aside && openInlineProject === project.id) {
-          openProjectSheet = null;
-          setInlineProjectLayout(false);
+          closeOpenInlineProject();
         }
         renderList("projects");
         if (!skyView.hidden) renderSky();
@@ -14549,6 +14547,19 @@
     showCanvasOnCard("canvas:pin:" + found.node.id, null, function () {
       return { tree: found.tree, node: node };
     });
+  }
+
+  /* Folded calendar pins are entrances to the complete thinking space. The
+     destination is resolved exactly as on the card, but the board keeps its
+     full-screen frame instead of borrowing the calendar's back. */
+  function openPinnedThinkingBlockFull(blockId) {
+    const found = findSheetCanvas(blockId);
+    if (!found) return;
+    const node = found.node.type === "folder"
+      ? (thinkingBackTarget(found.tree, found.node) || found.node)
+      : found.node;
+    openThinking();
+    showSheetCanvas({ tree: found.tree, node: node });
   }
 
   /* A camera is a scroll offset, so the same one shows a different part of the
@@ -17606,15 +17617,15 @@
 
   function renderCalPins() {
     const pins = pinnedThinkingBlocks();
-    renderCalPinHost(document.getElementById("calPinsBand"), pins);
+    renderCalPinHost(document.getElementById("calPinsBand"), pins, false);
     const foldedHost = document.getElementById("calFoldPins");
-    renderCalPinHost(foldedHost, pins);
+    renderCalPinHost(foldedHost, pins, true);
     if (foldedHost) foldedHost.hidden = calExpanded || !pins.length;
   }
 
   /* The two calendar rails are mirrors only. Building separate controls keeps
      every canvas block in its original tree and position. */
-  function renderCalPinHost(host, pins) {
+  function renderCalPinHost(host, pins, fullScreen) {
     if (!host) return;
     host.innerHTML = "";
     host.hidden = !pins.length;
@@ -17633,7 +17644,10 @@
       name.textContent = thinkingOrganizationTitle(block);
       pin.title = name.textContent;
       pin.append(mark, name);
-      pin.addEventListener("click", function () { openPinnedThinkingBlock(block.id); });
+      pin.addEventListener("click", function () {
+        if (fullScreen) openPinnedThinkingBlockFull(block.id);
+        else openPinnedThinkingBlock(block.id);
+      });
       host.appendChild(pin);
     }
   }
