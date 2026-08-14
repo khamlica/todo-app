@@ -23813,30 +23813,62 @@
       event.stopPropagation();
       if (rename.dataset.editing) return;
       rename.dataset.editing = "1";
-      const field = document.createElement("input");
-      field.type = "text";
-      field.className = "thinking-folder__field";
-      field.maxLength = 120;
-      field.value = (node.title || "").trim();
-      field.placeholder = translate(thinkingTypeKey(node.type));
-      mountField(field);
-      field.focus();
-      field.select();
-      // nothing above this field has any business reading its keys
-      field.addEventListener("keydown", function (keyEvent) { keyEvent.stopPropagation(); });
-      let closed = false;
-      const commit = function () {
-        if (closed) return;
-        closed = true;
-        applyThinkingRename(tree, node, field.value);
-      };
-      field.addEventListener("keydown", function (keyEvent) {
-        if (keyEvent.key === "Enter") { keyEvent.preventDefault(); commit(); }
-        else if (keyEvent.key === "Escape") { closed = true; renderThinkingCanvas(tree); }
-      });
-      field.addEventListener("blur", commit);
+      beginThinkingRename(tree, node, mountField);
     });
     return rename;
+  }
+
+  /* The name itself is the shortest route to renaming a container. Pointerdown
+     is stopped on the letters so the header's drag gesture never starts, and
+     the card's open gesture never sees the click that creates the field. */
+  function armThinkingTitleRename(tree, node, label, mountField) {
+    if (!label) return;
+    label.classList.add("is-editable");
+    label.tabIndex = 0;
+    label.setAttribute("aria-label", translate("thinkingRename"));
+    label.addEventListener("pointerdown", function (event) { event.stopPropagation(); });
+    label.addEventListener("click", function (event) {
+      event.preventDefault();
+      event.stopPropagation();
+      beginThinkingRename(tree, node, mountField);
+    });
+    label.addEventListener("keydown", function (event) {
+      if (event.key !== "Enter" && event.key !== " ") return;
+      event.preventDefault();
+      event.stopPropagation();
+      beginThinkingRename(tree, node, mountField);
+    });
+  }
+
+  function beginThinkingRename(tree, node, mountField) {
+    const field = document.createElement("input");
+    field.type = "text";
+    field.className = "thinking-folder__field thinking-block__title-field";
+    field.maxLength = 120;
+    field.value = (node.title || "").trim();
+    field.placeholder = translate(thinkingTypeKey(node.type));
+    field.addEventListener("pointerdown", function (event) { event.stopPropagation(); });
+    field.addEventListener("click", function (event) { event.stopPropagation(); });
+    // nothing above this field has any business reading its keys
+    field.addEventListener("keydown", function (event) { event.stopPropagation(); });
+    let closed = false;
+    const commit = function () {
+      if (closed) return;
+      closed = true;
+      applyThinkingRename(tree, node, field.value);
+    };
+    field.addEventListener("keydown", function (event) {
+      if (event.key === "Enter") { event.preventDefault(); commit(); }
+      else if (event.key === "Escape") {
+        event.preventDefault();
+        closed = true;
+        renderThinkingCanvas(tree);
+      }
+    });
+    field.addEventListener("blur", commit);
+    mountField(field);
+    field.focus();
+    field.select();
   }
 
   /* A renamed folder or canvas has to write back to whatever it stands for.
@@ -23900,6 +23932,9 @@
     if (chain.length > 1) path.appendChild(document.createTextNode("/"));
     path.appendChild(here);
     if (!isThinkingSyncedFolder(folder)) {
+      armThinkingTitleRename(tree, folder, here, function (field) {
+        here.replaceWith(field);
+      });
       path.appendChild(createThinkingRenameButton(tree, folder, function (field) {
         here.replaceWith(field);
       }));
@@ -24012,11 +24047,11 @@
       for (let i = 0; i < canvas.blocks.length; i++) {
         const candidate = canvas.blocks[i];
         if (candidate.parentId !== viewedCanvas.id) continue;
-        // a journal's entries are drawn by its own sheet above, by day rather
-        // than by drop order; everything else it takes in behaves like any
-        // other container's floor
-        if (viewedCanvas.type === "logbook" ? candidate.type === "journal"
-            : candidate.orgListOrder != null) continue;
+        // A journal's dated entries are drawn by its own sheet above. Its
+        // organisation-list children, like those of every other container, are
+        // drawn in the right rail instead of a second time on the free canvas.
+        if ((viewedCanvas.type === "logbook" && candidate.type === "journal")
+            || candidate.orgListOrder != null) continue;
         thinkingBlocks.appendChild(createThinkingBlock(canvas, candidate, false, false,
           viewedCanvas));
         visibleCount++;
@@ -24036,10 +24071,10 @@
      taken in live here, off its own canvas, instead of free-floating on it.
      A tab on the board's edge, pulled open to a rail of icons. */
   function canHoldOrgListBlocks(block) {
-    // a journal now has its own stage to hold blocks on, the way any other
-    // container does, so it no longer needs the rail. A folder is browsed
-    // inside its parent's rail rather than opening a second rail of its own.
-    return isThinkingOrganization(block) && block.type !== "folder" && block.type !== "logbook";
+    // A folder is browsed inside its parent's rail rather than opening a second
+    // rail of its own. Every other organisation block, including a journal,
+    // exposes the same navigator on the right.
+    return isThinkingOrganization(block) && block.type !== "folder";
   }
 
   function canEnterOrgList(block) {
@@ -24047,7 +24082,7 @@
   }
 
   function canReceiveOrgListBlocks(block) {
-    return isThinkingOrganization(block) && block.type !== "logbook";
+    return isThinkingOrganization(block);
   }
 
   function thinkingOrgListChildren(canvas, block) {
@@ -26631,6 +26666,11 @@
       type.textContent = organization
         ? thinkingOrganizationTitle(block)
         : translate(thinkingTypeKey(block.type));
+      if (organization && !isThinkingProtectedOrganization(block)) {
+        armThinkingTitleRename(canvas, block, type, function (field) {
+          type.replaceWith(field);
+        });
+      }
     }
 
     const del = document.createElement("button");

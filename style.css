@@ -9820,6 +9820,38 @@ html.is-field-mode .thinking-plane { background: transparent; box-shadow: none; 
   text-transform: none;
   white-space: nowrap;
 }
+.thinking-block__type--canvas-title.is-editable,
+.thinking-folder__crumb--here.is-editable {
+  cursor: text;
+  text-decoration: underline;
+  text-decoration-color: transparent;
+  text-decoration-thickness: 1px;
+  text-underline-offset: 3px;
+  transition: color .14s ease, text-decoration-color .14s ease;
+}
+.thinking-block__type--canvas-title.is-editable:hover,
+.thinking-block__type--canvas-title.is-editable:focus-visible,
+.thinking-folder__crumb--here.is-editable:hover,
+.thinking-folder__crumb--here.is-editable:focus-visible {
+  color: var(--block-color, var(--accent));
+  text-decoration-color: color-mix(in srgb, currentColor 58%, transparent);
+  outline: none;
+}
+.thinking-block__title-field {
+  min-width: 52px;
+  margin: 0;
+  color: var(--text);
+}
+.thinking-block--organization.is-collapsed > .thinking-block__head
+  > .thinking-block__title-field {
+  width: 100%;
+  flex: 0 0 auto;
+  padding: 1px 2px;
+  font-size: .7rem;
+  font-weight: 700;
+  line-height: 1.2;
+  text-align: center;
+}
 .thinking-block__delete {
   width: 19px; height: 20px;
   border-radius: 6px;
