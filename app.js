@@ -393,8 +393,8 @@
           if (block.orgListOrder == null) continue;
           const parent = canvasBlocks[block.parentId];
           const validHost = parent
-            && ["canvas", "document", "planner", "logbook"].indexOf(parent.type) !== -1;
-          const validItem = ["canvas", "document", "planner", "logbook"].indexOf(block.type) !== -1;
+            && ["canvas", "folder", "document", "planner", "logbook"].indexOf(parent.type) !== -1;
+          const validItem = ["canvas", "folder", "document", "planner", "logbook"].indexOf(block.type) !== -1;
           if (!validHost || !validItem) delete block.orgListOrder;
         }
 
@@ -454,6 +454,7 @@
           cursor: cursorName(saved.settings && saved.settings.cursor),
           projectMode: saved.settings && saved.settings.projectMode === "leisure"
             ? "leisure" : "work",
+          calendarActiveProjectId: (saved.settings && saved.settings.calendarActiveProjectId) || null,
           timeScrub: saved.settings && saved.settings.timeScrub != null
             ? !!saved.settings.timeScrub : true,
           treeFull: !!(saved.settings && saved.settings.treeFull),
@@ -470,7 +471,7 @@
         }
       };
     } catch (err) {
-      return { tasks: [], projects: [], habits: [], canvases: [], events: [], ideas: [], rituals: [], sun: null, settings: { name: "", theme: "auto", language: "fr", palette: "theme", glass: "motif", decorations: [], fieldMode: false, ritualsClassicWall: false, quality: "high", cursor: "arrow", projectMode: "work", timeScrub: true, treeFull: false, treeWisps: true, treeTrunk: true, treeBranches: true, treeBlooms: ["corolla"], treeSap: true, autoBands: { dawn: "dawn", day: "day", dusk: "dusk", night: "night" }, themeDecorLent: [], themeEdits: {}, paletteEdits: {}, themePalettes: {} } };
+      return { tasks: [], projects: [], habits: [], canvases: [], events: [], ideas: [], rituals: [], sun: null, settings: { name: "", theme: "auto", language: "fr", palette: "theme", glass: "motif", decorations: [], fieldMode: false, ritualsClassicWall: false, quality: "high", cursor: "arrow", projectMode: "work", calendarActiveProjectId: null, timeScrub: true, treeFull: false, treeWisps: true, treeTrunk: true, treeBranches: true, treeBlooms: ["corolla"], treeSap: true, autoBands: { dawn: "dawn", day: "day", dusk: "dusk", night: "night" }, themeDecorLent: [], themeEdits: {}, paletteEdits: {}, themePalettes: {} } };
     }
   }
 
@@ -611,19 +612,37 @@
     const active = activeProjectBranch(project);
     let index = branches.indexOf(active);
     if (index < 0) index = 0;
-    project.activeConstellationId = branches[(index + 1) % branches.length].id;
+    activateProjectBranch(project, branches[(index + 1) % branches.length]);
+  }
+
+  /* One selection, whichever side initiated it: the project's steps, sky and
+     title follow the course, and an already visible canvas of this same project
+     follows it in the opposite direction. */
+  function activateProjectBranch(project, branch) {
+    if (!project || !branch) return;
+    project.activeConstellationId = branch.id;
     saveState();
     lightSky();
     redrawSteps(project);   // the star's panel shows one branch too, redraw it as well
     refreshBranchHead(project);
+    showBranchCanvas(project, branch);
   }
 
-  /* Arriving on a course: in a sheet the whole surface is redrawn around it, so
-     the board is remounted on the way; on the full screen only the board moves. */
+  /* Arriving on a course: when the board is already mounted in a sheet (notably
+     on the calendar's back), move that live board directly. Depending on a
+     project row redraw left a folded calendar project with nothing to remount. */
   function showBranchCanvas(project, branch) {
-    if (thinkingView.hidden) { refreshBranchHead(project); return; }
     const found = findSheetCanvas(branch.canvasId);
-    if (found) showSheetCanvas(found);
+    const shown = currentThinkingCanvasNode();
+    const shownOwner = sheetCanvasOwner(shown && shown.id);
+    const ownsShownCanvas = !!(shownOwner && shownOwner.project.id === project.id);
+    if (found && canvasSheetSlot && ownsShownCanvas) {
+      showSheetCanvas(found);
+      repaintProjectBandSheets();
+      return;
+    }
+    if (thinkingView.hidden) return;
+    if (found && ownsShownCanvas) showSheetCanvas(found);
   }
 
   /* A course on show names its steps and holds its canvas, so stepping to the
@@ -776,6 +795,7 @@
       habitIds: [], steps: []
     };
     branches.push(branch);
+    initializeCanvasHolder(project, branch);
     saveState();
     return branch;
   }
@@ -836,6 +856,8 @@
       brushedTo: "Thème :",
       tasksTitle: "Vos tâches",
       ideasTitle: "Boîte à idées",
+      calendarInbox: "Inbox",
+      calendarInboxAria: "Ouvrir l’Inbox",
       ideaPlaceholder: "Déposer une idée…",
       ideaAddAria: "Ajouter une idée",
       ideasEmpty: "Laissez venir une première idée…",
@@ -919,8 +941,13 @@
       projectDropHabit: "Déposer pour créer une habitude",
       projectHabitCreated: "Habitude de projet créée.",
       projectHabitAlreadyExists: "Ce projet a déjà son habitude.",
+      projectActivate: "Rendre ce projet actif",
+      projectDeactivate: "Retirer le projet actif",
+      noActiveProject: "Aucun projet actif",
       undoDeleted: "Élément supprimé",
+      undoArchived: "Élément archivé",
       undoBtn: "Annuler",
+      viewArchive: "Voir l’archive",
       decorLabel: "Décorations",
       decorParticles: "Particules",
       decorPetals: "Pétales",
@@ -1133,8 +1160,8 @@
       ritualsAria: "Les rituels",
       ritualsTitle: "Les rituels",
       ritualsBareAria: "Afficher seulement la mosaïque",
-      ritualsInviteTitle: "Chercher un rituel.",
-      ritualsSearchPlaceholder: "Rechercher un rituel…",
+      ritualsInviteTitle: "Vos documents.",
+      ritualsSearchPlaceholder: "Trouvez quelque chose de nouveau.",
       ritualNew: "Nouveau rituel",
       ritualUntitled: "Rituel sans nom",
       ritualBodyPlaceholder: "Écrivez ici ce que vous voudrez relire…",
@@ -1225,7 +1252,6 @@
       thinkingLoopCreated: "{count} éléments planifiés",
       thinkingLoopRewound: "Boucle annulée : {count} éléments supprimés",
       thinkingQuestionAddAnswer: "Ajouter une réponse",
-      thinkingJournalAddNote: "Ajouter une note",
       thinkingCanvasEmpty: "Déposez vos blocs ici.",
       thinkingFolderAdd: "Ajouter dans le dossier",
       thinkingDocumentEmpty: "Écrivez, ou déposez un bloc.",
@@ -1234,6 +1260,7 @@
       thinkingBulletsAria: "Liste à puces",
       thinkingNumberedAria: "Liste numérotée",
       thinkingToggleAria: "Texte dépliant",
+      thinkingTableAria: "Insérer un tableau",
       thinkingToggleTitlePlaceholder: "Titre…",
       thinkingResizeCanvas: "Redimensionner la toile",
       thinkingResizeFolder: "Rogner la vue du dossier",
@@ -1256,12 +1283,29 @@
       thinkingDropProjectsFolder: "Supprimer ce dossier supprimera aussi tous vos projets. Continuer ?",
       thinkingDropTasksFolder: "Supprimer ce dossier supprimera aussi toutes vos tâches. Continuer ?",
       thinkingDropProjectFolder: "Supprimer ce dossier supprimera aussi le projet qu'il range. Continuer ?",
+      thinkingDeleteOrganizationContentsOne: "Ce bloc contient 1 bloc d’organisation. Êtes-vous sûr de vouloir le supprimer avec le bloc ?",
+      thinkingDeleteOrganizationContentsMany: "Ce bloc contient {count} blocs d’organisation. Êtes-vous sûr de vouloir les supprimer avec le bloc ?",
+      thinkingDeleteOrganizationsContentsOne: "Les blocs sélectionnés contiennent 1 bloc d’organisation. Êtes-vous sûr de vouloir le supprimer avec ces blocs ?",
+      thinkingDeleteOrganizationsContents: "Les blocs sélectionnés contiennent {count} blocs d’organisation. Êtes-vous sûr de vouloir les supprimer avec ces blocs ?",
+      thinkingDeleteConfirmTitle: "Confirmer la suppression",
+      thinkingDeleteConfirmAction: "Supprimer",
+      thinkingDeleteArchive: "Archiver",
+      thinkingRestoreProject: "Restaurer le projet",
+      thinkingProjectRestored: "Projet restauré.",
+      sheetCanvasDeleteTitle: "Contenu de la toile",
+      taskCanvasDeleteMessage: "Cette tâche contient des éléments. Êtes-vous sûr de vouloir la supprimer ?",
+      projectCanvasDeleteMessage: "Ce projet contient des éléments. Êtes-vous sûr de vouloir le supprimer ?",
       thinkingRename: "Renommer",
       thinkingLinkTool: "Liaison",
       thinkingPinTool: "Épingler",
       thinkingPinHint: "Choisissez un bloc organisation à épingler.",
       thinkingOrgListTab: "Blocs organisation",
+      thinkingOrgListRoot: "Toile mère",
       thinkingOrgListAdd: "Ajouter à la liste",
+      thinkingTaskNotepad: "Bloc-note de tâche",
+      thinkingProjectNotepad: "Bloc-note de projet",
+      thinkingTaskJournal: "Journal de tâche",
+      thinkingProjectJournal: "Journal de projet",
       thinkingCancel: "Annuler",
       thinkingChangeType: "Changer le type du bloc",
       thinkingConnectionOne: "liaison",
@@ -1290,6 +1334,8 @@
       brushedTo: "Theme:",
       tasksTitle: "Your tasks",
       ideasTitle: "Idea box",
+      calendarInbox: "Inbox",
+      calendarInboxAria: "Open Inbox",
       ideaPlaceholder: "Drop in an idea…",
       ideaAddAria: "Add an idea",
       ideasEmpty: "Let a first idea arrive…",
@@ -1373,8 +1419,13 @@
       projectDropHabit: "Drop to create a habit",
       projectHabitCreated: "Project habit created.",
       projectHabitAlreadyExists: "This project already has a habit.",
+      projectActivate: "Make this project active",
+      projectDeactivate: "Remove the active project",
+      noActiveProject: "No active project",
       undoDeleted: "Item deleted",
+      undoArchived: "Item archived",
       undoBtn: "Undo",
+      viewArchive: "View archive",
       decorLabel: "Decorations",
       decorParticles: "Particles",
       decorPetals: "Petals",
@@ -1587,7 +1638,7 @@
       ritualsAria: "The rituals",
       ritualsTitle: "The rituals",
       ritualsBareAria: "Show only the mosaic",
-      ritualsInviteTitle: "Search a ritual.",
+      ritualsInviteTitle: "Look for something new.",
       ritualsSearchPlaceholder: "Search a ritual…",
       ritualNew: "New ritual",
       ritualUntitled: "Unnamed ritual",
@@ -1679,7 +1730,6 @@
       thinkingLoopCreated: "{count} items scheduled",
       thinkingLoopRewound: "Loop undone: {count} items removed",
       thinkingQuestionAddAnswer: "Add an answer",
-      thinkingJournalAddNote: "Add a note",
       thinkingCanvasEmpty: "Drop your blocks here.",
       thinkingFolderAdd: "Add to the folder",
       thinkingDocumentEmpty: "Write, or drop a block.",
@@ -1688,6 +1738,7 @@
       thinkingBulletsAria: "Bulleted list",
       thinkingNumberedAria: "Numbered list",
       thinkingToggleAria: "Toggle text",
+      thinkingTableAria: "Insert a table",
       thinkingToggleTitlePlaceholder: "Title…",
       thinkingResizeCanvas: "Resize canvas",
       thinkingResizeFolder: "Crop folder view",
@@ -1710,12 +1761,29 @@
       thinkingDropProjectsFolder: "Deleting this folder will also delete all your projects. Continue?",
       thinkingDropTasksFolder: "Deleting this folder will also delete all your tasks. Continue?",
       thinkingDropProjectFolder: "Deleting this folder will also delete the project it holds. Continue?",
+      thinkingDeleteOrganizationContentsOne: "This block contains 1 organisation block. Are you sure you want to delete it with the block?",
+      thinkingDeleteOrganizationContentsMany: "This block contains {count} organisation blocks. Are you sure you want to delete them with the block?",
+      thinkingDeleteOrganizationsContentsOne: "The selected blocks contain 1 organisation block. Are you sure you want to delete it with these blocks?",
+      thinkingDeleteOrganizationsContents: "The selected blocks contain {count} organisation blocks. Are you sure you want to delete them with these blocks?",
+      thinkingDeleteConfirmTitle: "Confirm deletion",
+      thinkingDeleteConfirmAction: "Delete",
+      thinkingDeleteArchive: "Archive",
+      thinkingRestoreProject: "Restore project",
+      thinkingProjectRestored: "Project restored.",
+      sheetCanvasDeleteTitle: "Canvas content",
+      taskCanvasDeleteMessage: "This task contains elements. Are you sure you want to delete it?",
+      projectCanvasDeleteMessage: "This project contains elements. Are you sure you want to delete it?",
       thinkingRename: "Rename",
       thinkingLinkTool: "Link",
       thinkingPinTool: "Pin",
       thinkingPinHint: "Choose a container to pin down.",
       thinkingOrgListTab: "Organisation blocks",
+      thinkingOrgListRoot: "Parent canvas",
       thinkingOrgListAdd: "Add to the list",
+      thinkingTaskNotepad: "Task notepad",
+      thinkingProjectNotepad: "Project notepad",
+      thinkingTaskJournal: "Task journal",
+      thinkingProjectJournal: "Project journal",
       thinkingCancel: "Cancel",
       thinkingChangeType: "Change block type",
       thinkingConnectionOne: "connection",
@@ -2272,10 +2340,10 @@
       }
     }
     const workBand = document.getElementById("calWorkBand");
-    const ideasBand = document.getElementById("calIdeasBand");
     if (workBand) workBand.hidden = leisure;
-    if (ideasBand) ideasBand.hidden = !leisure;
-    if (leisure) renderIdeas();
+    // Ideas no longer replace today's rail. Inbox is a stable launcher and the
+    // same live list is lent to the back of the calendar in either mode.
+    renderIdeas();
   }
 
   projectModeToggle.addEventListener("click", function () {
@@ -2703,12 +2771,13 @@
     saveState();
   });
 
-  /* TOAST — brief bottom message, optionally with an action (used by Undo) */
+  /* TOAST — brief bottom message, with one or two optional actions. */
   let toastTimer = null;
-  function showToast(message, actionLabel, onAction) {
+  function showToast(message, actionLabel, onAction, secondaryLabel, onSecondary) {
     const el = document.getElementById("toast");
     const msg = document.getElementById("toastMsg");
     const action = document.getElementById("toastAction");
+    const secondary = document.getElementById("toastSecondary");
     msg.textContent = message;
     if (actionLabel && onAction) {
       action.textContent = actionLabel;
@@ -2717,6 +2786,14 @@
     } else {
       action.hidden = true;
       action.onclick = null;
+    }
+    if (secondaryLabel && onSecondary) {
+      secondary.textContent = secondaryLabel;
+      secondary.hidden = false;
+      secondary.onclick = function () { hideToast(); onSecondary(); };
+    } else {
+      secondary.hidden = true;
+      secondary.onclick = null;
     }
     el.hidden = false;
     requestAnimationFrame(function () { el.classList.add("is-open"); });
@@ -3116,8 +3193,9 @@
      the passage, once, everywhere, then fades back to whatever it was. */
   let fieldFlashStart = 0;   // 0: no flash running
   const FIELD_FLASH_DURATION = 1100;   // ms, full grid down to nothing
-  const FIELD_FLASH_LINE_WIDTH = 1.4;
-  const FIELD_FLASH_BLUR = 6;
+  const FIELD_FLASH_PEAK_ALPHA = .55;  // never fully opaque, even at the instant it fires
+  const FIELD_FLASH_LINE_WIDTH = 1.1;
+  const FIELD_FLASH_BLUR = 4;
   function triggerFieldFlash() {
     fieldFlashStart = performance.now();
     fieldWake();
@@ -3182,11 +3260,11 @@
      of its own, but the field's own pixel grid lighting up. */
   let fieldRitualsMode = false;
   const RITUAL_LINE_WIDTH = .5;
-  const RITUAL_LINE_ALPHA = .25;
+  const RITUAL_LINE_ALPHA = .19;
   const RITUAL_LINE_WIDTH_HOT = 1.6;
   const RITUAL_LINE_ALPHA_HOT = .85;
   const RITUAL_GLOW_WIDTH = 1.2;
-  const RITUAL_GLOW_ALPHA = .2;
+  const RITUAL_GLOW_ALPHA = .15;
   const RITUAL_GLOW_WIDTH_HOT = 3.4;
   const RITUAL_GLOW_ALPHA_HOT = .7;
   const RITUAL_GLOW_BLUR = 4;
@@ -3767,7 +3845,7 @@
 
     if (fieldFlashStart) {
       const fade = 1 - Math.min(1, (now - fieldFlashStart) / FIELD_FLASH_DURATION);
-      const flashAlpha = fade * fade;   // eased: holds near full, then lets go
+      const flashAlpha = fade * fade * FIELD_FLASH_PEAK_ALPHA;   // eased: holds near full, then lets go
       if (flashAlpha > .003) {
         ctx.strokeStyle = fieldSignature;
         ctx.lineWidth = FIELD_FLASH_LINE_WIDTH;
@@ -5062,7 +5140,26 @@
     const places = listName === "projects" ? projectRowPlaces() : null;
     document.getElementById(listName + "List").innerHTML = "";
     if (listName === "projects") document.getElementById("calProjectsList").innerHTML = "";
+    if (listName === "projects") document.getElementById("calActiveProjectList").innerHTML = "";
     listElement.innerHTML = "";
+
+    /* The expanded calendar divides objectives without duplicating them: one
+       active objective above, every other one in the existing list below. Both
+       empty lists remain as physical drop zones, so neither needs a caption or
+       placeholder to explain its shape. */
+    const inBand = listName === "projects" && inWorkBand(listElement);
+    if (inBand) {
+      const activeHost = document.getElementById("calActiveProjectList");
+      const run = quietProjectsLast(items);
+      const activeId = state.settings.calendarActiveProjectId;
+      for (let i = 0; i < run.length; i++) {
+        const host = run[i].id === activeId ? activeHost : listElement;
+        host.appendChild(createItemRow(listName, run[i], { band: true }));
+      }
+      paintCalendarProjectZones();
+      if (places) slideProjectRows(places);
+      return;
+    }
 
     if (items.length === 0) {
       const emptyRow = document.createElement("li");
@@ -5342,7 +5439,7 @@
   function taskRowPlaces() { return rowPlaces(TASK_ROWS, "id"); }
   function slideTaskRows(places) { slideRows(TASK_ROWS, "id", places); }
 
-  const PROJECT_ROWS = "#projectsList .item--project, #calProjectsList .item--project";
+  const PROJECT_ROWS = "#projectsList .item--project, #calActiveProjectList .item--project, #calProjectsList .item--project";
   function projectRowPlaces() { return rowPlaces(PROJECT_ROWS, "id"); }
   function slideProjectRows(places) { slideRows(PROJECT_ROWS, "id", places); }
 
@@ -5352,6 +5449,7 @@
      the order projectsInMode() gives now, and slide to it. */
   function resortProjectRows() {
     const hosts = [document.getElementById("projectsList"),
+      document.getElementById("calActiveProjectList"),
       document.getElementById("calProjectsList")];
     const order = quietProjectsLast(projectsInMode());
     const places = projectRowPlaces();
@@ -5660,6 +5758,19 @@
 
     rowHead.append(label, slot);
 
+    /* In the calendar an objective keeps its three small surfaces within reach
+       while folded. They are real sheet controls, not decorative copies: a
+       press opens the note or journal in this row, and lends the canvas to the
+       calendar card. */
+    if (listName === "projects" && opts && opts.band) {
+      const strip = document.createElement("div");
+      strip.className = "sheets sheets--project-band";
+      rowHead.appendChild(strip);
+      paintSheetStrip(strip, item, projectBandSheetKind(item), function (kind) {
+        pickProjectBandSheet(row, item, fold, kind);
+      }, true);
+    }
+
     // every mark travels together at the right end, so it can step aside as one
     // piece when the actions come over it instead of being half-covered
     const meta = document.createElement("span");
@@ -5713,6 +5824,10 @@
     + '<path d="M10.2 6c.6-.1 1.2-.2 1.8-.2 6 0 9.5 6.2 9.5 6.2a17 17 0 0 1-3.2 3.7"/>'
     + '<path d="M6.4 8.2A17 17 0 0 0 2.5 12S6 18.2 12 18.2c1.2 0 2.3-.2 3.3-.6"/>'
     + '<path d="M10.3 10.3a2.6 2.6 0 0 0 3.5 3.5"/>';
+  const ICON_ARCHIVE = '<path d="M4 7h16v13H4zM3 4h18v3H3zM9 11h6"/>';
+  const ICON_DELETE = '<polyline points="3 6 5 6 21 6"/>'
+    + '<path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6'
+    + 'm3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/>';
 
   /* SET ASIDE IS NOT A DATE — the flow has always shown what is set aside in the
      tail where nothing has a day, whatever day it was holding. The data says the
@@ -5819,7 +5934,23 @@
     const actions = ghost.querySelector(".row-acts");
     if (fold) fold.remove();
     if (actions) actions.remove();
-    ghost.classList.remove("is-open");
+    ghost.classList.remove("is-open", "is-inline-open", "is-sheet-open", "is-canvas-open");
+    /* Once lifted out of the calendar band, a project clone no longer inherits
+       the band's wrapping rules. Keep only its identity and importance in the
+       floating copy: carrying sheet controls and gauges squeezed the title down
+       to one character per line and made the ghost several screens tall. */
+    if (listName === "projects") {
+      const inlineName = ghost.querySelector(".goal-inline__name");
+      const staticName = ghost.querySelector(".project-tab > .item__text");
+      const strip = ghost.querySelector(".project-tab > .sheets");
+      const slot = ghost.querySelector(".project-tab > .item__slot");
+      const meta = ghost.querySelector(".project-tab > .item__meta");
+      if (inlineName) inlineName.remove();
+      if (staticName) staticName.hidden = false;
+      if (strip) strip.remove();
+      if (slot) slot.remove();
+      if (meta) meta.remove();
+    }
     ghost.classList.add("task-drag-ghost");
     ghost.style.width = rect.width + "px";
     document.body.appendChild(ghost);
@@ -5845,6 +5976,7 @@
       undatedDay: null,
       projectDrop: null,
       projectRow: null,
+      projectZoneDrop: null,
       habitsBandDrop: false,
       paneSwitchAt: 0,
       crossedLists: false,
@@ -5970,9 +6102,14 @@
   function updateRowDragDestinations() {
     const deleting = updateRowTrashDrop();
     const project = deleting ? null : updateProjectDrop();
-    const habitsBand = (deleting || project) ? false : updateHabitsBandDrop();
+    let projectZone = null;
+    if (deleting || project) {
+      clearCalendarProjectDropTargets();
+      if (rowDrag) rowDrag.projectZoneDrop = null;
+    } else projectZone = updateCalendarProjectZoneDrop();
+    const habitsBand = (deleting || project || projectZone) ? false : updateHabitsBandDrop();
     let onDay = null;
-    if (deleting || project || habitsBand) showCalendarDayTarget(null);
+    if (deleting || project || projectZone || habitsBand) showCalendarDayTarget(null);
     else onDay = updateCalendarDrop();
     if (onDay) {
       // a day of the grid answers alone: the rule and the groups let go
@@ -5984,13 +6121,41 @@
       clearDropGroups();
       if (rowDrag.crossedLists) restoreDraggedRowOrigin(rowDrag);
     }
-    const spent = deleting || project || habitsBand || onDay;
+    const spent = deleting || project || projectZone || habitsBand || onDay;
     const drop = spent ? null : updateRowTimelineDrop();
     const undatedDrop = spent ? false : updateUndatedDrop();
     return {
       deleting: deleting, drop: drop, undatedDrop: undatedDrop, onDay: onDay,
-      habitsBand: habitsBand
+      habitsBand: habitsBand, projectZone: projectZone
     };
+  }
+
+  /* The two unlabelled objective areas are destinations only while an objective
+     is carried. Any objective can enter the upper slot; only the current active
+     one needs the lower slot as a destination, since the others already live
+     there and retain their ordinary reordering behaviour. */
+  function showCalendarProjectDropZones(on) {
+    const zones = document.querySelectorAll(".cal-project-zone");
+    for (let i = 0; i < zones.length; i++) {
+      zones[i].classList.remove("is-drop-available", "is-drop-target");
+    }
+  }
+
+  function clearCalendarProjectDropTargets() {
+    const zones = document.querySelectorAll(".cal-project-zone.is-drop-target");
+    for (let i = 0; i < zones.length; i++) zones[i].classList.remove("is-drop-target");
+  }
+
+  function updateCalendarProjectZoneDrop() {
+    if (!rowDrag || rowDrag.listName !== "projects" || !workBandsOn()) return null;
+    clearCalendarProjectDropTargets();
+    const at = document.elementFromPoint(rowDrag.pointerX, rowDrag.pointerY);
+    const zone = at && at.closest ? at.closest(".cal-project-zone") : null;
+    let target = zone ? zone.dataset.projectZone : null;
+    const draggedId = rowDrag.row.dataset.id;
+    if (target === "list" && state.settings.calendarActiveProjectId !== draggedId) target = null;
+    rowDrag.projectZoneDrop = target;
+    return target;
   }
 
   /* A TASK GIVEN TO A PROJECT — dropped on a project's row it joins that project,
@@ -6159,7 +6324,8 @@
     moveRowGhost(event);
     const destination = updateRowDragDestinations();
     if (destination.deleting || destination.drop || destination.undatedDrop
-      || destination.onDay || destination.habitsBand || !rowDrag.canReorder) return;
+      || destination.onDay || destination.habitsBand || destination.projectZone
+      || !rowDrag.canReorder) return;
 
     const listEl = rowDrag.listEl;
     const siblings = listEl.querySelectorAll('.item[data-reorder]:not(.is-dragging)');
@@ -6192,6 +6358,7 @@
     clearDropGroups();
     clearHabitProjectTargets();
     clearProjectHabitTarget();
+    showCalendarProjectDropZones(false);
     pagesTrack.classList.remove("is-row-dragging");
     dragEndedAt = Date.now() + 350;   // swallow the click that ends the drag
     cancelAnimationFrame(rowDragScrollFrame);
@@ -6228,6 +6395,12 @@
         refreshStepStructure(project);
         showToast(translate("taskLinked"));
       }
+      return;
+    }
+
+    if (drag.projectZoneDrop) {
+      const id = drag.row.dataset.id;
+      setCalendarActiveProject(drag.projectZoneDrop === "active" ? id : null);
       return;
     }
 
@@ -6368,50 +6541,394 @@
     }
     if (importance) item.importance = importance;
     state[listName].push(item);
+    if (listName === "tasks") initializeItemCanvases(item);
     saveState();
     renderList(listName);
     if (listName === "tasks") renderDailyTimeline();
     return item;
   }
 
+  function thinkingBlockDescendsFrom(canvas, block, parentId) {
+    let id = block && block.parentId;
+    const seen = {};
+    for (let i = 0; id && i <= canvas.blocks.length; i++) {
+      if (id === parentId) return true;
+      if (seen[id]) return false;
+      seen[id] = true;
+      const parent = findThinkingParent(canvas, id);
+      id = parent && parent.parentId;
+    }
+    return false;
+  }
+
+  /* The note and journal are placed on every task/project canvas by the app.
+     Empty, they are only native furniture; once written in, their owner's text
+     is content to protect too. Everything else — including ordinary and
+     planning blocks — is content the user added. */
+  function isNativeSheetCanvasBlock(canvas, node, block) {
+    if (block.parentId === node.id && isThinkingSheetCompanion(block)) return true;
+    if (block.type !== "journal" || !block.journalEntryId) return false;
+    const parent = findThinkingParent(canvas, block.parentId);
+    return !!(parent && parent.parentId === node.id && isThinkingSheetCompanion(parent)
+      && parent.sheetCompanion === "journal");
+  }
+
+  function nativeSheetHasText(item) {
+    if (plainNoteText(item).trim()) return true;
+    const journal = item.journal || [];
+    for (let i = 0; i < journal.length; i++) {
+      if ((journal[i].text || "").trim()) return true;
+    }
+    return false;
+  }
+
+  function sheetCanvasHasAddedElements(item) {
+    if (nativeSheetHasText(item)) return true;
+    const holders = canvasHolders(item);
+    for (let h = 0; h < holders.length; h++) {
+      const found = holders[h].canvasId ? findSheetCanvas(holders[h].canvasId) : null;
+      if (!found) continue;
+      for (let i = 0; i < found.tree.blocks.length; i++) {
+        const block = found.tree.blocks[i];
+        if (!thinkingBlockDescendsFrom(found.tree, block, found.node.id)) continue;
+        if (!isNativeSheetCanvasBlock(found.tree, found.node, block)) return true;
+      }
+    }
+    return false;
+  }
+
+  function rememberThinkingFields(snapshots, block, keys) {
+    const fields = {};
+    for (let i = 0; i < keys.length; i++) {
+      const key = keys[i];
+      fields[key] = {
+        present: Object.prototype.hasOwnProperty.call(block, key),
+        value: block[key]
+      };
+    }
+    snapshots.push({ block: block, fields: fields });
+  }
+
+  function restoreThinkingFields(snapshot) {
+    for (const key in snapshot.fields) {
+      const field = snapshot.fields[key];
+      if (field.present) snapshot.block[key] = field.value;
+      else delete snapshot.block[key];
+    }
+  }
+
+  function projectArchivePayload(project) {
+    const habit = projectHabitFor(project.id);
+    return {
+      version: 1,
+      archivedAt: Date.now(),
+      project: JSON.parse(JSON.stringify(project)),
+      habit: habit ? JSON.parse(JSON.stringify(habit)) : null
+    };
+  }
+
+  function isArchivedProjectFolder(block) {
+    return !!(block && block.type === "folder" && block.archivedProject
+      && block.archivedProject.project);
+  }
+
+  /* Archive cuts the synchronization, not the canvas. The system note is first
+     given its owner's current text and the journal is materialised as blocks;
+     then their pins and the canvas pin are removed. A project's automatic
+     folder becomes a restorable ordinary folder: it is free to move or delete,
+     but carries the identity needed to rebuild its objective. */
+  function archiveSheetCanvas(item) {
+    if (canvasSheetSlot && canvasSheetSlot.dataset.owner === item.id) releaseCanvasSheet();
+    const snapshots = [];
+    const touchedTrees = [];
+    const holders = canvasHolders(item);
+    const projectArchive = item.constellations ? projectArchivePayload(item) : null;
+    for (let h = 0; h < holders.length; h++) {
+      const found = holders[h].canvasId ? findSheetCanvas(holders[h].canvasId) : null;
+      if (!found) continue;
+      if (touchedTrees.indexOf(found.tree) === -1) touchedTrees.push(found.tree);
+
+      for (let i = 0; i < found.tree.blocks.length; i++) {
+        const block = found.tree.blocks[i];
+        if (block.parentId !== found.node.id || !isThinkingSheetCompanion(block)) continue;
+        if (block.sheetCompanion === "journal") syncOneLogbook(found.tree, block, item);
+        const companionKind = block.sheetCompanion;
+        rememberThinkingFields(snapshots, block,
+          ["documentHtml", "sheetCompanion", "sheetCompanionCanonical",
+            "sheetCompanionPin", "pinned", "archivedSheetCompanion",
+            "archivedSheetOwnerId"]);
+        releaseThinkingSheetCompanion(block, item);
+        // Resizing a native notepad changes the old shape heuristic. Keep a
+        // dormant identity while archived so restoration can reclaim this exact
+        // page rather than furnishing a visually identical second one.
+        block.archivedSheetCompanion = companionKind;
+        block.archivedSheetOwnerId = item.id;
+      }
+
+      rememberThinkingFields(snapshots, found.node,
+        ["syncedCanvasCanonical", "syncedCanvasPin", "pinned"]);
+      delete found.node.syncedCanvasCanonical;
+      delete found.node.syncedCanvasPin;
+      delete found.node.pinned;
+    }
+
+    if (item.constellations) {
+      for (let t = 0; t < touchedTrees.length; t++) {
+        const tree = touchedTrees[t];
+        for (let i = 0; i < tree.blocks.length; i++) {
+          const folder = tree.blocks[i];
+          if (folder.autoFolder !== "project" || folder.projectId !== item.id) continue;
+          rememberThinkingFields(snapshots, folder,
+            ["autoFolder", "projectId", "syncedFolderCanonical",
+              "syncedFolderPin", "pinned", "archivedProject"]);
+          folder.archivedProject = projectArchive;
+          delete folder.autoFolder;
+          delete folder.projectId;
+          delete folder.syncedFolderCanonical;
+          delete folder.syncedFolderPin;
+          delete folder.pinned;
+        }
+      }
+    }
+    for (let i = 0; i < touchedTrees.length; i++) touchedTrees[i].updatedAt = Date.now();
+    if (!snapshots.length) return null;
+    return function () {
+      for (let i = snapshots.length - 1; i >= 0; i--) restoreThinkingFields(snapshots[i]);
+      for (let i = 0; i < touchedTrees.length; i++) touchedTrees[i].updatedAt = Date.now();
+    };
+  }
+
+  function archivedProjectCompanion(found, kind, ownerId) {
+    if (!found) return null;
+    const wanted = kind === "note" ? "document" : "logbook";
+    const candidates = [];
+    for (let i = 0; i < found.tree.blocks.length; i++) {
+      const block = found.tree.blocks[i];
+      if (block.parentId !== found.node.id || block.type !== wanted) continue;
+      const score = thinkingSheetCompanionCandidate(block, kind, ownerId);
+      if (score) candidates.push({ block: block, score: score, index: i });
+    }
+    candidates.sort(function (a, b) { return b.score - a.score || a.index - b.index; });
+    return candidates.length ? candidates[0].block : null;
+  }
+
+  /* The archived native pages remain editable ordinary blocks. Their latest
+     contents therefore win over the snapshot when the objective is restored.
+     If either page has disappeared, the snapshot is the safe fallback and the
+     normal companion synchronizer will create a fresh native block. */
+  function archivedProjectContents(project) {
+    const branches = projectBranches(project).slice();
+    const active = findBranch(project, project.activeConstellationId);
+    if (active) {
+      const at = branches.indexOf(active);
+      if (at > 0) branches.unshift(branches.splice(at, 1)[0]);
+    }
+    let noteFound = false;
+    let journalFound = false;
+    for (let i = 0; i < branches.length; i++) {
+      const found = branches[i].canvasId ? findSheetCanvas(branches[i].canvasId) : null;
+      if (!found) continue;
+      const note = archivedProjectCompanion(found, "note", project.id);
+      if (note) {
+        // Also repairs archives made before the durable archive marker existed.
+        note.archivedSheetCompanion = "note";
+        note.archivedSheetOwnerId = project.id;
+        if (!noteFound) {
+          project.notes = note.documentHtml || "";
+          noteFound = true;
+        }
+      }
+      const book = archivedProjectCompanion(found, "journal", project.id);
+      if (book) {
+        book.archivedSheetCompanion = "journal";
+        book.archivedSheetOwnerId = project.id;
+        if (!journalFound) {
+          const blocks = thinkingLogbookEntries(found.tree, book).slice().reverse();
+          project.journal = blocks.map(function (block) {
+            return {
+              id: block.journalEntryId || thinkingId("j"),
+              date: block.journalDate || todayKey(),
+              text: block.text || ""
+            };
+          });
+          journalFound = true;
+        }
+      }
+    }
+  }
+
+  function restoreArchivedProject(canvas, folder) {
+    if (!isArchivedProjectFolder(folder)) return false;
+    const archive = folder.archivedProject;
+    const project = JSON.parse(JSON.stringify(archive.project));
+    if (findProject(project.id)) return false;
+    archivedProjectContents(project);
+    project.text = (folder.title || "").trim() || project.text || translate("addProjectAria");
+    projectBranches(project);
+    state.projects.push(project);
+
+    /* Normally there is one folder. Older layouts could have placed the same
+       project's courses in more than one mother canvas; restore every matching
+       archive marker so no dead restore control is left behind. */
+    for (let t = 0; t < state.canvases.length; t++) {
+      const blocks = state.canvases[t].blocks || [];
+      for (let i = 0; i < blocks.length; i++) {
+        const candidate = blocks[i];
+        if (!isArchivedProjectFolder(candidate)
+            || candidate.archivedProject.project.id !== project.id) continue;
+        candidate.autoFolder = "project";
+        candidate.projectId = project.id;
+        candidate.syncedFolderCanonical = true;
+        candidate.syncedFolderPin = true;
+        candidate.pinned = true;
+        delete candidate.archivedProject;
+      }
+    }
+
+    /* Existing branch canvases are relinked; a deleted one is recreated along
+       with its native notepad and journal. The same synchronizer recreates just
+       one missing native companion without duplicating the survivor. */
+    initializeItemCanvases(project);
+    for (let i = 0; i < state.canvases.length; i++) {
+      syncThinkingAutoFolders(state.canvases[i]);
+    }
+    if (archive.habit && !projectHabitFor(project.id)) {
+      state.habits.push(JSON.parse(JSON.stringify(archive.habit)));
+    }
+    saveState();
+    refreshProjectViews(project);
+    renderHabits();
+    if (canvas && thinkingLive()) renderThinkingCanvas(canvas);
+    showToast(translate("thinkingProjectRestored"));
+    return true;
+  }
+
+  function archivedProjectFolder(projectId) {
+    for (let t = 0; t < state.canvases.length; t++) {
+      const blocks = state.canvases[t].blocks || [];
+      for (let i = 0; i < blocks.length; i++) {
+        const block = blocks[i];
+        if (isArchivedProjectFolder(block)
+            && block.archivedProject.project.id === projectId) {
+          return { tree: state.canvases[t], node: block };
+        }
+      }
+    }
+    return null;
+  }
+
+  /* The toast's second action lands on the archive itself. A project is shown
+     as a row in the navigator so its restore control is immediately available;
+     a task has no archive folder, so its retained canvas opens directly. */
+  function openItemArchive(item) {
+    const archivedFolder = item.constellations ? archivedProjectFolder(item.id) : null;
+    if (archivedFolder) {
+      const tree = archivedFolder.tree;
+      let parent = findThinkingParent(tree, archivedFolder.node.parentId);
+      const container = parent && parent.type === "folder" ? parent : null;
+      let root = parent;
+      while (root && root.type === "folder") {
+        root = root.parentId ? findThinkingParent(tree, root.parentId) : null;
+      }
+      if (!canHoldOrgListBlocks(root)) root = tree;
+      openThinking();
+      openThinkingCanvas(tree.id);
+      if (root.id !== tree.id) navigateThinkingCanvas(root.id, true);
+      openThinkingOrgListFolder(tree, root, container);
+      requestAnimationFrame(function () {
+        const row = thinkingOrgListRows.querySelector('[data-block-id="'
+          + archivedFolder.node.id + '"]');
+        if (row) row.scrollIntoView({ block: "center" });
+      });
+      return;
+    }
+    const holders = canvasHolders(item);
+    for (let i = 0; i < holders.length; i++) {
+      const found = holders[i].canvasId ? findSheetCanvas(holders[i].canvasId) : null;
+      if (!found) continue;
+      openThinking();
+      showSheetCanvas(found);
+      return;
+    }
+  }
+
   /* Remove an item from a state list, keeping its slot so Undo can restore it.
      rerender() redraws whatever views showed it. */
-  function removeWithUndo(listName, id, rerender, onRestore) {
+  function removeWithUndo(listName, id, rerender, onRestore, options) {
     const items = state[listName];
     let index = -1;
     let removed = null;
     for (let i = 0; i < items.length; i++) {
       if (items[i].id === id) { index = i; removed = items[i]; break; }
     }
-    if (!removed) return;
+    if (!removed) return false;
+    const archivingCanvas = !!(options && options.archiveCanvas);
+    /* Eager creation is the invariant. This guard only repairs old/corrupt data
+       before archiving, while its owner can still be resolved by the canvas. */
+    if (archivingCanvas && nativeSheetHasText(removed) && !sheetCanvasNode(removed)) {
+      initializeItemCanvases(removed);
+    }
+    const canvasUndo = archivingCanvas ? archiveSheetCanvas(removed) : null;
     items.splice(index, 1);
-    const canvasUndo = cutSheetCanvas(removed);   // the sheets go with it
+    const finalCanvasUndo = archivingCanvas ? canvasUndo : cutSheetCanvas(removed);
     const habitUndo = listName === "projects" ? cutProjectHabit(removed) : null;
     saveState();
     rerender();
     if (habitUndo) renderHabits();   // the tile leaves the band along with the row
-    showToast(translate("undoDeleted"), translate("undoBtn"), function () {
+    const undoRemoval = function () {
       state[listName].splice(index, 0, removed);
-      if (canvasUndo) canvasUndo();
+      if (finalCanvasUndo) finalCanvasUndo();
       if (habitUndo) habitUndo();
       if (onRestore) onRestore();   // whatever pointed at it points again
       saveState();
       rerender();
-    });
+    };
+    showToast(translate(archivingCanvas ? "undoArchived" : "undoDeleted"),
+      translate("undoBtn"), undoRemoval,
+      archivingCanvas ? translate("viewArchive") : null,
+      archivingCanvas ? function () { openItemArchive(removed); } : null);
+    return true;
   }
 
-  /* Find the item by id, drop it, redraw. */
-  function removeItem(listName, id) {
+  function commitItemRemoval(listName, id, archiveCanvas) {
+    const item = findItem(listName, id);
+    if (!item) return false;
+    if (listName === "tasks" && detailTarget.kind === "tasks" && detailTarget.id === id) {
+      closeDetail();
+    }
+    if (listName === "projects" && currentProject()
+        && currentProject().id === id) closeProjectView();
     if (listName === "projects" && openInlineProject === id) {
       openInlineProject = null;
       openProjectSheet = null;
       setInlineProjectLayout(false);
     }
-    removeWithUndo(listName, id, function () {
+    return removeWithUndo(listName, id, function () {
       renderList(listName);
       if (listName === "tasks") renderDailyTimeline();
       // a project also owns a star, and Undo has to bring it back
       if (listName === "projects" && !skyView.hidden) renderSky();
+    }, null, { archiveCanvas: !!archiveCanvas });
+  }
+
+  /* Deleting an object with a worked-on canvas is the one destructive main-view
+     action that offers a third path. A native empty canvas still leaves at once;
+     any added block, whatever its family, asks whether the canvas goes or stays. */
+  function removeItem(listName, id) {
+    const item = findItem(listName, id);
+    if (!item) return false;
+    if ((listName !== "tasks" && listName !== "projects")
+        || !sheetCanvasHasAddedElements(item)) {
+      return commitItemRemoval(listName, id, false);
+    }
+    const message = translate(listName === "projects"
+      ? "projectCanvasDeleteMessage" : "taskCanvasDeleteMessage");
+    return showThinkingDeleteConfirm(message, {
+      titleKey: "sheetCanvasDeleteTitle",
+      archive: true
+    }).then(function (decision) {
+      if (decision !== "delete" && decision !== "archive") return false;
+      return commitItemRemoval(listName, id, decision === "archive");
     });
   }
 
@@ -7376,10 +7893,8 @@
   document.getElementById("iconProjectDelete").addEventListener("click", function () {
     const project = pickerProject();
     if (!project) return;
-    const fullView = currentProject() && currentProject().id === project.id;
     iconPicker.hidden = true;
     removeItem("projects", project.id);
-    if (fullView) closeProjectView();
   });
 
   pickerWhy.addEventListener("input", function () {
@@ -7835,7 +8350,8 @@
   function refreshGoalMarks(project) {
     const level = goalImportance(project);
     const icons = document.querySelectorAll('.item__ico[data-goal="' + project.id + '"], '
-      + '.detail__icon[data-goal="' + project.id + '"]');
+      + '.detail__icon[data-goal="' + project.id + '"], '
+      + '.thinking-project-icon[data-goal="' + project.id + '"]');
     for (let i = 0; i < icons.length; i++) {
       icons[i].innerHTML = projectSvg(project.icon || "folder");
       icons[i].dataset.imp = level;
@@ -10919,7 +11435,7 @@
   }
 
 
-  /* REPLAN, SET ASIDE, DELETE — the three that used to come over the row on
+  /* REPLAN, SET ASIDE, ARCHIVE, DELETE — the actions that used to come over the row on
      hover, half-covering the very line they act on. They are written out at the
      foot of the panel the task opens into, the way an objective's three are at
      the foot of its editor. Only the middle one reads differently by state, so
@@ -10951,10 +11467,14 @@
       renderDailyTimeline();
     });
   });
+  document.getElementById("taskEditArchive").addEventListener("click", function () {
+    const item = currentDetailItem();
+    if (!item) return;
+    commitItemRemoval("tasks", item.id, true);
+  });
   document.getElementById("taskEditDelete").addEventListener("click", function () {
     const item = currentDetailItem();
     if (!item) return;
-    closeDetail();
     removeItem("tasks", item.id);
   });
 
@@ -11196,7 +11716,7 @@
       + ".item--project.is-inline-open, "
       + ".dtl__event:not(.dtl__add), .undated__chip, .ecal__verso, .habits-band, "
       + "#addProjectBtn")) return;
-    if (event.target.closest(".modal, .detail")) return;   // pickers the editor opens
+    if (event.target.closest(".modal, .thinking-confirm, .detail")) return;
     // In the work zone the objective is the context the calendar is worked in and
     // stays open — it is shut by its own tab, the way it was opened. An open task
     // is not context, it is what one is doing: leaving it shuts it, which is also
@@ -11347,11 +11867,24 @@
     }
     const strip = row.querySelector(".project-tab > .sheets");
     if (strip && item) {
-      paintSheetStrip(strip, item, openProjectSheet, function (pick) {
+      const band = inWorkBand(row);
+      // A calendar capsule describes the page on the back of the calendar, not
+      // the optional desktop column. Keep that source of truth while its project
+      // is unfolded and again when it is folded.
+      const activeSheet = band ? projectBandSheetKind(item) : openProjectSheet;
+      paintSheetStrip(strip, item, activeSheet, function (pick) {
+        if (inWorkBand(row)) { pickProjectBandSheet(row, item, row.querySelector(".unfold"), pick); return; }
         if (pick === "canvas" && !canvasFitsInline()) { openCanvasFull(item); return; }
         setProjectSheet(pick, row, item);
-      }, inWorkBand(row));
+      }, band);
     }
+  }
+
+  /* A capsule in the calendar is a direct entrance to its large face. The
+     objective remains folded in the band: the note, journal and canvas all use
+     the room of the calendar rather than opening a narrow panel underneath. */
+  function pickProjectBandSheet(row, project, fold, kind) {
+    openProjectSheetOnCard(project, kind);
   }
 
   function closeInlineProjectRow(row) {
@@ -11363,14 +11896,22 @@
     const strip = row.querySelector(".project-tab > .sheets");
     const rowName = row.querySelector(".project-tab > .item__text");
     if (tabName) tabName.remove();
-    if (strip) strip.remove();
+    const band = inWorkBand(row);
+    if (strip && !band) strip.remove();
     if (rowName) rowName.hidden = false;
     row.classList.remove("is-inline-open", "is-sheet-open");
     const closing = findItem("projects", row.dataset.id);
     openProjectSheet = null;
+    if (strip && band && closing) {
+      paintSheetStrip(strip, closing, projectBandSheetKind(closing), function (kind) {
+        pickProjectBandSheet(row, closing, fold, kind);
+      }, true);
+    }
     releaseCanvasSheet(row);
     closeCardCanvas(closing);   // its board may be on the calendar, not in the row
-    closeCardSky(closing);      // and the map it opened onto is on the calendar too
+    if (closing && calendarCardShowsProjectSheet(closing.id)) showCalendarFront();
+    // The sky is global, not a sheet owned by this project. Folding the project
+    // therefore leaves that view facing the user, even when its star is focused.
     setInlineProjectLayout(false);
     row.setAttribute("aria-expanded", "false");
     fold.style.height = fold.getBoundingClientRect().height + "px";
@@ -11397,22 +11938,68 @@
     closeOpenInlineProject();
   }
 
-  function toggleInlineProjectRow(row, project, fold) {
+  function createInlineProjectActions(project) {
+    const actions = document.createElement("div");
+    actions.className = "task-edit__actions goal-inline__actions";
+    const make = function (label, paths, danger) {
+      const button = document.createElement("button");
+      button.type = "button";
+      button.className = "task-edit__action" + (danger ? " task-edit__action--danger" : "");
+      button.setAttribute("aria-label", label);
+      button.innerHTML = iconSvg(paths);
+      const text = document.createElement("span");
+      text.textContent = label;
+      button.appendChild(text);
+      return button;
+    };
+
+    const asideLabel = translate(project.aside ? "asideBack" : "asideLabel");
+    const aside = make(asideLabel, project.aside ? ICON_ASIDE_OFF : ICON_ASIDE, false);
+    aside.addEventListener("click", function (event) {
+      event.preventDefault();
+      event.stopPropagation();
+      toggleAside(project, function () {
+        if (project.aside && openInlineProject === project.id) {
+          openProjectSheet = null;
+          setInlineProjectLayout(false);
+        }
+        renderList("projects");
+        if (!skyView.hidden) renderSky();
+      });
+    });
+
+    const archive = make(translate("thinkingDeleteArchive"), ICON_ARCHIVE, false);
+    archive.addEventListener("click", function (event) {
+      event.preventDefault();
+      event.stopPropagation();
+      commitItemRemoval("projects", project.id, true);
+    });
+
+    const remove = make(translate("deleteAria"), ICON_DELETE, true);
+    remove.addEventListener("click", function (event) {
+      event.preventDefault();
+      event.stopPropagation();
+      removeItem("projects", project.id);
+    });
+    actions.append(aside, archive, remove);
+    return actions;
+  }
+
+  function toggleInlineProjectRow(row, project, fold, keepCardPage) {
     fieldWake();
     if (openInlineProject === project.id) {
       closeOpenInlineProject();
       return;
     }
+    // This also covers a direct click on an already-active folded project: the
+    // activation path is not the only route by which its row can unfold.
+    const preserveCardPage = !!keepCardPage || calendarCardShowsProjectPage(project.id);
 
     // set before closing the other row: both rows repaint their bars from this
     openInlineProject = project.id;
     const previous = document.querySelector(".list--cards .item--project.is-inline-open");
     if (previous && previous !== row) {
-      // one objective hands the card to the next: the map stays where it is and
-      // dives to the other star, rather than being sent home and brought back
-      skyHandover = inWorkBand(row);
       closeInlineProjectRow(previous);
-      skyHandover = false;
     }
 
     // after the other row has closed: closing one clears the open sheet, which
@@ -11423,6 +12010,14 @@
     openProjectSheet = inWorkBand(row) || project.aside ? null : RESTING_SHEET;
     row.classList.add("is-inline-open");   // its name is measured at its open size
     renderInlineProject(fold.firstChild, project);
+    // In the calendar only the active objective carries its working canvas to
+    // the back. A surface explicitly chosen from the folded title — including
+    // the canvas itself — keeps precedence while the objective unfolds.
+    if (inWorkBand(row)
+        && state.settings.calendarActiveProjectId === project.id
+        && !preserveCardPage) {
+      openProjectSheetOnCard(project, "canvas");
+    }
     row.setAttribute("aria-expanded", "true");
     fold.style.height = "0px";
     fold.offsetWidth;
@@ -11430,8 +12025,6 @@
     setTimeout(function () {
       if (openInlineProject === project.id && fold.isConnected) fold.style.height = "auto";
     }, INLINE_PROJECT_MS);
-    // an objective opened in the band is read against the map it stands in
-    if (inWorkBand(row)) openSkyOnCard(project);
   }
 
   function renderInlineProject(host, project) {
@@ -11443,7 +12036,9 @@
     const tab = row.querySelector(".project-tab");
     const rowName = tab.querySelector(".item__text");
     const oldName = tab.querySelector(".goal-inline__name");
+    const oldStrip = tab.querySelector(":scope > .sheets");
     if (oldName) oldName.remove();
+    if (oldStrip) oldStrip.remove();
     // a textarea rather than an input: shut, the row wraps its name over as many
     // lines as it takes, and opening it must not suddenly cut the name short
     const name = document.createElement("textarea");
@@ -11504,7 +12099,7 @@
     const workspace = document.createElement("div");
     workspace.className = "goal-inline__workspace";
     workspace.append(stepsSection, sheetSection);
-    view.appendChild(workspace);
+    view.append(workspace, createInlineProjectActions(project));
 
     host.appendChild(view);
     setProjectSheet(openProjectSheet, row, project);
@@ -11828,6 +12423,7 @@
       notified: false
     };
     state.tasks.push(task);
+    initializeItemCanvases(task);
     if (!drop && !task.dueDate) {
       collapsedGroups.none = false;
       persistUndatedTaskOrder(undatedTaskOrderFor(task.id, beforeId));
@@ -11860,10 +12456,7 @@
     add.textContent = translate("branchAdd");
     add.addEventListener("click", function () {
       const branch = addBranch(project, "");
-      project.activeConstellationId = branch.id;
-      saveState();
-      refreshStepSections(project);
-      refreshBranchHead(project);
+      activateProjectBranch(project, branch);
     });
     head.appendChild(label);
     head.appendChild(add);
@@ -12978,16 +13571,56 @@
   }
 
   /* The note needs no adding: it is where an object opens, and it holds nothing
-     until something is written in it. The other two are made on their first click. */
+     until something is written in it. Every task and objective already owns its
+     canvas; the strip only chooses which surface is shown. */
   function sheetReachable(item, kind) {
     return kind === RESTING_SHEET || sheetKinds(item).indexOf(kind) !== -1;
   }
 
-  /* A canvas that opens on its own has to exist first: everywhere else it is
-     made by the press on its tab. */
+  /* Opening is navigation only. Canvas creation belongs to the birth of the
+     task/objective (and of each new constellation), never to this click. */
   function withCanvas(item) {
-    if (!sheetCanvasNode(item)) addSheet(item, "canvas");
     return item;
+  }
+
+  /* The eager canvas invariant. The holder is the task itself or one course of
+     an objective. Its native notepad and logbook are furnished by sheetCanvas.
+     A dangling id is repaired here as well, before the object can be opened. */
+  function initializeCanvasHolder(item, holder) {
+    const existing = holder.canvasId && findSheetCanvas(holder.canvasId);
+    if (existing) return false;
+    holder.canvasId = sheetCanvas(item, holder).id;
+    return true;
+  }
+
+  function initializeItemCanvases(item) {
+    if (!item) return false;
+    let changed = false;
+    if (!Array.isArray(item.sheets)) { item.sheets = []; changed = true; }
+    if (item.sheets.indexOf("canvas") === -1) {
+      item.sheets.push("canvas");
+      changed = true;
+    }
+    if (item.notes == null) { item.notes = ""; changed = true; }
+    if (!Array.isArray(item.journal)) { item.journal = []; changed = true; }
+    const holders = canvasHolders(item);
+    for (let i = 0; i < holders.length; i++) {
+      if (initializeCanvasHolder(item, holders[i])) changed = true;
+    }
+    return changed;
+  }
+
+  /* Old saves may predate eager canvases. Upgrade them once at startup so their
+     first click is navigation too, and not a hidden creation path. */
+  function initializeExistingItemCanvases() {
+    let changed = false;
+    for (let i = 0; i < state.tasks.length; i++) {
+      if (initializeItemCanvases(state.tasks[i])) changed = true;
+    }
+    for (let i = 0; i < state.projects.length; i++) {
+      if (initializeItemCanvases(state.projects[i])) changed = true;
+    }
+    if (changed) saveState();
   }
 
   /* THE DREAM WALL IS GONE — a board of loose cards is what the canvas already
@@ -13029,9 +13662,12 @@
     if (kind === "journal" && !item.journal) item.journal = [];
     if (kind === "canvas") {
       const holder = canvasHolder(item);
-      if (!holder.canvasId) holder.canvasId = sheetCanvas(item, holder).id;
+      // A canvas tab is never a creation control. Missing data is repaired at
+      // startup, before the strip can be pressed.
+      if (!holder.canvasId || !findSheetCanvas(holder.canvasId)) return false;
     }
     saveState();
+    return true;
   }
 
   /* A sheet's canvas is a canvas *of* the base one, not a mother canvas of its
@@ -13087,11 +13723,16 @@
       cameraY: camera.y,
       blockWidth: 420,
       collapsed: true,
-      autoFolder: kind
+      autoFolder: kind,
+      syncedFolderCanonical: true,
+      syncedFolderPin: true,
+      pinned: true
     };
     if (kind === "project") {
       folder.projectId = project.id;
       folder.folderOrder = nextThinkingFolderOrder(tree, parent);
+    } else {
+      folder.orgListOrder = nextThinkingOrgListOrder(tree, tree);
     }
     tree.blocks.push(folder);
     return folder;
@@ -13113,16 +13754,51 @@
       if (block.type !== "canvas") continue;
       const host = sheetCanvasHost(block.id);
       if (!host) continue;
+      if (!block.syncedCanvasCanonical) {
+        block.syncedCanvasCanonical = true;
+        changed = true;
+      }
+      if (!block.syncedCanvasPin) { block.syncedCanvasPin = true; changed = true; }
+      if (!block.pinned) { block.pinned = true; changed = true; }
       const target = host.kind === "branch" ? thinkingProjectFolder(tree, host.project)
         : thinkingAutoFolder(tree, "tasks");
-      if (block.parentId === target.id) continue;
-      block.parentId = target.id;
-      block.folderOrder = nextThinkingFolderOrder(tree, target);
-      changed = true;
+      if (block.parentId !== target.id) {
+        block.parentId = target.id;
+        block.folderOrder = nextThinkingFolderOrder(tree, target);
+        changed = true;
+      }
     }
     for (let i = tree.blocks.length - 1; i >= 0; i--) {
       const folder = tree.blocks[i];
       if (!folder.autoFolder) continue;
+      if (!folder.syncedFolderCanonical) {
+        folder.syncedFolderCanonical = true;
+        changed = true;
+      }
+      if (!folder.syncedFolderPin) { folder.syncedFolderPin = true; changed = true; }
+      if (!folder.pinned) { folder.pinned = true; changed = true; }
+      if (folder.autoFolder === "project") {
+        const source = findProject(folder.projectId);
+        if (source) {
+          const parent = thinkingAutoFolder(tree, "projects");
+          if (folder.parentId !== parent.id) {
+            folder.parentId = parent.id;
+            folder.folderOrder = nextThinkingFolderOrder(tree, parent);
+            changed = true;
+          }
+        }
+        if (folder.orgListOrder != null) {
+          delete folder.orgListOrder;
+          changed = true;
+        }
+      } else {
+        if (folder.parentId !== tree.id) { folder.parentId = tree.id; changed = true; }
+        if (folder.orgListOrder == null) {
+          folder.orgListOrder = nextThinkingOrgListOrder(tree, tree);
+          changed = true;
+        }
+        if (folder.folderOrder != null) { delete folder.folderOrder; changed = true; }
+      }
       const named = folder.autoFolder === "project"
         ? ((findProject(folder.projectId) || {}).text || folder.title)
         : translate(folder.autoFolder === "projects"
@@ -13133,8 +13809,242 @@
         changed = true;
       }
     }
+    const rootEntries = thinkingOrgListChildren(tree, tree);
+    const orderedRoots = rootEntries.filter(function (block) {
+      return block.autoFolder === "tasks";
+    }).concat(rootEntries.filter(function (block) {
+      return block.autoFolder === "projects";
+    }), rootEntries.filter(function (block) {
+      return block.autoFolder !== "tasks" && block.autoFolder !== "projects";
+    }));
+    for (let i = 0; i < orderedRoots.length; i++) {
+      const order = (i + 1) * 100;
+      if (orderedRoots[i].orgListOrder !== order) {
+        orderedRoots[i].orgListOrder = order;
+        changed = true;
+      }
+    }
+    if (syncThinkingSheetCompanions(tree)) changed = true;
     // the filing was only being done in memory: every reload undid it
     if (changed) touchCanvas(tree);
+  }
+
+  function thinkingSheetCompanionTitle(kind, host) {
+    const project = host && host.kind === "branch";
+    if (kind === "note") return translate(project
+      ? "thinkingProjectNotepad" : "thinkingTaskNotepad");
+    return translate(project ? "thinkingProjectJournal" : "thinkingTaskJournal");
+  }
+
+  function createThinkingSheetCompanion(tree, node, kind, order, knownHost) {
+    const note = kind === "note";
+    const width = 300 + 40 + 320;
+    const left = THINKING_WORLD_X - width / 2;
+    const host = knownHost || sheetCanvasHost(node.id);
+    const block = {
+      id: thinkingId("b"), type: note ? "document" : "logbook", text: "",
+      title: thinkingSheetCompanionTitle(kind, host),
+      x: note ? left : left + 340, y: THINKING_WORLD_Y - 120,
+      parentId: node.id, blockWidth: note ? 300 : 320,
+      collapsed: true, sheetCompanion: kind, sheetCompanionCanonical: true,
+      sheetCompanionPin: true,
+      pinned: true, orgListOrder: order
+    };
+    if (note) {
+      const camera = thinkingHomeCamera();
+      block.cameraX = camera.x;
+      block.cameraY = camera.y;
+    }
+    tree.blocks.push(block);
+    return block;
+  }
+
+  function isThinkingSheetCompanion(block) {
+    return !!(block && block.sheetCompanionCanonical
+      && (block.sheetCompanion === "note" || block.sheetCompanion === "journal"));
+  }
+
+  function isThinkingSyncedFolder(block) {
+    return !!(block && block.type === "folder"
+      && ["tasks", "projects", "project"].indexOf(block.autoFolder) !== -1);
+  }
+
+  /* A sheet canvas is not a loose canvas: its id is the constellation/task's
+     durable way back into the board. Moving it fights the automatic filing on
+     the next render, while deleting it leaves that reference dangling until a
+     later repair. It therefore follows the same organization lock as the
+     canonical note and journal for as long as its source still exists. */
+  function isThinkingSyncedCanvas(block) {
+    return !!(block && block.type === "canvas" && sheetCanvasHost(block.id));
+  }
+
+  function isThinkingProtectedOrganization(block) {
+    return isThinkingSheetCompanion(block) || isThinkingSyncedFolder(block)
+      || isThinkingSyncedCanvas(block);
+  }
+
+  function releaseThinkingSheetCompanion(block, owner) {
+    let changed = false;
+    if (block.type === "document" && owner && !(block.documentHtml || "").trim()) {
+      block.documentHtml = owner.notes || "";
+      changed = true;
+    }
+    if (block.sheetCompanion) { delete block.sheetCompanion; changed = true; }
+    if (block.sheetCompanionCanonical) {
+      delete block.sheetCompanionCanonical;
+      changed = true;
+    }
+    if (block.sheetCompanionPin) {
+      delete block.sheetCompanionPin;
+      delete block.pinned;
+      changed = true;
+    }
+    return changed;
+  }
+
+  function thinkingSheetCompanionCandidate(block, kind, ownerId) {
+    if (block.archivedSheetCompanion === kind
+        && (!ownerId || !block.archivedSheetOwnerId
+          || block.archivedSheetOwnerId === ownerId)) return 2000;
+    if (block.sheetCompanionCanonical && block.sheetCompanion === kind) return 1000;
+    const nativeTitles = kind === "note"
+      ? [translate("thinkingProjectNotepad"), translate("thinkingTaskNotepad")]
+      : [translate("thinkingProjectJournal"), translate("thinkingTaskJournal")];
+    if (nativeTitles.indexOf((block.title || "").trim()) !== -1) return 200;
+    if (kind === "note" && block.type === "document"
+        && block.blockWidth === 300 && !block.canvasWidth) return 100;
+    if (kind === "journal" && block.type === "logbook" && block.blockWidth === 320) return 100;
+    return 0;
+  }
+
+  /* Exactly two system entrances live on a task/project canvas: one note and
+     one journal. Other documents and logbooks created there are ordinary,
+     independent containers. The shape score recognizes the original pair in
+     saves made before the canonical flag; everything else is released from the
+     overly broad synchronization used briefly by older builds. */
+  function syncThinkingSheetCompanions(tree) {
+    let changed = false;
+    const hosts = [tree];
+    for (let i = 0; i < tree.blocks.length; i++) {
+      if (tree.blocks[i].type === "canvas") hosts.push(tree.blocks[i]);
+    }
+    const linkedHosts = {};
+    for (let i = 0; i < hosts.length; i++) {
+      if (hosts[i].type === "canvas" && sheetCanvasHost(hosts[i].id)) {
+        linkedHosts[hosts[i].id] = hosts[i];
+      }
+    }
+    const candidates = {};
+    for (let i = 0; i < tree.blocks.length; i++) {
+      const block = tree.blocks[i];
+      const parent = findThinkingParent(tree, block.parentId);
+      const kind = block.type === "document" ? "note"
+        : block.type === "logbook" ? "journal" : null;
+      const linked = kind && parent && linkedHosts[parent.id];
+      if (!linked) {
+        if (block.sheetCompanion && releaseThinkingSheetCompanion(block, null)) changed = true;
+        continue;
+      }
+      if (!candidates[parent.id]) candidates[parent.id] = { note: [], journal: [] };
+      const linkedHost = sheetCanvasHost(parent.id);
+      const linkedOwnerId = linkedHost && linkedHost.kind === "branch"
+        ? linkedHost.project.id : linkedHost && linkedHost.task.id;
+      candidates[parent.id][kind].push({ block: block,
+        score: thinkingSheetCompanionCandidate(block, kind, linkedOwnerId), index: i });
+    }
+    for (const id in linkedHosts) {
+      const host = linkedHosts[id];
+      const ownerHost = sheetCanvasHost(host.id);
+      const owner = sheetCanvasItem(host.id);
+      const byKind = candidates[id] || { note: [], journal: [] };
+      for (const kind of ["note", "journal"]) {
+        const pool = byKind[kind].slice().sort(function (a, b) {
+          return b.score - a.score || a.index - b.index;
+        });
+        let canonical = pool.length && pool[0].score ? pool[0].block : null;
+        if (!canonical) {
+          canonical = createThinkingSheetCompanion(tree, host, kind,
+            nextThinkingOrgListOrder(tree, host), ownerHost);
+          changed = true;
+        }
+        for (let i = 0; i < pool.length; i++) {
+          const block = pool[i].block;
+          if (block === canonical) continue;
+          if ((block.sheetCompanion || block.sheetCompanionPin)
+              && releaseThinkingSheetCompanion(block, owner)) changed = true;
+        }
+        /* Builds affected by the former width heuristic may already contain a
+           newly furnished notepad plus the released original. Remove only the
+           unmistakable, empty-structure duplicate: same native title, same
+           stored text, no children and no graph links. Anything with distinct
+           content or relationships remains an ordinary block. */
+        if (kind === "note") {
+          const nativeTitle = thinkingSheetCompanionTitle(kind, ownerHost);
+          for (let i = 0; i < pool.length; i++) {
+            const duplicate = pool[i].block;
+            if (duplicate === canonical || duplicate.sheetCompanionCanonical
+                || (duplicate.title || "").trim() !== nativeTitle
+                || (duplicate.documentHtml || "").trim() !== (owner.notes || "").trim()) continue;
+            const hasChildren = tree.blocks.some(function (child) {
+              return child.parentId === duplicate.id;
+            });
+            const hasLinks = (tree.links || []).some(function (link) {
+              return link.from === duplicate.id || link.to === duplicate.id;
+            });
+            if (hasChildren || hasLinks) continue;
+            const duplicateIndex = tree.blocks.indexOf(duplicate);
+            if (duplicateIndex !== -1) {
+              tree.blocks.splice(duplicateIndex, 1);
+              changed = true;
+            }
+          }
+        }
+        if (canonical.sheetCompanion !== kind) {
+          canonical.sheetCompanion = kind;
+          changed = true;
+        }
+        if (!canonical.sheetCompanionCanonical) {
+          canonical.sheetCompanionCanonical = true;
+          changed = true;
+        }
+        if (!canonical.sheetCompanionPin) {
+          canonical.sheetCompanionPin = true;
+          changed = true;
+        }
+        if (canonical.archivedSheetCompanion) {
+          delete canonical.archivedSheetCompanion;
+          changed = true;
+        }
+        if (canonical.archivedSheetOwnerId) {
+          delete canonical.archivedSheetOwnerId;
+          changed = true;
+        }
+        if (!canonical.pinned) { canonical.pinned = true; changed = true; }
+        const title = thinkingSheetCompanionTitle(kind, ownerHost);
+        if (canonical.title !== title) { canonical.title = title; changed = true; }
+        if (canonical.orgListOrder == null) {
+          canonical.orgListOrder = nextThinkingOrgListOrder(tree, host);
+          delete canonical.folderOrder;
+          changed = true;
+        }
+      }
+      const children = thinkingOrgListChildren(tree, host);
+      const ordered = children.filter(function (child) {
+        return isThinkingSheetCompanion(child) && child.sheetCompanion === "note";
+      }).concat(children.filter(function (child) {
+        return isThinkingSheetCompanion(child) && child.sheetCompanion === "journal";
+      }), children.filter(function (child) {
+        return !isThinkingSheetCompanion(child);
+      }));
+      for (let i = 0; i < ordered.length; i++) {
+        const order = (i + 1) * 100;
+        if (ordered[i].orgListOrder !== order) {
+          ordered[i].orgListOrder = order;
+          changed = true;
+        }
+      }
+    }
+    return changed;
   }
 
   function findProject(id) {
@@ -13164,10 +14074,13 @@
       cameraY: camera.y,
       canvasWidth: 650,
       canvasHeight: 330,
-      collapsed: true   // it waits folded on the board until it is opened
+      collapsed: true,   // it waits folded on the board until it is opened
+      syncedCanvasCanonical: true,
+      syncedCanvasPin: true,
+      pinned: true
     };
     tree.blocks.push(node);
-    furnishSheetCanvas(tree, node);
+    furnishSheetCanvas(tree, node, { kind: branch ? "branch" : "task" });
     touchCanvas(tree);
     return node;
   }
@@ -13176,28 +14089,9 @@
      with it and standing on it: the note and the journal an object has always
      carried, written on the canvas instead of behind two more tabs. Neither
      holds anything of its own — they draw the object's own note and journal. */
-  function furnishSheetCanvas(tree, node) {
-    /* Placed on the middle of the cloth, which is where every canvas opens.
-       They used to be set 90px in from the camera — a scroll position, caught
-       at creation against whatever window existed then, which is never the
-       small frame of a sheet. So they sat off to one side of the view that was
-       meant to show them. */
-    const width = 300 + 40 + 320;
-    const left = THINKING_WORLD_X - width / 2;
-    const top = THINKING_WORLD_Y - 120;
-    const camera = thinkingHomeCamera();   // each is a container with a view of its own
-    // a document, not a plain note card: the object's note is a notepad now, and
-    // this is the same page the panel opens
-    tree.blocks.push({
-      id: thinkingId("b"), type: "document", text: "",
-      x: left, y: top, parentId: node.id, blockWidth: 300,
-      cameraX: camera.x, cameraY: camera.y, collapsed: true
-    });
-    tree.blocks.push({
-      id: thinkingId("b"), type: "logbook", text: "",
-      x: left + 340, y: top, parentId: node.id, blockWidth: 320,
-      collapsed: true
-    });
+  function furnishSheetCanvas(tree, node, host) {
+    createThinkingSheetCompanion(tree, node, "note", 100, host);
+    createThinkingSheetCompanion(tree, node, "journal", 200, host);
   }
 
   /* where a sheet's canvas is: the tree that holds it and the canvas itself.
@@ -13228,18 +14122,16 @@
   const SHEET_LABELS = { note: "notesLabel", journal: "journalLabel", canvas: "sheetCanvas" };
 
   /* One strip, three surfaces. The three kinds are always on the line: a task
-     shows what it can carry, not what it happens to carry, so there is nothing
-     to look for and nothing to open first. Only the sheet itself waits — the
-     first click on a mark is what brings it into being. `active` is the kind on
-     show (or null), `pick` is given the kind to open, or null to close it. */
-  /* A band carries no strip at all: what a row opens, it opens by being opened —
-     the canvas on the calendar, the course under the name. Nothing is offered
-     twice, and nothing is offered that a 400px line cannot hold. The column
-     keeps its three marks. */
+     shows what it can carry, not what it happens to carry. The canvas already
+     exists; a first click may only opt the empty note/journal into the strip.
+     `active` is the kind on show (or null), `pick` the kind to open or close. */
+  /* The calendar band uses the same strip as the main column. Its narrower CSS
+     puts the three marks on their own line, but their content and behaviour stay
+     shared with every other objective surface. */
   function paintSheetStrip(strip, item, active, pick, band) {
     strip.innerHTML = "";
     strip.className = "sheets";
-    if (band) return;
+    strip.classList.toggle("sheets--project-band", !!band);
     const carried = sheetKinds(item);
     for (let i = 0; i < SHEET_KINDS.length; i++) {
       const kind = SHEET_KINDS[i];
@@ -13247,6 +14139,83 @@
       strip.appendChild(createSheetTab(item, kind, kind === active,
         carried.indexOf(kind) !== -1, pick));
     }
+    if (band && item.constellations) strip.appendChild(createProjectActiveToggle(item));
+  }
+
+  function createProjectActiveToggle(project) {
+    const on = state.settings.calendarActiveProjectId === project.id;
+    const toggle = document.createElement("button");
+    toggle.type = "button";
+    toggle.className = "project-active-toggle" + (on ? " is-on" : "");
+    toggle.setAttribute("aria-pressed", on ? "true" : "false");
+    toggle.setAttribute("aria-label", translate(on ? "projectDeactivate" : "projectActivate"));
+    toggle.title = translate(on ? "projectDeactivate" : "projectActivate");
+    toggle.innerHTML = '<span class="project-active-toggle__knob"></span>';
+    toggle.addEventListener("click", function (event) {
+      event.preventDefault();
+      event.stopPropagation();
+      setCalendarActiveProject(on ? null : project.id);
+    });
+    return toggle;
+  }
+
+  function setCalendarActiveProject(id) {
+    const previousId = state.settings.calendarActiveProjectId || null;
+    const nextId = id || null;
+    const keepSelectedPage = !!nextId && calendarCardShowsProjectPage(nextId);
+    if (previousId && previousId !== nextId) {
+      // Only pages owned by the project leave with it. The sky is global: a
+      // project may be focused there, but deactivating it never turns the card.
+      if (calendarCardShowsProjectPage(previousId)) showCalendarFront();
+      if (openInlineProject === previousId) closeOpenInlineProject();
+    }
+    state.settings.calendarActiveProjectId = nextId;
+    saveState();
+    renderList("projects");
+    // Promotion is also an entrance into the objective: its course unfolds and
+    // its active constellation takes the back of the calendar. Reuse the normal
+    // row transition so another unfolded objective closes in the usual way.
+    if (nextId && workBandsOn()) {
+      const project = findItem("projects", nextId);
+      const rows = document.querySelectorAll(".ecal-band .item--project[data-id]");
+      let row = null;
+      for (let i = 0; i < rows.length; i++) {
+        if (rows[i].dataset.id === nextId) { row = rows[i]; break; }
+      }
+      if (project && row && openInlineProject !== nextId) {
+        toggleInlineProjectRow(row, project, row.querySelector(".unfold"), keepSelectedPage);
+      } else if (project && !keepSelectedPage) {
+        openProjectSheetOnCard(project, "canvas");
+      }
+    }
+  }
+
+  function calendarCardShowsProjectSheet(projectId) {
+    const host = document.getElementById("eventFold");
+    if (!host || !calCard || !calCard.classList.contains("is-flipped")) return false;
+    const key = host.dataset.object || "";
+    return key === "project-sheet:" + projectId + ":note"
+      || key === "project-sheet:" + projectId + ":journal";
+  }
+
+  function calendarCardShowsProjectPage(projectId) {
+    const host = document.getElementById("eventFold");
+    if (!host || !calCard || !calCard.classList.contains("is-flipped")) return false;
+    if (calendarCardShowsProjectSheet(projectId)) return true;
+    return !!(canvasSheetSlot && canvasSheetSlot.dataset.owner === projectId
+      && host.contains(canvasSheetSlot));
+  }
+
+  function paintCalendarProjectZones() {
+    const active = document.getElementById("calActiveProjectList");
+    const list = document.getElementById("calProjectsList");
+    const activeZone = document.getElementById("calActiveProjectZone");
+    const listZone = document.getElementById("calProjectListZone");
+    const hasActive = !!active && !!active.children.length;
+    if (activeZone) activeZone.classList.toggle("is-empty", !hasActive);
+    const empty = document.getElementById("calActiveProjectEmpty");
+    if (empty) empty.hidden = hasActive;
+    if (listZone) listZone.classList.toggle("is-empty", !list || !list.children.length);
   }
 
   function createSheetTab(item, kind, on, carried, pick, sticky) {
@@ -13264,7 +14233,10 @@
     tab.addEventListener("click", function (event) {
       event.preventDefault();
       event.stopPropagation();
-      if (!carried) { addSheet(item, kind); pick(kind); return; }
+      if (!carried) {
+        if (addSheet(item, kind) !== false) pick(kind);
+        return;
+      }
       // the one the calendar holds answers to itself: it is asked for either way
       pick(sticky || !on ? kind : null);
     });
@@ -13368,7 +14340,6 @@
      card already makes into the row that unfolds: one board, wherever it is
      wanted. Leaving the sheet puts it back where it waits. */
   let canvasSheetWatcher = null;
-  let canvasSheetRootId = null;   // the canvas the sheet opened on, its floor
 
   function createCanvasSheet(item) {
     const frame = document.createElement("div");
@@ -13410,7 +14381,6 @@
     if (!slot.isConnected || !found) return;
     releaseCanvasSheet();
     canvasSheetSlot = slot;
-    canvasSheetRootId = found.node.id;
     slot.innerHTML = "";            // whatever stood in for the board
     thinkingBoard.classList.add("thinking-board--inline");
     setThinkingOverview(false);
@@ -13469,7 +14439,6 @@
     if (from && !from.contains(canvasSheetSlot)) return;
     const left = canvasSheetSlot;
     canvasSheetSlot = null;
-    canvasSheetRootId = null;
     if (canvasSheetWatcher) { canvasSheetWatcher.disconnect(); canvasSheetWatcher = null; }
     thinkingBoard.classList.remove("thinking-board--inline", "is-weaving", "is-weave-bars");
     thinkingView.appendChild(thinkingBoard);
@@ -13696,6 +14665,8 @@
       for (let i = 0; i < keys.length; i++) project[keys[i]] = extra[keys[i]];
     }
     state.projects.push(project);
+    projectBranches(project);   // a project's canvases belong to its courses
+    initializeItemCanvases(project);
     return project;
   }
 
@@ -13818,7 +14789,6 @@
     const project = currentProject();
     if (!project) return;
     removeItem("projects", project.id);
-    closeProjectView();
   });
 
   document.getElementById("pviewBack").addEventListener("click", closeProjectView);
@@ -14781,9 +15751,7 @@
     selectStarProject(project);
     const branch = branchOfStep(project, step.id);
     if (branch && project.activeConstellationId !== branch.id) {
-      project.activeConstellationId = branch.id;
-      redrawSteps(project);
-      refreshBranchHead(project);
+      activateProjectBranch(project, branch);
     }
     toggleStep(project, step.id);
     liveSky();
@@ -14813,7 +15781,7 @@
       else if (flat) focusStar(project);
       return;
     }
-    const row = document.querySelector('#calProjectsList .item--project[data-id="'
+    const row = document.querySelector('.cal-project-zones .item--project[data-id="'
       + project.id + '"]');
     if (row) row.click();
     else openSkyOnCard(project);   // nothing to open in the band: dive all the same
@@ -15536,7 +16504,6 @@
      clip-path cuts the button to, so the traced outline and the clip agree
      down to the pixel and the clip keeps only this piece's own half of a
      border it would otherwise share with its neighbour, same as the wall did. */
-  const RITUAL_SPARK_PERIOD = 2.6;   // seconds for one lap, kept in sync with the CSS animation
   function ritualDigitalEdge() {
     const ns = "http://www.w3.org/2000/svg";
     const svg = document.createElementNS(ns, "svg");
@@ -15551,13 +16518,7 @@
     const core = document.createElementNS(ns, "path");
     core.setAttribute("d", d);
     core.classList.add("rtab__edge-line", "rtab__edge-line--core");
-    // a live current, not a static outline — each tile starts mid-lap so a
-    // whole reel of them never pulses in lockstep
-    const spark = document.createElementNS(ns, "path");
-    spark.setAttribute("d", d);
-    spark.classList.add("rtab__edge-line", "rtab__edge-line--spark");
-    spark.style.animationDelay = (Math.random() * -RITUAL_SPARK_PERIOD).toFixed(2) + "s";
-    svg.append(glow, core, spark);
+    svg.append(glow, core);
     return svg;
   }
 
@@ -16633,16 +17594,28 @@
     for (let i = 0; i < state.canvases.length; i++) {
       const blocks = state.canvases[i].blocks;
       for (let j = 0; j < blocks.length; j++) {
-        if (blocks[j].pinned) pins.push(blocks[j]);
+        // A sheet companion is pinned to its canvas structure, not promoted to
+        // the calendar's user-curated pin band.
+        if (blocks[j].pinned && !isThinkingProtectedOrganization(blocks[j])) {
+          pins.push(blocks[j]);
+        }
       }
     }
     return pins;
   }
 
   function renderCalPins() {
-    const host = document.getElementById("calPinsBand");
-    if (!host) return;
     const pins = pinnedThinkingBlocks();
+    renderCalPinHost(document.getElementById("calPinsBand"), pins);
+    const foldedHost = document.getElementById("calFoldPins");
+    renderCalPinHost(foldedHost, pins);
+    if (foldedHost) foldedHost.hidden = calExpanded || !pins.length;
+  }
+
+  /* The two calendar rails are mirrors only. Building separate controls keeps
+     every canvas block in its original tree and position. */
+  function renderCalPinHost(host, pins) {
+    if (!host) return;
     host.innerHTML = "";
     host.hidden = !pins.length;
     for (let i = 0; i < pins.length; i++) {
@@ -16653,10 +17626,12 @@
       const mark = document.createElement("span");
       mark.className = "calpin__mark";
       mark.setAttribute("aria-hidden", "true");
-      mark.innerHTML = thinkingIconSvg(thinkingTypeIcon(block.type));
+      mark.innerHTML = isArchivedProjectFolder(block)
+        ? thinkingArchivedProjectIcon(block) : thinkingIconSvg(thinkingTypeIcon(block.type));
       const name = document.createElement("span");
       name.className = "calpin__name";
       name.textContent = thinkingOrganizationTitle(block);
+      pin.title = name.textContent;
       pin.append(mark, name);
       pin.addEventListener("click", function () { openPinnedThinkingBlock(block.id); });
       host.appendChild(pin);
@@ -16765,16 +17740,6 @@
     openKanbanOnCard();
   });
 
-  const calCanvasBtn = document.getElementById("calCanvasBtn");
-  calCanvasBtn.innerHTML = thinkingIconSvg("web");
-  calCanvasBtn.addEventListener("click", function (event) {
-    event.stopPropagation();
-    // the canvas of the objective on show, or the one every canvas hangs from
-    const project = openInlineProject ? findItem("projects", openInlineProject) : null;
-    if (project) openCanvasOnCard(withCanvas(project));
-    else openMotherCanvasOnCard();
-  });
-
   document.getElementById("calSkyBtn").addEventListener("click", function (event) {
     event.stopPropagation();
     // the star of the objective on show, or the whole map when none is open
@@ -16785,12 +17750,21 @@
      more, so this is where its canvas is asked for — and the mother canvas when
      no task is open, which is the one place a band could otherwise not reach */
   const calTaskCanvasBtn = document.getElementById("calTaskCanvasBtn");
-  calTaskCanvasBtn.innerHTML = thinkingIconSvg("web");
+  calTaskCanvasBtn.querySelector(".cal-band-launcher__mark").innerHTML =
+    thinkingIconSvg("web");
   calTaskCanvasBtn.addEventListener("click", function (event) {
     event.stopPropagation();
     const task = detailTarget.kind === "tasks" ? currentDetailItem() : null;
     if (task) openCanvasOnCard(withCanvas(task));
     else openMotherCanvasOnCard();
+  });
+
+  const calInboxBtn = document.getElementById("calInboxBtn");
+  calInboxBtn.querySelector(".cal-band-launcher__mark").innerHTML =
+    thinkingIconSvg("inbox");
+  calInboxBtn.addEventListener("click", function (event) {
+    event.stopPropagation();
+    openInboxOnCard();
   });
 
   document.getElementById("calGroupSwitch").addEventListener("click", function (event) {
@@ -16828,6 +17802,7 @@
       if (openProjectSheet) openProjectSheet = on ? null : RESTING_SHEET;
       renderList("tasks");        // the flow is drawn where it is worked
       renderList("projects");
+      renderCalPins();             // swap between the two pin mirrors in place
     }
   }
 
@@ -18434,9 +19409,12 @@
   }
 
   function deleteTimelineMarker(kind, item) {
-    if (detailTarget.kind === kind && detailTarget.id === item.id) closeDetail();
-    if (kind === "events") removeEvent(item.id);
-    else removeItem("tasks", item.id);
+    if (kind === "events") {
+      if (detailTarget.kind === kind && detailTarget.id === item.id) closeDetail();
+      removeEvent(item.id);
+    } else {
+      removeItem("tasks", item.id);
+    }
   }
 
   /* Horizontal movement changes the time; pulling the icon down into the
@@ -19245,6 +20223,80 @@
     });
   }
 
+  /* Which of an objective's three calendar capsules is currently facing the
+     user. Canvas keeps its established key; the two written sheets use one
+     explicit project key so they cannot be confused with task/event pages. */
+  function projectBandSheetKind(project) {
+    const host = document.getElementById("eventFold");
+    if (!host || !project) return null;
+    const key = host.dataset.object || "";
+    if (key === "canvas:" + project.id) return "canvas";
+    const prefix = "project-sheet:" + project.id + ":";
+    return key.indexOf(prefix) === 0 ? key.slice(prefix.length) : null;
+  }
+
+  function repaintProjectBandSheets() {
+    const rows = document.querySelectorAll(".ecal-band .item--project[data-id]");
+    for (let i = 0; i < rows.length; i++) {
+      const project = findItem("projects", rows[i].dataset.id);
+      const strip = rows[i].querySelector(".project-tab > .sheets");
+      if (!project || !strip) continue;
+      paintSheetStrip(strip, project, projectBandSheetKind(project), function (kind) {
+        pickProjectBandSheet(rows[i], project, rows[i].querySelector(".unfold"), kind);
+      }, true);
+    }
+  }
+
+  function openProjectSheetOnCard(project, kind) {
+    const host = document.getElementById("eventFold");
+    if (!host || !project) return;
+    if (!kind) {
+      setCalFlipped(false);
+      repaintProjectBandSheets();
+      return;
+    }
+    if (kind === "canvas") {
+      openCanvasOnCard(withCanvas(project));
+      repaintProjectBandSheets();
+      return;
+    }
+
+    const key = "project-sheet:" + project.id + ":" + kind;
+    if (host.dataset.object === key) {
+      setCalFlipped(false);
+      repaintProjectBandSheets();
+      return;
+    }
+    if (openHost && isCardBack(openHost)) closeDetail();
+    clearCardBack(host);
+
+    const page = document.createElement("section");
+    page.className = "project-card-sheet";
+    const head = document.createElement("header");
+    head.className = "project-card-sheet__head";
+    const icon = document.createElement("span");
+    icon.className = "project-card-sheet__icon";
+    icon.innerHTML = projectSvg(project.icon || "folder");
+    const name = document.createElement("strong");
+    name.className = "project-card-sheet__name";
+    name.textContent = project.text || translate("newProjectName");
+    const sheetName = document.createElement("span");
+    sheetName.className = "project-card-sheet__kind";
+    sheetName.textContent = translate(SHEET_LABELS[kind]);
+    head.append(icon, name, sheetName);
+    const body = document.createElement("div");
+    body.className = "project-card-sheet__body";
+    renderSheetInto(body, project, kind);
+    page.append(head, body);
+    host.classList.add("is-project-sheet");
+    host.appendChild(page);
+    showCardBack();
+    host.dataset.object = key;
+    cardBackId = project.id;
+    paintCardBackRows();
+    repaintProjectBandSheets();
+  }
+
   /* the board of the whole laboratory, on the card: what a band opens when
      nothing of its own is open */
   function openMotherCanvasOnCard() {
@@ -19252,6 +20304,46 @@
       const tree = baseThinkingCanvas();
       return tree ? { tree: tree, node: tree } : null;
     });
+  }
+
+  /* INBOX IS THE LEISURE IDEA POCKET, NOT A SECOND COPY OF IT. The single form
+     and list move onto the calendar's back, preserving a half-written line and
+     the focus just as the canvas singleton does. */
+  function openInboxOnCard() {
+    const host = document.getElementById("eventFold");
+    if (!host) return;
+    if (host.dataset.object === "inbox" && calCard.classList.contains("is-flipped")) {
+      showCalendarFront();
+      return;
+    }
+    if (openHost && isCardBack(openHost)) closeDetail();
+    clearCardBack(host);
+    const inbox = document.getElementById("calIdeasBand");
+    if (!inbox) return;
+    renderIdeas();
+    inbox.hidden = false;
+    host.classList.add("is-inbox");
+    host.appendChild(inbox);
+    showCardBack();
+    host.dataset.object = "inbox";
+    cardBackId = null;
+    paintCardBackRows();
+    paintInboxButton();
+  }
+
+  function returnInboxHome(host) {
+    const inbox = document.getElementById("calIdeasBand");
+    const home = document.getElementById("calIdeasHome");
+    if (!inbox || !home || !host.contains(inbox)) return;
+    inbox.hidden = true;
+    home.appendChild(inbox);
+  }
+
+  function paintInboxButton() {
+    const button = document.getElementById("calInboxBtn");
+    const host = document.getElementById("eventFold");
+    if (button && host) button.classList.toggle("is-on",
+      host.dataset.object === "inbox" && calCard.classList.contains("is-flipped"));
   }
 
   function showCanvasOnCard(key, ownerId, find) {
@@ -19347,16 +20439,7 @@
     button.classList.toggle("is-on", (host.dataset.object || "").indexOf("sky") === 0);
   }
 
-  /* the row that turned the card over is the row that turns it back — unless it
-     is turning it over to another objective, which is not a closing at all */
   let skyHandover = false;
-
-  function closeCardSky(project) {
-    if (!project || !skyOnCard || skyHandover) return;
-    const host = document.getElementById("eventFold");
-    if (host.dataset.object !== "sky:" + project.id) return;
-    setCalFlipped(false);
-  }
 
   /* THE KANBAN — every task at once, sorted by what can be done with it: what is
      to do, what waits for later, what has been put aside, what is finished. It
@@ -19647,7 +20730,8 @@
      throw the one board away, so it is handed back first. */
   function clearCardBack(host) {
     if (host.contains(skyView)) returnSky();   // before the markup around it goes
-    host.classList.remove("is-kanban", "is-sky");
+    returnInboxHome(host);
+    host.classList.remove("is-kanban", "is-sky", "is-inbox");
     if (canvasSheetSlot && host.contains(canvasSheetSlot)) {
       // The strip that pointed at the canvas has to stop saying so before the
       // board goes home: handing it back redraws the lists, and a row still
@@ -19656,7 +20740,7 @@
       releaseCanvasSheet(host);
     }
     host.innerHTML = "";
-    host.classList.remove("is-canvas", "is-doc");
+    host.classList.remove("is-canvas", "is-doc", "is-project-sheet");
   }
 
   /* SHUTTING A CANVAS THAT IS NOT WHERE IT WAS OPENED — closing the sheet let go
@@ -19722,9 +20806,11 @@
       host.dataset.object = "";
       cardBackId = null;
       paintCardBackRows();
+      repaintProjectBandSheets();
       paintCanvasButton();
       paintKanbanButton();
       paintSkyButton();
+      paintInboxButton();
     }
   }
 
@@ -20041,6 +21127,15 @@
   const thinkingOrgList = document.getElementById("thinkingOrgList");
   const thinkingOrgListTab = document.getElementById("thinkingOrgListTab");
   const thinkingOrgListRows = document.getElementById("thinkingOrgListRows");
+  const thinkingInlineBack = document.getElementById("thinkingInlineBack");
+  const thinkingDeleteConfirm = document.getElementById("thinkingDeleteConfirm");
+  const thinkingDeleteConfirmTitle = document.getElementById("thinkingDeleteConfirmTitle");
+  const thinkingDeleteConfirmMessage = document.getElementById("thinkingDeleteConfirmMessage");
+  const thinkingDeleteCancel = document.getElementById("thinkingDeleteCancel");
+  const thinkingDeleteArchive = document.getElementById("thinkingDeleteArchive");
+  const thinkingDeleteAccept = document.getElementById("thinkingDeleteAccept");
+  let thinkingDeleteResolve = null;
+  let thinkingDeletePreviousFocus = null;
   /* THE HOVER PREVIEW — a bloc organisation's list, glanced at from outside
      it, without walking in: rest the pointer on its card a moment and the
      same icons show up beside it. */
@@ -20183,7 +21278,6 @@
     if (parent.type === "folder") {
       return THINKING_ORGANIZATION_TYPES.indexOf(child.type) !== -1;
     }
-    if (parent.type === "logbook") return child.type === "journal";
     if (parent.type === "planner") {
       return THINKING_ACTION_TYPES.indexOf(child.type) !== -1
         || THINKING_FLOW_TYPES.indexOf(child.type) !== -1
@@ -20310,6 +21404,7 @@
       projectId: null
     };
     state.tasks.push(task);
+    initializeItemCanvases(task);
     return task;
   }
 
@@ -20476,7 +21571,8 @@
     const logbooks = [];
     for (let i = 0; i < tree.blocks.length; i++) {
       const block = tree.blocks[i];
-      if (block.type !== "logbook") continue;
+      if (block.type !== "logbook" || !isThinkingSheetCompanion(block)
+          || block.sheetCompanion !== "journal") continue;
       const parent = findThinkingParent(tree, block.parentId);
       if (!parent || parent.type !== "canvas") continue;
       const item = sheetCanvasItem(parent.id);
@@ -20528,7 +21624,8 @@
   function thinkingJournalOwner(canvas, block) {
     if (!canvas || !block || block.type !== "journal" || !block.journalEntryId) return null;
     const book = findThinkingParent(canvas, block.parentId);
-    if (!book || book.type !== "logbook") return null;
+    if (!book || book.type !== "logbook" || !isThinkingSheetCompanion(book)
+        || book.sheetCompanion !== "journal") return null;
     const parent = findThinkingParent(canvas, book.parentId);
     if (!parent || parent.type !== "canvas") return null;
     return sheetCanvasItem(parent.id);
@@ -20587,6 +21684,7 @@
       };
       if (item.notes) task.notes = item.notes;
       state.tasks.push(task);
+      initializeItemCanvases(task);
       block.taskId = task.id;
       delete block.subtaskId;
       block.text = task.text;
@@ -20672,7 +21770,8 @@
     const validIds = {};
     for (let i = 0; i < canvas.blocks.length; i++) {
       const block = canvas.blocks[i];
-      if (thinkingSelectedIds[block.id] && block.parentId === thinkingSelectionParentId) {
+      if (thinkingSelectedIds[block.id] && block.parentId === thinkingSelectionParentId
+          && !isThinkingProtectedOrganization(block)) {
         selected.push(block);
         validIds[block.id] = true;
       }
@@ -20768,7 +21867,7 @@
     const cards = thinkingBlocks.querySelectorAll(".thinking-block:hover");
     for (let i = cards.length - 1; i >= 0; i--) {
       const block = findThinkingParent(canvas, cards[i].dataset.blockId);
-      if (block) return block;
+      if (block && !isThinkingProtectedOrganization(block)) return block;
     }
     return null;
   }
@@ -20781,6 +21880,7 @@
       const hovered = hoveredThinkingBlock(canvas);
       if (hovered) roots = [hovered];
     }
+    roots = roots.filter(function (block) { return !isThinkingProtectedOrganization(block); });
     if (!roots.length) return false;
 
     const included = {};
@@ -20986,6 +22086,7 @@
   }
 
   function toggleThinkingBlockSelection(canvas, block) {
+    if (isThinkingProtectedOrganization(block)) return;
     const parent = findThinkingParent(canvas, block.parentId);
     if (!isThinkingOrganization(parent)) return;
     if (thinkingSelectionParentId && thinkingSelectionParentId !== block.parentId) {
@@ -21038,7 +22139,8 @@
       const cards = thinkingBlocks.querySelectorAll(".thinking-block");
       for (let i = 0; i < cards.length; i++) {
         const block = findThinkingParent(canvas, cards[i].dataset.blockId);
-        if (!block || block.parentId !== parentId) continue;
+        if (!block || block.parentId !== parentId
+            || isThinkingProtectedOrganization(block)) continue;
         const rect = cards[i].getBoundingClientRect();
         if (rect.right >= left && rect.left <= right
             && rect.bottom >= top && rect.top <= bottom) nextIds[block.id] = true;
@@ -21077,7 +22179,7 @@
   }
 
   function armThinkingSelection(card, head, block, canvas, contained) {
-    if (contained) return;
+    if (contained || isThinkingProtectedOrganization(block)) return;
     card.addEventListener("dblclick", function (event) {
       if (!thinkingSelectionMode || !hitsThinkingSelectionCard(event.target, card)) return;
       event.preventDefault();
@@ -21569,15 +22671,11 @@
       canvasNode.title = worn;
       saveState();
     }
-    // In a sheet the canvas it opened on is the floor: there is nowhere above it
-    // to go back to from here. Below it there is, and the bar has to appear for
-    // that alone — a canvas made inside another one would otherwise be a room
-    // with no door.
-    const inSheet = !!canvasSheetSlot;
-    const atSheetFloor = inSheet && canvasNode.id === canvasSheetRootId;
+    // An inline canvas keeps its navigation in the tools row. The sheet no
+    // longer turns the canvas it opened on into an artificial floor: a canvas
+    // reached from the calendar can walk the same tree as one opened full-size.
     thinkingBoard.classList.toggle("is-branch-canvas", !!owner || !!heldTask);
-    thinkingBoard.classList.toggle("is-sheet-bar",
-                                   !!owner || !!heldTask || (inSheet && !atSheetFloor));
+    thinkingBoard.classList.toggle("is-sheet-bar", !!owner || !!heldTask);
     thinkingBranch.hidden = !owner;
     thinkingAddBranch.hidden = !owner;
     if (owner) {
@@ -21591,8 +22689,14 @@
     thinkingName.value = worn !== null ? worn
       : parent ? thinkingOrganizationTitle(canvasNode) : "";
     const back = document.getElementById("thinkingBoardBack");
-    back.disabled = !thinkingBackTarget(tree, canvasNode) || atSheetFloor;
-    back.setAttribute("aria-label", translate(parent ? "thinkingCloseCanvas" : "thinkingBaseCanvas"));
+    const backTarget = thinkingBackTarget(tree, canvasNode);
+    // At the root the arrow is no longer a dead end: it leaves the canvas
+    // altogether (or turns the calendar back to its front when it holds it).
+    back.disabled = false;
+    thinkingInlineBack.disabled = false;
+    const backLabel = translate(backTarget ? "thinkingCloseCanvas" : "thinkingBaseCanvas");
+    back.setAttribute("aria-label", backLabel);
+    thinkingInlineBack.setAttribute("aria-label", backLabel);
     thinkingName.placeholder = translate(owner ? "branchName"
       : heldTask ? "newTaskName"
       : parent ? "thinkingUntitled" : "thinkingBaseCanvas");
@@ -21600,11 +22704,7 @@
     const host = held;
     for (let i = 0; i < tools.length; i++) {
       const type = tools[i].dataset.blockType;
-      // a journal has no canvas of its own for these to sit on, but its
-      // organisation list is a real destination now that one exists
-      const intoOrgList = canvasNode.type === "logbook"
-        && THINKING_ORGANIZATION_TYPES.indexOf(type) !== -1 && type !== "folder";
-      tools[i].disabled = !thinkingOrganizationAllows(canvasNode, { type: type }) && !intoOrgList;
+      tools[i].disabled = !thinkingOrganizationAllows(canvasNode, { type: type });
       // On a task's canvas a step means nothing, and on a constellation's a loose
       // task means nothing either: each hides what its own object cannot hold.
       tools[i].hidden = !!host
@@ -21683,14 +22783,53 @@
     const tree = currentCanvas();
     const canvasNode = currentThinkingCanvasNode();
     if (!tree || !canvasNode) return;
-    const parent = thinkingBackTarget(tree, canvasNode);
-    if (!parent) return;
+    const remembered = thinkingOrgListReturn[canvasNode.id];
+    let listRoot = remembered && remembered.treeId === tree.id
+      ? findThinkingParent(tree, remembered.rootId) : null;
+    let listFolder = remembered && remembered.containerId !== remembered.rootId
+      ? findThinkingParent(tree, remembered.containerId) : null;
+    if (!canHoldOrgListBlocks(listRoot)) listRoot = null;
+    if (!listFolder || listFolder.type !== "folder") listFolder = null;
+    if (!listRoot) listFolder = null;
+    if (listFolder) {
+      const path = thinkingOrgListFolderPath(tree, listRoot, listFolder);
+      if (!path.length) listFolder = null;
+    }
+    const parent = listRoot || thinkingBackTarget(tree, canvasNode);
+    if (!parent) {
+      const card = document.getElementById("eventFold");
+      if (canvasSheetSlot && canvasSheetSlot.classList.contains("sheet-canvas__slot--card")
+          && card && card.contains(canvasSheetSlot)) {
+        clearCardBack(card);
+        setCalFlipped(false);
+      } else if (canvasSheetSlot) {
+        releaseCanvasSheet();
+      } else {
+        closeThinking();
+      }
+      return;
+    }
     canvasNode.collapsed = true;
-    // the folders walked past open up, so you land looking at where you were
-    let step = thinkingCanvasParent(tree, canvasNode);
-    while (step && step.type === "folder") {
-      step.collapsed = false;
-      step = thinkingCanvasParent(tree, step);
+    if (remembered) delete thinkingOrgListReturn[canvasNode.id];
+    if (!listRoot) {
+      // Even when the entrance did not come from the rail (an old save or a
+      // direct card click), a canvas filed in a folder returns to that folder
+      // in the navigator instead of silently skipping it.
+      let step = thinkingCanvasParent(tree, canvasNode);
+      let nearestFolder = null;
+      while (step && step.type === "folder") {
+        if (!nearestFolder) nearestFolder = step;
+        step.collapsed = false;
+        step = thinkingCanvasParent(tree, step);
+      }
+      if (nearestFolder && canHoldOrgListBlocks(step)) {
+        listRoot = step;
+        listFolder = nearestFolder;
+      }
+    }
+    if (listRoot) {
+      if (listFolder) thinkingOrgListOpen[listRoot.id] = listFolder.id;
+      else delete thinkingOrgListOpen[listRoot.id];
     }
     navigateThinkingCanvas(parent.id, true);
   }
@@ -21706,7 +22845,9 @@
         + '<path d="M4 6h.01M4 12h.01M4 18h.01" stroke-width="3"/>',
       insertOrderedList: '<path d="M10 6h10M10 12h10M10 18h10"/>'
         + '<path d="M4 4h1v4M3.5 15.5c.3-.9 2.5-1.1 2.5.3 0 1-2.5 2.1-2.5 3.7H6"/>',
-      toggle: '<path d="M8 7l4 5-4 5"/><path d="M14 8h6M14 16h6"/>'
+      toggle: '<path d="M8 7l4 5-4 5"/><path d="M14 8h6M14 16h6"/>',
+      table: '<rect x="3" y="4" width="18" height="16" rx="1.5"/>'
+        + '<path d="M3 12h18M12 4v16"/>'
     };
     return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.9"'
       + ' stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
@@ -21936,7 +23077,9 @@
      two sources, and never two designs to keep in step. */
   function documentSource(tree, documentNode) {
     const parent = findThinkingParent(tree, documentNode.parentId);
-    const owner = parent && parent.type === "canvas" ? sheetCanvasItem(parent.id) : null;
+    const owner = isThinkingSheetCompanion(documentNode)
+      && documentNode.sheetCompanion === "note" && parent && parent.type === "canvas"
+      ? sheetCanvasItem(parent.id) : null;
     if (owner) return noteSource(owner);
     return {
       read: function () { return documentNode.documentHtml || ""; },
@@ -22036,6 +23179,79 @@
     plantThinkingToggle(range, range.collapsed ? "" : range.toString());
   }
 
+  function thinkingDocumentTableRow(columns) {
+    const row = document.createElement("tr");
+    for (let i = 0; i < columns; i++) {
+      const cell = document.createElement("td");
+      cell.appendChild(document.createElement("br"));
+      row.appendChild(cell);
+    }
+    return row;
+  }
+
+  function thinkingDocumentTableColumns(table) {
+    const count = table.rows[0] ? table.rows[0].cells.length : 2;
+    let group = table.querySelector(":scope > colgroup");
+    if (!group) {
+      group = document.createElement("colgroup");
+      table.insertBefore(group, table.firstChild);
+    }
+    while (group.children.length < count) group.appendChild(document.createElement("col"));
+    while (group.children.length > count) group.lastChild.remove();
+    for (let i = 0; i < group.children.length; i++) {
+      if (!group.children[i].style.width) group.children[i].style.width = (100 / count) + "%";
+    }
+    return group.children;
+  }
+
+  function focusThinkingDocumentTableCell(cell, atEnd) {
+    if (!cell) return;
+    const range = document.createRange();
+    range.selectNodeContents(cell);
+    range.collapse(!atEnd);
+    const selection = window.getSelection();
+    selection.removeAllRanges();
+    selection.addRange(range);
+  }
+
+  /* A small useful table, not a canvas table transplanted into prose. It is
+     ordinary document HTML, so it is stored with the note, selected as text and
+     remains editable wherever that same notepad is opened. */
+  function insertThinkingDocumentTable(body) {
+    body.focus();
+    const selection = window.getSelection();
+    if (!selection) return;
+    if (!selection.rangeCount
+        || !body.contains(selection.getRangeAt(0).commonAncestorContainer)) {
+      const fallback = document.createRange();
+      fallback.selectNodeContents(body);
+      fallback.collapse(false);
+      selection.removeAllRanges();
+      selection.addRange(fallback);
+    }
+    const range = selection.getRangeAt(0);
+    const selected = range.collapsed ? "" : range.toString();
+    const table = document.createElement("table");
+    table.className = "note-table";
+    const columns = document.createElement("colgroup");
+    for (let i = 0; i < 2; i++) {
+      const column = document.createElement("col");
+      column.style.width = "50%";
+      columns.appendChild(column);
+    }
+    const bodyRows = document.createElement("tbody");
+    bodyRows.append(thinkingDocumentTableRow(2), thinkingDocumentTableRow(2));
+    table.append(columns, bodyRows);
+    range.deleteContents();
+    range.insertNode(table);
+    const spacer = document.createElement("div");
+    spacer.appendChild(document.createElement("br"));
+    table.after(spacer);
+    const first = table.querySelector("td");
+    if (selected && first) first.textContent = selected;
+    focusThinkingDocumentTableCell(first, false);
+  }
+
   /* THE PAPER — the ruled page and its formatting bar, with every bit of the
      selection machinery that makes the two work together. It is given a source
      and nothing else: what it reads, what it writes into, and what to say when
@@ -22053,7 +23269,8 @@
       { command: "hilite", label: "highlightAria" },
       { command: "insertUnorderedList", label: "thinkingBulletsAria", separated: true },
       { command: "insertOrderedList", label: "thinkingNumberedAria" },
-      { command: "toggle", label: "thinkingToggleAria", separated: true }
+      { command: "toggle", label: "thinkingToggleAria", separated: true },
+      { command: "table", label: "thinkingTableAria" }
     ];
 
     const body = createDocumentBody(source);
@@ -22116,6 +23333,55 @@
     }
 
     body.addEventListener("input", commitDocumentInput);
+
+    /* The border between two columns is a real handle, but no extra element is
+       stored in the note. Column widths live on its colgroup; dragging rewrites
+       those percentages and the same HTML therefore reopens at the same split. */
+    body.addEventListener("pointerdown", function (event) {
+      if (event.pointerType === "mouse" && event.button !== 0) return;
+      const cell = event.target.closest && event.target.closest(".note-table td");
+      if (!cell || !body.contains(cell) || !cell.nextElementSibling) return;
+      const rect = cell.getBoundingClientRect();
+      if (Math.abs(event.clientX - rect.right) > 7) return;
+      const next = cell.nextElementSibling;
+      const nextRect = next.getBoundingClientRect();
+      const table = cell.closest(".note-table");
+      const tableRect = table.getBoundingClientRect();
+      if (!tableRect.width) return;
+      const columnIndex = cell.cellIndex;
+      const columns = thinkingDocumentTableColumns(table);
+      const pairWidth = rect.width + nextRect.width;
+      const minimum = Math.min(64, pairWidth / 3);
+      const startX = event.clientX;
+      const startLeft = rect.width;
+      let moved = false;
+      const edgeCells = table.querySelectorAll("tr > :nth-child(" + (columnIndex + 1) + ")");
+
+      event.preventDefault();
+      table.classList.add("is-resizing-columns");
+      for (let i = 0; i < edgeCells.length; i++) edgeCells[i].classList.add("is-column-resizer");
+
+      const resize = function (move) {
+        move.preventDefault();
+        const left = Math.max(minimum,
+          Math.min(pairWidth - minimum, startLeft + move.clientX - startX));
+        const right = pairWidth - left;
+        columns[columnIndex].style.width = (left / tableRect.width * 100).toFixed(3) + "%";
+        columns[columnIndex + 1].style.width = (right / tableRect.width * 100).toFixed(3) + "%";
+        moved = true;
+      };
+      const finish = function () {
+        document.removeEventListener("pointermove", resize);
+        document.removeEventListener("pointerup", finish);
+        document.removeEventListener("pointercancel", finish);
+        table.classList.remove("is-resizing-columns");
+        for (let i = 0; i < edgeCells.length; i++) edgeCells[i].classList.remove("is-column-resizer");
+        if (moved) source.write(serializedDocumentHtml());
+      };
+      document.addEventListener("pointermove", resize, { passive: false });
+      document.addEventListener("pointerup", finish);
+      document.addEventListener("pointercancel", finish);
+    });
     body.addEventListener("beforeinput", function (event) {
       if (!managesHighlightTyping || event.inputType !== "insertText"
           || event.data == null) return;
@@ -22159,7 +23425,7 @@
         if (insideBody) {
           active = command === "hilite" && selection.isCollapsed ? pendingHighlight
             : command === "hilite" ? thinkingDocumentHighlightActive(body)
-            : command === "toggle" ? false
+            : command === "toggle" || command === "table" ? false
             : !!document.queryCommandState(command);
         }
         buttons[i].classList.toggle("is-active", active);
@@ -22198,6 +23464,8 @@
           pendingHighlight = !pendingHighlight;
         } else if (this.dataset.command === "toggle") {
           insertThinkingDocumentToggle(body);
+        } else if (this.dataset.command === "table") {
+          insertThinkingDocumentTable(body);
         } else {
           applyThinkingDocumentFormat(this.dataset.command, body, null);
         }
@@ -22227,6 +23495,30 @@
     });
     // a title stays one line: Enter there opens the fold instead of breaking it
     body.addEventListener("keydown", function (event) {
+      /* Tab walks through the table instead of leaving the notepad. Reaching its
+         final cell grows one more row, which keeps the compact 2 × 2 insertion
+         useful without adding a second toolbar of table controls. */
+      if (event.key === "Tab") {
+        const tableAnchor = window.getSelection().anchorNode;
+        const tableElement = tableAnchor && (tableAnchor.nodeType === Node.ELEMENT_NODE
+          ? tableAnchor : tableAnchor.parentElement);
+        const cell = tableElement && tableElement.closest(".note-table td");
+        if (cell && body.contains(cell)) {
+          event.preventDefault();
+          const table = cell.closest(".note-table");
+          let cells = Array.prototype.slice.call(table.querySelectorAll("td"));
+          let at = cells.indexOf(cell) + (event.shiftKey ? -1 : 1);
+          if (!event.shiftKey && at >= cells.length) {
+            const columns = table.rows[0] ? table.rows[0].cells.length : 2;
+            table.tBodies[0].appendChild(thinkingDocumentTableRow(columns));
+            source.write(serializedDocumentHtml());
+            cells = Array.prototype.slice.call(table.querySelectorAll("td"));
+            at = cells.length - columns;
+          }
+          if (at >= 0 && at < cells.length) focusThinkingDocumentTableCell(cells[at], false);
+          return;
+        }
+      }
       if (event.key !== "Enter") return;
       const anchor = window.getSelection().anchorNode;
       const anchorElement = anchor && (anchor.nodeType === Node.ELEMENT_NODE
@@ -22348,7 +23640,8 @@
     // a logbook that draws an object's journal writes into that journal: the
     // page comes back on the next sync, with the entry behind it
     const parent = findThinkingParent(tree, logbook.parentId);
-    const item = parent && parent.type === "canvas" ? sheetCanvasItem(parent.id) : null;
+    const item = isThinkingSheetCompanion(logbook) && logbook.sheetCompanion === "journal"
+      && parent && parent.type === "canvas" ? sheetCanvasItem(parent.id) : null;
     if (item) {
       const written = addProjectJournal(item, "");
       syncThinkingJournalBlocks(tree);
@@ -22375,6 +23668,14 @@
    shows, and the trail across the top says where you are. Which folder a block
    is currently showing is view state, so it lives here and not in the save. */
   const thinkingFolderOpen = {};
+  const thinkingOrgListOpen = {};
+  /* The rail is now a navigator, not just a place where blocks happen to be
+     listed. Its position and the door used to enter a child are kept as view
+     state: coming back from a canvas restores the same folder at the same
+     line, while the saved tree remains concerned only with where things live. */
+  const thinkingOrgListScroll = {};
+  const thinkingOrgListReturn = {};
+  const thinkingOrgListCollapsed = {};
 
   /* which folder a block is showing right now — its own, or whichever
      sub-folder has been walked into */
@@ -22411,12 +23712,31 @@
   function createThinkingFolderRow(tree, rootFolder, child) {
     const row = document.createElement("div");
     row.className = "thinking-folder__row thinking-row--" + child.type;
+    const system = isThinkingProtectedOrganization(child);
+    const archivedProject = isArchivedProjectFolder(child);
+    if (system) row.classList.add("is-system-entry");
+    if (archivedProject) row.classList.add("is-archived-project");
+    const folderProject = thinkingProjectFolderSource(child);
+    if (folderProject) row.classList.add("is-project-folder");
+    const constellation = thinkingCanvasConstellation(child);
+    if (constellation) row.classList.add("is-constellation-canvas");
     const open = document.createElement("button");
     open.type = "button";
     open.className = "thinking-folder__open";
     const mark = document.createElement("span");
     mark.className = "thinking-folder__mark";
-    mark.innerHTML = thinkingIconSvg(thinkingTypeIcon(child.type));
+    if (archivedProject) {
+      mark.innerHTML = thinkingArchivedProjectIcon(child);
+    } else if (folderProject) {
+      mark.classList.add("thinking-project-icon");
+      mark.dataset.goal = folderProject.id;
+      mark.dataset.imp = goalImportance(folderProject);
+      mark.innerHTML = projectSvg(folderProject.icon || "folder");
+    } else {
+      mark.innerHTML = constellation
+        ? habitSvg(constellation.icon || CONSTELLATION_ICON_KEYS[0])
+        : thinkingIconSvg(thinkingTypeIcon(child.type));
+    }
     const name = document.createElement("span");
     name.className = "thinking-folder__name";
     name.textContent = thinkingOrganizationTitle(child);
@@ -22429,7 +23749,6 @@
         navigateThinkingCanvas(child.id, true);
       }
     });
-    const system = child.autoFolder === "projects" || child.autoFolder === "tasks";
     const rename = system ? null : createThinkingRenameButton(tree, child, function (field) {
       row.classList.add("is-renaming");
       row.insertBefore(field, open);
@@ -22445,7 +23764,19 @@
     });
     row.appendChild(open);
     if (rename) row.appendChild(rename);
-    row.appendChild(del);
+    if (system) {
+      const pin = document.createElement("span");
+      pin.className = "thinking-folder__system-pin";
+      pin.setAttribute("aria-hidden", "true");
+      pin.innerHTML = thinkingPinSvg();
+      row.appendChild(pin);
+    } else {
+      if (archivedProject) {
+        row.appendChild(createThinkingProjectRestoreButton(tree, child,
+          "thinking-folder__restore"));
+      }
+      row.appendChild(del);
+    }
     return row;
   }
 
@@ -22554,7 +23885,7 @@
     here.textContent = thinkingOrganizationTitle(folder);
     if (chain.length > 1) path.appendChild(document.createTextNode("/"));
     path.appendChild(here);
-    if (folder.autoFolder !== "projects" && folder.autoFolder !== "tasks") {
+    if (!isThinkingSyncedFolder(folder)) {
       path.appendChild(createThinkingRenameButton(tree, folder, function (field) {
         here.replaceWith(field);
       }));
@@ -22616,7 +23947,7 @@
       cameraX: camera.x, cameraY: camera.y,
       folderOrder: nextThinkingFolderOrder(tree, folder)
     };
-    if (type === "folder" || type === "logbook") {
+    if (type === "folder") {
       block.blockWidth = 420;
     } else {
       block.canvasWidth = 650;
@@ -22663,14 +23994,18 @@
       thinkingBlocks.appendChild(createThinkingLogbookSheet(canvas, viewedCanvas, true));
       visibleCount++;
     }
-    if (viewedCanvas.type !== "folder" && viewedCanvas.type !== "logbook") {
+    if (viewedCanvas.type !== "folder") {
       for (let i = 0; i < canvas.blocks.length; i++) {
-        if (canvas.blocks[i].parentId === viewedCanvas.id
-            && canvas.blocks[i].orgListOrder == null) {
-          thinkingBlocks.appendChild(createThinkingBlock(canvas, canvas.blocks[i], false, false,
-            viewedCanvas));
-          visibleCount++;
-        }
+        const candidate = canvas.blocks[i];
+        if (candidate.parentId !== viewedCanvas.id) continue;
+        // a journal's entries are drawn by its own sheet above, by day rather
+        // than by drop order; everything else it takes in behaves like any
+        // other container's floor
+        if (viewedCanvas.type === "logbook" ? candidate.type === "journal"
+            : candidate.orgListOrder != null) continue;
+        thinkingBlocks.appendChild(createThinkingBlock(canvas, candidate, false, false,
+          viewedCanvas));
+        visibleCount++;
       }
     }
     thinkingBlank.hidden = visibleCount !== 0;
@@ -22687,7 +24022,18 @@
      taken in live here, off its own canvas, instead of free-floating on it.
      A tab on the board's edge, pulled open to a rail of icons. */
   function canHoldOrgListBlocks(block) {
-    return isThinkingOrganization(block) && block.type !== "folder";
+    // a journal now has its own stage to hold blocks on, the way any other
+    // container does, so it no longer needs the rail. A folder is browsed
+    // inside its parent's rail rather than opening a second rail of its own.
+    return isThinkingOrganization(block) && block.type !== "folder" && block.type !== "logbook";
+  }
+
+  function canEnterOrgList(block) {
+    return isThinkingOrganization(block);
+  }
+
+  function canReceiveOrgListBlocks(block) {
+    return isThinkingOrganization(block) && block.type !== "logbook";
   }
 
   function thinkingOrgListChildren(canvas, block) {
@@ -22706,8 +24052,215 @@
     return children.length ? children[children.length - 1].orgListOrder + 100 : 100;
   }
 
+  function thinkingOrgListContainer(canvas, root) {
+    const id = thinkingOrgListOpen[root.id];
+    const folder = id ? findThinkingParent(canvas, id) : null;
+    if (!folder || folder.type !== "folder") {
+      delete thinkingOrgListOpen[root.id];
+      return root;
+    }
+    let branch = folder;
+    while (branch && branch.id !== root.id) {
+      branch = branch.parentId ? findThinkingParent(canvas, branch.parentId) : null;
+    }
+    if (branch && branch.id === root.id) return folder;
+    delete thinkingOrgListOpen[root.id];
+    return root;
+  }
+
+  function thinkingOrgListEntries(canvas, root, container) {
+    return container.type === "folder"
+      ? thinkingFolderChildren(canvas, container).filter(canEnterOrgList)
+      : thinkingOrgListChildren(canvas, root);
+  }
+
+  function thinkingOrgListScrollKey(rootId, containerId) {
+    return rootId + ":" + containerId;
+  }
+
+  function rememberThinkingOrgListScroll() {
+    if (!thinkingOrgListRows) return;
+    const rootId = thinkingOrgListRows.dataset.rootId;
+    const containerId = thinkingOrgListRows.dataset.containerId;
+    if (!rootId || !containerId) return;
+    thinkingOrgListScroll[thinkingOrgListScrollKey(rootId, containerId)] =
+      thinkingOrgListRows.scrollTop;
+  }
+
+  function restoreThinkingOrgListScroll(root, container) {
+    const rootId = root.id;
+    const containerId = container.id;
+    const top = thinkingOrgListScroll[thinkingOrgListScrollKey(rootId, containerId)] || 0;
+    requestAnimationFrame(function () {
+      if (thinkingOrgListRows.dataset.rootId !== rootId
+          || thinkingOrgListRows.dataset.containerId !== containerId) return;
+      thinkingOrgListRows.scrollTop = top;
+    });
+  }
+
+  function thinkingOrgListFolderPath(canvas, root, folder) {
+    const path = [];
+    let branch = folder;
+    while (branch && branch.id !== root.id) {
+      if (branch.type === "folder") path.unshift(branch);
+      branch = branch.parentId ? findThinkingParent(canvas, branch.parentId) : null;
+    }
+    return branch && branch.id === root.id ? path : [];
+  }
+
+  function openThinkingOrgListFolder(canvas, root, folder) {
+    rememberThinkingOrgListScroll();
+    thinkingOrgListCollapsed[root.id] = false;
+    if (folder && folder.type === "folder") thinkingOrgListOpen[root.id] = folder.id;
+    else delete thinkingOrgListOpen[root.id];
+    renderThinkingOrgList(canvas, root);
+  }
+
+  function createThinkingOrgListNavigation(canvas, root, folder) {
+    const navigation = document.createElement("div");
+    navigation.className = "thinking-orglist__navigation";
+    const back = document.createElement("button");
+    back.type = "button";
+    back.className = "thinking-orglist__back";
+    back.setAttribute("aria-label", translate("backAria"));
+    back.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"'
+      + ' stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
+      + '<path d="m15 18-6-6 6-6"/></svg>';
+    const name = document.createElement("nav");
+    name.className = "thinking-orglist__folder-name";
+    name.setAttribute("aria-label", thinkingOrganizationTitle(folder));
+    const path = thinkingOrgListFolderPath(canvas, root, folder);
+    for (let i = 0; i < path.length; i++) {
+      if (i) {
+        const separator = document.createElement("span");
+        separator.className = "thinking-orglist__folder-separator";
+        separator.textContent = "/";
+        name.appendChild(separator);
+      }
+      if (i === path.length - 1) {
+        const here = document.createElement("span");
+        here.className = "thinking-orglist__folder-crumb is-current";
+        here.textContent = thinkingOrganizationTitle(path[i]);
+        name.appendChild(here);
+        continue;
+      }
+      const crumb = document.createElement("button");
+      crumb.type = "button";
+      crumb.className = "thinking-orglist__folder-crumb";
+      crumb.textContent = thinkingOrganizationTitle(path[i]);
+      const target = path[i];
+      crumb.addEventListener("click", function (event) {
+        event.stopPropagation();
+        openThinkingOrgListFolder(canvas, root, target);
+      });
+      name.appendChild(crumb);
+    }
+    back.addEventListener("click", function (event) {
+      event.stopPropagation();
+      const parent = findThinkingParent(canvas, folder.parentId);
+      openThinkingOrgListFolder(canvas, root,
+        parent && parent.type === "folder" ? parent : null);
+    });
+    navigation.append(back, name);
+    return navigation;
+  }
+
+  function createThinkingOrgListRootLabel() {
+    const navigation = document.createElement("div");
+    navigation.className = "thinking-orglist__navigation thinking-orglist__navigation--root";
+    const name = document.createElement("span");
+    name.className = "thinking-orglist__folder-name";
+    name.textContent = translate("thinkingOrgListRoot");
+    navigation.appendChild(name);
+    return navigation;
+  }
+
+  function thinkingOrgListName(block, siblings) {
+    const explicit = (block.title || "").trim();
+    if (explicit) return explicit;
+    const base = translate(thinkingTypeKey(block.type));
+    const peers = (siblings || []).filter(function (candidate) {
+      return candidate.type === block.type && !(candidate.title || "").trim();
+    });
+    if (peers.length < 2) return base;
+    return base + " " + (peers.indexOf(block) + 1);
+  }
+
+  function thinkingOrgListIcon(block) {
+    if (isThinkingSheetCompanion(block) && SHEET_ICONS[block.sheetCompanion]) {
+      return SHEET_ICONS[block.sheetCompanion];
+    }
+    return thinkingTypeIcon(block.type);
+  }
+
+  /* An archived objective is neither a generic folder nor a live objective.
+     Its former mark is inset into the folder front, so both facts are readable
+     in the same small footprint. */
+  function thinkingArchivedProjectIcon(block) {
+    const project = block.archivedProject && block.archivedProject.project;
+    return '<span class="thinking-archived-project-icon">'
+      + '<span class="thinking-archived-project-icon__folder">'
+      + thinkingIconSvg("folder") + '</span>'
+      + '<span class="thinking-archived-project-icon__goal">'
+      + projectSvg(project && project.icon || "folder") + '</span></span>';
+  }
+
+  function thinkingRestoreSvg() {
+    return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"'
+      + ' stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
+      + '<path d="M8 7H4v-4"/><path d="M4.5 7.2A8.5 8.5 0 1 1 4 16"/>'
+      + '<path d="M12 8v5l3 2"/></svg>';
+  }
+
+  function createThinkingProjectRestoreButton(canvas, folder, className) {
+    const restore = document.createElement("button");
+    restore.type = "button";
+    restore.className = className;
+    restore.setAttribute("aria-label", translate("thinkingRestoreProject"));
+    restore.title = translate("thinkingRestoreProject");
+    restore.innerHTML = thinkingRestoreSvg();
+    restore.addEventListener("click", function (event) {
+      event.preventDefault();
+      event.stopPropagation();
+      restoreArchivedProject(canvas, folder);
+    });
+    return restore;
+  }
+
+  function thinkingProjectFolderSource(block) {
+    return block && block.type === "folder" && block.autoFolder === "project"
+      ? findProject(block.projectId) : null;
+  }
+
+  /* In its project's folder, a course keeps the constellation mark that names
+     it everywhere else. catalogIconSvg also carries the shared hover gesture. */
+  function thinkingCanvasConstellation(block) {
+    if (!block || block.type !== "canvas") return null;
+    const owner = sheetCanvasOwner(block.id);
+    return owner && owner.branch ? owner.branch : null;
+  }
+
+  function thinkingPinSvg() {
+    return '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true">'
+      + '<path d="M12 12.5 12 22" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>'
+      + '<path d="M9.6 3.2h4.8l-.9 5.1 3.1 3.3a1 1 0 0 1-.7 1.7H8.1a1 1 0 0 1-.7-1.7l3.1-3.3Z"'
+      + ' fill="currentColor"/>'
+      + '<rect x="8.7" y="2" width="6.6" height="2.6" rx="1.3" fill="currentColor"/></svg>';
+  }
+
+  function toggleThinkingBlockPin(canvas, block) {
+    if (!canvas || !block || isThinkingProtectedOrganization(block)) return false;
+    block.pinned = !block.pinned;
+    touchCanvas(canvas);
+    renderThinkingCanvas(canvas);
+    renderCalPins();
+    return true;
+  }
+
   function renderThinkingOrgList(canvas, viewedCanvas) {
     if (!thinkingOrgList) return;
+    rememberThinkingOrgListScroll();
+    thinkingOrgList.style.top = Math.max(0, thinkingViewport.offsetTop) + "px";
     const eligible = canHoldOrgListBlocks(viewedCanvas);
     thinkingOrgList.hidden = !eligible;
     if (!eligible) return;
@@ -22715,22 +24268,134 @@
       thinkingOrgList.classList.remove("is-open");
       thinkingOrgList.dataset.blockId = viewedCanvas.id;
     }
-    const children = thinkingOrgListChildren(canvas, viewedCanvas);
+    const container = thinkingOrgListContainer(canvas, viewedCanvas);
+    const children = thinkingOrgListEntries(canvas, viewedCanvas, container);
+    const preference = thinkingOrgListCollapsed[viewedCanvas.id];
+    const opened = preference == null
+      ? children.length > 0 || container !== viewedCanvas : !preference;
+    thinkingOrgList.classList.toggle("is-open", opened);
+    thinkingOrgListTab.setAttribute("aria-expanded", opened ? "true" : "false");
+    thinkingOrgList.classList.toggle("is-folder-open", container !== viewedCanvas);
     thinkingOrgListRows.innerHTML = "";
-    for (let i = 0; i < children.length; i++) {
-      thinkingOrgListRows.appendChild(createThinkingOrgListRow(canvas, children[i]));
+    thinkingOrgListRows.dataset.rootId = viewedCanvas.id;
+    thinkingOrgListRows.dataset.containerId = container.id;
+    if (container !== viewedCanvas) {
+      thinkingOrgListRows.appendChild(
+        createThinkingOrgListNavigation(canvas, viewedCanvas, container));
+    } else {
+      thinkingOrgListRows.appendChild(createThinkingOrgListRootLabel());
     }
-    thinkingOrgListRows.appendChild(createThinkingOrgListAdd(canvas, viewedCanvas));
+    for (let i = 0; i < children.length; i++) {
+      thinkingOrgListRows.appendChild(
+        createThinkingOrgListRow(canvas, children[i], children, viewedCanvas, container));
+    }
+    thinkingOrgListRows.appendChild(createThinkingOrgListAdd(canvas, container));
+    restoreThinkingOrgListScroll(viewedCanvas, container);
   }
 
-  function createThinkingOrgListRow(canvas, block) {
-    const row = document.createElement("button");
-    row.type = "button";
+  function createThinkingOrgListRow(canvas, block, siblings, listRoot, listContainer) {
+    const row = document.createElement("div");
+    row.tabIndex = 0;
+    row.setAttribute("role", "button");
     row.className = "thinking-orglist__row thinking-row--" + block.type;
-    row.title = thinkingOrganizationTitle(block);
+    const protectedEntry = isThinkingProtectedOrganization(block);
+    const archivedProject = isArchivedProjectFolder(block);
+    if (protectedEntry) row.classList.add("is-protected-entry");
+    if (archivedProject) row.classList.add("is-archived-project");
+    if (isThinkingSheetCompanion(block)) {
+      row.classList.add("is-sheet-companion", "is-sheet-companion--" + block.sheetCompanion);
+    }
+    const folderProject = thinkingProjectFolderSource(block);
+    if (folderProject) row.classList.add("is-project-folder");
+    const constellation = thinkingCanvasConstellation(block);
+    if (constellation) row.classList.add("is-constellation-canvas");
+    const name = thinkingOrgListName(block, siblings);
+    row.setAttribute("aria-label", name);
     row.dataset.blockId = block.id;
-    row.innerHTML = thinkingIconSvg(thinkingTypeIcon(block.type));
-    row.addEventListener("click", function () { navigateThinkingCanvas(block.id, true); });
+    const mark = document.createElement("span");
+    mark.className = "thinking-orglist__mark";
+    mark.setAttribute("aria-hidden", "true");
+    if (archivedProject) {
+      mark.innerHTML = thinkingArchivedProjectIcon(block);
+    } else if (folderProject) {
+      mark.classList.add("thinking-project-icon");
+      mark.dataset.goal = folderProject.id;
+      mark.dataset.imp = goalImportance(folderProject);
+      mark.innerHTML = projectSvg(folderProject.icon || "folder");
+    } else {
+      mark.innerHTML = constellation
+        ? habitSvg(constellation.icon || CONSTELLATION_ICON_KEYS[0])
+        : thinkingIconSvg(thinkingOrgListIcon(block));
+    }
+    const copy = document.createElement("span");
+    copy.className = "thinking-orglist__copy";
+    const label = document.createElement("span");
+    label.className = "thinking-orglist__name";
+    label.textContent = name;
+    copy.appendChild(label);
+    if ((block.title || "").trim()) {
+      const kind = document.createElement("span");
+      kind.className = "thinking-orglist__kind";
+      kind.textContent = translate(thinkingTypeKey(block.type));
+      copy.appendChild(kind);
+    }
+    row.append(mark, copy);
+    if (protectedEntry || block.pinned) {
+      const pin = document.createElement("span");
+      pin.className = "thinking-orglist__pin";
+      pin.setAttribute("aria-hidden", "true");
+      pin.innerHTML = thinkingPinSvg();
+      row.appendChild(pin);
+    }
+    if (!protectedEntry) {
+      if (archivedProject) {
+        row.classList.add("has-restore");
+        row.appendChild(createThinkingProjectRestoreButton(canvas, block,
+          "thinking-orglist__restore"));
+      }
+      const remove = document.createElement("button");
+      remove.type = "button";
+      remove.className = "thinking-orglist__delete";
+      remove.setAttribute("aria-label", translate("deleteAria"));
+      remove.innerHTML = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor"'
+        + ' stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">'
+        + '<path d="M4 7h16M9 7V4h6v3M7 7l1 13h8l1-13M10 11v5M14 11v5"/></svg>';
+      remove.addEventListener("click", function (event) {
+        event.stopPropagation();
+        removeThinkingBlock(canvas, block.id);
+      });
+      row.classList.add("has-delete");
+      row.appendChild(remove);
+    }
+    const openRow = function () {
+      if (thinkingPinMode) {
+        toggleThinkingBlockPin(canvas, block);
+        return;
+      }
+      if (block.type !== "folder" || !listRoot) {
+        if (listRoot) {
+          rememberThinkingOrgListScroll();
+          thinkingOrgListReturn[block.id] = {
+            treeId: canvas.id,
+            rootId: listRoot.id,
+            containerId: (listContainer || listRoot).id
+          };
+        }
+        navigateThinkingCanvas(block.id, true);
+        return;
+      }
+      rememberThinkingOrgListScroll();
+      thinkingOrgListOpen[listRoot.id] = block.id;
+      const viewed = currentThinkingCanvasNode() || canvas;
+      if (viewed.id === listRoot.id) renderThinkingOrgList(canvas, listRoot);
+      else navigateThinkingCanvas(listRoot.id, true);
+    };
+    row.addEventListener("click", openRow);
+    row.addEventListener("keydown", function (event) {
+      if (event.target !== row || (event.key !== "Enter" && event.key !== " ")) return;
+      event.preventDefault();
+      openRow();
+    });
     armThinkingDrag(row, row, block, canvas, true, false);
     return row;
   }
@@ -22743,18 +24408,29 @@
     open.className = "thinking-orglist__add-open";
     open.setAttribute("aria-expanded", "false");
     open.setAttribute("aria-label", translate("thinkingOrgListAdd"));
-    open.textContent = "+";
+    const openMark = document.createElement("span");
+    openMark.className = "thinking-orglist__add-mark";
+    openMark.setAttribute("aria-hidden", "true");
+    openMark.textContent = "+";
+    const openLabel = document.createElement("span");
+    openLabel.textContent = translate("thinkingOrgListAdd");
+    open.append(openMark, openLabel);
     const choices = document.createElement("div");
     choices.className = "thinking-orglist__add-choices";
     for (let i = 0; i < THINKING_ORGANIZATION_TYPES.length; i++) {
       const type = THINKING_ORGANIZATION_TYPES[i];
-      if (type === "folder") continue;
       const pick = document.createElement("button");
       pick.type = "button";
       pick.className = "thinking-orglist__add-choice thinking-add--" + type;
       pick.setAttribute("aria-label", translate(thinkingTypeKey(type)));
-      pick.title = translate(thinkingTypeKey(type));
-      pick.innerHTML = thinkingIconSvg(thinkingTypeIcon(type));
+      const pickMark = document.createElement("span");
+      pickMark.className = "thinking-orglist__mark";
+      pickMark.setAttribute("aria-hidden", "true");
+      pickMark.innerHTML = thinkingIconSvg(thinkingTypeIcon(type));
+      const pickLabel = document.createElement("span");
+      pickLabel.className = "thinking-orglist__add-choice-label";
+      pickLabel.textContent = translate(thinkingTypeKey(type));
+      pick.append(pickMark, pickLabel);
       pick.addEventListener("click", function (event) {
         event.stopPropagation();
         addThinkingContainerToOrgList(canvas, block, type);
@@ -22781,14 +24457,18 @@
 
   function addThinkingContainerToOrgList(canvas, block, type) {
     const camera = thinkingHomeCamera();
+    const inFolder = block.type === "folder";
     const newBlock = {
       id: thinkingId("b"), type: type, text: "", title: "",
       x: block.x || 80, y: block.y || 80, parentId: block.id,
       collapsed: true,
-      cameraX: camera.x, cameraY: camera.y,
-      orgListOrder: nextThinkingOrgListOrder(canvas, block)
+      cameraX: camera.x, cameraY: camera.y
     };
-    if (type === "logbook") {
+    if (inFolder) newBlock.folderOrder = nextThinkingFolderOrder(canvas, block);
+    else newBlock.orgListOrder = nextThinkingOrgListOrder(canvas, block);
+    if (type === "folder") {
+      newBlock.blockWidth = 420;
+    } else if (type === "logbook") {
       newBlock.blockWidth = 420;
     } else {
       newBlock.canvasWidth = 650;
@@ -22801,17 +24481,34 @@
     if (type === "document") newBlock.documentHtml = "";
     canvas.blocks.push(newBlock);
     touchCanvas(canvas);
+    const viewed = currentThinkingCanvasNode() || canvas;
+    thinkingOrgListCollapsed[viewed.id] = false;
     if (thinkingOrgList) thinkingOrgList.classList.add("is-open");
     renderThinkingCanvas(canvas);
   }
 
   function addToThinkingOrgList(canvas, hostBlock, block) {
-    block.parentId = hostBlock.id;
-    block.orgListOrder = nextThinkingOrgListOrder(canvas, hostBlock);
-    delete block.folderOrder;
+    placeThinkingBlockInOrgList(canvas, hostBlock, block);
     touchCanvas(canvas);
     const viewed = currentThinkingCanvasNode() || canvas;
-    if (thinkingOrgList && viewed.id === hostBlock.id) thinkingOrgList.classList.add("is-open");
+    if (thinkingOrgList && (viewed.id === hostBlock.id
+        || thinkingOrgListOpen[viewed.id] === hostBlock.id)) {
+      thinkingOrgListCollapsed[viewed.id] = false;
+      thinkingOrgList.classList.add("is-open");
+    }
+  }
+
+  /* Shared by an existing block and a fresh tool draft. The latter is not in
+     canvas.blocks yet, so filing and persistence deliberately stay separate. */
+  function placeThinkingBlockInOrgList(canvas, hostBlock, block) {
+    block.parentId = hostBlock.id;
+    if (hostBlock.type === "folder") {
+      block.folderOrder = nextThinkingFolderOrder(canvas, hostBlock);
+      delete block.orgListOrder;
+    } else {
+      block.orgListOrder = nextThinkingOrgListOrder(canvas, hostBlock);
+      delete block.folderOrder;
+    }
   }
 
   function pointInsideThinkingOrgList(x, y) {
@@ -22820,30 +24517,60 @@
     return x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom;
   }
 
+  function thinkingOrgListCanTake(canvas, host, block) {
+    if (!canReceiveOrgListBlocks(host) || !canEnterOrgList(block) || host.id === block.id) {
+      return false;
+    }
+    let branch = host;
+    while (branch) {
+      if (branch.id === block.id) return false;
+      branch = branch.parentId ? findThinkingParent(canvas, branch.parentId) : null;
+    }
+    return true;
+  }
+
   /* Where a dragged bloc organisation is offering to land: its current
      parent's own tab (there is no card for the container you are inside),
      or straight onto another bloc organisation's card seen anywhere else. */
   function thinkingOrgListDropTarget(clientX, clientY, card, block, canvas) {
-    if (!canHoldOrgListBlocks(block)) return null;
+    if (!canEnterOrgList(block)) return null;
     const viewed = currentThinkingCanvasNode() || canvas;
-    if (viewed.id !== block.id && pointInsideThinkingOrgList(clientX, clientY)) return viewed;
+    const listContainer = canHoldOrgListBlocks(viewed)
+      ? thinkingOrgListContainer(canvas, viewed) : null;
     const underPointer = document.elementsFromPoint(clientX, clientY);
+    /* A folder row takes precedence over the rail around it. Before this check,
+       every drop inside the panel was caught by the current list itself, so a
+       canvas released squarely on “Dossier” merely returned beside it. */
+    for (let i = 0; i < underPointer.length; i++) {
+      if (card.contains(underPointer[i])) continue;
+      const row = underPointer[i].closest
+        ? underPointer[i].closest(".thinking-orglist__row") : null;
+      if (!row) continue;
+      const folder = findThinkingParent(canvas, row.dataset.blockId);
+      if (!folder || folder.type !== "folder"
+          || !thinkingOrgListCanTake(canvas, folder, block)) continue;
+      return folder;
+    }
+    if (pointInsideThinkingOrgList(clientX, clientY)
+        && thinkingOrgListCanTake(canvas, listContainer, block)) return listContainer;
     for (let i = 0; i < underPointer.length; i++) {
       if (card.contains(underPointer[i])) continue;
       const target = underPointer[i].closest ? underPointer[i].closest(".thinking-block") : null;
       if (!target) continue;
       const parent = findThinkingParent(canvas, target.dataset.blockId);
-      if (!canHoldOrgListBlocks(parent) || parent.id === block.id) continue;
-      let branch = parent;
-      let cyclic = false;
-      while (branch) {
-        if (branch.id === block.id) { cyclic = true; break; }
-        branch = branch.parentId ? findThinkingParent(canvas, branch.parentId) : null;
-      }
-      if (cyclic) continue;
+      if (!thinkingOrgListCanTake(canvas, parent, block)) continue;
       return parent;
     }
     return null;
+  }
+
+  function markThinkingOrgListDropTarget(target, dragged) {
+    if (!target || target.type !== "folder") return;
+    const rows = document.querySelectorAll('.thinking-orglist__row[data-block-id="'
+      + target.id + '"]');
+    for (let i = 0; i < rows.length; i++) {
+      if (rows[i] !== dragged) rows[i].classList.add("is-drop-target");
+    }
   }
 
   function armThinkingOrgHoverPreview(card, block, canvas) {
@@ -22871,14 +24598,19 @@
     thinkingOrgHoverBlockId = block.id;
     thinkingOrgHoverRows.innerHTML = "";
     for (let i = 0; i < children.length; i++) {
-      thinkingOrgHoverRows.appendChild(createThinkingOrgListRow(canvas, children[i]));
+      thinkingOrgHoverRows.appendChild(
+        createThinkingOrgListRow(canvas, children[i], children, block, block));
     }
     const rect = card.getBoundingClientRect();
-    const fitsRight = rect.right + 66 <= window.innerWidth;
-    thinkingOrgHoverPreview.style.left = (fitsRight ? rect.right + 8 : rect.left - 66) + "px";
-    thinkingOrgHoverPreview.style.top = Math.max(8,
-      Math.min(window.innerHeight - 60, rect.top)) + "px";
     thinkingOrgHoverPreview.hidden = false;
+    const previewWidth = thinkingOrgHoverPreview.offsetWidth;
+    const previewHeight = thinkingOrgHoverPreview.offsetHeight;
+    const fitsRight = rect.right + previewWidth + 8 <= window.innerWidth;
+    thinkingOrgHoverPreview.style.left = (fitsRight
+      ? rect.right + 8 : rect.left - previewWidth - 8) + "px";
+    thinkingOrgHoverPreview.style.top = Math.max(8,
+      Math.min(window.innerHeight - previewHeight - 8,
+        rect.top + (rect.height - previewHeight) / 2)) + "px";
   }
 
   function scheduleThinkingOrgHoverHide() {
@@ -24330,10 +26062,7 @@
     card.addEventListener("click", function (event) {
       if (!hitsCanvasSurface(event)) return;
       if (thinkingPinMode) {
-        block.pinned = !block.pinned;
-        touchCanvas(canvas);
-        renderThinkingCanvas(canvas);
-        renderCalPins();   // the calendar's own copy of the pin, kept in step
+        toggleThinkingBlockPin(canvas, block);
         return;
       }
       // Only a folder still has something to unfold, and only its head answers a
@@ -24576,6 +26305,7 @@
           item = { id: thinkingId("g"), text: text, done: false, projectId: null,
             dueDate: dates[j], dueTime: hour, plannerLoopId: loop.id };
           state.tasks.push(item);
+          initializeItemCanvases(item);
         }
         if (item) generated.push({ kind: action.type, id: item.id,
           sourceBlockId: action.id });
@@ -24811,7 +26541,7 @@
         card.classList.add("has-stuck-" + THINKING_STICK_SIDES[i]);
       }
     }
-    if (block.type === "folder" || block.type === "logbook") {
+    if (block.type === "folder") {
       if (!contained) card.style.width = (block.blockWidth || 360) + "px";
     } else if (organization && block.canvasWidth) {
       card.style.width = block.canvasWidth + "px";
@@ -24841,12 +26571,23 @@
     const icon = document.createElement(organization ? "span" : "button");
     if (!organization) icon.type = "button";
     icon.className = "thinking-block__icon";
-    // A canvas held by an objective or a task wears that object's own mark: it is
-    // not one surface among others, it is that thing's own place to think.
+    const folderProject = thinkingProjectFolderSource(block);
+    const archivedProject = isArchivedProjectFolder(block);
+    if (folderProject) {
+      card.classList.add("is-project-folder");
+      icon.classList.add("thinking-project-icon");
+      icon.dataset.goal = folderProject.id;
+      icon.dataset.imp = goalImportance(folderProject);
+    }
+    if (archivedProject) card.classList.add("is-archived-project");
+    // A constellation canvas wears its constellation mark: the course, rather
+    // than the objective around it, is the actual owner of this thinking place.
     const sheetHost = block.type === "canvas" ? sheetCanvasHost(block.id) : null;
-    icon.innerHTML = sheetHost
-      ? (sheetHost.kind === "branch"
-        ? projectSvg(sheetHost.project.icon || "folder") : thinkingIconSvg("check"))
+    icon.innerHTML = archivedProject ? thinkingArchivedProjectIcon(block)
+      : folderProject ? projectSvg(folderProject.icon || "folder")
+      : sheetHost ? (sheetHost.kind === "branch"
+        ? habitSvg(sheetHost.branch.icon || CONSTELLATION_ICON_KEYS[0])
+        : thinkingIconSvg("check"))
       : thinkingIconSvg(thinkingTypeIcon(block.type));
     const family = organization ? null : thinkingTypeFamily(block.type);
     if (family) {
@@ -24886,6 +26627,10 @@
       : block.tableRole === "rowHeader" ? "thinkingRemoveTableRow"
       : block.tableRole === "corner" ? "thinkingRemoveTable" : "deleteAria"));
     del.textContent = "×";
+    if (isThinkingProtectedOrganization(block)) {
+      del.hidden = true;
+      del.disabled = true;
+    }
     del.addEventListener("click", function (event) {
       event.stopPropagation();
       if (thinkingSelectionMode && thinkingSelectedIds[block.id]) {
@@ -24896,6 +26641,8 @@
         removeThinkingBlock(canvas, block.id);
       }
     });
+    const restoreProject = archivedProject
+      ? createThinkingProjectRestoreButton(canvas, block, "thinking-block__restore") : null;
     if (flow) {
       createThinkingFlowHead(canvas, block, head, del);
     } else {
@@ -24923,6 +26670,7 @@
       }
       // a plain cell has no cross: only a title drops its line, only the corner
       // drops the table
+      if (restoreProject) head.appendChild(restoreProject);
       if (block.type !== "table" || block.tableRole) head.appendChild(del);
     }
     /* A cell never moves alone — that is what kept breaking the reading of
@@ -24947,12 +26695,13 @@
     let folderList = null;
     if (block.type === "folder") {
       folderList = createThinkingFolderList(canvas, block, false);
-    } else if (block.type === "logbook") {
-      folderList = createThinkingLogbookSheet(canvas, block, false);
     } else if (block.type === "table" && block.tableRole === "corner") {
       // a tag, not a cell: nothing to write in, just the icon already shown above
       children = createThinkingChildren(canvas, block, ownerCanvas, card);
     } else if (organization) {
+      // a journal keeps its dated sheet for its entries, and gets the same
+      // floor as any other container for everything else it takes in
+      if (block.type === "logbook") folderList = createThinkingLogbookSheet(canvas, block, false);
       canvasStage = document.createElement("div");
       canvasStage.className = "thinking-canvas__stage";
       canvasStage.classList.add("thinking-canvas__stage--" + block.type);
@@ -24971,7 +26720,8 @@
       }
       let canvasChildCount = 0;
       for (let i = 0; i < canvas.blocks.length; i++) {
-        if (canvas.blocks[i].parentId === block.id) {
+        if (canvas.blocks[i].parentId === block.id
+            && !(block.type === "logbook" && canvas.blocks[i].type === "journal")) {
           canvasStage.appendChild(createThinkingBlock(canvas, canvas.blocks[i], true, true, block));
           canvasChildCount++;
         }
@@ -25106,14 +26856,6 @@
       addAnswer.addEventListener("click", function () { addThinkingAnswer(canvas, block); });
       actions.appendChild(addAnswer);
     }
-    if (block.type === "journal") {
-      const addNote = document.createElement("button");
-      addNote.type = "button";
-      addNote.className = "thinking-block__add-note";
-      addNote.textContent = "+ " + translate("thinkingJournalAddNote");
-      addNote.addEventListener("click", function () { addThinkingJournalNote(canvas, block); });
-      actions.appendChild(addNote);
-    }
     if (block.type === "folder") {
       const fold = document.createElement("button");
       fold.type = "button";
@@ -25236,9 +26978,10 @@
 
     card.appendChild(head);
     if (soloDrag) card.appendChild(soloDrag);
-    if (block.type === "folder" || block.type === "logbook") {
+    if (block.type === "folder") {
       card.appendChild(folderList);
     } else if (organization) {
+      if (folderList) card.appendChild(folderList);
       card.appendChild(canvasStage);
     } else {
       if (taskBody || text) card.appendChild(taskBody || text);
@@ -25253,11 +26996,7 @@
       const pin = document.createElement("span");
       pin.className = "thinking-pin";
       pin.setAttribute("aria-hidden", "true");
-      pin.innerHTML = '<svg viewBox="0 0 24 24" fill="none" aria-hidden="true">'
-        + '<path d="M12 12.5 12 22" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>'
-        + '<path d="M9.6 3.2h4.8l-.9 5.1 3.1 3.3a1 1 0 0 1-.7 1.7H8.1a1 1 0 0 1-.7-1.7l3.1-3.3Z"'
-        + ' fill="currentColor"/>'
-        + '<rect x="8.7" y="2" width="6.6" height="2.6" rx="1.3" fill="currentColor"/></svg>';
+      pin.innerHTML = thinkingPinSvg();
       card.appendChild(pin);
     }
     if (text) requestAnimationFrame(function () {
@@ -25276,8 +27015,9 @@
 
   function removeThinkingBlock(canvas, id) {
     const block = findThinkingParent(canvas, id);
-    if (block && block.autoFolder && !cutAutoFolderSource(canvas, block)) return;
-    removeThinkingBlocks(canvas, [id]);
+    if (isThinkingProtectedOrganization(block)) return false;
+    if (block && block.autoFolder && !cutAutoFolderSource(canvas, block)) return false;
+    return removeThinkingBlocks(canvas, [id]);
   }
 
   /* An automatic folder is only the shelf its objects sit on, so throwing it out
@@ -25305,12 +27045,136 @@
     const selected = selectedThinkingBlocks(canvas);
     const ids = [];
     for (let i = 0; i < selected.length; i++) ids.push(selected[i].id);
-    if (ids.length) removeThinkingBlocks(canvas, ids);
+    if (ids.length) return removeThinkingBlocks(canvas, ids);
+    return false;
+  }
+
+  function closeThinkingDeleteConfirm(result) {
+    if (!thinkingDeleteResolve) return;
+    const resolve = thinkingDeleteResolve;
+    const previous = thinkingDeletePreviousFocus;
+    thinkingDeleteResolve = null;
+    thinkingDeletePreviousFocus = null;
+    thinkingDeleteConfirm.hidden = true;
+    resolve(result || null);
+    if (previous) {
+      requestAnimationFrame(function () {
+        if (previous.isConnected) previous.focus();
+      });
+    }
+  }
+
+  function showThinkingDeleteConfirm(message, options) {
+    if (thinkingDeleteResolve) closeThinkingDeleteConfirm(null);
+    options = options || {};
+    thinkingDeleteConfirmTitle.textContent = translate(
+      options.titleKey || "thinkingDeleteConfirmTitle");
+    thinkingDeleteConfirmMessage.textContent = message;
+    thinkingDeleteArchive.hidden = !options.archive;
+    thinkingDeletePreviousFocus = document.activeElement;
+    return new Promise(function (resolve) {
+      thinkingDeleteResolve = resolve;
+      thinkingDeleteConfirm.hidden = false;
+      requestAnimationFrame(function () { thinkingDeleteAccept.focus(); });
+    });
+  }
+
+  thinkingDeleteCancel.addEventListener("click", function () {
+    closeThinkingDeleteConfirm(null);
+  });
+  thinkingDeleteArchive.addEventListener("click", function () {
+    closeThinkingDeleteConfirm("archive");
+  });
+  thinkingDeleteAccept.addEventListener("click", function () {
+    closeThinkingDeleteConfirm("delete");
+  });
+  thinkingDeleteConfirm.querySelector("[data-thinking-delete-cancel]")
+    .addEventListener("click", function () { closeThinkingDeleteConfirm(null); });
+  thinkingDeleteConfirm.addEventListener("keydown", function (event) {
+    if (event.key === "Escape") {
+      event.preventDefault();
+      event.stopPropagation();
+      closeThinkingDeleteConfirm(null);
+      return;
+    }
+    if (event.key !== "Tab") return;
+    const buttons = Array.from(thinkingDeleteConfirm.querySelectorAll("button:not([hidden])"));
+    if (!buttons.length) return;
+    const first = buttons[0];
+    const last = buttons[buttons.length - 1];
+    if (event.shiftKey && document.activeElement === first) {
+      event.preventDefault();
+      last.focus();
+    } else if (!event.shiftKey && document.activeElement === last) {
+      event.preventDefault();
+      first.focus();
+    }
+  });
+
+  /* Walk every recursive parent chain so organisation blocks hidden below an
+     ordinary block are still found. Only organisation descendants enter the
+     aggregate, though: notes, blocks and planning items neither count nor cause
+     a warning of their own. */
+  function thinkingOrganizationDeletionMessage(canvas, ids) {
+    const roots = [];
+    const rootIds = {};
+    for (let i = 0; i < ids.length; i++) {
+      const block = findThinkingParent(canvas, ids[i]);
+      if (!block || rootIds[block.id] || !isThinkingOrganization(block)
+          || isThinkingProtectedOrganization(block)) continue;
+      roots.push(block);
+      rootIds[block.id] = true;
+    }
+    if (!roots.length) return null;
+
+    // A requested child already belongs to a requested ancestor. Only the
+    // outer root is described as the block being deleted; the child is one of
+    // the contained elements counted below.
+    const outerRoots = roots.filter(function (root) {
+      let parent = root.parentId ? findThinkingParent(canvas, root.parentId) : null;
+      while (parent) {
+        if (rootIds[parent.id]) return false;
+        parent = parent.parentId ? findThinkingParent(canvas, parent.parentId) : null;
+      }
+      return true;
+    });
+    const branches = {};
+    const descendants = {};
+    const organizationDescendants = {};
+    for (let i = 0; i < outerRoots.length; i++) branches[outerRoots[i].id] = true;
+    let found = true;
+    while (found) {
+      found = false;
+      for (let i = 0; i < canvas.blocks.length; i++) {
+        const child = canvas.blocks[i];
+        if (descendants[child.id] || !branches[child.parentId]) continue;
+        descendants[child.id] = true;
+        branches[child.id] = true;
+        if (isThinkingOrganization(child)) organizationDescendants[child.id] = true;
+        found = true;
+      }
+    }
+    const count = Object.keys(organizationDescendants).length;
+    if (!count) return null;
+    const key = outerRoots.length > 1
+      ? (count === 1 ? "thinkingDeleteOrganizationsContentsOne"
+        : "thinkingDeleteOrganizationsContents")
+      : count === 1 ? "thinkingDeleteOrganizationContentsOne"
+        : "thinkingDeleteOrganizationContentsMany";
+    return translate(key).replace("{count}", count);
   }
 
   function removeThinkingBlocks(canvas, ids) {
-    const undo = cutThinkingBlocks(canvas, ids);
-    if (undo) showToast(translate("undoDeleted"), translate("undoBtn"), undo);
+    const remove = function () {
+      const undo = cutThinkingBlocks(canvas, ids);
+      if (undo) showToast(translate("undoDeleted"), translate("undoBtn"), undo);
+      return !!undo;
+    };
+    const message = thinkingOrganizationDeletionMessage(canvas, ids);
+    if (!message) return remove();
+    return showThinkingDeleteConfirm(message).then(function (decision) {
+      return decision === "delete" ? remove() : false;
+    });
   }
 
   /* Take blocks out and hand back the single move that puts them all back. The
@@ -25325,7 +27189,7 @@
     const releasedChildren = [];
     for (let i = 0; i < ids.length; i++) {
       const root = findThinkingParent(canvas, ids[i]);
-      if (!root || removedIds[root.id]) continue;
+      if (!root || removedIds[root.id] || isThinkingProtectedOrganization(root)) continue;
       roots.push(root);
       removedIds[root.id] = true;
       if (isThinkingOrganization(root)) removedBranches[root.id] = true;
@@ -25467,6 +27331,10 @@
         "is-stick-target-top", "is-stick-target-right",
         "is-stick-target-bottom", "is-stick-target-left");
     }
+    const listTargets = document.querySelectorAll(".thinking-orglist__row.is-drop-target");
+    for (let i = 0; i < listTargets.length; i++) {
+      listTargets[i].classList.remove("is-drop-target");
+    }
   }
 
   function markThinkingCombineOptions(canvas, block, on) {
@@ -25485,6 +27353,9 @@
     // a container is opened, not lined up: sticking it to anything only ever
     // made a row whose sizes could not agree
     if (isThinkingOrganization(block) || isThinkingOrganization(target)) return false;
+    // an entry is placed by its day, on the ruled page: a neighbour stuck to its
+    // side has nowhere to be drawn. What it takes in, it takes in
+    if (block.type === "journal" || target.type === "journal") return false;
     const targetParent = findThinkingParent(canvas, target.parentId);
     if (!targetParent) return false;
     if (isThinkingOrganization(targetParent)) {
@@ -25971,10 +27842,12 @@
           for (let i = 0; i < starts.length; i++) starts[i].card.remove();
         };
         if (deleted) {
-          dropCards();
           const ids = [];
           for (let i = 0; i < members.length; i++) ids.push(members[i].id);
-          removeThinkingBlocks(canvas, ids);
+          const removed = removeThinkingBlocks(canvas, ids);
+          const pending = removed && typeof removed.then === "function";
+          dropCards();
+          if (!removed || pending) renderThinkingCanvas(canvas);
           return;
         }
         if (!cancelled) {
@@ -26010,7 +27883,7 @@
 
   function armThinkingDrag(handle, card, block, canvas, nested, insideCanvas) {
     handle.addEventListener("pointerdown", function (event) {
-      if (thinkingSelectionMode || block.pinned) return;
+      if (thinkingSelectionMode || thinkingPinMode || block.pinned) return;
       const interactive = event.target.closest("button, input, textarea, select");
       if (event.button !== 0 || (interactive && interactive !== handle)) return;
       // pointer capture swallows enter/leave elsewhere, so a hover preview
@@ -26033,6 +27906,7 @@
       let dropParent = null;
       let stickDrop = null;
       let stickSnapshot = null;
+      const organizationDrag = canEnterOrgList(block);
       let lastPoint = { x: event.clientX, y: event.clientY };
       card.classList.add("is-dragging");
       thinkingBoard.classList.add("is-combining");
@@ -26051,7 +27925,18 @@
           card.dataset.dragged = "true";
         }
         moved = true;
-        if (nested) {
+        /* A free organization tile normally lives in the plane's stacking
+           context, below the right rail. Lift it onto the page while carried,
+           just as a nested block already is, so it visibly crosses the rail
+           instead of vanishing behind it. Its world position still follows the
+           pointer below, ready if it is released back on the cloth. */
+        if (!nested) {
+          block.x = Math.max(18, Math.min(thinkingPlane.clientWidth - start.width - 18,
+            start.bx + moveEvent.clientX - start.x));
+          block.y = Math.max(18, Math.min(thinkingPlane.clientHeight - start.height - 18,
+            start.by + moveEvent.clientY - start.y));
+        }
+        if (nested || organizationDrag) {
           if (!portaled) {
             document.body.appendChild(card);
             portaled = true;
@@ -26061,10 +27946,6 @@
           card.style.left = moveEvent.clientX - start.offsetX + "px";
           card.style.top = moveEvent.clientY - start.offsetY + "px";
         } else {
-          block.x = Math.max(18, Math.min(thinkingPlane.clientWidth - card.offsetWidth - 18,
-            start.bx + moveEvent.clientX - start.x));
-          block.y = Math.max(18, Math.min(thinkingPlane.clientHeight - card.offsetHeight - 18,
-            start.by + moveEvent.clientY - start.y));
           card.style.left = block.x + "px";
           card.style.top = block.y + "px";
         }
@@ -26077,10 +27958,14 @@
         if (thinkingOrgList) {
           const orgListTarget = thinkingOrgListDropTarget(moveEvent.clientX, moveEvent.clientY,
             card, block, canvas);
+          card.classList.toggle("is-orglist-target", !!orgListTarget);
           const viewed = currentThinkingCanvasNode() || canvas;
-          const overOwnList = orgListTarget === viewed;
+          const listContainer = canHoldOrgListBlocks(viewed)
+            ? thinkingOrgListContainer(canvas, viewed) : null;
+          const overOwnList = orgListTarget === listContainer;
           thinkingOrgList.classList.toggle("is-drag-open", overOwnList);
           thinkingOrgList.classList.toggle("is-drop-target", overOwnList);
+          markThinkingOrgListDropTarget(orgListTarget, card);
           if (orgListTarget && !overOwnList) {
             const targetCard = thinkingBlocks.querySelector(
               '[data-block-id="' + orgListTarget.id + '"]');
@@ -26107,15 +27992,21 @@
         hideThinkingTrash();
         if (!moved) return;
         if (cancelled && moved) {
+          block.x = start.bx;
+          block.y = start.by;
           restoreThinkingStickSnapshot(canvas, stickSnapshot);
           if (portaled) card.remove();
           renderThinkingCanvas(canvas);
           return;
         }
         if (deleted) {
+          block.x = start.bx;
+          block.y = start.by;
           restoreThinkingStickSnapshot(canvas, stickSnapshot);
+          const removed = removeThinkingBlock(canvas, block.id);
+          const pending = removed && typeof removed.then === "function";
           if (portaled) card.remove();
-          removeThinkingBlock(canvas, block.id);
+          if (!removed || pending) renderThinkingCanvas(canvas);
           return;
         }
         stickDrop = thinkingStickDrop(card, block, canvas);
@@ -26123,12 +28014,12 @@
           : thinkingDropParent(upEvent.clientX, upEvent.clientY, card, block, canvas);
         const orgListTarget = thinkingOrgListDropTarget(upEvent.clientX, upEvent.clientY,
           card, block, canvas);
-        const previousOrgListOrder = block.orgListOrder;
+        const filedInOrgList = !!orgListTarget;
         if (orgListTarget) {
           stickDrop = null;
           dropParent = null;
           addToThinkingOrgList(canvas, orgListTarget, block);
-        } else if (canHoldOrgListBlocks(block)) {
+        } else if (canEnterOrgList(block)) {
           delete block.orgListOrder;
         }
         if (moved && !stickDrop && !dropParent && insideCanvas) {
@@ -26149,18 +28040,13 @@
           stickThinkingBlock(canvas, block, stickDrop.target, stickDrop.side);
         } else if (moved && dropParent) {
           placeBlockInThinkingParent(canvas, block, dropParent, lastPoint, start);
-        } else if (moved && nested) {
+        } else if (moved && nested && !filedInOrgList) {
           const planeRect = thinkingPlane.getBoundingClientRect();
           const viewedCanvas = currentThinkingCanvasNode();
           if (viewedCanvas && viewedCanvas.type === "folder") {
             const folderList = thinkingBlocks.querySelector(".thinking-folder__list--fullscreen");
             placeThinkingBlockInFolder(canvas, block, viewedCanvas, folderList,
               lastPoint.x, lastPoint.y);
-          } else if (viewedCanvas && viewedCanvas.type === "logbook"
-              && previousOrgListOrder != null && !orgListTarget) {
-            // a journal has no canvas of its own to drop this onto — with
-            // nowhere else offered, it stays exactly where it was listed
-            block.orgListOrder = previousOrgListOrder;
           } else {
             if (viewedCanvas) syncThinkingBlockTaskPlacement(canvas, block, viewedCanvas);
             block.parentId = viewedCanvas ? viewedCanvas.id : canvas.id;
@@ -26171,7 +28057,9 @@
               lastPoint.y - start.offsetY - planeRect.top));
           }
         }
-        if (moved) growThinkingCanvasForBlock(canvas, block, start.width, start.height);
+        if (moved && !filedInOrgList) {
+          growThinkingCanvasForBlock(canvas, block, start.width, start.height);
+        }
         if (portaled) card.remove();
         touchCanvas(canvas);
         renderThinkingCanvas(canvas);
@@ -26182,28 +28070,31 @@
     });
   }
 
-  function addThinkingBlock(type, point, dropParentId, stickTargetId, stickSide) {
+  function addThinkingBlock(type, point, dropParentId, stickTargetId, stickSide,
+      orgListHostId) {
     const canvas = currentCanvas();
     const viewedCanvas = currentThinkingCanvasNode();
     if (!canvas || !viewedCanvas) return;
     const organization = THINKING_ORGANIZATION_TYPES.indexOf(type) !== -1;
-    const intoOrgList = organization && type !== "folder";
-    if (!dropParentId && !thinkingOrganizationAllows(viewedCanvas, { type: type })
-        && !(intoOrgList && viewedCanvas.type === "logbook")) return;
+    const orgListHost = orgListHostId ? findThinkingParent(canvas, orgListHostId) : null;
+    const orgListDraft = { id: "draft", type: type, parentId: viewedCanvas.id };
+    if (orgListHostId && (!organization
+        || !thinkingOrgListCanTake(canvas, orgListHost, orgListDraft))) return;
+    if (!dropParentId && !orgListHost
+        && !thinkingOrganizationAllows(viewedCanvas, { type: type })) return;
     if (dropParentId) {
       const requestedParent = findThinkingParent(canvas, dropParentId);
       if (isThinkingOrganization(requestedParent)
-          && !thinkingOrganizationAllows(requestedParent, { type: type })
-          && !(intoOrgList && requestedParent.type === "logbook")) return;
+          && !thinkingOrganizationAllows(requestedParent, { type: type })) return;
       if (requestedParent && THINKING_FLOW_TYPES.indexOf(requestedParent.type) !== -1
           && THINKING_ACTION_TYPES.indexOf(type) === -1
           && THINKING_FLOW_TYPES.indexOf(type) === -1) return;
     }
     const step = canvas.blocks.length;
     const flow = THINKING_FLOW_TYPES.indexOf(type) !== -1;
-    const blockWidth = type === "folder" || type === "logbook" ? 420 : organization ? 650
+    const blockWidth = type === "folder" ? 420 : organization ? 650
       : flow ? 420 : type === "question" ? 176 : type === "text" ? 150 : 160;
-    const blockHeight = type === "folder" || type === "logbook" ? 64
+    const blockHeight = type === "folder" ? 64
       : organization ? 330 + THINKING_CANVAS_CHROME
       : flow ? 210 : type === "question" ? 90 : type === "text" ? 56 : 64;
     /* A container is born folded, as a 112 tile — so a drop has to be centred on
@@ -26246,7 +28137,7 @@
       const camera = thinkingHomeCamera();
       block.cameraX = camera.x;
       block.cameraY = camera.y;
-      if (type === "folder" || type === "logbook") {
+      if (type === "folder") {
         block.blockWidth = 420;
       } else {
         block.canvasWidth = 650;
@@ -26259,19 +28150,16 @@
       block.collapsed = true;
       if (type === "document") block.documentHtml = "";
     }
-    if (intoOrgList) {
-      const orgListHost = dropParentId ? findThinkingParent(canvas, dropParentId) : viewedCanvas;
-      if (orgListHost && orgListHost.type === "logbook") {
-        block.parentId = orgListHost.id;
-        block.orgListOrder = nextThinkingOrgListOrder(canvas, orgListHost);
-        canvas.blocks.push(block);
-        touchCanvas(canvas);
+    if (orgListHost) {
+      block.x = orgListHost.x != null ? orgListHost.x : 80;
+      block.y = orgListHost.y != null ? orgListHost.y : 80;
+      placeThinkingBlockInOrgList(canvas, orgListHost, block);
+      if (viewedCanvas.id === orgListHost.id
+          || thinkingOrgListOpen[viewedCanvas.id] === orgListHost.id) {
+        thinkingOrgListCollapsed[viewedCanvas.id] = false;
         if (thinkingOrgList) thinkingOrgList.classList.add("is-open");
-        renderThinkingCanvas(canvas);
-        return;
       }
-    }
-    if (point && stickTargetId) {
+    } else if (point && stickTargetId) {
       const stickTarget = findThinkingParent(canvas, stickTargetId);
       if (stickTarget) stickThinkingBlock(canvas, block, stickTarget, stickSide);
     } else if (point && dropParentId) {
@@ -26295,12 +28183,12 @@
     // a fresh table stands on its own; one stuck to something else is a
     // single cell joining another shape, not a table of its own
     if (type === "table" && !block.stuckToId) thinkingTableStarter(canvas, block);
-    growThinkingCanvasForBlock(canvas, block, blockWidth, blockHeight);
+    if (!orgListHost) growThinkingCanvasForBlock(canvas, block, blockWidth, blockHeight);
     touchCanvas(canvas);
     if (THINKING_ACTION_TYPES.indexOf(type) !== -1) refreshThinkingActionViews();
     renderThinkingCanvas(canvas);
     const parentAfterAdd = findThinkingParent(canvas, block.parentId);
-    if (parentAfterAdd && parentAfterAdd.type === "folder") {
+    if (!orgListHost && parentAfterAdd && parentAfterAdd.type === "folder") {
       requestAnimationFrame(function () {
         const folderCard = thinkingBlocks.querySelector('[data-block-id="'
           + parentAfterAdd.id + '"]');
@@ -26334,6 +28222,8 @@
       let ghost = null;
       let dropParent = null;
       let stickDrop = null;
+      let orgListTarget = null;
+      const organizationTool = canEnterOrgList(draft);
 
       const move = function (moveEvent) {
         if (moveEvent.pointerId !== pointerId) return;
@@ -26346,18 +28236,37 @@
           document.body.appendChild(ghost);
           thinkingBoard.classList.add("is-tool-dragging");
           markThinkingCombineOptions(canvas, draft, true);
+          if (organizationTool && thinkingOrgList && !thinkingOrgList.hidden) {
+            thinkingOrgList.classList.add("is-drag-open");
+          }
         }
         moveEvent.preventDefault();
         ghost.style.left = moveEvent.clientX + 12 + "px";
         ghost.style.top = moveEvent.clientY + 12 + "px";
         clearThinkingDropTargets();
         const inside = pointInsideThinkingViewport(moveEvent.clientX, moveEvent.clientY);
-        thinkingViewport.classList.toggle("is-tool-drop", inside);
-        stickDrop = inside ? thinkingStickDrop(ghost, draft, canvas) : null;
-        dropParent = inside && !stickDrop
+        orgListTarget = organizationTool
+          ? thinkingOrgListDropTarget(moveEvent.clientX, moveEvent.clientY,
+            ghost, draft, canvas) : null;
+        ghost.classList.toggle("is-orglist-target", !!orgListTarget);
+        thinkingViewport.classList.toggle("is-tool-drop", inside || !!orgListTarget);
+        stickDrop = inside && !orgListTarget ? thinkingStickDrop(ghost, draft, canvas) : null;
+        dropParent = inside && !orgListTarget && !stickDrop
           ? thinkingDropParent(moveEvent.clientX, moveEvent.clientY, ghost, draft, canvas) : null;
         markThinkingStickTarget(stickDrop);
         if (dropParent) dropParent.classList.add("is-drop-target");
+        if (thinkingOrgList) {
+          const listContainer = viewedCanvas && canHoldOrgListBlocks(viewedCanvas)
+            ? thinkingOrgListContainer(canvas, viewedCanvas) : null;
+          const overOwnList = orgListTarget === listContainer;
+          thinkingOrgList.classList.toggle("is-drop-target", overOwnList);
+          markThinkingOrgListDropTarget(orgListTarget, ghost);
+          if (orgListTarget && !overOwnList) {
+            const targetCard = thinkingBlocks.querySelector(
+              '[data-block-id="' + orgListTarget.id + '"]');
+            if (targetCard) targetCard.classList.add("is-drop-target");
+          }
+        }
       };
 
       const finish = function (endEvent, cancelled) {
@@ -26373,7 +28282,13 @@
         }, 350);
         let finalDropParent = null;
         let finalStickDrop = null;
-        if (!cancelled && pointInsideThinkingViewport(endEvent.clientX, endEvent.clientY)) {
+        let finalOrgListTarget = null;
+        if (!cancelled && organizationTool) {
+          finalOrgListTarget = thinkingOrgListDropTarget(endEvent.clientX,
+            endEvent.clientY, ghost, draft, canvas);
+        }
+        if (!cancelled && !finalOrgListTarget
+            && pointInsideThinkingViewport(endEvent.clientX, endEvent.clientY)) {
           finalStickDrop = thinkingStickDrop(ghost, draft, canvas);
           if (!finalStickDrop) {
             finalDropParent = thinkingDropParent(endEvent.clientX, endEvent.clientY,
@@ -26385,13 +28300,18 @@
         markThinkingCombineOptions(canvas, draft, false);
         thinkingBoard.classList.remove("is-tool-dragging");
         thinkingViewport.classList.remove("is-tool-drop");
+        if (thinkingOrgList) {
+          thinkingOrgList.classList.remove("is-drag-open", "is-drop-target");
+        }
         const drop = !cancelled
-          && pointInsideThinkingViewport(endEvent.clientX, endEvent.clientY);
+          && (!!finalOrgListTarget
+            || pointInsideThinkingViewport(endEvent.clientX, endEvent.clientY));
         ghost.remove();   // before the block is made: it is the pointer's, not the board's
         if (drop) {
           addThinkingBlock(type, { x: endEvent.clientX, y: endEvent.clientY },
             finalDropParentId, finalStickDrop ? finalStickDrop.target.id : null,
-            finalStickDrop ? finalStickDrop.side : null);
+            finalStickDrop ? finalStickDrop.side : null,
+            finalOrgListTarget ? finalOrgListTarget.id : null);
         }
       };
       const up = function (upEvent) { finish(upEvent, false); };
@@ -26411,20 +28331,6 @@
     touchCanvas(canvas);
     renderThinkingCanvas(canvas);
     const field = thinkingBlocks.querySelector('[data-block-id="' + answer.id + '"] textarea');
-    if (field) field.focus();
-  }
-
-  /* an entry is not a canvas: nothing to drag onto it, so the note it takes in
-     is spawned straight into it, the same way a question grows an answer */
-  function addThinkingJournalNote(canvas, entry) {
-    const note = {
-      id: thinkingId("b"), type: "note", text: "",
-      x: entry.x + 24, y: entry.y + 180, parentId: entry.id
-    };
-    canvas.blocks.push(note);
-    touchCanvas(canvas);
-    renderThinkingCanvas(canvas);
-    const field = thinkingBlocks.querySelector('[data-block-id="' + note.id + '"] textarea');
     if (field) field.focus();
   }
 
@@ -26669,9 +28575,8 @@
     }
     touchCanvas(canvas);
   });
-  /* The mark in the board's own bar steps to the next constellation, and so to
-     its canvas. A course that has never been opened has none yet: it is made on
-     the way in rather than all of them up front. */
+  /* The mark in the board's own bar steps to the next constellation and to the
+     canvas that constellation has owned since it was created. */
   thinkingBranch.addEventListener("click", function () {
     const owner = sheetCanvasOwner(currentThinkingCanvasNode()
       && currentThinkingCanvasNode().id);
@@ -26680,27 +28585,22 @@
     if (branches.length < 2) return;
     const at = branches.indexOf(owner.branch);
     const next = branches[(at + 1) % branches.length];
-    owner.project.activeConstellationId = next.id;
-    if (!next.canvasId) next.canvasId = sheetCanvas(owner.project, next).id;
-    saveState();
-    showBranchCanvas(owner.project, next);
+    activateProjectBranch(owner.project, next);
   });
 
-  /* the same move the steps section offers, from the board: a new course, with
-     the canvas that goes with it, and one steps onto it straight away */
+  /* the same move the steps section offers, from the board: addBranch has
+     already made the course and its canvas, so this click only steps onto it */
   thinkingAddBranch.addEventListener("click", function () {
     const owner = sheetCanvasOwner(currentThinkingCanvasNode()
       && currentThinkingCanvasNode().id);
     if (!owner) return;
     const branch = addBranch(owner.project, "");
-    owner.project.activeConstellationId = branch.id;
-    branch.canvasId = sheetCanvas(owner.project, branch).id;
-    saveState();
-    showBranchCanvas(owner.project, branch);
+    activateProjectBranch(owner.project, branch);
   });
 
   document.getElementById("thinkingBtn").addEventListener("click", openThinking);
   document.getElementById("thinkingBoardBack").addEventListener("click", closeCurrentThinkingCanvas);
+  thinkingInlineBack.addEventListener("click", closeCurrentThinkingCanvas);
   document.getElementById("thinkingExit").addEventListener("click", closeThinking);
   thinkingLinkCancel.addEventListener("click", function () {
     thinkingLinkFrom = null;
@@ -26717,7 +28617,10 @@
     setThinkingPinMode(!thinkingPinMode);
   });
   thinkingOrgListTab.addEventListener("click", function () {
-    thinkingOrgList.classList.toggle("is-open");
+    const opened = thinkingOrgList.classList.toggle("is-open");
+    const viewed = currentThinkingCanvasNode() || currentCanvas();
+    if (viewed) thinkingOrgListCollapsed[viewed.id] = !opened;
+    thinkingOrgListTab.setAttribute("aria-expanded", opened ? "true" : "false");
   });
   thinkingToolSectionSwitch.addEventListener("click", cycleThinkingToolSection);
   thinkingSelectionCanvas.addEventListener("click", putThinkingSelectionInCanvas);
@@ -26876,9 +28779,11 @@
     if (thinkingSelectionMode) return;
     const tree = currentCanvas();
     const canvasNode = currentThinkingCanvasNode();
-    if (!tree || !canvasNode || !thinkingCanvasParent(tree, canvasNode)) return;
+    if (!tree || !canvasNode) return;
     if (event.target.closest("button, input, textarea, select, [contenteditable]")) return;
     event.preventDefault();
+    // A daughter canvas folds back into its mother; on the mother itself the
+    // very same gesture leaves the canvas (or turns an inline calendar back).
     closeCurrentThinkingCanvas();
   });
 
@@ -26891,10 +28796,20 @@
     const canvas = currentCanvas();
     const viewed = currentThinkingCanvasNode();
     if (canvas && viewed && viewed.type === "folder") renderThinkingCanvas(canvas);
-    else if (canvas) requestThinkingLinks(canvas);
+    else if (canvas) {
+      thinkingOrgList.style.top = Math.max(0, thinkingViewport.offsetTop) + "px";
+      requestThinkingLinks(canvas);
+    }
   });
   document.addEventListener("keydown", function (event) {
     if (thinkingView.hidden || !thinkingView.classList.contains("is-open")) return;
+    if (!thinkingDeleteConfirm.hidden) {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        closeThinkingDeleteConfirm(null);
+      }
+      return;
+    }
     if (event.key === "Escape") {
       closeThinking();
       return;
@@ -27009,6 +28924,10 @@
   /* Trap the Back button (mobile) so it closes the top overlay instead of leaving
      the app. Closes the most-modal one first. */
   function closeTopOverlay() {
+    if (!thinkingDeleteConfirm.hidden) {
+      closeThinkingDeleteConfirm(null);
+      return true;
+    }
     if (!thinkingView.hidden) {
       closeThinking();
       return true;
@@ -27047,6 +28966,7 @@
   applyTheme(state.settings.theme);
   applyPalette(state.settings.palette);
   applyLanguage(state.settings.language);
+  initializeExistingItemCanvases();   // opening a sheet must never create it
   retireDreamWalls();   // before anything is drawn from the projects
   appReady = true;
   renderList("tasks");

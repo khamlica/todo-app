@@ -12,7 +12,7 @@
   <title>Mes tâches</title>
   <!-- the version travels in the query: without it a browser may keep
        serving the stylesheet it already has, and the app looks unchanged -->
-  <link rel="stylesheet" href="./style.css?v=670">
+  <link rel="stylesheet" href="./style.css?v=731">
   <link rel="manifest" href="./manifest.webmanifest">
   <link rel="apple-touch-icon" href="./icons/icon-192.png">
   <!-- svg tab icon, png fallback for browsers that ignore it -->
@@ -176,6 +176,10 @@
 
         <!-- the week in view; the chevron unfolds the whole month in place -->
         <section class="zone day-row__cal">
+          <!-- Shortcuts mirrored from pinned canvas blocks. This rail is outside
+               the calendar's box model, so neither the ribbon nor the elements
+               already laid out around it move when pins appear. -->
+          <aside class="ecal-fold-pins" id="calFoldPins" hidden></aside>
           <!-- THE WORK ZONE — unfolded, the calendar covers the page, and the two
                bands it leaves on either side are the room this needs. They are
                laid over the row, never in it: the calendar keeps its own track
@@ -197,6 +201,21 @@
                 </button>
               </span>
             </div>
+            <!-- Stable entrances between the clock and today's changing flow.
+                 Four equal places set their scale; only the two useful ones are
+                 occupied for now, so the row remains open rather than crowded. -->
+            <nav class="cal-band-launchers" aria-label="Espaces du calendrier">
+              <button class="zone__action cal-band-launcher" id="calTaskCanvasBtn" type="button"
+                      data-i18n-aria="sheetCanvas" aria-label="Toile">
+                <span class="cal-band-launcher__mark" aria-hidden="true"></span>
+                <span class="cal-band-launcher__label" data-i18n="sheetCanvas">Toile</span>
+              </button>
+              <button class="zone__action cal-band-launcher" id="calInboxBtn" type="button"
+                      data-i18n-aria="calendarInboxAria" aria-label="Ouvrir l’Inbox">
+                <span class="cal-band-launcher__mark" aria-hidden="true"></span>
+                <span class="cal-band-launcher__label" data-i18n="calendarInbox">Inbox</span>
+              </button>
+            </nav>
             <!-- pins left on a container anywhere in the thinking space: a straight
                  line back to whichever journal, planner or board today needs -->
             <div class="calpins" id="calPinsBand" hidden></div>
@@ -211,9 +230,6 @@
                 <!-- every task at once, sorted by what can be done with it -->
                 <button class="zone__action" id="calKanbanBtn" type="button"
                         data-i18n-aria="kanbanTitle" aria-label="Kanban"></button>
-                <!-- the canvas of the task on show, or the one they all hang from -->
-                <button class="zone__action" id="calTaskCanvasBtn" type="button"
-                        data-i18n-aria="sheetCanvas" aria-label="Toile"></button>
               </div>
               <!-- where the line to write a task stands, under the head -->
               <div id="calAddSlot"></div>
@@ -221,22 +237,24 @@
             </div>
             <!-- Leisure keeps no task flow. This is a loose pocket: thoughts go
                  in without a date, a category or any obligation to become work. -->
-            <section class="idea-box" id="calIdeasBand" hidden>
-              <div class="zone__head idea-box__head">
-                <h2 class="zone__title" data-i18n="ideasTitle">Boîte à idées</h2>
-                <span class="zone__count" id="ideasCount"></span>
-              </div>
-              <form class="idea-box__form" id="ideaForm" data-field-panel>
-                <input class="idea-box__input" id="ideaInput" type="text" maxlength="240"
-                       autocomplete="off" data-i18n-placeholder="ideaPlaceholder"
-                       data-i18n-aria="ideaAddAria" placeholder="Déposer une idée…"
-                       aria-label="Ajouter une idée">
-                <button class="idea-box__add" type="submit" data-i18n-aria="ideaAddAria"
-                        aria-label="Ajouter une idée">+</button>
-              </form>
-              <p class="idea-box__empty" id="ideasEmpty" data-i18n="ideasEmpty">Laissez venir une première idée…</p>
-              <div class="idea-box__list" id="ideasList"></div>
-            </section>
+            <div id="calIdeasHome" hidden>
+              <section class="idea-box" id="calIdeasBand" hidden>
+                <div class="zone__head idea-box__head">
+                  <h2 class="zone__title" data-i18n="calendarInbox">Inbox</h2>
+                  <span class="zone__count" id="ideasCount"></span>
+                </div>
+                <form class="idea-box__form" id="ideaForm" data-field-panel>
+                  <input class="idea-box__input" id="ideaInput" type="text" maxlength="240"
+                         autocomplete="off" data-i18n-placeholder="ideaPlaceholder"
+                         data-i18n-aria="ideaAddAria" placeholder="Déposer une idée…"
+                         aria-label="Ajouter une idée">
+                  <button class="idea-box__add" type="submit" data-i18n-aria="ideaAddAria"
+                          aria-label="Ajouter une idée">+</button>
+                </form>
+                <p class="idea-box__empty" id="ideasEmpty" data-i18n="ideasEmpty">Laissez venir une première idée…</p>
+                <div class="idea-box__list" id="ideasList"></div>
+              </section>
+            </div>
           </aside>
           <aside class="ecal-band ecal-band--right" id="calBandRight" hidden>
             <div class="zone__head">
@@ -250,12 +268,19 @@
                   <g class="ico-orbit"><circle cx="19" cy="5" r="1"/><circle cx="4.5" cy="17.5" r="1"/><circle cx="20" cy="18" r="1"/></g>
                 </svg>
               </button>
-              <!-- the canvas of whatever is open, or the mother canvas: one way
-                   in for the whole band, beside the way to a new objective -->
-              <button class="zone__action" id="calCanvasBtn" type="button"
-                      data-i18n-aria="sheetCanvas" aria-label="Toile"></button>
             </div>
-            <ul class="list list--cards" id="calProjectsList"></ul>
+            <div class="cal-project-zones">
+              <section class="cal-project-zone cal-project-zone--active"
+                       id="calActiveProjectZone" data-project-zone="active" data-field-panel>
+                <ul class="list list--cards" id="calActiveProjectList"></ul>
+                <p class="cal-project-zone__empty" id="calActiveProjectEmpty"
+                   data-i18n="noActiveProject">Aucun projet actif</p>
+              </section>
+              <section class="cal-project-zone cal-project-zone--list"
+                       id="calProjectListZone" data-project-zone="list">
+                <ul class="list list--cards" id="calProjectsList"></ul>
+              </section>
+            </div>
           </aside>
           <div class="ecal" data-field-panel>
            <div class="ecal__flip">
@@ -585,7 +610,7 @@
                this folds them down to a ribbon and gives the page the width -->
           <button type="button" class="rail-fold" id="detailRail" hidden></button>
         </div>
-        <!-- REPLAN, SET ASIDE, DELETE — they used to come over the row on hover,
+        <!-- REPLAN, SET ASIDE, ARCHIVE, DELETE — they used to come over the row on hover,
              half-covering what they act on. They live at the foot of the open
              task instead, the way an objective's three do at the foot of its
              editor: nothing on the row, and one plain line down here. -->
@@ -601,6 +626,13 @@
           <button class="task-edit__action" id="taskEditAside" type="button">
             <span class="task-edit__action-icon" id="taskEditAsideIcon"></span>
             <span id="taskEditAsideLabel">Mettre de côté</span>
+          </button>
+          <button class="task-edit__action" id="taskEditArchive" type="button">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
+                 stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <path d="M4 7h16v13H4zM3 4h18v3H3zM9 11h6"/>
+            </svg>
+            <span data-i18n="thinkingDeleteArchive">Archiver</span>
           </button>
           <button class="task-edit__action task-edit__action--danger" id="taskEditDelete" type="button">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8"
@@ -1011,6 +1043,9 @@
       </header>
 
       <nav class="thinking-tools" data-i18n-aria="thinkingTools" aria-label="Outils de la toile">
+        <button id="thinkingInlineBack" class="thinking-tools__back" type="button" data-i18n-aria="thinkingCloseCanvas" aria-label="Replier dans la toile mère">
+          <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><polyline points="15 18 9 12 15 6"/></svg>
+        </button>
         <div class="thinking-tools__additions">
           <button id="thinkingToolSectionSwitch" class="thinking-tools__section-switch" type="button" data-thinking-tool-section="blocks" data-i18n-aria="thinkingSwitchTools" aria-label="Changer de catégorie d’outils">
             <span class="thinking-tools__section-label" data-i18n="thinkingBlocksLabel">Blocs</span>
@@ -1094,7 +1129,7 @@
         </div>
       </div>
       <div id="thinkingOrgList" class="thinking-orglist" hidden>
-        <button id="thinkingOrgListTab" class="thinking-orglist__tab" type="button" data-i18n-aria="thinkingOrgListTab" aria-label="Blocs organisation">
+        <button id="thinkingOrgListTab" class="thinking-orglist__tab" type="button" aria-expanded="false" data-i18n-aria="thinkingOrgListTab" aria-label="Blocs organisation">
           <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="7" cy="7" r="3"/><circle cx="17" cy="17" r="3"/><path d="M9.1 8.9 14.9 15.1"/></svg>
         </button>
         <div class="thinking-orglist__panel">
@@ -1239,10 +1274,40 @@
     </div>
   </div>
 
+  <!-- Destructive canvas actions stay inside the app instead of borrowing the
+       browser's visually unrelated confirmation window. -->
+  <div id="thinkingDeleteConfirm" class="thinking-confirm" role="dialog"
+       aria-modal="true" aria-labelledby="thinkingDeleteConfirmTitle"
+       aria-describedby="thinkingDeleteConfirmMessage" hidden>
+    <div class="thinking-confirm__backdrop" data-thinking-delete-cancel></div>
+    <section class="thinking-confirm__card">
+      <div class="thinking-confirm__head">
+        <span class="thinking-confirm__icon" aria-hidden="true">
+          <svg viewBox="0 0 24 24">
+            <path d="M4 7h16M9 7V4h6v3m-9 0 1 13h10l1-13M10 11v5m4-5v5"/>
+          </svg>
+        </span>
+        <h2 id="thinkingDeleteConfirmTitle" class="thinking-confirm__title"
+            data-i18n="thinkingDeleteConfirmTitle">Confirmer la suppression</h2>
+      </div>
+      <p id="thinkingDeleteConfirmMessage" class="thinking-confirm__message"></p>
+      <div class="thinking-confirm__actions">
+        <button id="thinkingDeleteCancel" class="thinking-confirm__cancel" type="button"
+                data-i18n="thinkingCancel">Annuler</button>
+        <button id="thinkingDeleteArchive" class="thinking-confirm__archive" type="button"
+                data-i18n="thinkingDeleteArchive" hidden>Archiver</button>
+        <button id="thinkingDeleteAccept" class="thinking-confirm__accept" type="button"
+                data-i18n="thinkingDeleteConfirmAction">Supprimer</button>
+      </div>
+    </section>
+  </div>
+
   <!-- transient message (deletion undo, backup feedback) -->
   <div id="toast" class="toast" hidden>
     <span id="toastMsg" class="toast__msg"></span>
     <button id="toastAction" class="toast__action" type="button" hidden></button>
+    <button id="toastSecondary" class="toast__action toast__action--secondary"
+            type="button" hidden></button>
   </div>
 
   <!-- app-drawn cursor. Every shape ships in the markup; data-shape picks the
@@ -1267,6 +1332,6 @@
     </span>
   </div>
 
-  <script src="./app.js?v=670"></script>
+  <script src="./app.js?v=731"></script>
 </body>
 </html>

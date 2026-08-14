@@ -2093,6 +2093,11 @@ body:has(.welcome:not(.is-leaving)) :is(#lookBtn, #settingsBtn):hover {
   font-weight: 700;
   cursor: pointer;
   padding: 2px 4px;
+  white-space: nowrap;
+}
+.toast__action--secondary {
+  color: color-mix(in srgb, var(--accent) 68%, var(--bg));
+  font-weight: 620;
 }
 
 /* a zone is not a container: just content on the page, spaced by emptiness */
@@ -2459,6 +2464,41 @@ html.is-field-mode .tgroup--late .item__due.is-overdue:hover {
   color: var(--danger);
   border-color: color-mix(in srgb, var(--danger) 62%, var(--border));
   background: color-mix(in srgb, var(--surface) 88%, var(--danger) 12%);
+}
+/* A calendar project is cloned outside `.ecal-band` while carried. Its ghost has
+   its own compact identity row, so losing the band's multi-line layout cannot
+   collapse the title between the icon, sheet capsules and importance bars. */
+.task-drag-ghost.item--project > .project-tab,
+.task-drag-ghost.item--project:hover > .project-tab {
+  display: flex;
+  flex-wrap: nowrap;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-width: 0;
+  padding: 12px 14px;
+  border: 0;
+  border-radius: inherit;
+  background: none;
+  box-shadow: none;
+  backdrop-filter: none;
+  transform: none;
+}
+.task-drag-ghost.item--project .item__ico {
+  width: 34px;
+  height: 34px;
+}
+.task-drag-ghost.item--project .item__ico svg { width: 21px; height: 21px; }
+.task-drag-ghost.item--project .item__text {
+  flex: 1 1 auto;
+  min-width: 0;
+  line-height: 1.35;
+  word-break: normal;
+  overflow-wrap: anywhere;
+}
+.task-drag-ghost.item--project .project-importance {
+  flex: 0 0 auto;
+  margin-left: auto;
 }
 /* COMPLETION — a small rounded box whose tick is stroked, not typed. Kept
    light: a quiet outline until it matters, filled only once it is done. */
@@ -3318,6 +3358,121 @@ html.is-field-mode .ecal-band .project-tab::after { content: none; }
   cursor: pointer;
 }
 
+/* CANVAS DELETE CONFIRMATION — the browser's native alert is deliberately not
+   used: this compact translucent sheet belongs to the same visual world as the
+   canvas and leaves the work beneath it legible. */
+.thinking-confirm {
+  position: fixed;
+  inset: 0;
+  z-index: 180;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+}
+.thinking-confirm[hidden] { display: none; }
+.thinking-confirm__backdrop {
+  position: absolute;
+  inset: 0;
+  background: color-mix(in srgb, #05060e 36%, transparent);
+  backdrop-filter: blur(5px);
+  animation: fade .18s ease both;
+}
+.thinking-confirm__card {
+  position: relative;
+  width: min(420px, 100%);
+  padding: 20px;
+  border: 1px solid color-mix(in srgb, var(--danger) 22%, var(--border));
+  border-radius: 18px;
+  color: var(--text);
+  background: color-mix(in srgb, var(--surface-solid) 91%, transparent);
+  box-shadow: 0 24px 70px color-mix(in srgb, #000 34%, transparent),
+    inset 0 1px 0 color-mix(in srgb, #fff 7%, transparent);
+  backdrop-filter: blur(20px) saturate(115%);
+  animation: fadeUp .22s ease both;
+}
+.thinking-confirm__head {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+}
+.thinking-confirm__icon {
+  flex: 0 0 auto;
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  border-radius: 10px;
+  color: var(--danger);
+  background: color-mix(in srgb, var(--danger) 10%, transparent);
+  box-shadow: 0 0 18px color-mix(in srgb, var(--danger) 12%, transparent);
+}
+.thinking-confirm__icon svg {
+  width: 18px;
+  height: 18px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.65;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.thinking-confirm__title {
+  margin: 0;
+  font-size: 1rem;
+  font-weight: 650;
+}
+.thinking-confirm__message {
+  margin: 15px 0 20px;
+  color: color-mix(in srgb, var(--text) 78%, var(--muted));
+  font-size: .88rem;
+  line-height: 1.55;
+}
+.thinking-confirm__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 9px;
+}
+.thinking-confirm__actions button {
+  min-width: 92px;
+  min-height: 38px;
+  padding: 8px 15px;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  color: var(--text);
+  background: color-mix(in srgb, var(--surface-solid) 64%, transparent);
+  cursor: pointer;
+}
+.thinking-confirm__actions button:hover,
+.thinking-confirm__actions button:focus-visible {
+  border-color: color-mix(in srgb, var(--accent) 48%, var(--border));
+  outline: none;
+}
+.thinking-confirm__actions .thinking-confirm__archive {
+  color: color-mix(in srgb, var(--accent) 78%, var(--text));
+  border-color: color-mix(in srgb, var(--accent) 34%, var(--border));
+  background: color-mix(in srgb, var(--accent) 10%, var(--surface-solid));
+}
+.thinking-confirm__actions .thinking-confirm__archive:hover,
+.thinking-confirm__actions .thinking-confirm__archive:focus-visible {
+  border-color: color-mix(in srgb, var(--accent) 68%, var(--border));
+  box-shadow: 0 0 18px color-mix(in srgb, var(--accent) 12%, transparent);
+}
+.thinking-confirm__actions .thinking-confirm__accept {
+  color: color-mix(in srgb, var(--danger) 78%, var(--text));
+  border-color: color-mix(in srgb, var(--danger) 34%, var(--border));
+  background: color-mix(in srgb, var(--danger) 11%, var(--surface-solid));
+}
+.thinking-confirm__actions .thinking-confirm__accept:hover,
+.thinking-confirm__actions .thinking-confirm__accept:focus-visible {
+  border-color: color-mix(in srgb, var(--danger) 70%, var(--border));
+  box-shadow: 0 0 18px color-mix(in srgb, var(--danger) 12%, transparent);
+}
+
+@media (max-width: 480px) {
+  .thinking-confirm { align-items: end; padding: 14px; }
+  .thinking-confirm__card { padding: 18px; border-radius: 17px; }
+  .thinking-confirm__actions button { flex: 1 1 0; min-width: 0; }
+}
+
 /* settings tabs */
 .tabs {
   display: flex;
@@ -3960,6 +4115,64 @@ button.hrule__tag:focus-visible { color: var(--sig-line); transform: scale(1.15)
 .ecal__verso .detail__pin svg { width: 17px; height: 17px; }
 .ecal__verso .detail__icon { width: 30px; height: 30px; border-radius: 9px; }
 .ecal__verso .detail__icon svg { width: 18px; height: 18px; }
+
+/* A project capsule opens its page on the calendar itself. The header preserves
+   the object's identity while the carried note or journal uses all remaining
+   room; no second card is drawn on the calendar's back. */
+.ecal__verso.is-project-sheet {
+  overflow: hidden;
+  padding: 2px;
+}
+.project-card-sheet {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+}
+.project-card-sheet__head {
+  flex: 0 0 auto;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 42px;
+  padding: 2px 6px 10px;
+  border-bottom: 1px solid color-mix(in srgb, var(--c-line) 34%, transparent);
+}
+.project-card-sheet__icon {
+  display: grid;
+  place-items: center;
+  width: 30px;
+  height: 30px;
+  color: var(--accent);
+}
+.project-card-sheet__icon svg { width: 19px; height: 19px; }
+.project-card-sheet__name {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.project-card-sheet__kind {
+  margin-left: auto;
+  color: var(--muted);
+  font-size: .76rem;
+}
+.project-card-sheet__body {
+  flex: 1 1 auto;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  padding: 14px 6px 4px;
+}
+.project-card-sheet__body > .detail__label { flex: 0 0 auto; }
+.project-card-sheet__body .thinking-document-sheet--panel,
+.project-card-sheet__body .sheet-journal,
+.project-card-sheet__body .sheet-inbox {
+  flex: 1 1 auto;
+  min-height: 0;
+}
+.project-card-sheet__body .sheet-journal,
+.project-card-sheet__body .sheet-inbox { overflow-y: auto; }
 /* The reply of the canvas, turned the other way: it carries forward, not back.
    Once something has been carried forward it turns round again and takes the
    accent — the same button, now the way home. */
@@ -4469,16 +4682,21 @@ body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: non
 .project-edit__actions,
 .task-edit__actions {
   display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 8px;
   margin: 20px 0 0;
 }
+.project-edit__actions { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.task-edit__actions { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 /* under everything the task carries, separated from it by a rule rather than by
    distance: the panel has little enough room as it is */
 .task-edit__actions {
   margin-top: 16px;
   padding-top: 14px;
   border-top: 1px solid color-mix(in srgb, var(--c-line) 30%, transparent);
+}
+.goal-inline__actions {
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  margin: 0 22px 20px;
 }
 .project-edit__actions[hidden],
 .task-edit__actions[hidden] { display: none; }
@@ -4524,6 +4742,12 @@ body:has(.welcome:not(.is-leaving)) .pane-dots { opacity: 0; pointer-events: non
   border-color: color-mix(in srgb, var(--danger) 58%, transparent);
   background: color-mix(in srgb, var(--danger) 9%, transparent);
   color: var(--danger);
+}
+@media (max-width: 620px) {
+  .task-edit__actions:not(.goal-inline__actions) {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+  .goal-inline__actions { margin-inline: 16px; }
 }
 .modal__card.sleep { max-width: 410px; }
 .sleep-simple { display: flex; flex-direction: column; gap: 22px; }
@@ -8055,6 +8279,25 @@ html.is-field-mode .thinking { background: var(--sky); }
   backdrop-filter: blur(14px) saturate(120%);
   overflow: hidden;
 }
+.thinking-tools__back {
+  flex: 0 0 auto;
+  width: 30px;
+  height: 34px;
+  display: none;
+  place-items: center;
+  border: 0;
+  border-right: 1px solid color-mix(in srgb, var(--c-line) 32%, transparent);
+  border-radius: 0;
+  padding: 0 7px 0 0;
+  background: none;
+  color: var(--muted);
+  cursor: pointer;
+  transition: color .16s ease, opacity .16s ease;
+}
+.thinking-tools__back svg { width: 17px; height: 17px; }
+.thinking-tools__back:hover,
+.thinking-tools__back:focus-visible { color: var(--accent); outline: none; }
+.thinking-tools__back:disabled { opacity: .22; pointer-events: none; }
 .thinking-tools__additions {
   flex: 1 1 auto;
   min-width: 0;
@@ -8262,6 +8505,13 @@ html.is-field-mode .thinking { background: var(--sky); }
   pointer-events: none;
   opacity: .94;
 }
+.thinking-tool-drag.is-orglist-target {
+  border-color: var(--accent);
+  background: color-mix(in srgb, var(--accent) 18%, var(--surface-solid));
+  box-shadow:
+    0 0 0 2px color-mix(in srgb, var(--accent) 28%, transparent),
+    0 12px 30px -8px color-mix(in srgb, #000 calc(var(--c-shade) * 105%), transparent);
+}
 /* The three container tools used to opt out of the pill: square corners, a 2px
    rim, and the document wore a hard bar down its left side — the very shape the
    blocks just gave up. They stay pills like everything else; what makes them
@@ -8429,119 +8679,457 @@ html.is-field-mode .thinking { background: var(--sky); }
   font-weight: 700;
   cursor: pointer;
 }
-/* THE ORGANISATION LIST — a mini folder that belongs to a single bloc
-   organisation (never one itself), holding the other blocs organisation it
-   has taken in: a tab pulled out from the board's right edge, unfolding a
-   rail of icons only — the name shows on hover, the way a dossier's tools
-   show theirs. */
+/* THE ORGANISATION LIST — this used to unfold as a rail of identical glyphs.
+   A canvas containing three unnamed notepads therefore showed three copies of
+   the same square and no way to tell which was which. It now reads as a narrow
+   index: the glyph tells the kind, the line tells the place, and unnamed twins
+   are numbered in their own family. */
 .thinking-orglist {
+  --thinking-orglist-width: min(198px, calc(100% - 42px));
   position: absolute;
   z-index: 22;
-  top: 50%;
+  top: 0;
   right: 0;
-  transform: translateY(-50%);
-  display: flex;
-  flex-direction: row-reverse;
-  align-items: flex-start;
+  bottom: 0;
+  width: var(--thinking-orglist-width);
+  transform: translateX(100%);
+  pointer-events: none;
+  transition: transform .26s cubic-bezier(.22, .8, .25, 1);
 }
 .thinking-orglist[hidden] { display: none; }
+.thinking-orglist.is-open,
+.thinking-orglist.is-drag-open { transform: translateX(0); }
 .thinking-orglist__tab {
+  position: absolute;
+  z-index: 3;
+  top: 16px;
+  left: -28px;
   pointer-events: auto;
-  flex: 0 0 auto;
-  width: 22px;
-  height: 60px;
+  width: 29px;
+  height: 58px;
   display: grid;
   place-items: center;
   padding: 0;
   border: 1px solid color-mix(in srgb, var(--c-line) 34%, transparent);
   border-right: 0;
   border-radius: 10px 0 0 10px;
-  background: color-mix(in srgb, var(--surface-solid) 82%, transparent);
+  background: color-mix(in srgb, var(--surface-solid) 88%, transparent);
   backdrop-filter: blur(14px) saturate(120%);
   color: var(--muted);
-  cursor: grab;
+  box-shadow: -8px 8px 22px -14px color-mix(in srgb, #000 calc(var(--c-shade) * 95%), transparent);
+  cursor: pointer;
   touch-action: none;
-  transition: color .2s ease, border-color .2s ease;
+  transition: color .2s ease, border-color .2s ease, background .2s ease;
 }
 .thinking-orglist__tab svg { width: 19px; height: 19px; }
 .thinking-orglist__tab:hover,
-.thinking-orglist__tab:focus-visible { color: var(--accent); border-color: var(--accent); }
+.thinking-orglist__tab:focus-visible,
+.thinking-orglist.is-open .thinking-orglist__tab {
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 48%, transparent);
+}
 .thinking-orglist.is-drop-target .thinking-orglist__tab {
   color: var(--accent);
   border-color: var(--accent);
   box-shadow: 0 0 0 2px color-mix(in srgb, var(--accent) 30%, transparent);
 }
 .thinking-orglist__panel {
-  max-width: 0;
-  opacity: 0;
+  position: absolute;
+  inset: 0;
   overflow: hidden;
   border: 1px solid color-mix(in srgb, var(--c-line) 34%, transparent);
-  border-radius: 10px;
-  background: color-mix(in srgb, var(--surface-solid) 92%, transparent);
-  backdrop-filter: blur(14px) saturate(120%);
-  box-shadow: 0 12px 30px -14px color-mix(in srgb, #000 calc(var(--c-shade) * 95%), transparent);
-  transition: max-width .22s cubic-bezier(.22, .8, .25, 1), opacity .18s ease;
+  border-right: 0;
+  border-radius: 16px 0 0 16px;
+  background: color-mix(in srgb, var(--surface-solid) 88%, transparent);
+  backdrop-filter: blur(16px) saturate(112%);
+  box-shadow: -16px 0 34px -22px color-mix(in srgb, #000 calc(var(--c-shade) * 110%), transparent);
+  pointer-events: auto;
+  transition: border-color .16s ease, background .16s ease, box-shadow .16s ease;
 }
-.thinking-orglist.is-open .thinking-orglist__panel,
-.thinking-orglist.is-drag-open .thinking-orglist__panel {
-  max-width: 60px;
-  opacity: 1;
+.thinking-orglist.is-drop-target .thinking-orglist__panel {
+  border-color: color-mix(in srgb, var(--accent) 66%, transparent);
+  background: color-mix(in srgb, var(--accent) 8%, var(--surface-solid));
+  box-shadow:
+    inset 0 0 0 1px color-mix(in srgb, var(--accent) 20%, transparent),
+    -16px 0 34px -22px color-mix(in srgb, #000 calc(var(--c-shade) * 110%), transparent);
 }
 .thinking-orglist__rows {
+  box-sizing: border-box;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: 4px;
+  align-items: stretch;
+  gap: 5px;
   padding: 8px;
-  width: 50px;
-  max-height: 50vh;
+  width: 186px;
+  max-height: min(62vh, 480px);
   overflow-y: auto;
 }
-.thinking-orglist__row {
-  flex: 0 0 auto;
-  width: 34px;
-  height: 34px;
+#thinkingOrgList .thinking-orglist__rows {
+  width: 100%;
+  height: 100%;
+  max-height: none;
+  padding: 8px 8px max(18px, env(safe-area-inset-bottom));
+  scrollbar-gutter: stable;
+}
+.thinking-orglist__navigation {
+  position: sticky;
+  z-index: 3;
+  top: 0;
+  min-width: 0;
+  display: grid;
+  grid-template-columns: 27px minmax(0, 1fr);
+  align-items: center;
+  gap: 6px;
+  margin-bottom: 2px;
+  padding: 2px 3px 7px;
+  border-bottom: 1px solid color-mix(in srgb, var(--c-line) 24%, transparent);
+  background: color-mix(in srgb, var(--surface-solid) 86%, transparent);
+  backdrop-filter: blur(12px);
+}
+.thinking-orglist__navigation--root {
+  grid-template-columns: minmax(0, 1fr);
+  min-height: 36px;
+  padding-left: 9px;
+}
+.thinking-orglist__back {
+  width: 27px;
+  height: 27px;
   display: grid;
   place-items: center;
   border: 0;
-  border-radius: 9px;
+  border-radius: 8px;
   padding: 0;
-  background: color-mix(in srgb, var(--block-color) 20%, transparent);
-  color: var(--block-color);
+  background: transparent;
+  color: var(--muted);
   cursor: pointer;
-  transition: background .16s ease, transform .16s ease;
 }
-.thinking-orglist__row:hover { background: color-mix(in srgb, var(--block-color) 40%, transparent); }
+.thinking-orglist__back:hover {
+  background: color-mix(in srgb, var(--c-imp-5) 10%, transparent);
+  color: var(--c-imp-5);
+}
+.thinking-orglist__back svg { width: 15px; height: 15px; }
+.thinking-orglist__folder-name {
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 3px;
+  overflow: hidden;
+  color: var(--text);
+  font-size: .73rem;
+  font-weight: 680;
+  white-space: nowrap;
+}
+.thinking-orglist__folder-crumb {
+  min-width: 0;
+  max-width: 68px;
+  overflow: hidden;
+  border: 0;
+  padding: 0;
+  background: none;
+  color: var(--muted);
+  font: inherit;
+  font-weight: 580;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+}
+.thinking-orglist__folder-crumb:hover { color: var(--accent); }
+.thinking-orglist__folder-crumb.is-current {
+  flex: 1 1 auto;
+  max-width: none;
+  color: var(--text);
+  font-weight: 680;
+  cursor: default;
+}
+.thinking-orglist__folder-separator {
+  flex: 0 0 auto;
+  color: color-mix(in srgb, var(--muted) 46%, transparent);
+  font-weight: 400;
+}
+.thinking-orglist__row {
+  position: relative;
+  flex: 0 0 auto;
+  width: 100%;
+  min-width: 0;
+  min-height: 45px;
+  display: grid;
+  grid-template-columns: 31px minmax(0, 1fr);
+  align-items: center;
+  gap: 9px;
+  border: 1px solid color-mix(in srgb, var(--block-color) 13%, transparent);
+  border-radius: 11px;
+  padding: 6px 9px 6px 6px;
+  background: color-mix(in srgb, var(--block-color) 8%, transparent);
+  color: var(--text);
+  text-align: left;
+  cursor: pointer;
+  transition: background .16s ease, border-color .16s ease, transform .16s ease;
+}
+.thinking-orglist__row.has-delete { padding-right: 30px; }
+.thinking-orglist__row.has-restore { padding-right: 54px; }
+.thinking-orglist__row:hover {
+  border-color: color-mix(in srgb, var(--block-color) 38%, transparent);
+  background: color-mix(in srgb, var(--block-color) 16%, transparent);
+  transform: translateX(-2px);
+}
+.thinking-orglist__row.is-drop-target {
+  border-color: color-mix(in srgb, var(--block-color) 78%, transparent);
+  background: color-mix(in srgb, var(--block-color) 23%, transparent);
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--block-color) 17%, transparent);
+  transform: translateX(-2px);
+}
+.thinking-orglist__delete {
+  position: absolute;
+  z-index: 4;
+  top: 50%;
+  right: 5px;
+  width: 22px;
+  height: 22px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 7px;
+  padding: 0;
+  background: transparent;
+  color: color-mix(in srgb, var(--muted) 72%, transparent);
+  opacity: 0;
+  transform: translateY(-50%) scale(.86);
+  cursor: pointer;
+  pointer-events: none;
+  transition: opacity .14s ease, color .14s ease, background .14s ease, transform .14s ease;
+}
+.thinking-orglist__delete svg { width: 13px; height: 13px; }
+.thinking-orglist__restore {
+  position: absolute;
+  z-index: 4;
+  top: 50%;
+  right: 28px;
+  width: 22px;
+  height: 22px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 7px;
+  padding: 0;
+  background: transparent;
+  color: color-mix(in srgb, var(--accent) 72%, var(--muted));
+  opacity: 0;
+  transform: translateY(-50%) scale(.86);
+  cursor: pointer;
+  pointer-events: none;
+  transition: opacity .14s ease, color .14s ease, background .14s ease, transform .14s ease;
+}
+.thinking-orglist__restore svg { width: 13px; height: 13px; }
+.thinking-orglist__row:hover .thinking-orglist__delete,
+.thinking-orglist__row:focus-within .thinking-orglist__delete,
+.thinking-orglist__row:hover .thinking-orglist__restore,
+.thinking-orglist__row:focus-within .thinking-orglist__restore {
+  opacity: 1;
+  transform: translateY(-50%) scale(1);
+  pointer-events: auto;
+}
+.thinking-orglist__delete:hover,
+.thinking-orglist__delete:focus-visible {
+  background: color-mix(in srgb, var(--danger) 12%, transparent);
+  color: color-mix(in srgb, var(--danger) 72%, var(--text));
+  outline: none;
+}
+.thinking-orglist__restore:hover,
+.thinking-orglist__restore:focus-visible {
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+  color: var(--accent);
+  outline: none;
+}
+.thinking-orglist__row:is(.is-dragging, .is-detaching) .thinking-orglist__delete {
+  opacity: 0;
+}
+.thinking-orglist__row:is(.is-dragging, .is-detaching) .thinking-orglist__restore {
+  opacity: 0;
+}
 .thinking-orglist__row.is-dragging { opacity: .5; }
 /* pulled out of the rail, it follows the pointer like any other detached
    nested card — armThinkingDrag positions it with inline left/top */
 .thinking-orglist__row.is-detaching {
   position: fixed;
   z-index: 100;
+  width: 170px;
   margin: 0;
   pointer-events: none;
   box-shadow: var(--thinking-lift);
 }
-.thinking-orglist__row svg { width: 16px; height: 16px; }
+.thinking-orglist__mark {
+  width: 31px;
+  height: 31px;
+  display: grid;
+  place-items: center;
+  border-radius: 9px;
+  background: color-mix(in srgb, var(--block-color) 18%, transparent);
+  color: var(--block-color);
+}
+.thinking-orglist__mark svg { width: 16px; height: 16px; }
+.thinking-archived-project-icon {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+.thinking-archived-project-icon__folder,
+.thinking-archived-project-icon__goal {
+  position: absolute;
+  display: grid;
+  place-items: center;
+}
+.thinking-archived-project-icon__folder {
+  inset: 0;
+  color: color-mix(in srgb, var(--block-color) 54%, var(--muted));
+}
+.thinking-archived-project-icon__goal {
+  z-index: 1;
+  left: 50%;
+  top: 55%;
+  width: 48%;
+  height: 48%;
+  /* A tinted ink rather than the project's pale light or a foreign black: the
+     mark stays related to the theme while separating gently from the folder. */
+  color: color-mix(in oklab, var(--block-color) 38%, var(--c-bg));
+  opacity: .9;
+  filter: drop-shadow(0 0 .6px color-mix(in srgb, var(--surface-solid) 34%, transparent));
+  transform: translate(-50%, -50%);
+}
+.thinking-archived-project-icon__folder > svg,
+.thinking-archived-project-icon__goal > svg {
+  width: 100% !important;
+  height: 100% !important;
+}
+.thinking-archived-project-icon__goal > svg { stroke-width: 1.9px; }
+:is([data-theme="light"], [data-theme="sakura"], [data-theme="forest"],
+    [data-theme="dawn"], [data-theme="day"])
+  .thinking-archived-project-icon__goal {
+  color: color-mix(in oklab, var(--block-color) 38%, var(--c-text));
+  filter: drop-shadow(0 0 .6px color-mix(in srgb, #fff 38%, transparent));
+}
+.thinking-orglist__row.is-archived-project .thinking-orglist__mark,
+.thinking-folder__row.is-archived-project .thinking-folder__mark {
+  background: color-mix(in srgb, var(--block-color) 10%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--block-color) 20%, transparent);
+}
+/* The synchronized canvas is the constellation itself inside the project
+   folder. Its personal mark stays airy and gains a little light while its
+   existing celestial drawing animation runs under the pointer. */
+.thinking-orglist__row.is-constellation-canvas .thinking-orglist__mark {
+  background: color-mix(in srgb, var(--accent) 8%, transparent);
+  color: color-mix(in srgb, var(--accent) 78%, var(--text));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 18%, transparent);
+  transition: color .16s ease, background .16s ease, filter .16s ease;
+}
+.thinking-orglist__row.is-constellation-canvas .thinking-orglist__mark:hover {
+  background: color-mix(in srgb, var(--accent) 14%, transparent);
+  color: var(--accent);
+  filter: drop-shadow(0 0 6px color-mix(in srgb, var(--accent) 42%, transparent));
+}
+.thinking-orglist__row.is-project-folder .thinking-orglist__mark,
+.thinking-folder__row.is-project-folder .thinking-folder__mark {
+  background: color-mix(in srgb, var(--imp-ink, var(--accent)) 9%, transparent);
+  color: var(--imp-ink, var(--accent));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb,
+    var(--imp-ink, var(--accent)) 18%, transparent);
+  filter: drop-shadow(0 0 4px color-mix(in srgb,
+    var(--imp-ink, var(--accent)) var(--importance-glow, 12%), transparent));
+}
+.thinking-orglist__row.is-project-folder .thinking-orglist__mark svg,
+.thinking-folder__row.is-project-folder .thinking-folder__mark svg,
+.thinking-block--folder.is-project-folder .thinking-block__icon svg {
+  opacity: var(--importance-icon-light, .36);
+  transition: opacity .16s ease;
+}
+.thinking-orglist__row.is-project-folder .thinking-orglist__mark:hover,
+.thinking-folder__row.is-project-folder .thinking-folder__mark:hover {
+  background: color-mix(in srgb, var(--imp-ink, var(--accent)) 15%, transparent);
+  filter: drop-shadow(0 0 7px color-mix(in srgb,
+    var(--imp-ink, var(--accent)) var(--importance-glow-wide, 18%), transparent));
+}
+/* The two pages inherited from a task/project reuse the sheet-strip marks, so
+   they cannot be mistaken for freely created notepads or logbooks. */
+.thinking-orglist__row.is-sheet-companion .thinking-orglist__mark {
+  background: color-mix(in srgb, var(--block-color) 9%, transparent);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--block-color) 18%, transparent);
+}
+.thinking-orglist__row.is-protected-entry { padding-right: 22px; }
+.thinking-orglist__pin {
+  position: absolute;
+  z-index: 2;
+  top: -5px;
+  right: 5px;
+  width: 14px;
+  height: 18px;
+  color: color-mix(in srgb, var(--danger) 58%, #d1121a);
+  transform: rotate(21deg);
+  transform-origin: 50% 100%;
+  pointer-events: none;
+  filter: drop-shadow(-1px 2px 1px color-mix(in srgb, #000 calc(var(--c-shade) * 52%), transparent));
+}
+.thinking-orglist__pin svg { width: 100%; height: 100%; display: block; }
+.thinking-orglist__pin svg > path:first-child {
+  color: color-mix(in srgb, var(--danger) 66%, #000);
+}
+.thinking-orglist__copy {
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 1px;
+}
+.thinking-orglist__name,
+.thinking-orglist__kind {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.thinking-orglist__name {
+  color: var(--text);
+  font-size: .76rem;
+  font-weight: 660;
+  line-height: 1.2;
+}
+.thinking-orglist__kind {
+  color: var(--muted);
+  font-size: .64rem;
+  line-height: 1.15;
+}
 .thinking-orglist__add {
   flex: 0 0 auto;
   display: flex;
   flex-direction: column;
-  align-items: center;
-  gap: 4px;
+  align-items: stretch;
+  gap: 5px;
+  padding-top: 7px;
+  border-top: 1px solid color-mix(in srgb, var(--c-line) 20%, transparent);
 }
 .thinking-orglist__add-open {
-  width: 34px;
-  height: 34px;
+  width: 100%;
+  min-height: 40px;
+  display: grid;
+  grid-template-columns: 29px minmax(0, 1fr);
+  align-items: center;
+  gap: 9px;
   border: 1px dashed color-mix(in srgb, var(--muted) 38%, transparent);
-  border-radius: 9px;
+  border-radius: 11px;
+  padding: 5px 9px 5px 6px;
   background: none;
   color: color-mix(in srgb, var(--muted) 80%, transparent);
   font: inherit;
-  font-size: 1.1rem;
-  line-height: 1;
+  font-size: .7rem;
+  line-height: 1.15;
+  text-align: left;
   cursor: pointer;
   transition: border-color .16s ease, color .16s ease, background .16s ease;
+}
+.thinking-orglist__add-mark {
+  width: 29px;
+  height: 29px;
+  display: grid;
+  place-items: center;
+  font-size: 1.05rem;
+  line-height: 1;
 }
 .thinking-orglist__add-open:hover {
   border-color: color-mix(in srgb, var(--accent) 55%, transparent);
@@ -8549,32 +9137,38 @@ html.is-field-mode .thinking { background: var(--sky); }
   color: var(--accent);
 }
 .thinking-orglist__add.is-open .thinking-orglist__add-open { display: none; }
-/* the choices grow inline, in the same scrollable rail as the icons — a
-   flyout would have been clipped by the panel's own fold-up overflow */
+/* The four organization choices replace the add row as one compact shelf. */
 .thinking-orglist__add-choices {
   display: none;
-  flex-direction: column;
-  gap: 4px;
+  flex-direction: row;
+  justify-content: space-between;
+  gap: 3px;
 }
 .thinking-orglist__add.is-open .thinking-orglist__add-choices { display: flex; }
 .thinking-orglist__add-choice {
-  width: 30px;
-  height: 30px;
+  box-sizing: border-box;
+  flex: 0 0 auto;
+  width: 31px;
+  height: 34px;
   display: grid;
   place-items: center;
-  border: 0;
-  border-radius: 50%;
-  padding: 0;
-  background: color-mix(in srgb, var(--block-color) 26%, transparent);
+  border: 1px solid transparent;
+  border-radius: 10px;
+  padding: 1px;
+  background: color-mix(in srgb, var(--block-color) 8%, transparent);
   color: var(--block-color);
   cursor: pointer;
-  transition: background .16s ease, transform .16s ease;
+  transition: background .16s ease, border-color .16s ease;
 }
-.thinking-orglist__add-choice svg { width: 15px; height: 15px; }
+.thinking-orglist__add-choice .thinking-orglist__mark {
+  width: 27px;
+  height: 27px;
+  border-radius: 8px;
+}
+.thinking-orglist__add-choice-label { display: none; }
 .thinking-orglist__add-choice:hover {
-  background: color-mix(in srgb, var(--block-color) 86%, transparent);
-  color: var(--surface-solid);
-  transform: scale(1.06);
+  border-color: color-mix(in srgb, var(--block-color) 34%, transparent);
+  background: color-mix(in srgb, var(--block-color) 17%, transparent);
 }
 /* THE HOVER PREVIEW — same rail of icons as the mini-folder, floated next to
    a card seen from outside it, so a peek doesn't need walking in. It hangs off
@@ -8851,6 +9445,17 @@ html.is-field-mode .thinking-plane { background: transparent; box-shadow: none; 
 .thinking-board.is-pin-tool .thinking-block--organization:hover {
   box-shadow: 0 0 0 3px color-mix(in srgb, var(--danger) 26%, transparent), var(--thinking-lift);
 }
+.thinking-board.is-pin-tool .thinking-orglist__row:not(.is-protected-entry) {
+  cursor: pointer;
+}
+.thinking-board.is-pin-tool .thinking-orglist__row:not(.is-protected-entry):hover {
+  border-color: color-mix(in srgb, var(--danger) 48%, transparent);
+  box-shadow: 0 0 0 2px color-mix(in srgb, var(--danger) 16%, transparent);
+}
+.thinking-board.is-pin-tool .thinking-orglist__row.is-protected-entry {
+  cursor: not-allowed;
+  opacity: .62;
+}
 /* while the tool is armed, what it cannot pin steps back */
 .thinking-board.is-pin-tool .thinking-block:not(.thinking-block--organization) {
   opacity: .5;
@@ -8909,6 +9514,28 @@ html.is-field-mode .thinking-plane { background: transparent; box-shadow: none; 
   pointer-events: none;
   box-shadow: var(--thinking-lift);
 }
+/* Organization blocks cross the right rail while carried. Fixed positioning
+   escapes the plane's lower stacking context; the rail remains underneath and
+   can still light the exact destination through elementsFromPoint(). */
+.thinking-block--organization.is-detaching {
+  position: fixed;
+  z-index: 140;
+  margin: 0;
+  pointer-events: none;
+  opacity: .92;
+  box-shadow: 0 18px 46px -8px color-mix(in srgb,
+    #000 calc(var(--c-shade) * 115%), transparent), var(--thinking-lift);
+  transition: opacity .14s ease, box-shadow .14s ease, filter .14s ease;
+}
+.thinking-block--organization.is-detaching.is-orglist-target {
+  opacity: .86;
+  filter: drop-shadow(0 0 8px color-mix(in srgb, var(--accent) 48%, transparent));
+  box-shadow:
+    0 0 0 2px color-mix(in srgb, var(--accent) 72%, transparent),
+    0 18px 46px -8px color-mix(in srgb,
+      #000 calc(var(--c-shade) * 115%), transparent),
+    var(--thinking-lift);
+}
 .thinking-block--organization:not(.thinking-block--nested) {
   min-height: 0;
 }
@@ -8952,6 +9579,18 @@ html.is-field-mode .thinking-plane { background: transparent; box-shadow: none; 
   width: 48px;
   height: 48px;
 }
+.thinking-block--organization.thinking-block--folder.is-project-folder
+  > .thinking-block__head .thinking-block__icon {
+  color: var(--imp-ink, var(--accent));
+  filter: drop-shadow(0 0 6px color-mix(in srgb,
+    var(--imp-ink, var(--accent)) var(--importance-glow, 12%), transparent));
+  transition: color .16s ease, filter .16s ease;
+}
+.thinking-block--organization.thinking-block--folder.is-project-folder:hover
+  > .thinking-block__head .thinking-block__icon {
+  filter: drop-shadow(0 0 10px color-mix(in srgb,
+    var(--imp-ink, var(--accent)) var(--importance-glow-wide, 18%), transparent));
+}
 .thinking-block--organization.is-collapsed > .thinking-block__head .thinking-block__type {
   width: 100%;
   flex: 0 0 auto;
@@ -8967,6 +9606,11 @@ html.is-field-mode .thinking-plane { background: transparent; box-shadow: none; 
   position: absolute;
   top: 4px;
   right: 4px;
+}
+.thinking-block--organization.is-collapsed > .thinking-block__head .thinking-block__restore {
+  position: absolute;
+  top: 4px;
+  right: 25px;
 }
 /* folded, the head is the whole tile: no filet, no count, no canvas actions */
 .thinking-block--organization.is-collapsed > .thinking-block__head > .thinking-block__rule,
@@ -9127,7 +9771,7 @@ html.is-field-mode .thinking-plane { background: transparent; box-shadow: none; 
   outline-offset: 2px;
 }
 .thinking-block.is-dragging > .thinking-block__solo-drag { cursor: grabbing; }
-.thinking-block__icon, .thinking-block__delete {
+.thinking-block__icon, .thinking-block__delete, .thinking-block__restore {
   border: 0;
   background: none;
   color: var(--muted);
@@ -9182,8 +9826,22 @@ html.is-field-mode .thinking-plane { background: transparent; box-shadow: none; 
   font-size: .9rem;
   opacity: 0;
 }
+.thinking-block__restore {
+  width: 19px;
+  height: 20px;
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
+  border-radius: 6px;
+  padding: 0;
+  color: var(--accent);
+  opacity: 0;
+}
+.thinking-block__restore svg { width: 13px; height: 13px; }
 .thinking-block:hover .thinking-block__delete { opacity: .65; }
+.thinking-block:hover > .thinking-block__head .thinking-block__restore { opacity: .68; }
 .thinking-block__delete:hover { opacity: 1; color: var(--danger); background: var(--input-bg); }
+.thinking-block__restore:hover { opacity: 1; color: var(--accent); background: var(--input-bg); }
 .thinking-block__text {
   width: 100%;
   min-height: 36px;
@@ -9383,12 +10041,35 @@ html.is-field-mode .thinking-plane { background: transparent; box-shadow: none; 
   color: var(--block-color);
 }
 .thinking-folder__mark svg { width: 13px; height: 13px; }
+.thinking-folder__row.is-constellation-canvas .thinking-folder__mark {
+  background: color-mix(in srgb, var(--accent) 10%, transparent);
+  color: color-mix(in srgb, var(--accent) 78%, var(--text));
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 18%, transparent);
+  transition: color .16s ease, background .16s ease, filter .16s ease;
+}
+.thinking-folder__row.is-constellation-canvas .thinking-folder__mark:hover {
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+  color: var(--accent);
+  filter: drop-shadow(0 0 5px color-mix(in srgb, var(--accent) 42%, transparent));
+}
 .thinking-folder__name {
   min-width: 0;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.thinking-folder__system-pin {
+  flex: 0 0 auto;
+  width: 13px;
+  height: 17px;
+  margin-right: 8px;
+  color: color-mix(in srgb, var(--danger) 58%, #d1121a);
+  transform: rotate(18deg);
+  transform-origin: 50% 100%;
+  pointer-events: none;
+  filter: drop-shadow(-1px 2px 1px color-mix(in srgb, #000 calc(var(--c-shade) * 48%), transparent));
+}
+.thinking-folder__system-pin svg { width: 100%; height: 100%; display: block; }
 .thinking-folder__rename {
   flex: 0 0 auto;
   width: 24px;
@@ -9436,8 +10117,26 @@ html.is-field-mode .thinking-plane { background: transparent; box-shadow: none; 
   opacity: 0;
   transition: opacity .14s ease, color .14s ease;
 }
+.thinking-folder__restore {
+  flex: 0 0 auto;
+  width: 24px;
+  height: 24px;
+  display: grid;
+  place-items: center;
+  border: 0;
+  border-radius: 7px;
+  padding: 0;
+  background: none;
+  color: var(--accent);
+  cursor: pointer;
+  opacity: 0;
+  transition: opacity .14s ease, color .14s ease, background .14s ease;
+}
+.thinking-folder__restore svg { width: 13px; height: 13px; }
 .thinking-folder__row:hover .thinking-folder__del { opacity: .6; }
+.thinking-folder__row:hover .thinking-folder__restore { opacity: .68; }
 .thinking-folder__del:hover { opacity: 1; color: var(--danger); }
+.thinking-folder__restore:hover { opacity: 1; color: var(--accent); background: var(--input-bg); }
 /* THE TRAIL — only drawn once a folder sits inside another */
 /* THE TRAIL — it lives in the block's own bar, where the name used to be, so
    the folder is named once instead of twice */
@@ -9641,10 +10340,12 @@ html.is-field-mode .thinking-plane { background: transparent; box-shadow: none; 
       color-mix(in srgb, var(--c-line) 24%, transparent) 30px);
   pointer-events: auto;
 }
-/* full screen it is the sheet itself, so it carries its own paper and shadow */
+/* full screen it is the sheet itself, so it carries its own paper and shadow.
+   It lies under the blocks dropped on the journal, the way the notepad's page
+   does — above them, a block created in the middle landed out of reach. */
 .thinking-logbook--fullscreen {
   position: absolute;
-  z-index: 2;
+  z-index: 0;
   border-radius: 4px 14px 14px 4px;
   padding: 14px 22px 26px 0;
   background:
@@ -9832,6 +10533,52 @@ html.is-field-mode .thinking-plane { background: transparent; box-shadow: none; 
   pointer-events: none;
 }
 .thinking-document-body :is(ul, ol) { padding-left: 24px; }
+
+/* TABLES IN A NOTEPAD — part of the written page rather than a canvas block.
+   Their grid follows the page ink and lets the ruling remain faintly present
+   through the cells, keeping the result light even in a narrow note panel. */
+.note-table {
+  width: 100%;
+  table-layout: fixed;
+  border-collapse: collapse;
+  margin: 8px 0 16px;
+  line-height: 1.45;
+}
+.note-table td {
+  position: relative;
+  min-width: 42px;
+  height: 34px;
+  padding: 5px 9px;
+  border: 1px solid color-mix(in srgb, var(--c-line) 58%, transparent);
+  vertical-align: top;
+  overflow-wrap: anywhere;
+  transition: background .15s ease, border-color .15s ease;
+}
+.note-table td:not(:last-child)::after {
+  content: "";
+  position: absolute;
+  z-index: 1;
+  top: -1px;
+  right: -5px;
+  bottom: -1px;
+  width: 10px;
+  background: transparent;
+  cursor: col-resize;
+  touch-action: none;
+}
+.note-table td.is-column-resizer::after {
+  background: linear-gradient(to right, transparent 4px,
+    color-mix(in srgb, var(--accent) 76%, transparent) 4px 6px, transparent 6px);
+}
+.note-table.is-resizing-columns {
+  cursor: col-resize;
+  user-select: none;
+}
+.note-table td:focus-within,
+.note-table td:hover {
+  border-color: color-mix(in srgb, var(--accent) 54%, var(--c-line));
+  background: color-mix(in srgb, var(--accent) 5%, transparent);
+}
 
 /* A FOLD, NOT ANOTHER SHEET — the title sits in the normal flow of the page,
    and what it hides hangs under a single hairline: the only mark of how far
@@ -10193,8 +10940,7 @@ html.is-field-mode .thinking-plane { background: transparent; box-shadow: none; 
 /* in a head it is a flex item, so an empty one would still cost a gap */
 .thinking-block__connections:empty { display: none; }
 .thinking-block__actions { display: inline-flex; align-items: center; gap: 3px; }
-.thinking-block__add-answer,
-.thinking-block__add-note {
+.thinking-block__add-answer {
   border: 0;
   background: none;
   color: var(--muted);
@@ -10204,7 +10950,6 @@ html.is-field-mode .thinking-plane { background: transparent; box-shadow: none; 
   padding: 5px 4px;
 }
 .thinking-block__add-answer:hover { color: var(--c-imp-4); }   /* the answer colour */
-.thinking-block__add-note:hover { color: var(--text); }
 .thinking-block__canvas-action {
   width: 29px;
   height: 27px;
@@ -10746,6 +11491,7 @@ html.is-field-mode .thinking-block.is-drop-target > .thinking-canvas__stage {
   .thinking-link-hint { top: calc(max(10px, env(safe-area-inset-top)) + 105px); max-width: calc(100% - 24px); white-space: nowrap; }
   .thinking-board__tip { display: none; }
   .thinking-trash { bottom: max(18px, env(safe-area-inset-bottom)); }
+  .thinking-orglist { --thinking-orglist-width: min(198px, calc(100% - 36px)); }
 }
 
 /* THE SKY — a full space rather than a card. The projects are not listed here,
@@ -11693,11 +12439,9 @@ html.is-field-mode .sheet-canvas__slot { background: transparent; }
 /* the way back stays: a canvas made inside this one is entered from here, and
    nothing else in a sheet leads out of it. It is dead on the floor canvas. */
 .thinking-board--inline > .thinking__bar--board > .detail__back {
-  width: 26px;
-  height: 26px;
-  border-radius: 8px;
+  display: none;
 }
-.thinking-board--inline > .thinking__bar--board > .detail__back svg { width: 15px; height: 15px; }
+.thinking-board--inline > .thinking-tools > .thinking-tools__back { display: grid; }
 .thinking-board__branch[hidden] { display: none; }
 .thinking-board__branch { flex: 0 0 auto; }
 .thinking-board--inline.is-branch-canvas .thinking-board__name { font-size: .86rem; }
@@ -12563,6 +13307,70 @@ html.is-work-zone body { overflow: hidden; }
 .ecal-band--right { left: 100%; margin-left: 26px; }
 .ecal-band .zone__head { margin-bottom: 12px; }
 .ecal-band .zone__title { font-size: .82rem; letter-spacing: .07em; text-transform: uppercase; }
+
+/* ACTIVE / RESTING OBJECTIVES — two silent areas rather than two titled groups.
+   The fine shared rule is enough to establish the upper single-project slot;
+   empty space remains tangible during a drag without printing instructions. */
+.cal-project-zones {
+  display: flex;
+  flex-direction: column;
+  min-height: calc(100% - 44px);
+}
+.cal-project-zone {
+  position: relative;
+  min-width: 0;
+  border-radius: 12px;
+  transition: background .18s ease, box-shadow .18s ease;
+}
+.cal-project-zone--active {
+  flex: 0 0 auto;
+  min-height: 76px;
+  margin-bottom: 12px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid color-mix(in srgb, var(--c-line) 30%, transparent);
+  border-radius: 0;
+  background: none;
+  box-shadow: none;
+  isolation: isolate;
+}
+/* The body is purely visual: it sits behind the area's original rectangle and
+   therefore adds no padding, border or width capable of reflowing the project. */
+.cal-project-zone--active::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  inset: -6px -8px 5px;
+  border: 1px solid color-mix(in srgb, var(--accent) 25%, var(--c-line));
+  border-radius: 16px;
+  background:
+    radial-gradient(circle at 14% 18%,
+      color-mix(in srgb, var(--accent) 9%, transparent), transparent 58%),
+    color-mix(in srgb, var(--c-surface) 30%, transparent);
+  box-shadow:
+    inset 0 1px 0 color-mix(in srgb, var(--c-surface) 34%, transparent),
+    0 10px 28px color-mix(in srgb, var(--c-sky-3) calc(var(--c-shade) * 34%), transparent);
+}
+.cal-project-zone--list { flex: 1 1 auto; min-height: 120px; }
+.cal-project-zone > .list { min-height: inherit; }
+.cal-project-zone__empty {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  margin: 0;
+  padding: 12px;
+  color: var(--muted);
+  font-size: .76rem;
+  font-style: italic;
+  letter-spacing: .015em;
+  text-align: center;
+  opacity: .66;
+  pointer-events: none;
+}
+.cal-project-zone__empty[hidden] { display: none; }
+.cal-project-zone--active:not(.is-empty) .item__ico {
+  filter: drop-shadow(0 0 7px color-mix(in srgb, var(--accent) 28%, transparent));
+}
 #calWorkBand[hidden],
 #calIdeasBand[hidden] { display: none; }
 
@@ -12698,6 +13506,43 @@ html.is-leisure-mode .pane-dots { display: none; }
 html.is-field-mode :is(.idea-box__form, .idea-box__item) { background: none; }
 @media (hover: none) { .idea-box__delete { opacity: .45; } }
 
+/* ON THE CALENDAR'S BACK — the former leisure rail becomes a full, quiet inbox.
+   The same live nodes are moved here, so text, selection and caret never fork. */
+.ecal__verso.is-inbox {
+  overflow: hidden;
+  padding: 18px 22px 10px;
+}
+.ecal__verso.is-inbox > .idea-box {
+  display: flex;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+}
+.ecal__verso.is-inbox .idea-box__head {
+  flex: 0 0 auto;
+  min-height: 38px;
+  margin-bottom: 4px;
+}
+.ecal__verso.is-inbox .idea-box__head .zone__title {
+  font-size: .88rem;
+  letter-spacing: .09em;
+  text-transform: uppercase;
+}
+.ecal__verso.is-inbox .idea-box__form {
+  flex: 0 0 auto;
+  margin-bottom: 8px;
+  padding: 7px 2px 11px;
+}
+.ecal__verso.is-inbox .idea-box__input { font-size: 1rem; }
+.ecal__verso.is-inbox .idea-box__empty { flex: 0 0 auto; }
+.ecal__verso.is-inbox .idea-box__list {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+
 /* BOTH WAYS TO ADD SIT IN THE HEAD — the dashed zone that stood at the band's
    foot becomes the same small + an objective has: same box, same corner, same
    answer on hover. Its label is not dropped, it is simply not shown here — the
@@ -12790,6 +13635,46 @@ html.is-field-mode :is(.idea-box__form, .idea-box__item) { background: none; }
 .ecal-band .sheets { gap: 2px; }
 .ecal-band .sheets__tab { width: 26px; height: 24px; }
 .ecal-band .sheets__tab svg { width: 13px; height: 13px; }
+.ecal-band .project-tab > .sheets--project-band {
+  order: 4;
+  flex: 0 0 100%;
+  gap: 4px;
+  margin: 0 0 2px;
+}
+.project-active-toggle {
+  position: relative;
+  flex: 0 0 auto;
+  width: 34px;
+  height: 18px;
+  margin: 0 1px 0 auto;
+  padding: 0;
+  border: 1px solid color-mix(in srgb, var(--c-line) 46%, transparent);
+  border-radius: 999px;
+  background: color-mix(in srgb, var(--c-surface) 20%, transparent);
+  color: var(--muted);
+  cursor: pointer;
+  transition: border-color .2s ease, background .2s ease;
+}
+.project-active-toggle__knob {
+  position: absolute;
+  left: 3px;
+  top: 50%;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: currentColor;
+  box-shadow: 0 0 6px color-mix(in srgb, currentColor 40%, transparent);
+  transform: translateY(-50%);
+  transition: left .24s cubic-bezier(.2, .8, .25, 1), color .2s ease;
+}
+.project-active-toggle:hover,
+.project-active-toggle:focus-visible { color: var(--accent); border-color: var(--accent); outline: none; }
+.project-active-toggle.is-on {
+  color: var(--accent);
+  border-color: color-mix(in srgb, var(--accent) 68%, transparent);
+  background: color-mix(in srgb, var(--accent) 12%, transparent);
+}
+.project-active-toggle.is-on .project-active-toggle__knob { left: 19px; }
 .ecal-band .item__meta { flex-wrap: wrap; gap: 6px; }
 /* the jump to the sky is a move of the column, not of a band */
 .ecal-band .goal-inline__sky { display: none; }
@@ -13122,6 +14007,64 @@ html.is-field-mode .ecal-band .item--project {
 .mini-cal__reset[hidden] { display: none; }
 .mini-cal__reset svg { width: 13px; height: 13px; }
 
+/* TWO LARGE DOORS — the four-column rhythm fixes each control at roughly one
+   quarter of the rail. The unoccupied half is deliberate breathing room for
+   future spaces, and keeps these from reading like another dense tool bar. */
+.cal-band-launchers {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 9px;
+  margin: 0 2px 24px;
+}
+.cal-band-launcher.zone__action {
+  width: auto;
+  height: 58px;
+  padding: 7px 4px 6px;
+  border: 1px solid color-mix(in srgb, var(--c-line) 28%, transparent);
+  border-radius: 14px;
+  background: color-mix(in srgb, var(--c-surface) 56%, transparent);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 5px;
+}
+.cal-band-launcher__mark {
+  display: grid;
+  place-items: center;
+  width: 23px;
+  height: 23px;
+}
+.cal-band-launcher__mark svg { width: 22px; height: 22px; }
+.cal-band-launcher__label {
+  max-width: 100%;
+  overflow: hidden;
+  color: currentColor;
+  font-size: .62rem;
+  font-weight: 650;
+  letter-spacing: .045em;
+  line-height: 1;
+  text-overflow: ellipsis;
+  text-transform: uppercase;
+  white-space: nowrap;
+}
+.cal-band-launcher.zone__action:hover {
+  border-color: color-mix(in srgb, var(--accent) 28%, transparent);
+}
+html.is-field-mode .cal-band-launcher.zone__action,
+html.is-field-mode .cal-band-launcher.zone__action:hover {
+  --field-panel-opacity: var(--c-veil);
+  --field-panel-signature: 0;
+  --field-panel-signature-hover: 1;
+  --field-panel-signature-focus: 1;
+  border-color: transparent;
+  background: none;
+  box-shadow: none;
+}
+html.is-field-mode .cal-band-launcher.zone__action.is-on {
+  --field-panel-signature: 1;
+}
+
 /* PINNED CONTAINERS — a pin left on a canvas, folder, document, planner or
    journal anywhere in the thinking space, reachable straight from here without
    crossing the board to find it again. --block-color comes from the same
@@ -13170,14 +14113,40 @@ html.is-field-mode .ecal-band .item--project {
   white-space: nowrap;
 }
 
+/* PINS BESIDE THE FOLDED RIBBON — a separate, absolutely positioned mirror.
+   It consumes none of the calendar's grid width or height, so its arrival never
+   changes the centred ribbon captured by the surrounding layout. */
+.ecal-fold-pins {
+  position: absolute;
+  z-index: 5;
+  top: 28px;
+  right: calc(100% + 26px);
+  width: min(320px, calc(50vw - 50% - 40px));
+  max-height: 220px;
+  padding: 4px;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 7px;
+  overflow-y: auto;
+  scrollbar-width: none;
+}
+.ecal-fold-pins::-webkit-scrollbar { display: none; }
+.ecal-fold-pins[hidden] { display: none; }
+.ecal-fold-pins .calpin { flex: 0 0 auto; max-width: 100%; }
+@media (max-width: 1279px) {
+  .ecal-fold-pins { display: none; }
+}
+
 /* THE BAND'S CANVAS — one way in for the whole band, beside the way to a new
    objective: the canvas of what is open, or the mother canvas. Lit while the
    card is holding one. */
 .ecal-band .zone__head > .zone__action { flex: 0 0 auto; }
-#calCanvasBtn svg, #calTaskCanvasBtn svg { width: 17px; height: 17px; }
+#calCanvasBtn svg { width: 17px; height: 17px; }
 #calKanbanBtn.is-on,
 #calCanvasBtn.is-on,
 #calTaskCanvasBtn.is-on,
+#calInboxBtn.is-on,
 #calSkyBtn.is-on {
   color: var(--accent);
   background: color-mix(in srgb, var(--accent) 12%, transparent);
@@ -13216,6 +14185,7 @@ html.is-field-mode .ecal-band .zone__head > .add-card:hover,
 html.is-field-mode #calKanbanBtn.is-on,
 html.is-field-mode #calCanvasBtn.is-on,
 html.is-field-mode #calTaskCanvasBtn.is-on,
+html.is-field-mode #calInboxBtn.is-on,
 html.is-field-mode #calSkyBtn.is-on {
   --field-panel-opacity: var(--c-veil);
   --field-panel-signature: 0;
@@ -13264,6 +14234,7 @@ html.is-field-mode .add-card:hover { border-color: transparent; }
 html.is-field-mode #calKanbanBtn.is-on,
 html.is-field-mode #calCanvasBtn.is-on,
 html.is-field-mode #calTaskCanvasBtn.is-on,
+html.is-field-mode #calInboxBtn.is-on,
 html.is-field-mode #calSkyBtn.is-on,
 html.is-field-mode .ecal__toggle.is-open {
   --field-panel-signature: 1;
@@ -14020,27 +14991,6 @@ html.is-field-mode .kanban__col.is-drop-target .kanban__list {
   opacity: .8;
   transition: opacity .24s ease, stroke .24s ease;
 }
-/* a current running the outline — equal dash and gap, so it stays clearly
-   visible (half the border always lit) whatever the exact perimeter under
-   non-scaling-stroke turns out to be, rather than betting the whole effect
-   on one thin segment matched to a guessed length. Kept a layer of its own
-   rather than dashing the core line, so the outline itself stays a solid,
-   continuous trace and this only rides on top of it. */
-.rtab--digital .rtab__edge-line--spark {
-  stroke: var(--tab-lit);
-  stroke-width: 3px;
-  stroke-dasharray: 90 90;
-  opacity: .85;
-  filter: drop-shadow(0 0 4px var(--tab-lit));
-  animation: rtab-flux 2.6s linear infinite;
-  transition: opacity .24s ease;
-}
-@keyframes rtab-flux {
-  to { stroke-dashoffset: -180; }
-}
-@media (prefers-reduced-motion: reduce) {
-  .rtab--digital .rtab__edge-line--spark { animation: none; }
-}
 .rtab--digital:hover,
 .rtab--digital:focus-visible { z-index: 1; transform: translateY(-2px); }
 .rtab--digital:hover::before,
@@ -14049,8 +14999,6 @@ html.is-field-mode .kanban__col.is-drop-target .kanban__list {
 .rtab--digital:focus-visible .rtab__edge-line--glow { opacity: .65; stroke-width: 7px; }
 .rtab--digital:hover .rtab__edge-line--core,
 .rtab--digital:focus-visible .rtab__edge-line--core { stroke: var(--tab-lit); }
-.rtab--digital:hover .rtab__edge-line--spark,
-.rtab--digital:focus-visible .rtab__edge-line--spark { opacity: 1; }
 .rtab--digital.is-selected {
   z-index: 1;
   filter: drop-shadow(0 0 9px var(--c-sig)) drop-shadow(0 0 2px var(--c-sig));
@@ -14058,7 +15006,6 @@ html.is-field-mode .kanban__col.is-drop-target .kanban__list {
 .rtab--digital.is-selected::before { opacity: .85; }
 .rtab--digital.is-selected .rtab__edge-line--glow { opacity: .65; stroke-width: 7px; }
 .rtab--digital.is-selected .rtab__edge-line--core { stroke: var(--tab-lit); }
-.rtab--digital.is-selected .rtab__edge-line--spark { opacity: 1; }
 .rtab--digital .rtab__name { opacity: .94; }
 
 /* an empty piece in the reel: nothing fired on it yet */
